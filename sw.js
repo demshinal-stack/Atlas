@@ -1,5 +1,6 @@
-/* Атлас — офлайн-кеш. Версию поднимайте при каждом обновлении файлов. */
-const VERSION = "atlas-1.4";
+/* Атлас — офлайн-кеш и обновления.
+   Версию поднимайте вместе с APP_VERSION в приложении. */
+const VERSION = "atlas-1.5";
 const SHELL = [
   "./",
   "./index.html",
@@ -14,11 +15,9 @@ const SHELL = [
 ];
 
 self.addEventListener("install", (e) => {
+  // без skipWaiting: новая версия ждёт, пока пользователь сам нажмёт «Обновить»
   e.waitUntil(
-    caches
-      .open(VERSION)
-      .then((c) => Promise.allSettled(SHELL.map((u) => c.add(u))))
-      .then(() => self.skipWaiting())
+    caches.open(VERSION).then((c) => Promise.allSettled(SHELL.map((u) => c.add(u))))
   );
 });
 
@@ -31,6 +30,11 @@ self.addEventListener("activate", (e) => {
       )
       .then(() => self.clients.claim())
   );
+});
+
+self.addEventListener("message", (e) => {
+  if (e.data === "SKIP_WAITING") self.skipWaiting();
+  if (e.data === "VERSION") e.source?.postMessage({ version: VERSION });
 });
 
 self.addEventListener("fetch", (e) => {

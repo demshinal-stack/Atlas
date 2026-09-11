@@ -744,7 +744,7 @@ const K_DATA = "atlas:data:main";
 const K_SETTINGS = "atlas:settings";
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "1.4";
+const APP_VERSION = "1.5";
 const APP_BUILD = "2026-09-12";
 /* проверка: доступно ли постоянное хранилище и переживает ли запись перезапуск */
 async function checkStorage() {
@@ -2692,6 +2692,7 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality 
 function ProfileSheet({ open, onClose, box, theme, onTheme, quality, onQuality, avatar, onPickAvatar, onExport, onImport, stats, visits, hasPin, faceAvailable, faceOn, cityPins, onToggleCityPins, onSetPin, onDropPin, onLock, onFace, }) {
     const [usage, setUsage] = useState(null);
     const [probe, setProbe] = useState(null);
+    const [updMsg, setUpdMsg] = useState("");
     useEffect(() => {
         if (!open)
             return;
@@ -2821,6 +2822,17 @@ function ProfileSheet({ open, onClose, box, theme, onTheme, quality, onQuality, 
                     ((_a = window.matchMedia) === null || _a === void 0 ? void 0 : _a.call(window, "(display-mode: standalone)").matches)
                     ? "с домашнего экрана"
                     : "в браузере")),
+            React.createElement("button", { className: "switch-row", onClick: async () => {
+                    var _a, _b;
+                    const found = await ((_b = (_a = window.__atlasCheckUpdate) === null || _a === void 0 ? void 0 : _a.call(window)) !== null && _b !== void 0 ? _b : false);
+                    setUpdMsg(found
+                        ? "Новая версия найдена — закройте профиль и нажмите «Обновить»"
+                        : "У вас последняя версия");
+                } },
+                React.createElement("span", { className: "switch-text" },
+                    "\u041F\u0440\u043E\u0432\u0435\u0440\u0438\u0442\u044C \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u044F",
+                    React.createElement("em", null, updMsg || "Приложение обновляется само, данные не трогает")),
+                React.createElement("span", { className: "step-pen" }, "\u2192")),
             React.createElement("p", { className: "step-title" }, "\u0414\u0430\u043D\u043D\u044B\u0435"),
             React.createElement("button", { className: "switch-row", onClick: async () => setProbe(await checkStorage()) },
                 React.createElement("span", { className: "switch-text" },
@@ -2916,6 +2928,27 @@ function Atlas() {
     const [unlocked, setUnlocked] = useState(false);
     const [faceAvailable, setFaceAvailable] = useState(false);
     const [saveBroken, setSaveBroken] = useState(false);
+    const [updateReady, setUpdateReady] = useState(false);
+    /* приложение само следит за новой версией на сервере */
+    useEffect(() => {
+        if (typeof window === "undefined")
+            return;
+        if (window.__atlasUpdateReady)
+            setUpdateReady(true);
+        const onReady = () => setUpdateReady(true);
+        window.addEventListener("atlas-update-ready", onReady);
+        const id = setInterval(() => { var _a; return (_a = window.__atlasCheckUpdate) === null || _a === void 0 ? void 0 : _a.call(window); }, 30 * 60 * 1000);
+        return () => {
+            window.removeEventListener("atlas-update-ready", onReady);
+            clearInterval(id);
+        };
+    }, []);
+    const applyUpdate = useCallback(() => {
+        if (window.__atlasApplyUpdate)
+            window.__atlasApplyUpdate();
+        else
+            window.location.reload();
+    }, []);
     const [cityPins, setCityPinsState] = useState(false);
     const [theme, setThemeState] = useState("system");
     const [photoQuality, setPhotoQualityState] = useState("light");
@@ -3496,6 +3529,11 @@ function Atlas() {
         React.createElement(ListSheet, { visits: visits, stats: stats, open: sheet === "list", onClose: () => setSheet(null), onPick: (a3) => setSelected(a3), onRemove: removeTrip, box: box }),
         avatarDraft && (React.createElement("div", { className: "modal", style: box ? { left: box.left, width: box.width } : undefined },
             React.createElement(AvatarEditor, { src: avatarDraft, onDone: saveAvatar, onCancel: () => setAvatarDraft(null) }))),
+        updateReady && (React.createElement("div", { className: "update-bar" },
+            React.createElement("span", null,
+                React.createElement("b", null, "\u0414\u043E\u0441\u0442\u0443\u043F\u043D\u043E \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u0435"),
+                "\u0414\u0430\u043D\u043D\u044B\u0435 \u043E\u0441\u0442\u0430\u043D\u0443\u0442\u0441\u044F \u043D\u0430 \u043C\u0435\u0441\u0442\u0435"),
+            React.createElement("button", { onClick: applyUpdate }, "\u041E\u0431\u043D\u043E\u0432\u0438\u0442\u044C"))),
         saveBroken && (React.createElement("div", { className: "alert" },
             React.createElement("b", null, "\u0414\u0430\u043D\u043D\u044B\u0435 \u043D\u0435 \u0441\u043E\u0445\u0440\u0430\u043D\u044F\u044E\u0442\u0441\u044F"),
             React.createElement("span", null, typeof location !== "undefined" && location.protocol === "file:"
@@ -3821,11 +3859,66 @@ ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(
 </script>
 
 <script>
-if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
-  window.addEventListener("load", function () {
-    navigator.serviceWorker.register("./sw.js").catch(function () {});
+/* Обновления: новая версия не применяется молча — приложение спрашивает. */
+(function () {
+  if (!("serviceWorker" in navigator) || !location.protocol.startsWith("http")) return;
+
+  var reg = null;
+  var reloading = false;
+
+  function announce() {
+    window.__atlasUpdateReady = true;
+    window.dispatchEvent(new CustomEvent("atlas-update-ready"));
+  }
+
+  window.__atlasApplyUpdate = function () {
+    if (reg && reg.waiting) reg.waiting.postMessage("SKIP_WAITING");
+    else location.reload();
+  };
+
+  window.__atlasCheckUpdate = function () {
+    if (!reg) return Promise.resolve(false);
+    return reg
+      .update()
+      .then(function () {
+        var found = !!reg.waiting;
+        if (found) announce();
+        return found;
+      })
+      .catch(function () {
+        return false;
+      });
+  };
+
+  navigator.serviceWorker.addEventListener("controllerchange", function () {
+    if (reloading) return;
+    reloading = true;
+    location.reload();
   });
-}
+
+  window.addEventListener("load", function () {
+    navigator.serviceWorker
+      .register("./sw.js")
+      .then(function (r) {
+        reg = r;
+        if (r.waiting && navigator.serviceWorker.controller) announce();
+        r.addEventListener("updatefound", function () {
+          var sw = r.installing;
+          if (!sw) return;
+          sw.addEventListener("statechange", function () {
+            if (sw.state === "installed" && navigator.serviceWorker.controller) announce();
+          });
+        });
+        r.update().catch(function () {});
+      })
+      .catch(function () {});
+  });
+
+  // проверяем обновление при каждом возвращении в приложение
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden) window.__atlasCheckUpdate();
+  });
+})();
 </script>
 </body>
 </html>
