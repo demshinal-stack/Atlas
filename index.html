@@ -503,7 +503,7 @@ const idb = {
             return Promise.reject(new Error("no idb"));
         return new Promise((res, rej) => {
             // в приложении с домашнего экрана база иногда не отвечает совсем
-            const guard = setTimeout(() => rej(new Error("idb timeout")), 2500);
+            const guard = setTimeout(() => rej(new Error("idb timeout")), 6000);
             const done = (fn) => (v) => {
                 clearTimeout(guard);
                 fn(v);
@@ -586,16 +586,20 @@ async function pickBackend() {
             /* пробуем следующий способ */
         }
     }
-    try {
-        await idb.set("__t", probe);
-        const v = await idb.get("__t");
-        if ((v === null || v === void 0 ? void 0 : v.t) === probe.t) {
-            backend.kind = "idb";
-            return backend.kind;
+    for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+            await idb.set("__t", probe);
+            const v = await idb.get("__t");
+            if ((v === null || v === void 0 ? void 0 : v.t) === probe.t) {
+                backend.kind = "idb";
+                return backend.kind;
+            }
         }
-    }
-    catch {
-        /* база не отвечает — ниже простое хранилище */
+        catch {
+            idb.broken = false;
+            idb.db = null;
+            await new Promise((r) => setTimeout(r, 600));
+        }
     }
     try {
         const ls = window.localStorage;
@@ -663,6 +667,17 @@ const store = {
         await pickBackend();
         if (backend.kind === "memory")
             return false;
+        // снимки тяжёлые: кладём их только в базу, иначе переполним хранилище
+        const heavy = key.startsWith("atlas:photo:") || key.startsWith("atlas:thumb:");
+        if (heavy && backend.kind !== "idb") {
+            try {
+                await idb.set(key, value);
+                return true;
+            }
+            catch {
+                return false;
+            }
+        }
         for (let i = 0; i < tries; i++) {
             try {
                 if (backend.kind === "app") {
@@ -672,7 +687,20 @@ const store = {
                     await idb.set(key, value);
                 }
                 else {
-                    window.localStorage.setItem(key, JSON.stringify(value));
+                    try {
+                        window.localStorage.setItem(key, JSON.stringify(value));
+                    }
+                    catch (e) {
+                        // место кончилось — освобождаем снимки и пробуем ещё раз
+                        const drop = [];
+                        for (let n = 0; n < window.localStorage.length; n++) {
+                            const k = window.localStorage.key(n);
+                            if (k && (k.startsWith("atlas:photo:") || k.startsWith("atlas:thumb:")))
+                                drop.push(k);
+                        }
+                        drop.forEach((k) => window.localStorage.removeItem(k));
+                        window.localStorage.setItem(key, JSON.stringify(value));
+                    }
                 }
                 return true;
             }
@@ -2754,7 +2782,15 @@ function ProfileSheet({ open, onClose, box, theme, onTheme, quality, onQuality, 
         React.createElement("button", { className: "switch-row", onClick: async () => setProbe(await checkStorage()) },
             React.createElement("span", { className: "switch-text" },
                 "\u041F\u0440\u043E\u0432\u0435\u0440\u0438\u0442\u044C \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u0435",
-                React.createElement("em", null, probe ? probe.text : "Записать метку и прочитать её")),
+                React.createElement("em", null, probe
+                    ? probe.text
+                    : `Сейчас: ${store.kind() === "idb"
+                        ? "база браузера"
+                        : store.kind() === "ls"
+                            ? "память страницы"
+                            : store.kind() === "app"
+                                ? "хранилище приложения"
+                                : "только до закрытия"}`)),
             React.createElement("span", { className: "step-pen" }, probe ? (probe.ok ? "✓" : "✕") : "→")),
         React.createElement("button", { className: "switch-row", onClick: onExport },
             React.createElement("span", { className: "switch-text" },
@@ -3168,7 +3204,8 @@ function Atlas() {
     };
     const save = useCallback(async (next) => {
         setVisits(next);
-        await store.set(K_DATA, { visits: next, at: Date.now() });
+        const ok = await store.set(K_DATA, { visits: next, at: Date.now() });
+        setSaveBroken(!ok);
     }, []);
     const addTrip = (a3, trip) => {
         if (!BY_A3[a3])
