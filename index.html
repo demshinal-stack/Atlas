@@ -630,34 +630,50 @@ const store = {
     kind: () => backend.kind,
     async get(key) {
         await pickBackend();
-        if (backend.kind === "app") {
+        // читаем отовсюду: в прошлый раз запись могла уйти в другое хранилище
+        const fromApp = async () => {
+            if (typeof window === "undefined" || !window.storage)
+                return null;
             try {
                 const r = await window.storage.get(key, false);
-                if (r)
-                    return JSON.parse(r.value);
+                return r ? JSON.parse(r.value) : null;
             }
             catch {
-                /* ниже копия в памяти */
+                return null;
             }
-        }
-        else if (backend.kind === "idb") {
+        };
+        const fromIdb = async () => {
             try {
                 const v = await idb.get(key);
-                if (v !== null && v !== undefined)
-                    return v;
+                return v === undefined ? null : v;
             }
             catch {
-                /* ниже копия в памяти */
+                return null;
             }
-        }
-        else if (backend.kind === "ls") {
+        };
+        const fromLs = () => {
             try {
                 const raw = window.localStorage.getItem(key);
-                if (raw !== null)
-                    return JSON.parse(raw);
+                return raw === null ? null : JSON.parse(raw);
             }
             catch {
-                /* ниже копия в памяти */
+                return null;
+            }
+        };
+        const order = backend.kind === "idb"
+            ? [fromIdb, fromLs, fromApp]
+            : backend.kind === "ls"
+                ? [fromLs, fromIdb, fromApp]
+                : [fromApp, fromIdb, fromLs];
+        for (const src of order) {
+            const v = await src();
+            if (v !== null && v !== undefined) {
+                mem.set(key, v);
+                if (src !== order[0]) {
+                    // переносим в основное хранилище, чтобы дальше читалось оттуда
+                    store.set(key, v).catch(() => { });
+                }
+                return v;
             }
         }
         return mem.has(key) ? mem.get(key) : null;
@@ -3127,8 +3143,6 @@ function Atlas() {
         await store.set(K_PROFILE, prof);
         setProfile(prof);
         setUnlocked(true);
-        if (faceAvailable)
-            enrollFace(prof);
     };
     const skipPin = async () => {
         const prof = { name: (profile === null || profile === void 0 ? void 0 : profile.name) || "", salt: "", pinHash: "", credId: "" };

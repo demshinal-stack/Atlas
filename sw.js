@@ -1,5 +1,5 @@
 /* Атлас — офлайн-кеш. Версию поднимайте при каждом обновлении файлов. */
-const VERSION = "atlas-v3";
+const VERSION = "atlas-v4";
 const SHELL = [
   "./",
   "./index.html",
