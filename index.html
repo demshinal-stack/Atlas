@@ -748,7 +748,7 @@ const K_DATA = "atlas:data:main";
 const K_SETTINGS = "atlas:settings";
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "3.8";
+const APP_VERSION = "3.9";
 const APP_BUILD = "2026-09-12";
 /* проверка: доступно ли постоянное хранилище и переживает ли запись перезапуск */
 async function checkStorage() {
@@ -1753,9 +1753,12 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                 ctx.save();
                 ctx.globalAlpha = front ? 1 : 0.5;
                 ctx.font = `${Math.round(22 * k)}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
-                ctx.textAlign = "center";
                 ctx.textBaseline = "middle";
-                ctx.fillText(flag(c.a2), x, y);
+                // эмодзи-флаг шире своей метрики, поэтому центрируем вручную
+                ctx.textAlign = "left";
+                const em = flag(c.a2);
+                const w = ctx.measureText(em).width;
+                ctx.fillText(em, x - w / 2, y);
                 ctx.restore();
             });
         };
