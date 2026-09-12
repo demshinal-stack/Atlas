@@ -744,7 +744,7 @@ const K_DATA = "atlas:data:main";
 const K_SETTINGS = "atlas:settings";
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "2.0";
+const APP_VERSION = "2.1";
 const APP_BUILD = "2026-09-12";
 /* проверка: доступно ли постоянное хранилище и переживает ли запись перезапуск */
 async function checkStorage() {
@@ -2033,7 +2033,26 @@ const YEARS = Array.from({ length: 60 }, (_, i) => NOW.getFullYear() - i);
 function Sheet({ open, onClose, title, children, box }) {
     const [shown, setShown] = useState(false);
     const [shift, setShift] = useState(0);
+    const [kb, setKb] = useState(0);
     const swipe = useRef(null);
+    /* высота клавиатуры: поднимаем шторку, чтобы поле оставалось видимым */
+    useEffect(() => {
+        const vv = window.visualViewport;
+        if (!vv || !open)
+            return;
+        const onResize = () => {
+            const gap = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
+            setKb(gap > 90 ? gap : 0);
+        };
+        onResize();
+        vv.addEventListener("resize", onResize);
+        vv.addEventListener("scroll", onResize);
+        return () => {
+            vv.removeEventListener("resize", onResize);
+            vv.removeEventListener("scroll", onResize);
+            setKb(0);
+        };
+    }, [open]);
     useEffect(() => {
         if (open) {
             setShift(0);
@@ -2054,6 +2073,8 @@ function Sheet({ open, onClose, title, children, box }) {
                 transform: shown
                     ? `translate(-50%, ${shift}px)`
                     : "translate(-50%, 100%)",
+                bottom: kb,
+                maxHeight: kb ? `calc(100% - ${kb + 12}px)` : undefined,
             } },
             React.createElement("div", { className: "sheet-grab", onTouchStart: (e) => (swipe.current = e.touches[0].clientY), onTouchMove: (e) => {
                     if (swipe.current == null)
@@ -2468,7 +2489,13 @@ function TextField({ value, onChange, placeholder, search = false, onFocus, auto
         search && (React.createElement("svg", { className: "tf-icon", viewBox: "0 0 24 24", width: "17", height: "17" },
             React.createElement("circle", { cx: "11", cy: "11", r: "6.5", fill: "none", stroke: "currentColor", strokeWidth: "1.8" }),
             React.createElement("path", { d: "M16 16l4.5 4.5", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round" }))),
-        React.createElement("input", { ref: ref, className: "tf-input", type: search ? "search" : "text", role: search ? "searchbox" : undefined, name: search ? "q" : "field", value: value, placeholder: placeholder, onChange: onChange, onFocus: onFocus, autoFocus: autoFocus, inputMode: search ? "search" : "text", enterKeyHint: search ? "search" : "done", autoComplete: "off", autoCorrect: "off", autoCapitalize: search ? "none" : "sentences", spellCheck: "false", "aria-autocomplete": "none", "data-lpignore": "true", "data-1p-ignore": "true", "data-form-type": "other", "x-autocompletetype": "off" }),
+        React.createElement("input", { ref: ref, className: "tf-input", type: search ? "search" : "text", role: search ? "searchbox" : undefined, name: search ? "q" : "field", value: value, placeholder: placeholder, onChange: onChange, onFocus: (e) => {
+                onFocus === null || onFocus === void 0 ? void 0 : onFocus(e);
+                setTimeout(() => {
+                    var _a;
+                    (_a = ref.current) === null || _a === void 0 ? void 0 : _a.scrollIntoView({ block: "center", behavior: "smooth" });
+                }, 280);
+            }, autoFocus: autoFocus, inputMode: search ? "search" : "text", enterKeyHint: search ? "search" : "done", autoComplete: "off", autoCorrect: "off", autoCapitalize: search ? "none" : "sentences", spellCheck: "false", "aria-autocomplete": "none", "data-lpignore": "true", "data-1p-ignore": "true", "data-form-type": "other", "x-autocompletetype": "off" }),
         value ? (React.createElement("button", { className: "tf-clear", "aria-label": "\u041E\u0447\u0438\u0441\u0442\u0438\u0442\u044C", onMouseDown: (e) => e.preventDefault(), onClick: () => {
                 var _a;
                 onChange({ target: { value: "" } });
@@ -3810,6 +3837,7 @@ body > div{max-width:100%;}
 .list-search{margin-top:8px;}
 .hotel{margin-top:9px;}
 .list-head{padding:0 14px 6px; position:sticky; top:0; z-index:2; background:var(--sheet);}
+.sheet{transition:transform .22s cubic-bezier(.22,.7,.3,1), bottom .2s ease, max-height .2s ease;}
 .seg{display:flex; gap:5px; padding:3px; background:var(--field); border:1px solid var(--line); border-radius:11px;}
 .seg-btn{flex:1 1 0; min-width:0; padding:9px 4px; border:0; border-radius:9px; background:none; color:var(--dim); font-size:0.72rem; cursor:pointer;}
 .seg-btn.on{background:var(--gold); color:#1a1206; font-weight:600;}
