@@ -744,7 +744,7 @@ const K_DATA = "atlas:data:main";
 const K_SETTINGS = "atlas:settings";
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "1.8";
+const APP_VERSION = "1.9";
 const APP_BUILD = "2026-09-12";
 /* проверка: доступно ли постоянное хранилище и переживает ли запись перезапуск */
 async function checkStorage() {
@@ -2468,7 +2468,7 @@ function TextField({ value, onChange, placeholder, search = false, onFocus, auto
         search && (React.createElement("svg", { className: "tf-icon", viewBox: "0 0 24 24", width: "17", height: "17" },
             React.createElement("circle", { cx: "11", cy: "11", r: "6.5", fill: "none", stroke: "currentColor", strokeWidth: "1.8" }),
             React.createElement("path", { d: "M16 16l4.5 4.5", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round" }))),
-        React.createElement("input", { ref: ref, className: "tf-input", type: "text", value: value, placeholder: placeholder, onChange: onChange, onFocus: onFocus, autoFocus: autoFocus, inputMode: search ? "search" : "text", enterKeyHint: search ? "search" : "done", autoComplete: "off", autoCorrect: "off", autoCapitalize: search ? "none" : "sentences", spellCheck: "false" }),
+        React.createElement("input", { ref: ref, className: "tf-input", type: search ? "search" : "text", role: search ? "searchbox" : undefined, name: search ? "q" : "field", value: value, placeholder: placeholder, onChange: onChange, onFocus: onFocus, autoFocus: autoFocus, inputMode: search ? "search" : "text", enterKeyHint: search ? "search" : "done", autoComplete: "off", autoCorrect: "off", autoCapitalize: search ? "none" : "sentences", spellCheck: "false", "aria-autocomplete": "none", "data-lpignore": "true", "data-1p-ignore": "true", "data-form-type": "other" }),
         value ? (React.createElement("button", { className: "tf-clear", "aria-label": "\u041E\u0447\u0438\u0441\u0442\u0438\u0442\u044C", onMouseDown: (e) => e.preventDefault(), onClick: () => {
                 var _a;
                 onChange({ target: { value: "" } });
