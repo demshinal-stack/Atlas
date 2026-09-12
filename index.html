@@ -748,7 +748,7 @@ const K_DATA = "atlas:data:main";
 const K_SETTINGS = "atlas:settings";
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "3.5";
+const APP_VERSION = "3.6";
 const APP_BUILD = "2026-09-12";
 /* проверка: доступно ли постоянное хранилище и переживает ли запись перезапуск */
 async function checkStorage() {
@@ -1473,6 +1473,155 @@ function cityPoint(a3, city) {
         Math.max(-85, Math.min(85, c.lat + Math.sin(h * 1.7) * r * 0.6)),
     ];
 }
+/* ------------------------------------------------------------------ */
+/*  Про страну: валюта, язык, фразы, практическая справка             */
+/* ------------------------------------------------------------------ */
+const CURRENCY_RAW = "AFG:AFN ALB:ALL DZA:DZD AND:EUR AGO:AOA ATG:XCD ARG:ARS ARM:AMD AUS:AUD AUT:EUR AZE:AZN BHS:BSD BHR:BHD BGD:BDT BRB:BBD BLR:BYN BEL:EUR BLZ:BZD BEN:XOF BTN:BTN BOL:BOB BIH:BAM BWA:BWP BRA:BRL BRN:BND BGR:BGN BFA:XOF BDI:BIF CPV:CVE KHM:KHR CMR:XAF CAN:CAD CAF:XAF TCD:XAF CHL:CLP CHN:CNY COL:COP COM:KMF COG:XAF COD:CDF CRI:CRC CIV:XOF HRV:EUR CUB:CUP CYP:EUR CZE:CZK DNK:DKK DJI:DJF DMA:XCD DOM:DOP ECU:USD EGY:EGP SLV:USD GNQ:XAF ERI:ERN EST:EUR SWZ:SZL ETH:ETB FJI:FJD FIN:EUR FRA:EUR GAB:XAF GMB:GMD GEO:GEL DEU:EUR GHA:GHS GRC:EUR GRD:XCD GTM:GTQ GIN:GNF GNB:XOF GUY:GYD HTI:HTG HND:HNL HKG:HKD HUN:HUF ISL:ISK IND:INR IDN:IDR IRN:IRR IRQ:IQD IRL:EUR ISR:ILS ITA:EUR JAM:JMD JPN:JPY JOR:JOD KAZ:KZT KEN:KES KIR:AUD PRK:KPW KOR:KRW KWT:KWD KGZ:KGS LAO:LAK LVA:EUR LBN:LBP LSO:LSL LBR:LRD LBY:LYD LIE:CHF LTU:EUR LUX:EUR MDG:MGA MWI:MWK MYS:MYR MDV:MVR MLI:XOF MLT:EUR MHL:USD MRT:MRU MUS:MUR MEX:MXN FSM:USD MDA:MDL MCO:EUR MNG:MNT MNE:EUR MAR:MAD MOZ:MZN MMR:MMK NAM:NAD NRU:AUD NPL:NPR NLD:EUR NZL:NZD NIC:NIO NER:XOF NGA:NGN MKD:MKD NOR:NOK OMN:OMR PAK:PKR PLW:USD PSE:ILS PAN:PAB PNG:PGK PRY:PYG PER:PEN PHL:PHP POL:PLN PRT:EUR QAT:QAR ROU:RON RUS:RUB RWA:RWF KNA:XCD LCA:XCD VCT:XCD WSM:WST SMR:EUR STP:STN SAU:SAR SEN:XOF SRB:RSD SYC:SCR SLE:SLE SGP:SGD SVK:EUR SVN:EUR SLB:SBD SOM:SOS ZAF:ZAR SSD:SSP ESP:EUR LKA:LKR SDN:SDG SUR:SRD SWE:SEK CHE:CHF SYR:SYP TWN:TWD TJK:TJS TZA:TZS THA:THB TLS:USD TGO:XOF TON:TOP TTO:TTD TUN:TND TUR:TRY TKM:TMT TUV:AUD UGA:UGX UKR:UAH ARE:AED GBR:GBP USA:USD URY:UYU UZB:UZS VUT:VUV VAT:EUR VEN:VES VNM:VND YEM:YER ZMB:ZMW ZWE:ZWG XKX:EUR";
+const CURRENCY = Object.fromEntries(CURRENCY_RAW.split(" ").map((t) => t.split(":")));
+const LANG_RAW = "AFG:fa ALB:sq DZA:ar AND:ca AGO:pt ARG:es ARM:hy AUS:en AUT:de AZE:az BHR:ar BGD:bn BLR:be BEL:nl BOL:es BIH:bs BRA:pt BGR:bg KHM:km CAN:en CHL:es CHN:zh COL:es CRI:es HRV:hr CUB:es CYP:el CZE:cs DNK:da DOM:es ECU:es EGY:ar SLV:es EST:et ETH:am FIN:fi FRA:fr GEO:ka DEU:de GRC:el GTM:es HKG:zh HUN:hu ISL:is IND:hi IDN:id IRN:fa IRQ:ar IRL:en ISR:he ITA:it JAM:en JPN:ja JOR:ar KAZ:kk KEN:sw KOR:ko KWT:ar KGZ:ky LAO:lo LVA:lv LBN:ar LTU:lt LUX:fr MYS:ms MDV:dv MLT:mt MEX:es MDA:ro MCO:fr MNG:mn MNE:sr MAR:ar MMR:my NAM:en NPL:ne NLD:nl NZL:en NIC:es MKD:mk NOR:no OMN:ar PAK:ur PSE:ar PAN:es PRY:es PER:es PHL:tl POL:pl PRT:pt QAT:ar ROU:ro RUS:ru SAU:ar SRB:sr SGP:en SVK:sk SVN:sl ZAF:en ESP:es LKA:si SWE:sv CHE:de SYR:ar TWN:zh TJK:tg TZA:sw THA:th TUN:ar TUR:tr TKM:tk UKR:uk ARE:ar GBR:en USA:en URY:es UZB:uz VAT:it VEN:es VNM:vi ZWE:en XKX:sq SYC:fr MUS:fr MDG:fr SEN:fr CIV:fr CMR:fr COD:fr GAB:fr BEN:fr BFA:fr MLI:fr NER:fr TCD:fr GIN:fr RWA:fr BDI:fr DJI:fr COM:fr MOZ:pt CPV:pt STP:pt GNB:pt TLS:pt SUR:nl BRN:ms FJI:en PNG:en SLB:en VUT:fr WSM:en TON:en TUV:en KIR:en NRU:en MHL:en FSM:en PLW:en BHS:en BRB:en BLZ:en ATG:en DMA:en GRD:en KNA:en LCA:en VCT:en TTO:en GUY:en JPN2:ja";
+const COUNTRY_LANG = Object.fromEntries(LANG_RAW.split(" ").map((t) => t.split(":")));
+/* шесть фраз: здравствуйте, до свидания, спасибо, пожалуйста, сколько стоит, помогите */
+const PHRASES = {
+    ru: ["Здравствуйте|здра́вствуйте", "До свидания|до свида́ния", "Спасибо|спаси́бо", "Пожалуйста|пожа́луйста", "Сколько стоит?|ско́лько сто́ит", "Помогите!|помоги́те"],
+    en: ["Hello|хэлло́у", "Goodbye|гудба́й", "Thank you|сэнк ю", "Please|плиз", "How much?|ха́у мач", "Help!|хэлп"],
+    es: ["Hola|о́ла", "Adiós|адьо́с", "Gracias|гра́сьяс", "Por favor|пор фаво́р", "¿Cuánto cuesta?|куа́нто куэ́ста", "¡Ayuda!|аю́да"],
+    fr: ["Bonjour|бонжу́р", "Au revoir|о ревуа́р", "Merci|мерси́", "S'il vous plaît|силь ву пле", "C'est combien?|се комбье́н", "Au secours!|о секу́р"],
+    de: ["Hallo|ха́лло", "Auf Wiedersehen|ауф ви́дерзеен", "Danke|да́нке", "Bitte|би́тте", "Wie viel kostet das?|ви филь ко́стет дас", "Hilfe!|хи́льфе"],
+    it: ["Buongiorno|буонджо́рно", "Arrivederci|арриведе́рчи", "Grazie|гра́цие", "Per favore|пер фаво́ре", "Quanto costa?|куа́нто ко́ста", "Aiuto!|аю́то"],
+    pt: ["Olá|ола́", "Adeus|адэ́уш", "Obrigado|обрига́ду", "Por favor|пур фаво́р", "Quanto custa?|куа́нту ку́шта", "Socorro!|соко́рру"],
+    nl: ["Hallo|ха́лло", "Tot ziens|тот зи́нс", "Dank je|данк е", "Alsjeblieft|альсхебли́фт", "Hoeveel kost het?|ху́вел кост хет", "Help!|хелп"],
+    sv: ["Hej|хей", "Hej då|хей до", "Tack|так", "Varsågod|варшого́д", "Vad kostar det?|вад ко́стар де", "Hjälp!|йельп"],
+    no: ["Hei|хей", "Ha det|ха де", "Takk|такк", "Vær så snill|вэр со снилль", "Hva koster det?|ва ко́стер де", "Hjelp!|йельп"],
+    da: ["Hej|хай", "Farvel|фарве́ль", "Tak|так", "Værsgo|вэсго́", "Hvad koster det?|ва ко́стер де", "Hjælp!|йельп"],
+    fi: ["Hei|хей", "Näkemiin|няке́миин", "Kiitos|ки́итос", "Ole hyvä|о́ле хю́вя", "Paljonko maksaa?|па́льонко ма́ксаа", "Apua!|а́пуа"],
+    pl: ["Dzień dobry|джень до́бры", "Do widzenia|до видзе́ня", "Dziękuję|дженку́е", "Proszę|про́ше", "Ile to kosztuje?|и́ле то коштуе", "Pomocy!|помо́цы"],
+    cs: ["Dobrý den|до́бри ден", "Na shledanou|насхледа́ноу", "Děkuji|де́куйи", "Prosím|про́сим", "Kolik to stojí?|ко́лик то сто́йи", "Pomoc!|по́моц"],
+    sk: ["Dobrý deň|до́бри день", "Dovidenia|довиде́ня", "Ďakujem|дя́куем", "Prosím|про́сим", "Koľko to stojí?|ко́лько то сто́йи", "Pomoc!|по́моц"],
+    hu: ["Jó napot|йо на́пот", "Viszlát|ви́слат", "Köszönöm|кёсёнём", "Kérem|ке́рем", "Mennyibe kerül?|ме́ннибе ке́рюль", "Segítség!|шеги́тшег"],
+    ro: ["Bună ziua|бу́нэ зи́уа", "La revedere|ла реведе́ре", "Mulțumesc|мулцуме́ск", "Vă rog|вэ рог", "Cât costă?|кыт ко́стэ", "Ajutor!|ажуто́р"],
+    bg: ["Здравейте|здраве́йте", "Довиждане|дови́ждане", "Благодаря|благодаря́", "Моля|мо́ля", "Колко струва?|ко́лко стру́ва", "Помощ!|по́мошт"],
+    el: ["Γεια σας|я сас", "Αντίο|анди́о", "Ευχαριστώ|эфхаристо́", "Παρακαλώ|паракало́", "Πόσο κάνει;|по́со ка́ни", "Βοήθεια!|вои́сия"],
+    tr: ["Merhaba|мерхаба́", "Hoşça kal|хошча́ кал", "Teşekkürler|тешеккюрле́р", "Lütfen|лю́тфен", "Ne kadar?|не када́р", "İmdat!|имда́т"],
+    ar: ["مرحبا|ма́рхаба", "مع السلامة|ма ас-саля́ма", "شكرا|шу́кран", "من فضلك|мин фа́длик", "كم الثمن؟|кям ас-са́ман", "النجدة!|ан-на́жда"],
+    he: ["שלום|шало́м", "להתראות|леитрао́т", "תודה|тода́", "בבקשה|бевакаша́", "כמה זה עולה?|ка́ма зэ оле́", "הצילו!|ацилу́"],
+    fa: ["سلام|саля́м", "خداحافظ|ходахафе́з", "ممنون|мамну́н", "لطفا|лотфа́н", "چند است؟|чанд аст", "کمک!|коме́к"],
+    hi: ["नमस्ते|намасте́", "अलविदा|алвида́", "धन्यवाद|дханьява́д", "कृपया|крипая́", "कितने का है?|китне́ ка хэ", "मदद!|мада́д"],
+    th: ["สวัสดี|саватди́", "ลาก่อน|ла ко́н", "ขอบคุณ|кхо́п кхун", "กรุณา|каруна́", "เท่าไหร่|тхау ра́й", "ช่วยด้วย|чуа́й дуа́й"],
+    vi: ["Xin chào|син тя́о", "Tạm biệt|там бье́т", "Cảm ơn|кам он", "Làm ơn|лам он", "Bao nhiêu tiền?|бао нье́у тье́н", "Cứu tôi!|кы́у той"],
+    id: ["Halo|ха́ло", "Sampai jumpa|сампа́й джу́мпа", "Terima kasih|тери́ма ка́си", "Tolong|то́лонг", "Berapa harganya?|бера́па харга́нья", "Tolong!|то́лонг"],
+    ms: ["Helo|хе́ло", "Selamat tinggal|селама́т тингга́л", "Terima kasih|тери́ма ка́сих", "Tolong|то́лонг", "Berapa harganya?|бера́па харга́нья", "Tolong!|то́лонг"],
+    zh: ["你好|ни хао", "再见|цзай цзя́нь", "谢谢|сесе", "请|цин", "多少钱？|дуо шао цянь", "救命！|цзю мин"],
+    ja: ["こんにちは|конничива́", "さようなら|сайо́нара", "ありがとう|ариГато́", "お願いします|онэГа́й симас", "いくらですか|и́кура дэс ка", "助けて|таскэ́тэ"],
+    ko: ["안녕하세요|аннёнхасе́ё", "안녕히 가세요|аннёнхи касе́ё", "감사합니다|камсахамни́да", "부탁합니다|путакхамни́да", "얼마예요?|о́льма ее́", "도와주세요!|товаджусе́ё"],
+    ka: ["გამარჯობა|гамарджо́ба", "ნახვამდის|нахвамди́с", "მადლობა|мадло́ба", "გთხოვთ|гтхо́вт", "რა ღირს?|ра гирс", "დახმარება!|дахмаре́ба"],
+    hy: ["Բարև|баре́в", "Ցտեսություն|цтесутю́н", "Շնորհակալություն|шнорхакалутю́н", "Խնդրեմ|хндре́м", "Ի՞նչ արժե|инч арже́", "Օգնությու՛ն|огнутю́н"],
+    az: ["Salam|сала́м", "Sağ ol|саг ол", "Təşəkkür|тешеккю́р", "Zəhmət olmasa|зэхме́т олмаса́", "Neçəyədir?|нечэйеди́р", "Kömək!|кёмя́к"],
+    kk: ["Сәлеметсіз бе|сэлеметси́з бе", "Сау болыңыз|сау болыны́з", "Рақмет|рахме́т", "Өтінемін|отинеми́н", "Қанша тұрады?|канша́ тура́ды", "Көмектесіңіз!|комектесини́з"],
+    uz: ["Assalomu alaykum|ассало́му алайку́м", "Xayr|хайр", "Rahmat|рахма́т", "Iltimos|илтимо́с", "Qancha turadi?|канча́ тура́ди", "Yordam bering!|йорда́м беринг"],
+    ky: ["Салам|сала́м", "Жакшы калыңыз|жакшы́ калыны́з", "Рахмат|рахма́т", "Сураныч|сураны́ч", "Канча турат?|канча́ тура́т", "Жардам!|жарда́м"],
+    tg: ["Салом|сало́м", "Хайр|хайр", "Ташаккур|ташаккку́р", "Лутфан|лутфа́н", "Чанд пул аст?|чанд пул аст", "Кумак!|кума́к"],
+    mn: ["Сайн байна уу|сайн байну́", "Баяртай|баярта́й", "Баярлалаа|баярлала́", "Гуйя|гуйя́", "Хэд вэ?|хэд вэ", "Туслаарай!|тусла́рай"],
+    sr: ["Здраво|здра́во", "Довиђења|довидже́ня", "Хвала|хва́ла", "Молим|мо́лим", "Колико кошта?|коли́ко ко́шта", "Упомоћ!|упомо́ч"],
+    hr: ["Dobar dan|до́бар дан", "Doviđenja|довидже́ня", "Hvala|хва́ла", "Molim|мо́лим", "Koliko košta?|коли́ко ко́шта", "Upomoć!|упомо́ч"],
+    sl: ["Dober dan|до́бер дан", "Nasvidenje|насвиде́нье", "Hvala|хва́ла", "Prosim|про́сим", "Koliko stane?|коли́ко ста́не", "Na pomoč!|на помо́ч"],
+    mk: ["Здраво|здра́во", "Довидување|довиду́вање", "Благодарам|благода́рам", "Ве молам|ве мо́лам", "Колку чини?|ко́лку чи́ни", "Помош!|по́мош"],
+    sq: ["Përshëndetje|першенде́тье", "Mirupafshim|мирупафши́м", "Faleminderit|фалеминде́рит", "Ju lutem|ю лу́тем", "Sa kushton?|са кушто́н", "Ndihmë!|ндихмё"],
+    uk: ["Доброго дня|до́брого дня", "До побачення|до поба́чення", "Дякую|дя́кую", "Будь ласка|будь ла́ска", "Скільки коштує?|скі́льки ко́штує", "Допоможіть!|допоможі́ть"],
+    be: ["Добры дзень|до́бры дзень", "Да пабачэння|да пабачэ́ння", "Дзякуй|дзя́куй", "Калі ласка|калі́ ла́ска", "Колькі каштуе?|ко́лькі кашту́е", "Дапамажыце!|дапамажы́це"],
+    lt: ["Labas|ла́бас", "Viso gero|ви́со ге́ро", "Ačiū|а́чю", "Prašau|праша́у", "Kiek kainuoja?|кек кайнуо́я", "Padėkite!|падэ́ките"],
+    lv: ["Sveiki|све́йки", "Uz redzēšanos|уз редзе́шанос", "Paldies|палдиэ́с", "Lūdzu|лу́дзу", "Cik maksā?|цик макса́", "Palīgā!|пали́га"],
+    et: ["Tere|те́ре", "Nägemist|нягеми́ст", "Aitäh|айтя́х", "Palun|па́лун", "Kui palju maksab?|куй па́лю ма́ксаб", "Appi!|а́ппи"],
+    is: ["Halló|хало́", "Bless|блесс", "Takk|такк", "Gjörðu svo vel|гьёрду сво вел", "Hvað kostar?|квад ко́стар", "Hjálp!|хьяульп"],
+    km: ["សួស្ដី|суосдэ́й", "លាហើយ|лиа ха́эй", "អរគុណ|оркун", "សូម|соум", "តម្លៃប៉ុន្មាន|тамлай понма́н", "ជួយ!|чуой"],
+    lo: ["ສະບາຍດີ|сабайди́", "ລາກ່ອນ|ла ко́н", "ຂອບໃຈ|кхоп тяй", "ກະລຸນາ|каруна́", "ລາຄາເທົ່າໃດ|лакха́ тхауда́й", "ຊ່ວຍດ້ວຍ|суай дуай"],
+    my: ["မင်္ဂလာပါ|минглаба́", "သွားတော့မယ်|тва тьо мэ", "ကျေးဇူးတင်ပါတယ်|тьезу́ тин ба дэ", "ကျေးဇူးပြု၍|тьезу́ пью-е", "ဘယ်လောက်လဲ|бэ лау лэ", "ကူညီပါ|ку ньи ба"],
+    ne: ["नमस्ते|намасте́", "फेरि भेटौंला|фе́ри бхета́унла", "धन्यवाद|дханьява́д", "कृपया|крипая́", "कति पर्छ?|ка́ти парчха", "मद्दत!|мадда́т"],
+    si: ["ආයුබෝවන්|аюбо́ван", "ගිහින් එන්නම්|гихи́н энна́м", "ස්තුතියි|стути́", "කරුණාකර|карунака́ра", "කීයද?|ки́яда", "උදව්!|уда́ву"],
+    ur: ["السلام علیکم|ассаля́му алейку́м", "خدا حافظ|худа́ ха́физ", "شکریہ|шукри́я", "براہ کرم|бара́-э кара́м", "کتنے کا ہے؟|китне́ ка хэ", "مدد!|мада́д"],
+    bn: ["নমস্কার|намошка́р", "বিদায়|бида́й", "ধন্যবাদ|дхоннобад", "দয়া করে|дойа́ коре", "কত দাম?|кото дам", "সাহায্য!|шаха́джо"],
+    tl: ["Kumusta|кумуста́", "Paalam|паала́м", "Salamat|салама́т", "Pakiusap|пакиуса́п", "Magkano?|магка́но", "Tulong!|ту́лонг"],
+    sw: ["Jambo|джа́мбо", "Kwaheri|кваэ́ри", "Asante|аса́нте", "Tafadhali|тафадха́ли", "Bei gani?|бей га́ни", "Msaada!|мсаа́да"],
+    am: ["ሰላም|сэля́м", "ደህና ሁን|дэхна хун", "አመሰግናለሁ|амэсэгнале́у", "እባክህ|ыбаки́х", "ስንት ነው?|сынт ноу", "እርዳታ!|ырдата́"],
+    af: ["Hallo|ха́лло", "Totsiens|тотси́нс", "Dankie|да́нки", "Asseblief|асебли́ф", "Hoeveel kos dit?|хуфи́л кос дит", "Help!|хелп"],
+    mt: ["Bonġu|бо́нджу", "Saħħa|са́хха", "Grazzi|гра́цци", "Jekk jogħġbok|екк йо́джбок", "Kemm jiswa?|кемм йи́сва", "Ajjut!|айю́т"],
+    ca: ["Hola|о́ла", "Adéu|адэ́у", "Gràcies|гра́сиес", "Si us plau|си ус пла́у", "Quant val?|куан вал", "Ajuda!|ажу́да"],
+    dv: ["އައްސަލާމް ޢަލައިކުމް|ассала́му алейку́м", "ދަނީ|дани́", "ޝުކުރިއްޔާ|шукури́я", "އަދޭސްކޮށް|адэ́скош", "ކިހާ އަގެއް|киха́ агэ́", "އެހީ|эхи́"],
+    bs: ["Dobar dan|до́бар дан", "Doviđenja|довидже́ня", "Hvala|хва́ла", "Molim|мо́лим", "Koliko košta?|коли́ко ко́шта", "Upomoć!|упомо́ч"],
+    tk: ["Salam|сала́м", "Hoş gal|хош гал", "Sag boluň|саг болу́нь", "Haýyş|хайы́ш", "Näçe?|няче́", "Kömek!|кёме́к"],
+};
+const PHRASE_LABELS = [
+    "Здравствуйте",
+    "До свидания",
+    "Спасибо",
+    "Пожалуйста",
+    "Сколько стоит?",
+    "Помогите!",
+];
+const LANG_NAME = {
+    ru: "русский", en: "английский", es: "испанский", fr: "французский",
+    de: "немецкий", it: "итальянский", pt: "португальский", nl: "нидерландский",
+    sv: "шведский", no: "норвежский", da: "датский", fi: "финский",
+    pl: "польский", cs: "чешский", sk: "словацкий", hu: "венгерский",
+    ro: "румынский", bg: "болгарский", el: "греческий", tr: "турецкий",
+    ar: "арабский", he: "иврит", fa: "фарси", hi: "хинди", th: "тайский",
+    vi: "вьетнамский", id: "индонезийский", ms: "малайский", zh: "китайский",
+    ja: "японский", ko: "корейский", ka: "грузинский", hy: "армянский",
+    az: "азербайджанский", kk: "казахский", uz: "узбекский", ky: "киргизский",
+    tg: "таджикский", mn: "монгольский", sr: "сербский", hr: "хорватский",
+    sl: "словенский", mk: "македонский", sq: "албанский", uk: "украинский",
+    be: "белорусский", lt: "литовский", lv: "латышский", et: "эстонский",
+    is: "исландский", km: "кхмерский", lo: "лаосский", my: "бирманский",
+    ne: "непальский", si: "сингальский", ur: "урду", bn: "бенгальский",
+    tl: "тагальский", sw: "суахили", am: "амхарский", af: "африкаанс",
+    mt: "мальтийский", ca: "каталанский", dv: "дивехи", bs: "боснийский",
+    tk: "туркменский",
+};
+/* практическая справка: розетка, вода, чаевые, экстренный номер */
+const TIPS_BY_CONT = {
+    EU: { plug: "C/F, 230 В", water: "Можно пить из-под крана", tip: "5–10%, часто уже включены", sos: "112" },
+    AS: { plug: "разные типы, 220 В", water: "Лучше бутилированная", tip: "По желанию", sos: "112" },
+    AF: { plug: "разные типы, 220 В", water: "Только бутилированная", tip: "5–10%", sos: "112" },
+    NA: { plug: "A/B, 120 В", water: "Обычно можно", tip: "15–20% обязательны", sos: "911" },
+    SA: { plug: "A/C, 220 В", water: "Лучше бутилированная", tip: "10%", sos: "911" },
+    OC: { plug: "I, 230 В", water: "Можно пить из-под крана", tip: "Не приняты", sos: "000" },
+};
+const TIPS = {
+    GBR: { plug: "G, 230 В", water: "Можно пить из-под крана", tip: "10–12%", sos: "999" },
+    IRL: { plug: "G, 230 В", water: "Можно пить из-под крана", tip: "10%", sos: "112" },
+    CHE: { plug: "J, 230 В", water: "Можно пить из-под крана", tip: "Округлить счёт", sos: "112" },
+    ITA: { plug: "C/F/L, 230 В", water: "Можно пить из-под крана", tip: "Coperto в счёте", sos: "112" },
+    USA: { plug: "A/B, 120 В", water: "Можно пить из-под крана", tip: "18–20% обязательны", sos: "911" },
+    CAN: { plug: "A/B, 120 В", water: "Можно пить из-под крана", tip: "15–18%", sos: "911" },
+    MEX: { plug: "A/B, 127 В", water: "Только бутилированная", tip: "10–15%", sos: "911" },
+    JPN: { plug: "A/B, 100 В", water: "Можно пить из-под крана", tip: "Не приняты", sos: "110 / 119" },
+    KOR: { plug: "C/F, 220 В", water: "Лучше бутилированная", tip: "Не приняты", sos: "112 / 119" },
+    CHN: { plug: "A/C/I, 220 В", water: "Только кипячёная", tip: "Не приняты", sos: "110 / 120" },
+    HKG: { plug: "G, 220 В", water: "Можно пить из-под крана", tip: "10% в счёте", sos: "999" },
+    THA: { plug: "A/B/C, 220 В", water: "Только бутилированная", tip: "Округлить счёт", sos: "191 / 1669" },
+    VNM: { plug: "A/C, 220 В", water: "Только бутилированная", tip: "Не обязательны", sos: "113 / 115" },
+    IDN: { plug: "C/F, 230 В", water: "Только бутилированная", tip: "5–10%", sos: "112" },
+    IND: { plug: "C/D/M, 230 В", water: "Только бутилированная", tip: "10%", sos: "112" },
+    ARE: { plug: "G, 230 В", water: "Можно, но чаще бутилированная", tip: "10–15% в счёте", sos: "999 / 998" },
+    TUR: { plug: "C/F, 230 В", water: "Только бутилированная", tip: "5–10%", sos: "112" },
+    EGY: { plug: "C/F, 220 В", water: "Только бутилированная", tip: "10%", sos: "122 / 123" },
+    RUS: { plug: "C/F, 220 В", water: "Лучше фильтрованная", tip: "10% по желанию", sos: "112" },
+    GEO: { plug: "C/F, 220 В", water: "Можно пить из-под крана", tip: "10% в счёте", sos: "112" },
+    ARM: { plug: "C/F, 220 В", water: "Можно пить из-под крана", tip: "10%", sos: "911" },
+    AZE: { plug: "C/F, 220 В", water: "Лучше бутилированная", tip: "10% в счёте", sos: "112" },
+    KAZ: { plug: "C/F, 220 В", water: "Лучше бутилированная", tip: "10%", sos: "112" },
+    AUS: { plug: "I, 230 В", water: "Можно пить из-под крана", tip: "Не приняты", sos: "000" },
+    NZL: { plug: "I, 230 В", water: "Можно пить из-под крана", tip: "Не приняты", sos: "111" },
+    ZAF: { plug: "M/N, 230 В", water: "Можно в городах", tip: "10–15%", sos: "112 / 10177" },
+    BRA: { plug: "C/N, 127/220 В", water: "Только бутилированная", tip: "10% в счёте", sos: "190 / 192" },
+    ARG: { plug: "C/I, 220 В", water: "Можно в крупных городах", tip: "10%", sos: "911" },
+    ISR: { plug: "C/H, 230 В", water: "Можно пить из-под крана", tip: "12–15%", sos: "100 / 101" },
+    MAR: { plug: "C/E, 220 В", water: "Только бутилированная", tip: "10%", sos: "19 / 15" },
+};
+const countryInfo = (a3) => {
+    const c = BY_A3[a3];
+    const base = TIPS_BY_CONT[c === null || c === void 0 ? void 0 : c.cont] || TIPS_BY_CONT.EU;
+    return { ...base, ...(TIPS[a3] || {}) };
+};
 /* подсолнечная точка: долгота по UTC, склонение по дню года */
 function sunPoint(now) {
     const rad = Math.PI / 180;
@@ -3000,6 +3149,151 @@ function SettingsSheet({ open, onClose, box, visits, theme, onTheme, quality, on
                     " Demshin_lab. \u0412\u0441\u0435 \u043F\u0440\u0430\u0432\u0430 \u0437\u0430\u0449\u0438\u0449\u0435\u043D\u044B."))));
     }));
 }
+/* курсы валют: тянем раз в несколько часов и держим копию офлайн */
+const K_RATES = "atlas:rates";
+const RATE_SOURCES = [
+    "https://open.er-api.com/v6/latest/USD",
+    "https://api.exchangerate-api.com/v4/latest/USD",
+];
+async function loadRates(force = false) {
+    const cached = await store.get(K_RATES);
+    const fresh = (cached === null || cached === void 0 ? void 0 : cached.at) && Date.now() - cached.at < 6 * 3600 * 1000;
+    if ((cached === null || cached === void 0 ? void 0 : cached.rates) && (fresh || !navigator.onLine) && !force)
+        return cached;
+    for (const url of RATE_SOURCES) {
+        try {
+            const r = await fetch(url);
+            if (!r.ok)
+                continue;
+            const j = await r.json();
+            const rates = j.rates || j.conversion_rates;
+            if ((rates === null || rates === void 0 ? void 0 : rates.RUB) && (rates === null || rates === void 0 ? void 0 : rates.EUR)) {
+                const data = { at: Date.now(), rates };
+                store.set(K_RATES, data);
+                return data;
+            }
+        }
+        catch {
+            /* следующий источник */
+        }
+    }
+    return cached || null;
+}
+const money = (n) => {
+    if (!isFinite(n))
+        return "—";
+    if (n >= 1000)
+        return Math.round(n).toLocaleString("ru-RU");
+    if (n >= 100)
+        return n.toFixed(0);
+    if (n >= 10)
+        return n.toFixed(1);
+    if (n >= 1)
+        return n.toFixed(2);
+    if (n >= 0.01)
+        return n.toFixed(3);
+    return n.toFixed(5);
+};
+/* шторка: про страну — валюта, фразы, практическая справка */
+function CountrySheet({ country, open, onClose, box }) {
+    const [rates, setRates] = useState(null);
+    const [busy, setBusy] = useState(false);
+    useEffect(() => {
+        if (!open)
+            return;
+        let dead = false;
+        (async () => {
+            setBusy(true);
+            const r = await loadRates();
+            if (!dead) {
+                setRates(r);
+                setBusy(false);
+            }
+        })();
+        return () => {
+            dead = true;
+        };
+    }, [open]);
+    if (!country)
+        return null;
+    const cur = CURRENCY[country.a3];
+    const lang = COUNTRY_LANG[country.a3];
+    const phrases = lang ? PHRASES[lang] : null;
+    const info = countryInfo(country.a3);
+    const rate = (to) => {
+        const r = rates === null || rates === void 0 ? void 0 : rates.rates;
+        if (!r || !cur || !r[cur] || !r[to])
+            return null;
+        return r[to] / r[cur];
+    };
+    const inRub = rate("RUB");
+    const inUsd = rate("USD");
+    const inEur = rate("EUR");
+    return (React.createElement(Sheet, { open: open, onClose: onClose, title: country.name, box: box }, () => (React.createElement("div", { className: "sheet-body" },
+        cur && (React.createElement(React.Fragment, null,
+            React.createElement("p", { className: "step-title" }, "\u0412\u0430\u043B\u044E\u0442\u0430"),
+            React.createElement("div", { className: "rate-card" },
+                React.createElement("div", { className: "rate-head" },
+                    React.createElement("b", null,
+                        "1 ",
+                        cur),
+                    (rates === null || rates === void 0 ? void 0 : rates.at) && (React.createElement("span", null,
+                        "\u043A\u0443\u0440\u0441 \u043D\u0430",
+                        " ",
+                        new Date(rates.at).toLocaleDateString("ru-RU", {
+                            day: "numeric",
+                            month: "long",
+                        })))),
+                React.createElement("div", { className: "rate-grid" },
+                    React.createElement("div", null,
+                        React.createElement("b", null, inRub ? money(inRub) : busy ? "…" : "—"),
+                        React.createElement("span", null, "\u0440\u0443\u0431\u043B\u0435\u0439")),
+                    React.createElement("div", null,
+                        React.createElement("b", null, inUsd ? money(inUsd) : busy ? "…" : "—"),
+                        React.createElement("span", null, "\u0434\u043E\u043B\u043B\u0430\u0440\u043E\u0432")),
+                    React.createElement("div", null,
+                        React.createElement("b", null, inEur ? money(inEur) : busy ? "…" : "—"),
+                        React.createElement("span", null, "\u0435\u0432\u0440\u043E"))),
+                inRub && (React.createElement("p", { className: "rate-back" },
+                    "100 \u20BD \u2248 ",
+                    money(100 / inRub),
+                    " ",
+                    cur,
+                    " \u00B7 100 $ \u2248",
+                    " ",
+                    money(100 / inUsd),
+                    " ",
+                    cur)),
+                React.createElement("button", { className: "link-btn", onClick: async () => {
+                        setBusy(true);
+                        setRates(await loadRates(true));
+                        setBusy(false);
+                    } }, "\u041E\u0431\u043D\u043E\u0432\u0438\u0442\u044C \u043A\u0443\u0440\u0441")))),
+        phrases && (React.createElement(React.Fragment, null,
+            React.createElement("p", { className: "step-title" },
+                "\u041F\u0435\u0440\u0432\u044B\u0435 \u0441\u043B\u043E\u0432\u0430 \u00B7 ",
+                LANG_NAME[lang] || lang),
+            React.createElement("div", { className: "phrases" }, phrases.map((line, i) => {
+                const [orig, tr] = line.split("|");
+                return (React.createElement("div", { key: i, className: "phrase" },
+                    React.createElement("span", { className: "phrase-ru" }, PHRASE_LABELS[i]),
+                    React.createElement("span", { className: "phrase-x" }, orig),
+                    React.createElement("span", { className: "phrase-tr" }, tr)));
+            })))),
+        React.createElement("p", { className: "step-title" }, "\u041F\u043E\u043B\u0435\u0437\u043D\u043E\u0435"),
+        React.createElement("div", { className: "about-row" },
+            React.createElement("span", null, "\u0420\u043E\u0437\u0435\u0442\u043A\u0430"),
+            React.createElement("b", null, info.plug)),
+        React.createElement("div", { className: "about-row" },
+            React.createElement("span", null, "\u0412\u043E\u0434\u0430"),
+            React.createElement("b", null, info.water)),
+        React.createElement("div", { className: "about-row" },
+            React.createElement("span", null, "\u0427\u0430\u0435\u0432\u044B\u0435"),
+            React.createElement("b", null, info.tip)),
+        React.createElement("div", { className: "about-row" },
+            React.createElement("span", null, "\u042D\u043A\u0441\u0442\u0440\u0435\u043D\u043D\u044B\u0439"),
+            React.createElement("b", null, info.sos))))));
+}
 /* шторка: фильтры — для глобуса и для списка поездок */
 function FiltersSheet({ open, onClose, box, target, years, yearFilter, onYear, mode, onMode, }) {
     return (React.createElement(Sheet, { open: open, onClose: onClose, title: "\u0424\u0438\u043B\u044C\u0442\u0440\u044B", box: box }, () => (React.createElement("div", { className: "sheet-body" }, target === "list" ? (React.createElement(React.Fragment, null,
@@ -3806,6 +4100,11 @@ function Atlas() {
                     React.createElement("svg", { viewBox: "0 0 24 24", width: "17", height: "17" },
                         React.createElement("path", { d: "M4 20h4L19 9l-4-4L4 16v4z", fill: "none", stroke: "currentColor", strokeWidth: "1.7", strokeLinejoin: "round" }),
                         React.createElement("path", { d: "M14 6l4 4", fill: "none", stroke: "currentColor", strokeWidth: "1.7" }))),
+                React.createElement("button", { className: "icon-btn", onClick: () => setSheet("country"), "aria-label": "\u041F\u0440\u043E \u0441\u0442\u0440\u0430\u043D\u0443" },
+                    React.createElement("svg", { viewBox: "0 0 24 24", width: "17", height: "17" },
+                        React.createElement("circle", { cx: "12", cy: "12", r: "8.5", fill: "none", stroke: "currentColor", strokeWidth: "1.6" }),
+                        React.createElement("path", { d: "M12 11v5.5", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round" }),
+                        React.createElement("circle", { cx: "12", cy: "7.9", r: "1.1", fill: "currentColor" }))),
                 React.createElement("button", { className: "icon-btn", onClick: () => setSelected(null), "aria-label": "\u0421\u043D\u044F\u0442\u044C \u0432\u044B\u0431\u043E\u0440" }, "\u2715")))) : (React.createElement(React.Fragment, null,
             React.createElement("div", { className: "focus-head" },
                 React.createElement("span", { className: "num" }, stats.countries),
@@ -3844,6 +4143,7 @@ function Atlas() {
                     enrollFace(profile);
                 }
             } }),
+        React.createElement(CountrySheet, { country: sel, open: sheet === "country" && !!sel, onClose: () => setSheet(null), box: box }),
         React.createElement(FiltersSheet, { open: sheet === "filters", onClose: () => setSheet(null), box: box, target: sheetBack === "list" ? "list" : "globe", years: allYears, yearFilter: yearFilter, onYear: (v) => {
                 setYearFilter(v);
                 setSheet(sheetBack);
@@ -4183,6 +4483,22 @@ body > div{max-width:100%;}
 .sheet .about-row{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 14px; margin-bottom:6px; background:var(--el); border:1px solid var(--line); border-radius:11px; min-width:0;}
 .sheet .about-row span{flex:none; font-size:0.75rem; color:var(--dim);}
 .sheet .about-row b{flex:1 1 auto; min-width:0; text-align:right; font-size:0.8rem; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.rate-card{padding:14px; border-radius:14px; border:1px solid var(--line); background:var(--el);}
+.rate-head{display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin-bottom:12px; min-width:0;}
+.rate-head b{font-family:Georgia,serif; font-size:1.25rem; font-weight:400; color:var(--gold);}
+.rate-head span{font-size:0.66rem; color:var(--dim); text-align:right;}
+.rate-grid{display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:7px;}
+.rate-grid > div{padding:11px 4px; background:var(--field); border:1px solid var(--line); border-radius:11px; text-align:center;}
+.rate-grid b{display:block; font-size:1.05rem; font-weight:500;}
+.rate-grid span{display:block; margin-top:2px; font-size:0.62rem; color:var(--dim);}
+.rate-back{margin:10px 0 0; font-size:0.7rem; color:var(--dim); text-align:center;}
+.rate-card .link-btn{display:block; width:100%; margin-top:4px;}
+
+.phrases{display:flex; flex-direction:column; gap:8px;}
+.phrase{padding:11px 13px; border-radius:12px; border:1px solid var(--line); background:var(--el); min-width:0;}
+.phrase-ru{display:block; font-size:0.68rem; color:var(--dim);}
+.phrase-x{display:block; margin-top:3px; font-size:1.05rem; color:var(--ink);}
+.phrase-tr{display:block; margin-top:2px; font-size:0.78rem; color:var(--gold);}
 .sheet .theme-row{display:flex; gap:7px; margin-bottom:8px;}
 .sheet .theme-cell{flex:1 1 0; min-width:0; padding:12px 4px; border-radius:11px; border:1px solid var(--line); background:var(--el); color:var(--dim); font-size:0.8rem; cursor:pointer;}
 .sheet .theme-cell.on{background:var(--gold); border-color:var(--gold); color:#1a1206; font-weight:600;}
