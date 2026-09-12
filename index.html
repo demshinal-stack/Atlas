@@ -744,7 +744,7 @@ const K_DATA = "atlas:data:main";
 const K_SETTINGS = "atlas:settings";
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "2.1";
+const APP_VERSION = "2.2";
 const APP_BUILD = "2026-09-12";
 /* проверка: доступно ли постоянное хранилище и переживает ли запись перезапуск */
 async function checkStorage() {
@@ -2013,6 +2013,14 @@ function PinScreen({ mode, onDone, onSkip, faceAvailable, onFace, shell, name, l
             setTimeout(() => submit(next), 120);
     };
     const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "⌫"];
+    /* если вход по лицу включён — предлагаем его сразу, без кнопки */
+    useEffect(() => {
+        if (mode !== "lock" || !faceAvailable || !onFace)
+            return;
+        const id = setTimeout(() => onFace(), 350);
+        return () => clearTimeout(id);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [mode, faceAvailable]);
     return (React.createElement("div", { className: "root" + (light ? " light" : ""), style: shell },
         React.createElement("style", null, CSS),
         React.createElement("div", { className: "lock" },
@@ -2022,7 +2030,6 @@ function PinScreen({ mode, onDone, onSkip, faceAvailable, onFace, shell, name, l
             React.createElement("div", { className: "pips" }, Array.from({ length: LEN }).map((_, i) => (React.createElement("span", { key: i, className: "pip" + (i < code.length ? " on" : "") })))),
             err && React.createElement("p", { className: "err" }, err),
             React.createElement("div", { className: "pad" }, keys.map((k, i) => k === "" ? (React.createElement("span", { key: i })) : (React.createElement("button", { key: i, className: "key", onClick: () => (k === "⌫" ? setCode(code.slice(0, -1)) : press(k)) }, k)))),
-            mode === "lock" && faceAvailable && (React.createElement("button", { className: "face", onClick: onFace }, "\u0412\u043E\u0439\u0442\u0438 \u043F\u043E Face ID")),
             mode === "setup" && (React.createElement("button", { className: "ghost wide", onClick: onSkip }, "\u041F\u043E\u043A\u0430 \u0431\u0435\u0437 \u043A\u043E\u0434\u0430")))));
 }
 /* ================================================================== */
@@ -3720,18 +3727,21 @@ body > div{max-width:100%;}
 .loading{padding:60px 0; text-align:center; color:var(--dim);}
 
 .signin{width:100%; margin:0 auto; padding:36px 0 20px;}
-.lock{width:100%; max-width:300px; margin:0 auto; padding:24px 0 24px; text-align:center;}
+.lock{width:100%; max-width:300px; min-height:100%; margin:0 auto; padding:24px 0;
+  display:flex; flex-direction:column; justify-content:center; text-align:center;}
 .lock .brand{text-align:center;}
 .lock-title{font-size:1.062rem; margin:22px 0 4px;}
 .lock-sub{font-size:0.812rem; color:var(--dim); margin:0 0 22px;}
-.pips{display:flex; justify-content:center; gap:14px; margin-bottom:8px;}
+.pips{display:flex; justify-content:center; gap:15px; margin:4px 0 8px;}
 .pip{width:13px; height:13px; border-radius:50%; border:1px solid var(--track);}
 .pip.on{background:var(--gold); border-color:var(--gold);}
-.pad{display:grid; grid-template-columns:repeat(3, 1fr); gap:12px; margin:18px auto 0; max-width:260px;}
-.key{height:60px; border-radius:50%; border:1px solid var(--line); background:var(--el2); color:var(--ink); font-size:1.375rem; font-family:Georgia,serif; cursor:pointer;}
+.pad{display:grid; grid-template-columns:repeat(3, 1fr); gap:11px; margin:22px auto 0; max-width:264px;}
+.key{height:68px; border-radius:18px; border:1px solid var(--line); background:var(--el2);
+  color:var(--ink); font-size:1.35rem; font-family:inherit; font-weight:500; cursor:pointer;
+  transition:background .12s, transform .08s;}
+.key:active{background:var(--gold); color:#1a1206; transform:scale(.97);}
 .key:active{background:var(--track);}
-.face{width:100%; margin-top:20px; padding:12px; border-radius:10px; border:1px solid var(--gold); background:none; color:var(--gold); font-size:0.875rem; cursor:pointer;}
-.ghost.wide{width:100%; margin-top:18px; padding:11px;}
+.ghost.wide{width:100%; min-height:44px; margin-top:20px; padding:12px; border-radius:12px;}
 .big-brand{font-size:2.125rem; margin-bottom:6px;}
 .tagline{font-size:0.875rem; color:var(--dim); line-height:1.55; margin:0 0 26px;}
 .known{margin-bottom:16px;}
