@@ -748,7 +748,7 @@ const K_DATA = "atlas:data:main";
 const K_SETTINGS = "atlas:settings";
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "3.7";
+const APP_VERSION = "3.8";
 const APP_BUILD = "2026-09-12";
 /* проверка: доступно ли постоянное хранилище и переживает ли запись перезапуск */
 async function checkStorage() {
@@ -1735,9 +1735,9 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         const { isOn: on, selected: sel, geo: g, marks: mk, light: lt, full: fs, } = state.current;
         // пояс флагов вокруг нижней части глобуса — только во весь экран
         const beltFlags = fs ? COUNTRIES.filter((c) => on(c.a3)) : [];
-        const beltY = cy + R * 0.58;
-        const beltRx = R * 1.16;
-        const beltRy = R * 0.3;
+        const beltY = cy + R * 0.6;
+        const beltRx = Math.min(R * 0.92, size / 2 - 26);
+        const beltRy = beltRx * 0.26;
         const drawBelt = (front) => {
             if (!beltFlags.length)
                 return;
@@ -1749,10 +1749,10 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                     return;
                 const x = cx + beltRx * Math.cos(a);
                 const y = beltY + beltRy * sn;
-                const k = 0.7 + 0.45 * (sn + 1) * 0.5;
+                const k = 0.62 + 0.4 * (sn + 1) * 0.5;
                 ctx.save();
                 ctx.globalAlpha = front ? 1 : 0.5;
-                ctx.font = `${Math.round(26 * k)}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
+                ctx.font = `${Math.round(22 * k)}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
                 ctx.textAlign = "center";
                 ctx.textBaseline = "middle";
                 ctx.fillText(flag(c.a2), x, y);
