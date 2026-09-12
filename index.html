@@ -12,6 +12,8 @@
 <link rel="apple-touch-icon" sizes="152x152" href="./icons/icon-152.png" />
 <link rel="apple-touch-icon" sizes="120x120" href="./icons/icon-120.png" />
 <link rel="icon" type="image/png" sizes="32x32" href="./icons/icon-32.png" />
+<meta name="author" content="Demshin_lab" />
+<meta name="copyright" content="© Demshin_lab. Все права защищены." />
 <title>Атлас</title>
 <style>
   html, body { margin:0; padding:0; height:100%; background:#0d1b2a; }
@@ -746,7 +748,7 @@ const K_DATA = "atlas:data:main";
 const K_SETTINGS = "atlas:settings";
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "2.6";
+const APP_VERSION = "2.8";
 const APP_BUILD = "2026-09-12";
 /* проверка: доступно ли постоянное хранилище и переживает ли запись перезапуск */
 async function checkStorage() {
@@ -2773,22 +2775,7 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality 
                     React.createElement("path", { d: "M5 12.5l4.5 4.5L19 7.5", fill: "none", stroke: "currentColor", strokeWidth: "2.2", strokeLinecap: "round", strokeLinejoin: "round" })))))))));
 }
 /* шторка: профиль — вы и ваши данные */
-function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, onExport, onImport, onSettings, stats, visits, }) {
-    const cities = useMemo(() => {
-        const set = new Set();
-        Object.values(visits).forEach((arr) => arr.forEach((t) => (t.cities || []).forEach((c) => set.add(c))));
-        return set.size;
-    }, [visits]);
-    const photos = useMemo(() => {
-        let k = 0;
-        Object.values(visits).forEach((arr) => arr.forEach((t) => (k += (t.photos || []).length)));
-        return k;
-    }, [visits]);
-    const years = useMemo(() => {
-        const set = new Set();
-        Object.values(visits).forEach((arr) => arr.forEach((t) => set.add(t.y)));
-        return set.size;
-    }, [visits]);
+function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, onExport, onImport, onSettings, visits, }) {
     return (React.createElement(Sheet, { open: open, onClose: onClose, title: "\u041F\u0440\u043E\u0444\u0438\u043B\u044C", box: box }, () => (React.createElement("div", { className: "sheet-body" },
         React.createElement("div", { className: "avatar-row" },
             React.createElement("label", { className: "avatar" },
@@ -2803,28 +2790,6 @@ function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, 
             React.createElement("div", { className: "avatar-text" },
                 React.createElement("input", { className: "name-input", value: name || "", placeholder: "\u0412\u0430\u0448\u0435 \u0438\u043C\u044F", onChange: (e) => onName(e.target.value), autoComplete: "off", autoCorrect: "off", spellCheck: "false", "data-lpignore": "true" }),
                 React.createElement("em", null, avatar ? "Нажмите на фото, чтобы заменить" : "Добавьте фото"))),
-        React.createElement("div", { className: "prof-nums" },
-            React.createElement("div", null,
-                React.createElement("b", null, stats.countries),
-                React.createElement("span", null, "\u0441\u0442\u0440\u0430\u043D")),
-            React.createElement("div", null,
-                React.createElement("b", null, stats.trips),
-                React.createElement("span", null, "\u043F\u043E\u0435\u0437\u0434\u043E\u043A")),
-            React.createElement("div", null,
-                React.createElement("b", null, cities),
-                React.createElement("span", null, "\u0433\u043E\u0440\u043E\u0434\u043E\u0432"))),
-        React.createElement("div", { className: "prof-nums" },
-            React.createElement("div", null,
-                React.createElement("b", null, years),
-                React.createElement("span", null, "\u043B\u0435\u0442 \u0432 \u043F\u0443\u0442\u0438")),
-            React.createElement("div", null,
-                React.createElement("b", null, photos),
-                React.createElement("span", null, "\u0441\u043D\u0438\u043C\u043A\u043E\u0432")),
-            React.createElement("div", null,
-                React.createElement("b", null,
-                    Math.round((stats.countries / TOTAL) * 100),
-                    "%"),
-                React.createElement("span", null, "\u043C\u0438\u0440\u0430"))),
         React.createElement("p", { className: "step-title" }, "\u041C\u043E\u0438 \u0434\u0430\u043D\u043D\u044B\u0435"),
         React.createElement("button", { className: "switch-row", onClick: onExport },
             React.createElement("span", { className: "switch-text" },
@@ -2979,11 +2944,21 @@ function SettingsSheet({ open, onClose, box, visits, theme, onTheme, quality, on
                 React.createElement("span", { className: "switch-text" },
                     "\u041F\u0440\u043E\u0432\u0435\u0440\u0438\u0442\u044C \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u0435",
                     React.createElement("em", null, probe ? probe.text : "Записать метку и прочитать её")),
-                React.createElement("span", { className: "step-pen" }, probe ? (probe.ok ? "✓" : "✕") : "→"))));
+                React.createElement("span", { className: "step-pen" }, probe ? (probe.ok ? "✓" : "✕") : "→")),
+            React.createElement("div", { className: "copyright" },
+                React.createElement("b", null, "Demshin_lab"),
+                React.createElement("span", null,
+                    "\u00AB\u0410\u0442\u043B\u0430\u0441\u00BB \u2014 \u043A\u0430\u0440\u0442\u0430 \u0441\u0442\u0440\u0430\u043D, \u0433\u0434\u0435 \u0432\u044B \u043F\u043E\u0431\u044B\u0432\u0430\u043B\u0438. \u0412\u0435\u0440\u0441\u0438\u044F ",
+                    APP_VERSION,
+                    "."),
+                React.createElement("em", null,
+                    "\u00A9 ",
+                    new Date().getFullYear(),
+                    " Demshin_lab. \u0412\u0441\u0435 \u043F\u0440\u0430\u0432\u0430 \u0437\u0430\u0449\u0438\u0449\u0435\u043D\u044B."))));
     }));
 }
 /* шторка: все поездки — разрезы, свёртка групп, поиск */
-function ListSheet({ visits, stats, open, onClose, onPick, onRemove, box }) {
+function ListSheet({ visits, stats, open, onClose, onPick, onRemove, onAdd, box }) {
     const [mode, setMode] = useState("year");
     const [q, setQ] = useState("");
     const [closed, setClosed] = useState({});
@@ -3046,6 +3021,17 @@ function ListSheet({ visits, stats, open, onClose, onPick, onRemove, box }) {
                 CONT_ORDER.indexOf(Object.keys(CONTINENTS).find((k) => CONTINENTS[k] === b[0])));
         return list;
     }, [found, mode]);
+    const totals = useMemo(() => {
+        const cities = new Set();
+        const years = new Set();
+        let photos = 0;
+        Object.values(visits).forEach((arr) => arr.forEach((t) => {
+            (t.cities || []).forEach((c) => cities.add(c));
+            years.add(t.y);
+            photos += (t.photos || []).length;
+        }));
+        return { cities: cities.size, years: years.size, photos };
+    }, [visits]);
     const sub = (t) => {
         var _a, _b;
         const parts = [];
@@ -3074,19 +3060,42 @@ function ListSheet({ visits, stats, open, onClose, onPick, onRemove, box }) {
                 all.length,
                 " \u043F\u043E\u0435\u0437\u0434\u043E\u043A",
                 React.createElement("span", null, showStats ? "▲" : "▼")),
-            showStats && (React.createElement("div", { className: "bars" }, CONT_ORDER.map((k) => (React.createElement("div", { key: k, className: "bar-row" },
-                React.createElement("span", { className: "bar-name" }, CONTINENTS[k]),
-                React.createElement("span", { className: "bar-track" },
-                    React.createElement("span", { className: "bar-fill", style: {
-                            width: `${(stats.per[k] / CONT_TOTALS[k]) * 100}%`,
-                        } })),
-                React.createElement("span", { className: "bar-val" },
-                    stats.per[k],
-                    "/",
-                    CONT_TOTALS[k]))))))),
+            showStats && (React.createElement(React.Fragment, null,
+                React.createElement("div", { className: "prof-nums" },
+                    React.createElement("div", null,
+                        React.createElement("b", null, totals.cities),
+                        React.createElement("span", null, "\u0433\u043E\u0440\u043E\u0434\u043E\u0432")),
+                    React.createElement("div", null,
+                        React.createElement("b", null, totals.years),
+                        React.createElement("span", null, "\u043B\u0435\u0442 \u0432 \u043F\u0443\u0442\u0438")),
+                    React.createElement("div", null,
+                        React.createElement("b", null, totals.photos),
+                        React.createElement("span", null, "\u0441\u043D\u0438\u043C\u043A\u043E\u0432"))),
+                React.createElement("div", { className: "prof-nums" },
+                    React.createElement("div", null,
+                        React.createElement("b", null,
+                            Math.round((stats.countries / TOTAL) * 100),
+                            "%"),
+                        React.createElement("span", null, "\u043C\u0438\u0440\u0430")),
+                    React.createElement("div", null,
+                        React.createElement("b", null, stats.countries),
+                        React.createElement("span", null, "\u0441\u0442\u0440\u0430\u043D")),
+                    React.createElement("div", null,
+                        React.createElement("b", null, all.length),
+                        React.createElement("span", null, "\u043F\u043E\u0435\u0437\u0434\u043E\u043A"))),
+                React.createElement("div", { className: "bars" }, CONT_ORDER.map((k) => (React.createElement("div", { key: k, className: "bar-row" },
+                    React.createElement("span", { className: "bar-name" }, CONTINENTS[k]),
+                    React.createElement("span", { className: "bar-track" },
+                        React.createElement("span", { className: "bar-fill", style: {
+                                width: `${(stats.per[k] / CONT_TOTALS[k]) * 100}%`,
+                            } })),
+                    React.createElement("span", { className: "bar-val" },
+                        stats.per[k],
+                        "/",
+                        CONT_TOTALS[k])))))))),
         found.length === 0 && (React.createElement("p", { className: "focus-empty pad16" }, all.length
             ? "Ничего не нашлось."
-            : "Пока пусто. Нажмите «Отметить поездку».")),
+            : "Пока пусто. Нажмите «Добавить поездку».")),
         groups.map(([key, rows]) => {
             const hidden = closed[key];
             return (React.createElement("div", { key: key, className: "grp" },
@@ -3112,7 +3121,12 @@ function ListSheet({ visits, stats, open, onClose, onPick, onRemove, box }) {
                         React.createElement("button", { className: "trip-del", onClick: () => onRemove(row.a3, row.idx), "aria-label": "\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u043F\u043E\u0435\u0437\u0434\u043A\u0443" },
                             React.createElement("svg", { viewBox: "0 0 24 24", width: "15", height: "15" },
                                 React.createElement("path", { d: "M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12", fill: "none", stroke: "currentColor", strokeWidth: "1.7", strokeLinecap: "round", strokeLinejoin: "round" }))))))));
-        })))));
+        }),
+        React.createElement("div", { className: "list-foot" },
+            React.createElement("button", { className: "btn-main wide", onClick: () => {
+                    close();
+                    setTimeout(onAdd, 220);
+                } }, "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u043F\u043E\u0435\u0437\u0434\u043A\u0443"))))));
 }
 /* ================================================================== */
 /*  Приложение                                                        */
@@ -3706,7 +3720,7 @@ function Atlas() {
                         " \u043F\u043E\u0435\u0437\u0434\u043E\u043A"))),
             React.createElement("p", { className: "focus-empty" }, "\u041F\u043E\u0432\u0435\u0440\u043D\u0438\u0442\u0435 \u0433\u043B\u043E\u0431\u0443\u0441 \u0438 \u043D\u0430\u0436\u043C\u0438\u0442\u0435 \u0442\u043E\u0447\u043A\u0443, \u0447\u0442\u043E\u0431\u044B \u043F\u043E\u0441\u043C\u043E\u0442\u0440\u0435\u0442\u044C \u0441\u0442\u0440\u0430\u043D\u0443.")))),
         React.createElement("div", { className: "actions" },
-            React.createElement("button", { className: "btn-main", onClick: () => setSheet("add") }, "\u041E\u0442\u043C\u0435\u0442\u0438\u0442\u044C \u043F\u043E\u0435\u0437\u0434\u043A\u0443"),
+            React.createElement("button", { className: "btn-main", onClick: () => setSheet("add") }, "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u043F\u043E\u0435\u0437\u0434\u043A\u0443"),
             React.createElement("button", { className: "btn-sec", onClick: () => setSheet("list") }, "\u041C\u043E\u0438 \u043F\u043E\u0435\u0437\u0434\u043A\u0438")),
         React.createElement(TripSheet, { open: sheet === "add", onClose: () => setSheet(null), box: box, initial: null, visits: visits, onSave: (a3, trip) => addTrip(a3, trip), mode: "add", quality: photoQuality }),
         React.createElement(TripSheet, { open: sheet === "edit" && !!sel && !!selTrips.length, onClose: () => setSheet(null), box: box, initial: sel && selTrips.length
@@ -3716,7 +3730,7 @@ function Atlas() {
                 const prof = { ...profile, name: v };
                 setProfile(prof);
                 await store.set(K_PROFILE, prof);
-            }, onPickAvatar: (src) => setAvatarDraft(src), onExport: exportData, onImport: importData, onSettings: () => setSheet("settings"), stats: stats, visits: visits }),
+            }, onPickAvatar: (src) => setAvatarDraft(src), onExport: exportData, onImport: importData, onSettings: () => setSheet("settings"), visits: visits }),
         React.createElement(SettingsSheet, { open: sheet === "settings", onClose: () => setSheet(null), box: box, visits: visits, theme: theme, onTheme: setTheme, quality: photoQuality, onQuality: setPhotoQuality, cityPins: cityPins, onToggleCityPins: setCityPins, hasPin: !!profile.pinHash, faceAvailable: faceAvailable, faceOn: !!profile.credId, onSetPin: () => {
                 setSheet(null);
                 setProfile(null);
@@ -3735,7 +3749,7 @@ function Atlas() {
                     enrollFace(profile);
                 }
             } }),
-        React.createElement(ListSheet, { visits: visits, stats: stats, open: sheet === "list", onClose: () => setSheet(null), onPick: (a3) => setSelected(a3), onRemove: removeTrip, box: box }),
+        React.createElement(ListSheet, { visits: visits, stats: stats, open: sheet === "list", onClose: () => setSheet(null), onPick: (a3) => setSelected(a3), onRemove: removeTrip, onAdd: () => setSheet("add"), box: box }),
         avatarDraft && (React.createElement("div", { className: "modal", style: box ? { left: box.left, width: box.width } : undefined },
             React.createElement(AvatarEditor, { src: avatarDraft, onDone: saveAvatar, onCancel: () => setAvatarDraft(null) }))),
         updateReady && (React.createElement("div", { className: "banner" },
@@ -3917,6 +3931,8 @@ body > div{max-width:100%;}
 .tf-clear{flex:none; width:32px; height:32px; display:flex; align-items:center; justify-content:center;
   padding:0; border:0; background:none; color:var(--dim); cursor:pointer;}
 .list-search{margin-top:8px;}
+.list-foot{padding:18px 14px 8px;}
+.btn-main.wide{width:100%; min-height:48px;}
 .hotel{margin-top:9px;}
 .list-head{padding:0 14px 6px; position:sticky; top:0; z-index:2; background:var(--sheet);}
 .sheet{transition:transform .22s cubic-bezier(.22,.7,.3,1), bottom .2s ease, max-height .2s ease;}
@@ -4017,6 +4033,10 @@ body > div{max-width:100%;}
 .sheet .switch i{position:absolute; top:3px; left:3px; width:19px; height:19px; border-radius:50%; background:#fff; transition:left .15s;}
 .sheet .switch.on i{left:20px;}
 .sheet .hint.small{font-size:0.72rem; margin:2px 0 4px;}
+.sheet .copyright{margin-top:22px; padding:16px 14px; border-radius:14px; background:var(--el); border:1px solid var(--line); text-align:center;}
+.sheet .copyright b{display:block; font-family:Georgia,"Times New Roman",serif; font-size:1.05rem; font-weight:400; letter-spacing:.02em; color:var(--gold);}
+.sheet .copyright span{display:block; margin-top:7px; font-size:0.72rem; line-height:1.45; color:var(--dim);}
+.sheet .copyright em{display:block; margin-top:9px; font-style:normal; font-size:0.68rem; color:var(--dim); opacity:.75;}
 .sheet .about-row{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 14px; margin-bottom:6px; background:var(--el); border:1px solid var(--line); border-radius:11px; min-width:0;}
 .sheet .about-row span{flex:none; font-size:0.75rem; color:var(--dim);}
 .sheet .about-row b{flex:1 1 auto; min-width:0; text-align:right; font-size:0.8rem; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
