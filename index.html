@@ -748,7 +748,7 @@ const K_DATA = "atlas:data:main";
 const K_SETTINGS = "atlas:settings";
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "3.1";
+const APP_VERSION = "3.2";
 const APP_BUILD = "2026-09-12";
 /* проверка: доступно ли постоянное хранилище и переживает ли запись перезапуск */
 async function checkStorage() {
@@ -2774,7 +2774,7 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality 
                     React.createElement("path", { d: "M5 12.5l4.5 4.5L19 7.5", fill: "none", stroke: "currentColor", strokeWidth: "2.2", strokeLinecap: "round", strokeLinejoin: "round" })))))))));
 }
 /* шторка: профиль — вы и ваши данные */
-function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, onExport, onImport, onSettings, visits, }) {
+function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, onExport, onImport, visits, }) {
     return (React.createElement(Sheet, { open: open, onClose: onClose, title: "\u041F\u0440\u043E\u0444\u0438\u043B\u044C", box: box }, () => (React.createElement("div", { className: "sheet-body" },
         React.createElement("div", { className: "avatar-row" },
             React.createElement("label", { className: "avatar" },
@@ -2806,12 +2806,7 @@ function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, 
                     e.target.value = "";
                     if (f)
                         onImport(f);
-                } })),
-        React.createElement("button", { className: "switch-row go", onClick: onSettings },
-            React.createElement("span", { className: "switch-text" },
-                "\u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438",
-                React.createElement("em", null, "\u041A\u0430\u0440\u0442\u0430, \u043E\u0444\u043E\u0440\u043C\u043B\u0435\u043D\u0438\u0435, \u0441\u043D\u0438\u043C\u043A\u0438, \u0434\u043E\u0441\u0442\u0443\u043F")),
-            React.createElement("span", { className: "step-pen" }, "\u2192"))))));
+                } }))))));
 }
 /* шторка: настройки — поведение приложения */
 function SettingsSheet({ open, onClose, box, visits, theme, onTheme, quality, onQuality, cityPins, onToggleCityPins, hasPin, faceAvailable, faceOn, onSetPin, onDropPin, onLock, onFace, }) {
@@ -2957,7 +2952,7 @@ function SettingsSheet({ open, onClose, box, visits, theme, onTheme, quality, on
     }));
 }
 /* шторка: все поездки — разрезы, свёртка групп, поиск */
-function ListSheet({ visits, stats, open, onClose, onPick, onRemove, onAdd, box }) {
+function ListSheet({ visits, stats, open, onClose, onPick, onRemove, box }) {
     const [mode, setMode] = useState("year");
     const [q, setQ] = useState("");
     const [closed, setClosed] = useState({});
@@ -3135,12 +3130,7 @@ function ListSheet({ visits, stats, open, onClose, onPick, onRemove, onAdd, box 
                         React.createElement("button", { className: "trip-del", onClick: () => onRemove(row.a3, row.idx), "aria-label": "\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u043F\u043E\u0435\u0437\u0434\u043A\u0443" },
                             React.createElement("svg", { viewBox: "0 0 24 24", width: "15", height: "15" },
                                 React.createElement("path", { d: "M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12", fill: "none", stroke: "currentColor", strokeWidth: "1.7", strokeLinecap: "round", strokeLinejoin: "round" }))))))));
-        }),
-        React.createElement("div", { className: "list-foot" },
-            React.createElement("button", { className: "btn-main wide", onClick: () => {
-                    close();
-                    setTimeout(onAdd, 220);
-                } }, "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u043F\u043E\u0435\u0437\u0434\u043A\u0443"))))));
+        })))));
 }
 /* ================================================================== */
 /*  Приложение                                                        */
@@ -3738,7 +3728,7 @@ function Atlas() {
                 const prof = { ...profile, name: v };
                 setProfile(prof);
                 await store.set(K_PROFILE, prof);
-            }, onPickAvatar: (src) => setAvatarDraft(src), onExport: exportData, onImport: importData, onSettings: () => setSheet("settings"), visits: visits }),
+            }, onPickAvatar: (src) => setAvatarDraft(src), onExport: exportData, onImport: importData, visits: visits }),
         React.createElement(SettingsSheet, { open: sheet === "settings", onClose: () => setSheet(null), box: box, visits: visits, theme: theme, onTheme: setTheme, quality: photoQuality, onQuality: setPhotoQuality, cityPins: cityPins, onToggleCityPins: setCityPins, hasPin: !!profile.pinHash, faceAvailable: faceAvailable, faceOn: !!profile.credId, onSetPin: () => {
                 setSheet(null);
                 setProfile(null);
@@ -3757,7 +3747,7 @@ function Atlas() {
                     enrollFace(profile);
                 }
             } }),
-        React.createElement(ListSheet, { visits: visits, stats: stats, open: sheet === "list", onClose: () => setSheet(null), onPick: (a3) => setSelected(a3), onRemove: removeTrip, onAdd: () => setSheet("add"), box: box }),
+        React.createElement(ListSheet, { visits: visits, stats: stats, open: sheet === "list", onClose: () => setSheet(null), onPick: (a3) => setSelected(a3), onRemove: removeTrip, box: box }),
         React.createElement("nav", { className: "tabbar" },
             React.createElement("button", { className: "tab" + (sheet === "list" ? " on" : ""), onClick: () => setSheet((v) => (v === "list" ? null : "list")) },
                 React.createElement("svg", { viewBox: "0 0 24 24", width: "22", height: "22" },
@@ -3977,8 +3967,6 @@ body > div{max-width:100%;}
   border-radius:11px; text-align:center; min-width:0;}
 .cubes b{display:block; font-family:Georgia,serif; font-size:1.15rem; font-weight:400; color:var(--gold);}
 .cubes span{display:block; margin-top:2px; font-size:0.62rem; color:var(--dim);}
-.list-foot{padding:18px 14px 8px;}
-.btn-main.wide{width:100%; min-height:48px;}
 .hotel{margin-top:9px;}
 .list-head{padding:0 14px 6px; position:sticky; top:0; z-index:2; background:var(--sheet);}
 .sheet{transition:transform .22s cubic-bezier(.22,.7,.3,1), bottom .2s ease, max-height .2s ease;}
@@ -4021,8 +4009,6 @@ body > div{max-width:100%;}
 .sheet .avatar-text{flex:1 1 auto; min-width:0;}
 .sheet .name-input{width:100%; min-height:40px; padding:8px 10px; margin-bottom:2px; background:var(--field); border:1px solid var(--line); border-radius:10px; color:var(--ink); font-size:1rem; font-family:inherit; outline:none; appearance:none; -webkit-appearance:none;}
 .sheet .name-input:focus{border-color:var(--gold);}
-.sheet .switch-row.go{margin-top:14px; border-color:var(--gold);}
-.sheet .switch-row.go .switch-text{color:var(--gold);}
 .sheet .prof-nums + .prof-nums{margin-top:-2px;}
 .sheet .avatar-text b{display:block; font-size:0.938rem; font-weight:500;}
 .sheet .avatar-text em{display:block; margin-top:3px; font-style:normal; font-size:0.750rem; color:var(--dim);}
