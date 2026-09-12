@@ -748,7 +748,7 @@ const K_DATA = "atlas:data:main";
 const K_SETTINGS = "atlas:settings";
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "2.9";
+const APP_VERSION = "3.0";
 const APP_BUILD = "2026-09-12";
 /* проверка: доступно ли постоянное хранилище и переживает ли запись перезапуск */
 async function checkStorage() {
@@ -2962,7 +2962,7 @@ function ListSheet({ visits, stats, open, onClose, onPick, onRemove, onAdd, box 
     const [mode, setMode] = useState("year");
     const [q, setQ] = useState("");
     const [closed, setClosed] = useState({});
-    const [showStats, setShowStats] = useState(false);
+    const [flipped, setFlipped] = useState(false);
     useEffect(() => {
         if (open) {
             setQ("");
@@ -3024,13 +3024,20 @@ function ListSheet({ visits, stats, open, onClose, onPick, onRemove, onAdd, box 
     const totals = useMemo(() => {
         const cities = new Set();
         const years = new Set();
+        const hotels = new Set();
         let photos = 0;
         Object.values(visits).forEach((arr) => arr.forEach((t) => {
             (t.cities || []).forEach((c) => cities.add(c));
+            (t.hotels || []).forEach((h) => hotels.add(h.name));
             years.add(t.y);
             photos += (t.photos || []).length;
         }));
-        return { cities: cities.size, years: years.size, photos };
+        return {
+            cities: cities.size,
+            years: years.size,
+            photos,
+            hotels: hotels.size,
+        };
     }, [visits]);
     const sub = (t) => {
         var _a, _b;
@@ -3052,47 +3059,55 @@ function ListSheet({ visits, stats, open, onClose, onPick, onRemove, onAdd, box 
             ].map(([v, t]) => (React.createElement("button", { key: v, className: "seg-btn" + (mode === v ? " on" : ""), onClick: () => setMode(v) }, t)))),
             React.createElement("div", { className: "list-search" },
                 React.createElement(TextField, { search: true, value: q, placeholder: "\u041F\u043E\u0438\u0441\u043A \u043F\u043E \u0437\u0430\u043F\u0438\u0441\u044F\u043C", onChange: (e) => setQ(e.target.value) })),
-            React.createElement("button", { className: "stats-toggle", onClick: () => setShowStats((v) => !v) },
-                stats.countries,
-                " \u0438\u0437 ",
-                TOTAL,
-                " \u0441\u0442\u0440\u0430\u043D \u00B7 ",
-                all.length,
-                " \u043F\u043E\u0435\u0437\u0434\u043E\u043A",
-                React.createElement("span", null, showStats ? "▲" : "▼")),
-            showStats && (React.createElement(React.Fragment, null,
-                React.createElement("div", { className: "prof-nums" },
-                    React.createElement("div", null,
-                        React.createElement("b", null, totals.cities),
-                        React.createElement("span", null, "\u0433\u043E\u0440\u043E\u0434\u043E\u0432")),
-                    React.createElement("div", null,
-                        React.createElement("b", null, totals.years),
-                        React.createElement("span", null, "\u043B\u0435\u0442 \u0432 \u043F\u0443\u0442\u0438")),
-                    React.createElement("div", null,
-                        React.createElement("b", null, totals.photos),
-                        React.createElement("span", null, "\u0441\u043D\u0438\u043C\u043A\u043E\u0432"))),
-                React.createElement("div", { className: "prof-nums" },
-                    React.createElement("div", null,
-                        React.createElement("b", null,
-                            Math.round((stats.countries / TOTAL) * 100),
-                            "%"),
-                        React.createElement("span", null, "\u043C\u0438\u0440\u0430")),
-                    React.createElement("div", null,
-                        React.createElement("b", null, stats.countries),
-                        React.createElement("span", null, "\u0441\u0442\u0440\u0430\u043D")),
-                    React.createElement("div", null,
-                        React.createElement("b", null, all.length),
-                        React.createElement("span", null, "\u043F\u043E\u0435\u0437\u0434\u043E\u043A"))),
-                React.createElement("div", { className: "bars" }, CONT_ORDER.map((k) => (React.createElement("div", { key: k, className: "bar-row" },
-                    React.createElement("span", { className: "bar-name" }, CONTINENTS[k]),
-                    React.createElement("span", { className: "bar-track" },
-                        React.createElement("span", { className: "bar-fill", style: {
-                                width: `${(stats.per[k] / CONT_TOTALS[k]) * 100}%`,
-                            } })),
-                    React.createElement("span", { className: "bar-val" },
-                        stats.per[k],
-                        "/",
-                        CONT_TOTALS[k])))))))),
+            React.createElement("div", { className: "flip" + (flipped ? " on" : ""), onClick: () => setFlipped((v) => !v) },
+                React.createElement("div", { className: "flip-in" },
+                    React.createElement("div", { className: "flip-side" },
+                        React.createElement("div", { className: "flip-top" },
+                            React.createElement("b", null,
+                                stats.countries,
+                                " \u0438\u0437 ",
+                                TOTAL,
+                                " \u0441\u0442\u0440\u0430\u043D"),
+                            React.createElement("span", null, "\u043F\u043E \u0447\u0430\u0441\u0442\u044F\u043C \u0441\u0432\u0435\u0442\u0430")),
+                        React.createElement("div", { className: "bars" }, CONT_ORDER.map((k) => (React.createElement("div", { key: k, className: "bar-row" },
+                            React.createElement("span", { className: "bar-name" }, CONTINENTS[k]),
+                            React.createElement("span", { className: "bar-track" },
+                                React.createElement("span", { className: "bar-fill", style: {
+                                        width: `${(stats.per[k] / CONT_TOTALS[k]) * 100}%`,
+                                    } })),
+                            React.createElement("span", { className: "bar-val" },
+                                stats.per[k],
+                                "/",
+                                CONT_TOTALS[k]))))),
+                        React.createElement("span", { className: "flip-hint" }, "\u041D\u0430\u0436\u043C\u0438\u0442\u0435, \u0447\u0442\u043E\u0431\u044B \u043F\u0435\u0440\u0435\u0432\u0435\u0440\u043D\u0443\u0442\u044C")),
+                    React.createElement("div", { className: "flip-side back" },
+                        React.createElement("div", { className: "flip-top" },
+                            React.createElement("b", null,
+                                all.length,
+                                " \u043F\u043E\u0435\u0437\u0434\u043E\u043A"),
+                            React.createElement("span", null, "\u0432\u0441\u0435\u0433\u043E")),
+                        React.createElement("div", { className: "cubes" },
+                            React.createElement("div", null,
+                                React.createElement("b", null, totals.cities),
+                                React.createElement("span", null, "\u0433\u043E\u0440\u043E\u0434\u043E\u0432")),
+                            React.createElement("div", null,
+                                React.createElement("b", null, totals.years),
+                                React.createElement("span", null, "\u043B\u0435\u0442 \u0432 \u043F\u0443\u0442\u0438")),
+                            React.createElement("div", null,
+                                React.createElement("b", null, totals.photos),
+                                React.createElement("span", null, "\u0441\u043D\u0438\u043C\u043A\u043E\u0432")),
+                            React.createElement("div", null,
+                                React.createElement("b", null,
+                                    Math.round((stats.countries / TOTAL) * 100),
+                                    "%"),
+                                React.createElement("span", null, "\u043C\u0438\u0440\u0430")),
+                            React.createElement("div", null,
+                                React.createElement("b", null, totals.hotels),
+                                React.createElement("span", null, "\u043E\u0442\u0435\u043B\u0435\u0439")),
+                            React.createElement("div", null,
+                                React.createElement("b", null, stats.countries),
+                                React.createElement("span", null, "\u0441\u0442\u0440\u0430\u043D"))),
+                        React.createElement("span", { className: "flip-hint" }, "\u041D\u0430\u0436\u043C\u0438\u0442\u0435, \u0447\u0442\u043E\u0431\u044B \u043F\u0435\u0440\u0435\u0432\u0435\u0440\u043D\u0443\u0442\u044C"))))),
         found.length === 0 && (React.createElement("p", { className: "focus-empty pad16" }, all.length
             ? "Ничего не нашлось."
             : "Пока пусто. Нажмите «Добавить поездку».")),
@@ -3890,11 +3905,11 @@ body > div{max-width:100%;}
 .num{font-family:Georgia,serif; font-size:2.500rem; line-height:1; color:var(--gold);}
 .den{font-size:0.750rem; color:var(--dim); line-height:1.4; min-width:0;}
 .bars{flex:1 1 100%; display:flex; flex-direction:column; gap:5px; min-width:0;}
-.bar-row{display:flex; align-items:center; gap:7px; font-size:0.688rem; color:var(--dim); min-width:0;}
-.bar-name{width:72px; flex:none; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.bar-row{display:flex; align-items:center; gap:8px; margin-bottom:6px; font-size:0.688rem; color:var(--dim); min-width:0;}
+.bar-name{flex:none; width:108px; white-space:nowrap;}
 .bar-track{flex:1 1 0; min-width:0; height:5px; background:var(--track); border-radius:3px; overflow:hidden;}
 .bar-fill{display:block; height:100%; background:var(--gold);}
-.bar-val{width:42px; text-align:right; flex:none; font-variant-numeric:tabular-nums;}
+.bar-val{width:46px; text-align:right; flex:none; font-variant-numeric:tabular-nums;}
 
 .sel-card{margin:14px 0 0; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:12px;}
 .sel-head{display:flex; align-items:center; gap:10px;}
@@ -3925,7 +3940,7 @@ body > div{max-width:100%;}
 .sheet-list{flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:0 0 22px;}
 .sheet-body{padding:0 16px 22px; overflow-y:auto;}
 .sheet-label{font-size:0.750rem; color:var(--dim); margin:18px 0 8px;}
-.sheet-list .bars{padding:4px 16px 14px;}
+.sheet-list .bars{padding:0;}
 .sheet-list .group{padding:0 16px;}
 .sheet-list .focus-empty{padding:0 16px;}
 .hotel{margin-top:9px;}
@@ -3945,6 +3960,23 @@ body > div{max-width:100%;}
 .tf-clear{flex:none; width:32px; height:32px; display:flex; align-items:center; justify-content:center;
   padding:0; border:0; background:none; color:var(--dim); cursor:pointer;}
 .list-search{margin-top:8px;}
+.flip{margin-top:10px; perspective:1200px; cursor:pointer;}
+.flip-in{position:relative; height:238px; transform-style:preserve-3d;
+  transition:transform .55s cubic-bezier(.3,.8,.3,1);}
+.flip.on .flip-in{transform:rotateY(180deg);}
+.flip-side{position:absolute; inset:0; display:flex; flex-direction:column;
+  padding:14px; border-radius:14px; border:1px solid var(--line); background:var(--el);
+  backface-visibility:hidden; -webkit-backface-visibility:hidden;}
+.flip-side.back{transform:rotateY(180deg);}
+.flip-top{display:flex; align-items:baseline; gap:8px; margin-bottom:12px; min-width:0;}
+.flip-top b{font-family:Georgia,serif; font-size:1.05rem; font-weight:400; color:var(--gold);}
+.flip-top span{font-size:0.7rem; color:var(--dim);}
+.flip-hint{margin-top:auto; padding-top:8px; font-size:0.62rem; color:var(--dim); opacity:.7; text-align:center;}
+.cubes{display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:7px;}
+.cubes > div{padding:10px 4px; background:var(--field); border:1px solid var(--line);
+  border-radius:11px; text-align:center; min-width:0;}
+.cubes b{display:block; font-family:Georgia,serif; font-size:1.15rem; font-weight:400; color:var(--gold);}
+.cubes span{display:block; margin-top:2px; font-size:0.62rem; color:var(--dim);}
 .list-foot{padding:18px 14px 8px;}
 .btn-main.wide{width:100%; min-height:48px;}
 .hotel{margin-top:9px;}
