@@ -90,6 +90,7 @@ BN|BRN|Бруней|AS|4.5|114.7
 KH|KHM|Камбоджа|AS|12.6|104.9
 CN|CHN|Китай|AS|35.0|103.0
 GE|GEO|Грузия|AS|42.0|43.5
+HK|HKG|Гонконг|AS|22.32|114.17
 IN|IND|Индия|AS|22.0|79.0
 ID|IDN|Индонезия|AS|-2.5|118.0
 IR|IRN|Иран|AS|32.0|53.7
@@ -290,8 +291,9 @@ BGD|Дакка;Читтагонг
 BTN|Тхимпху;Паро
 BRN|Бандар-Сери-Бегаван
 KHM|Пномпень;Сиемреап;Сиануквиль;Ангкор
-CHN|Пекин;Шанхай;Гуанчжоу;Шэньчжэнь;Санья;Гонконг;Макао;Сиань;Чэнду;Харбин;Урумчи;Ханчжоу;Хайнань
+CHN|Пекин;Шанхай;Гуанчжоу;Шэньчжэнь;Санья;Макао;Сиань;Чэнду;Харбин;Урумчи;Ханчжоу;Хайнань
 GEO|Тбилиси;Батуми;Кутаиси;Мцхета;Гудаури;Боржоми;Сигнахи
+HKG|Гонконг;Коулун;Цзюлун;Виктория-Пик;Лантау
 IND|Дели;Мумбаи;Гоа;Джайпур;Агра;Бангалор;Ченнаи;Керала;Варанаси
 IDN|Джакарта;Бали;Денпасар;Убуд;Сурабая;Ломбок;Джокьякарта
 IRN|Тегеран;Исфахан;Шираз
@@ -744,7 +746,7 @@ const K_DATA = "atlas:data:main";
 const K_SETTINGS = "atlas:settings";
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "2.5";
+const APP_VERSION = "2.6";
 const APP_BUILD = "2026-09-12";
 /* проверка: доступно ли постоянное хранилище и переживает ли запись перезапуск */
 async function checkStorage() {
@@ -928,7 +930,7 @@ const COUNTRY_R = {
     KOR: 2, PRK: 2.2, LKA: 1.8, CUB: 2.2, DOM: 1.4, GTM: 1.6, HND: 1.8,
     NIC: 1.8, CRI: 1.4, PAN: 1.6, ECU: 3, URY: 2.6, GUY: 2.6, SUR: 2,
     ARE: 1.8, KWT: 1, QAT: 0.7, ISR: 1, LBN: 0.7, JOR: 1.8, GEO: 1.6,
-    ARM: 1.1, AZE: 1.6, KGZ: 2.4, TJK: 1.8, BTN: 1.2, MDV: 1, SGP: 0.4,
+    HKG: 0.45, ARM: 1.1, AZE: 1.6, KGZ: 2.4, TJK: 1.8, BTN: 1.2, MDV: 1, SGP: 0.4,
     BHR: 0.4, MLT: 0.3, MCO: 0.15, SMR: 0.15, LIE: 0.2, AND: 0.3, VAT: 0.1,
     LUX: 0.5, CYP: 0.7, EST: 1.4, LVA: 1.4, LTU: 1.4, SVK: 1.4, SVN: 0.9,
     HRV: 1.6, BIH: 1.2, SRB: 1.4, MNE: 0.7, MKD: 0.8, ALB: 1, XKX: 0.6,
@@ -937,7 +939,7 @@ const COUNTRY_R = {
 const countryR = (a3) => COUNTRY_R[a3] || 1.9;
 /* основной цвет флага страны */
 const FLAG_RAW = "ALB#E41E20 AND#0018A8 AUT#ED2939 BLR#D22730 BEL#FDDA24 BIH#002395 BGR#00966E HRV#FF0000 CYP#D57800 CZE#11457E DNK#C60C30 EST#0072CE FIN#003580 FRA#0055A4 DEU#DD0000 GRC#0D5EAF HUN#CD2A3E ISL#02529C IRL#169B62 ITA#008C45 XKX#244AA5 LVA#9E3039 LIE#002B7F LTU#FDB913 LUX#00A1DE MLT#CF142B MDA#0046AE MCO#CE1126 MNE#C40308 NLD#AE1C28 MKD#D20000 NOR#BA0C2F POL#DC143C PRT#046A38 ROU#002B7F RUS#0039A6 SMR#5EB6E4 SRB#C6363C SVK#0B4EA2 SVN#005DA4 ESP#C60B1E SWE#006AA7 CHE#FF0000 UKR#0057B7 GBR#012169 VAT#FFE000 " +
-    "AFG#007A36 ARM#D90012 AZE#00B5E2 BHR#CE1126 BGD#006A4E BTN#FFD520 BRN#F7E017 KHM#032EA1 CHN#EE1C25 GEO#FF0000 IND#FF9933 IDN#CE1126 IRN#239F40 IRQ#CE1126 ISR#0038B8 JPN#BC002D JOR#007A3D KAZ#00AFCA KWT#007A3D KGZ#E8112D LAO#002868 LBN#ED1C24 MYS#010066 MDV#D21034 MNG#C4272F MMR#FECB00 NPL#DC143C PRK#024FA2 OMN#C8102E PAK#01411C PSE#007A3D PHL#0038A8 QAT#8A1538 SAU#006C35 SGP#EF3340 KOR#003478 LKA#8D153A SYR#CE1126 TWN#000095 TJK#CC0000 THA#A51931 TLS#DC241F TUR#E30A17 TKM#28AE66 ARE#00732F UZB#0099B5 VNM#DA251D YEM#CE1126 " +
+    "AFG#007A36 ARM#D90012 AZE#00B5E2 BHR#CE1126 BGD#006A4E BTN#FFD520 BRN#F7E017 KHM#032EA1 CHN#EE1C25 GEO#FF0000 HKG#DE2910 IND#FF9933 IDN#CE1126 IRN#239F40 IRQ#CE1126 ISR#0038B8 JPN#BC002D JOR#007A3D KAZ#00AFCA KWT#007A3D KGZ#E8112D LAO#002868 LBN#ED1C24 MYS#010066 MDV#D21034 MNG#C4272F MMR#FECB00 NPL#DC143C PRK#024FA2 OMN#C8102E PAK#01411C PSE#007A3D PHL#0038A8 QAT#8A1538 SAU#006C35 SGP#EF3340 KOR#003478 LKA#8D153A SYR#CE1126 TWN#000095 TJK#CC0000 THA#A51931 TLS#DC241F TUR#E30A17 TKM#28AE66 ARE#00732F UZB#0099B5 VNM#DA251D YEM#CE1126 " +
     "DZA#006233 AGO#CE1126 BEN#008751 BWA#6DA9D2 BFA#EF2B2D BDI#CE1126 CPV#003893 CMR#007A5E CAF#003082 TCD#002664 COM#3A75C4 COG#009543 COD#007FFF CIV#F77F00 DJI#6AB2E7 EGY#CE1126 GNQ#3E9A00 ERI#4189DD SWZ#3E5EB9 ETH#078930 GAB#009E60 GMB#CE1126 GHA#006B3F GIN#CE1126 GNB#CE1126 KEN#006600 LSO#00209F LBR#002868 LBY#239E46 MDG#FC3D32 MWI#21873B MLI#14B53A MRT#006233 MUS#EA2839 MAR#C1272D MOZ#007168 NAM#003580 NER#E05206 NGA#008751 RWA#00A1DE STP#12AD2B SEN#00853F SYC#003F87 SLE#1EB53A SOM#4189DD ZAF#007A4D SSD#078930 SDN#D21034 TZA#1EB53A TGO#006A4E TUN#E70013 UGA#FCDC04 ZMB#198A00 ZWE#319208 " +
     "ATG#CE1126 BHS#00778B BRB#00267F BLZ#003F87 CAN#FF0000 CRI#002B7F CUB#002A8F DMA#006B3F DOM#002D62 SLV#0F47AF GRD#CE1126 GTM#4997D0 HTI#00209F HND#0073CF JAM#009B3A MEX#006847 NIC#0067C6 PAN#005293 KNA#009E49 LCA#66CCFF VCT#009E60 TTO#CE1126 USA#3C3B6E " +
     "ARG#74ACDF BOL#D52B1E BRA#009C3B CHL#0039A6 COL#FCD116 ECU#FFDD00 GUY#009E49 PRY#D52B1E PER#D91023 SUR#377E3F URY#0038A8 VEN#FFCC00 " +
@@ -1134,7 +1136,11 @@ const CITY_XY_RAW = `
 Гуанчжоу|23.1|113.3
 Шэньчжэнь|22.5|114.1
 Санья|18.3|109.5
-Гонконг|22.3|114.2
+Гонконг|22.32|114.17
+Коулун|22.32|114.18
+Цзюлун|22.33|114.19
+Виктория-Пик|22.27|114.15
+Лантау|22.26|113.94
 Макао|22.2|113.5
 Сиань|34.3|108.9
 Чэнду|30.7|104.1
@@ -1602,7 +1608,10 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         ctx.stroke();
         // суша и страны
         if (g) {
+            const drawn = new Set();
             g.features.forEach((f) => {
+                if (f.id)
+                    drawn.add(f.id);
                 const visited = on(f.id);
                 ctx.beginPath();
                 path(f);
@@ -1620,6 +1629,26 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                 ctx.lineWidth = sel === f.id ? 1.4 : 0.4;
                 if (sel === f.id)
                     ctx.strokeStyle = "#ffffff";
+                ctx.stroke();
+            });
+            // отдельные территории вроде Гонконга в наборе границ отсутствуют
+            COUNTRIES.forEach((c) => {
+                if (drawn.has(c.a3) || !on(c.a3))
+                    return;
+                if (d3.geoDistance([c.lon, c.lat], center) > Math.PI / 2 + 0.3)
+                    return;
+                const circle = d3
+                    .geoCircle()
+                    .center([c.lon, c.lat])
+                    .radius(Math.max(0.8, countryR(c.a3)))();
+                ctx.beginPath();
+                path(circle);
+                ctx.fillStyle = fillStyleFor(ctx, c.a3, path.bounds(circle));
+                ctx.globalAlpha = sel === c.a3 ? 1 : 0.9;
+                ctx.fill();
+                ctx.globalAlpha = 1;
+                ctx.strokeStyle = sel === c.a3 ? "#ffffff" : "rgba(255,255,255,.5)";
+                ctx.lineWidth = sel === c.a3 ? 1.4 : 0.8;
                 ctx.stroke();
             });
         }
