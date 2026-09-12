@@ -748,7 +748,7 @@ const K_DATA = "atlas:data:main";
 const K_SETTINGS = "atlas:settings";
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "3.2";
+const APP_VERSION = "3.3";
 const APP_BUILD = "2026-09-12";
 /* проверка: доступно ли постоянное хранилище и переживает ли запись перезапуск */
 async function checkStorage() {
@@ -2951,9 +2951,32 @@ function SettingsSheet({ open, onClose, box, visits, theme, onTheme, quality, on
                     " Demshin_lab. \u0412\u0441\u0435 \u043F\u0440\u0430\u0432\u0430 \u0437\u0430\u0449\u0438\u0449\u0435\u043D\u044B."))));
     }));
 }
-/* шторка: все поездки — разрезы, свёртка групп, поиск */
-function ListSheet({ visits, stats, open, onClose, onPick, onRemove, box }) {
-    const [mode, setMode] = useState("year");
+/* шторка: фильтры — для глобуса и для списка поездок */
+function FiltersSheet({ open, onClose, box, target, years, yearFilter, onYear, mode, onMode, }) {
+    return (React.createElement(Sheet, { open: open, onClose: onClose, title: "\u0424\u0438\u043B\u044C\u0442\u0440\u044B", box: box }, () => (React.createElement("div", { className: "sheet-body" }, target === "list" ? (React.createElement(React.Fragment, null,
+        React.createElement("p", { className: "step-title" }, "\u041A\u0430\u043A \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0442\u044C \u0441\u043F\u0438\u0441\u043E\u043A"),
+        [
+            ["year", "По годам", "Поездки сгруппированы по годам"],
+            ["country", "По странам", "Все поездки внутри каждой страны"],
+            ["cont", "По частям света", "Европа, Азия, Африка и остальные"],
+        ].map(([v, t, d]) => (React.createElement("button", { key: v, className: "switch-row" + (mode === v ? " picked" : ""), onClick: () => onMode(v) },
+            React.createElement("span", { className: "switch-text" },
+                t,
+                React.createElement("em", null, d)),
+            React.createElement("span", { className: "step-pen" }, mode === v ? "✓" : "")))))) : (React.createElement(React.Fragment, null,
+        React.createElement("p", { className: "step-title" }, "\u041F\u043E\u043A\u0430\u0437\u0430\u0442\u044C \u043D\u0430 \u0433\u043B\u043E\u0431\u0443\u0441\u0435"),
+        React.createElement("button", { className: "switch-row" + (yearFilter === "all" ? " picked" : ""), onClick: () => onYear("all") },
+            React.createElement("span", { className: "switch-text" },
+                "\u0412\u0441\u0435 \u0433\u043E\u0434\u044B",
+                React.createElement("em", null, "\u041A\u0430\u0436\u0434\u0430\u044F \u0441\u0442\u0440\u0430\u043D\u0430, \u0433\u0434\u0435 \u0432\u044B \u0431\u044B\u043B\u0438")),
+            React.createElement("span", { className: "step-pen" }, yearFilter === "all" ? "✓" : "")),
+        years.map((y) => (React.createElement("button", { key: y, className: "switch-row" + (+yearFilter === y ? " picked" : ""), onClick: () => onYear(y) },
+            React.createElement("span", { className: "switch-text" }, y),
+            React.createElement("span", { className: "step-pen" }, +yearFilter === y ? "✓" : "")))),
+        years.length === 0 && (React.createElement("p", { className: "focus-empty" }, "\u0424\u0438\u043B\u044C\u0442\u0440 \u043F\u043E\u044F\u0432\u0438\u0442\u0441\u044F, \u043A\u043E\u0433\u0434\u0430 \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u0435 \u043F\u0435\u0440\u0432\u0443\u044E \u043F\u043E\u0435\u0437\u0434\u043A\u0443."))))))));
+}
+/* шторка: все поездки — свёртка групп, поиск */
+function ListSheet({ visits, stats, open, onClose, onPick, onRemove, box, mode }) {
     const [q, setQ] = useState("");
     const [closed, setClosed] = useState({});
     const [flipped, setFlipped] = useState(false);
@@ -3033,6 +3056,7 @@ function ListSheet({ visits, stats, open, onClose, onPick, onRemove, box }) {
             hotels: hotels.size,
         };
     }, [visits]);
+    const yearHint = "";
     const sub = (t) => {
         var _a, _b;
         const parts = [];
@@ -3046,11 +3070,13 @@ function ListSheet({ visits, stats, open, onClose, onPick, onRemove, box }) {
     };
     return (React.createElement(Sheet, { open: open, onClose: onClose, title: "\u041C\u043E\u0438 \u043F\u043E\u0435\u0437\u0434\u043A\u0438", box: box }, (close) => (React.createElement("div", { className: "sheet-list" },
         React.createElement("div", { className: "list-head" },
-            React.createElement("div", { className: "seg" }, [
-                ["year", "По годам"],
-                ["country", "По странам"],
-                ["cont", "По частям света"],
-            ].map(([v, t]) => (React.createElement("button", { key: v, className: "seg-btn" + (mode === v ? " on" : ""), onClick: () => setMode(v) }, t)))),
+            React.createElement("div", { className: "mode-hint" },
+                mode === "year"
+                    ? "По годам"
+                    : mode === "country"
+                        ? "По странам"
+                        : "По частям света",
+                yearHint),
             React.createElement("div", { className: "list-search" },
                 React.createElement(TextField, { search: true, value: q, placeholder: "\u041F\u043E\u0438\u0441\u043A \u043F\u043E \u0437\u0430\u043F\u0438\u0441\u044F\u043C", onChange: (e) => setQ(e.target.value) })),
             React.createElement("div", { className: "flip" + (flipped ? " on" : ""), onClick: () => setFlipped((v) => !v) },
@@ -3196,6 +3222,13 @@ function Atlas() {
     const [full, setFull] = useState(false);
     const [sheet, setSheet] = useState(null);
     const [editIdx, setEditIdx] = useState(0);
+    const [listMode, setListMode] = useState("year");
+    const [sheetBack, setSheetBack] = useState(null);
+    const openFilters = useCallback(() => {
+        setSheetBack(sheet === "filters" ? sheetBack : sheet);
+        setSheet((v) => (v === "filters" ? sheetBack : "filters"));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [sheet, sheetBack]);
     const [box, setBox] = useState(null);
     const [yearFilter, setYearFilter] = useState("all");
     /* ширина строго по видимой области */
@@ -3686,9 +3719,6 @@ function Atlas() {
         React.createElement("style", null, CSS),
         React.createElement("header", { className: "top" },
             React.createElement("div", { className: "brand" }, "\u0410\u0442\u043B\u0430\u0441")),
-        allYears.length > 0 && (React.createElement("div", { className: "years" },
-            React.createElement("button", { className: yearFilter === "all" ? "yr on" : "yr", onClick: () => setYearFilter("all") }, "\u0412\u0441\u0435 \u0433\u043E\u0434\u044B"),
-            allYears.map((y) => (React.createElement("button", { key: y, className: +yearFilter === y ? "yr on" : "yr", onClick: () => setYearFilter(y) }, y))))),
         React.createElement(Globe, { geo: geo, isOn: isOn, onPick: (a3) => setSelected(BY_A3[a3] ? a3 : null), selected: selected, full: false, onToggleFull: () => setFull(true), visitKey: visitKey, home: lastTrip, boxWidth: globeBox, marks: marks, light: light }),
         full && (React.createElement(Globe, { geo: geo, isOn: isOn, onPick: (a3) => setSelected(BY_A3[a3] ? a3 : null), selected: selected, full: true, onToggleFull: () => setFull(false), visitKey: visitKey, home: lastTrip, boxWidth: globeBox, marks: marks, light: light })),
         React.createElement("section", { className: "focus" }, sel ? (React.createElement(React.Fragment, null,
@@ -3747,7 +3777,14 @@ function Atlas() {
                     enrollFace(profile);
                 }
             } }),
-        React.createElement(ListSheet, { visits: visits, stats: stats, open: sheet === "list", onClose: () => setSheet(null), onPick: (a3) => setSelected(a3), onRemove: removeTrip, box: box }),
+        React.createElement(FiltersSheet, { open: sheet === "filters", onClose: () => setSheet(null), box: box, target: sheetBack === "list" ? "list" : "globe", years: allYears, yearFilter: yearFilter, onYear: (v) => {
+                setYearFilter(v);
+                setSheet(sheetBack);
+            }, mode: listMode, onMode: (v) => {
+                setListMode(v);
+                setSheet(sheetBack);
+            } }),
+        React.createElement(ListSheet, { visits: visits, stats: stats, open: sheet === "list", onClose: () => setSheet(null), onPick: (a3) => setSelected(a3), onRemove: removeTrip, box: box, mode: listMode }),
         React.createElement("nav", { className: "tabbar" },
             React.createElement("button", { className: "tab" + (sheet === "list" ? " on" : ""), onClick: () => setSheet((v) => (v === "list" ? null : "list")) },
                 React.createElement("svg", { viewBox: "0 0 24 24", width: "22", height: "22" },
@@ -3758,6 +3795,10 @@ function Atlas() {
                     React.createElement("svg", { viewBox: "0 0 24 24", width: "24", height: "24" },
                         React.createElement("path", { d: "M12 5v14M5 12h14", fill: "none", stroke: "currentColor", strokeWidth: "2.2", strokeLinecap: "round" }))),
                 React.createElement("em", null, "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C")),
+            (sheet === null || sheet === "list" || sheet === "filters") && (React.createElement("button", { className: "tab" + (sheet === "filters" ? " on" : ""), onClick: openFilters },
+                React.createElement("svg", { viewBox: "0 0 24 24", width: "22", height: "22" },
+                    React.createElement("path", { d: "M4 7h16M7 12h10M10 17h4", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round" })),
+                React.createElement("em", null, "\u0424\u0438\u043B\u044C\u0442\u0440\u044B"))),
             React.createElement("button", { className: "tab" + (sheet === "settings" ? " on" : ""), onClick: () => setSheet((v) => (v === "settings" ? null : "settings")) },
                 React.createElement("svg", { viewBox: "0 0 24 24", width: "22", height: "22" },
                     React.createElement("circle", { cx: "12", cy: "12", r: "3.2", fill: "none", stroke: "currentColor", strokeWidth: "1.8" }),
@@ -3949,6 +3990,7 @@ body > div{max-width:100%;}
 .tf-hint{margin:6px 2px 0; font-size:0.7rem; color:var(--dim);}
 .tf-clear{flex:none; width:32px; height:32px; display:flex; align-items:center; justify-content:center;
   padding:0; border:0; background:none; color:var(--dim); cursor:pointer;}
+.mode-hint{padding:2px 2px 0; font-size:0.7rem; color:var(--dim);}
 .list-search{margin-top:8px;}
 .flip{margin-top:10px; perspective:1200px; cursor:pointer;}
 .flip-in{position:relative; height:238px; transform-style:preserve-3d;
@@ -4060,6 +4102,8 @@ body > div{max-width:100%;}
 .sheet .switch-text{flex:1 1 auto; min-width:0;}
 .sheet .switch-text em{display:block; margin-top:3px; font-style:normal; font-size:0.719rem; color:var(--dim); line-height:1.35;}
 .sheet .danger-row{color:#d97a6a;}
+.sheet .switch-row.picked{border-color:var(--gold);}
+.sheet .switch-row.picked .step-pen{color:var(--gold); font-size:0.9rem;}
 .sheet .switch{flex:none; width:42px; height:25px; border-radius:999px; background:var(--track); position:relative; transition:background .15s;}
 .sheet .switch.on{background:var(--gold);}
 .sheet .switch i{position:absolute; top:3px; left:3px; width:19px; height:19px; border-radius:50%; background:#fff; transition:left .15s;}
