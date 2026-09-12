@@ -744,7 +744,7 @@ const K_DATA = "atlas:data:main";
 const K_SETTINGS = "atlas:settings";
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "2.3";
+const APP_VERSION = "2.4";
 const APP_BUILD = "2026-09-12";
 /* проверка: доступно ли постоянное хранилище и переживает ли запись перезапуск */
 async function checkStorage() {
@@ -2013,10 +2013,12 @@ function PinScreen({ mode, onDone, onSkip, faceAvailable, onFace, shell, name, l
             setTimeout(() => submit(next), 120);
     };
     const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "", "0", "⌫"];
-    /* если вход по лицу включён — предлагаем его сразу, без кнопки */
+    /* вход по лицу запускается сам, но только один раз за открытие */
+    const tried = useRef(false);
     useEffect(() => {
-        if (mode !== "lock" || !faceAvailable || !onFace)
+        if (mode !== "lock" || !faceAvailable || !onFace || tried.current)
             return;
+        tried.current = true;
         const id = setTimeout(() => onFace(), 350);
         return () => clearTimeout(id);
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2920,7 +2922,9 @@ function ProfileSheet({ open, onClose, box, theme, onTheme, quality, onQuality, 
             faceAvailable && hasPin && (React.createElement("button", { className: "switch-row", onClick: onFace },
                 React.createElement("span", { className: "switch-text" },
                     "Face ID",
-                    React.createElement("em", null, faceOn ? "Включён" : "Привязать вход по лицу")),
+                    React.createElement("em", null, faceOn
+                        ? "Система будет спрашивать подтверждение при каждом входе"
+                        : "Вместо кода — вход по лицу")),
                 React.createElement("span", { className: "switch" + (faceOn ? " on" : "") },
                     React.createElement("i", null))))));
     }));
@@ -3663,7 +3667,16 @@ function Atlas() {
                 setProfile(prof);
                 await store.set(K_PROFILE, prof);
                 setSheet(null);
-            }, onLock: lock, onFace: () => enrollFace(profile) }),
+            }, onLock: lock, onFace: async () => {
+                if (profile.credId) {
+                    const prof = { ...profile, credId: "" };
+                    setProfile(prof);
+                    await store.set(K_PROFILE, prof);
+                }
+                else {
+                    enrollFace(profile);
+                }
+            } }),
         React.createElement(ListSheet, { visits: visits, stats: stats, open: sheet === "list", onClose: () => setSheet(null), onPick: (a3) => setSelected(a3), onRemove: removeTrip, box: box }),
         avatarDraft && (React.createElement("div", { className: "modal", style: box ? { left: box.left, width: box.width } : undefined },
             React.createElement(AvatarEditor, { src: avatarDraft, onDone: saveAvatar, onCancel: () => setAvatarDraft(null) }))),

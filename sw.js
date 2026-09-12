@@ -1,6 +1,6 @@
 /* Атлас — офлайн-кеш и обновления.
    Версию поднимайте вместе с APP_VERSION в приложении. */
-const VERSION = "atlas-2.3";
+const VERSION = "atlas-2.4";
 const SHELL = [
   "./",
   "./index.html",
