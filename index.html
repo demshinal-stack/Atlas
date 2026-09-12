@@ -744,7 +744,7 @@ const K_DATA = "atlas:data:main";
 const K_SETTINGS = "atlas:settings";
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "2.2";
+const APP_VERSION = "2.3";
 const APP_BUILD = "2026-09-12";
 /* проверка: доступно ли постоянное хранилище и переживает ли запись перезапуск */
 async function checkStorage() {
@@ -3727,7 +3727,7 @@ body > div{max-width:100%;}
 .loading{padding:60px 0; text-align:center; color:var(--dim);}
 
 .signin{width:100%; margin:0 auto; padding:36px 0 20px;}
-.lock{width:100%; max-width:300px; min-height:100%; margin:0 auto; padding:24px 0;
+.lock{width:100%; max-width:300px; min-height:100%; margin:0 auto; padding:24px 6px;
   display:flex; flex-direction:column; justify-content:center; text-align:center;}
 .lock .brand{text-align:center;}
 .lock-title{font-size:1.062rem; margin:22px 0 4px;}
@@ -3735,12 +3735,13 @@ body > div{max-width:100%;}
 .pips{display:flex; justify-content:center; gap:15px; margin:4px 0 8px;}
 .pip{width:13px; height:13px; border-radius:50%; border:1px solid var(--track);}
 .pip.on{background:var(--gold); border-color:var(--gold);}
-.pad{display:grid; grid-template-columns:repeat(3, 1fr); gap:11px; margin:22px auto 0; max-width:264px;}
-.key{height:68px; border-radius:18px; border:1px solid var(--line); background:var(--el2);
-  color:var(--ink); font-size:1.35rem; font-family:inherit; font-weight:500; cursor:pointer;
+.pad{display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:12px; width:100%; max-width:272px; margin:22px auto 0;}
+.key{width:100%; aspect-ratio:1 / 1; height:auto; max-height:84px; padding:0;
+  display:flex; align-items:center; justify-content:center;
+  border-radius:16px; border:1px solid var(--line); background:var(--el2);
+  color:var(--ink); font-size:1.4rem; font-family:inherit; font-weight:500; cursor:pointer;
   transition:background .12s, transform .08s;}
-.key:active{background:var(--gold); color:#1a1206; transform:scale(.97);}
-.key:active{background:var(--track);}
+.key:active{background:var(--gold); color:#1a1206; transform:scale(.96);}
 .ghost.wide{width:100%; min-height:44px; margin-top:20px; padding:12px; border-radius:12px;}
 .big-brand{font-size:2.125rem; margin-bottom:6px;}
 .tagline{font-size:0.875rem; color:var(--dim); line-height:1.55; margin:0 0 26px;}
