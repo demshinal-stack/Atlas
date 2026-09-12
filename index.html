@@ -748,7 +748,7 @@ const K_DATA = "atlas:data:main";
 const K_SETTINGS = "atlas:settings";
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "3.3";
+const APP_VERSION = "3.4";
 const APP_BUILD = "2026-09-12";
 /* проверка: доступно ли постоянное хранилище и переживает ли запись перезапуск */
 async function checkStorage() {
@@ -3786,6 +3786,11 @@ function Atlas() {
             } }),
         React.createElement(ListSheet, { visits: visits, stats: stats, open: sheet === "list", onClose: () => setSheet(null), onPick: (a3) => setSelected(a3), onRemove: removeTrip, box: box, mode: listMode }),
         React.createElement("nav", { className: "tabbar" },
+            React.createElement("button", { className: "tab" + (sheet === "profile" ? " on" : ""), onClick: () => setSheet((v) => (v === "profile" ? null : "profile")) },
+                profile.avatar ? (React.createElement("img", { className: "tab-ava", src: profile.avatar, alt: "" })) : (React.createElement("svg", { viewBox: "0 0 24 24", width: "22", height: "22" },
+                    React.createElement("circle", { cx: "12", cy: "8.5", r: "3.6", fill: "none", stroke: "currentColor", strokeWidth: "1.7" }),
+                    React.createElement("path", { d: "M4.8 20c.7-3.7 3.6-5.8 7.2-5.8s6.5 2.1 7.2 5.8", fill: "none", stroke: "currentColor", strokeWidth: "1.7", strokeLinecap: "round" }))),
+                React.createElement("em", null, "\u041F\u0440\u043E\u0444\u0438\u043B\u044C")),
             React.createElement("button", { className: "tab" + (sheet === "list" ? " on" : ""), onClick: () => setSheet((v) => (v === "list" ? null : "list")) },
                 React.createElement("svg", { viewBox: "0 0 24 24", width: "22", height: "22" },
                     React.createElement("path", { d: "M4 7h16M4 12h16M4 17h10", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round" })),
@@ -3803,12 +3808,7 @@ function Atlas() {
                 React.createElement("svg", { viewBox: "0 0 24 24", width: "22", height: "22" },
                     React.createElement("circle", { cx: "12", cy: "12", r: "3.2", fill: "none", stroke: "currentColor", strokeWidth: "1.8" }),
                     React.createElement("path", { d: "M19.4 13.5a7.8 7.8 0 0 0 0-3l1.7-1.3-1.8-3.1-2 .8a7.8 7.8 0 0 0-2.6-1.5L14.4 3h-3.6l-.3 2.4a7.8 7.8 0 0 0-2.6 1.5l-2-.8L4 9.2l1.7 1.3a7.8 7.8 0 0 0 0 3L4 14.8l1.8 3.1 2-.8a7.8 7.8 0 0 0 2.6 1.5l.3 2.4h3.6l.3-2.4a7.8 7.8 0 0 0 2.6-1.5l2 .8 1.8-3.1z", fill: "none", stroke: "currentColor", strokeWidth: "1.6", strokeLinejoin: "round" })),
-                React.createElement("em", null, "\u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438")),
-            React.createElement("button", { className: "tab" + (sheet === "profile" ? " on" : ""), onClick: () => setSheet((v) => (v === "profile" ? null : "profile")) },
-                profile.avatar ? (React.createElement("img", { className: "tab-ava", src: profile.avatar, alt: "" })) : (React.createElement("svg", { viewBox: "0 0 24 24", width: "22", height: "22" },
-                    React.createElement("circle", { cx: "12", cy: "8.5", r: "3.6", fill: "none", stroke: "currentColor", strokeWidth: "1.7" }),
-                    React.createElement("path", { d: "M4.8 20c.7-3.7 3.6-5.8 7.2-5.8s6.5 2.1 7.2 5.8", fill: "none", stroke: "currentColor", strokeWidth: "1.7", strokeLinecap: "round" }))),
-                React.createElement("em", null, "\u041F\u0440\u043E\u0444\u0438\u043B\u044C"))),
+                React.createElement("em", null, "\u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438"))),
         avatarDraft && (React.createElement("div", { className: "modal", style: box ? { left: box.left, width: box.width } : undefined },
             React.createElement(AvatarEditor, { src: avatarDraft, onDone: saveAvatar, onCancel: () => setAvatarDraft(null) }))),
         updateReady && (React.createElement("div", { className: "banner" },
