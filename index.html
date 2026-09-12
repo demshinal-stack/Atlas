@@ -748,7 +748,7 @@ const K_DATA = "atlas:data:main";
 const K_SETTINGS = "atlas:settings";
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "3.4";
+const APP_VERSION = "3.5";
 const APP_BUILD = "2026-09-12";
 /* проверка: доступно ли постоянное хранилище и переживает ли запись перезапуск */
 async function checkStorage() {
@@ -1486,7 +1486,7 @@ function sunPoint(now) {
 /* ================================================================== */
 /*  Карта                                                             */
 /* ================================================================== */
-function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home, boxWidth, marks, light }) {
+function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home, boxWidth, marks, light, playing, setPlaying }) {
     const wrapRef = useRef(null);
     const canvasRef = useRef(null);
     const [size, setSize] = useState(320);
@@ -1499,9 +1499,9 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
     const anim = useRef(null);
     const playRaf = useRef(0);
     const playRef = useRef(false);
-    const [playing, setPlaying] = useState(false);
-    const state = useRef({ isOn, selected, geo, marks, light });
-    state.current = { isOn, selected, geo, marks, light };
+    const belt = useRef(0);
+    const state = useRef({ isOn, selected, geo, marks, light, full });
+    state.current = { isOn, selected, geo, marks, light, full };
     /* размер: по фактической ширине плитки, с повторами до готовности разметки */
     useEffect(() => {
         var _a;
@@ -1512,7 +1512,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
             if (full) {
                 const vw = ((_a = window.visualViewport) === null || _a === void 0 ? void 0 : _a.width) || window.innerWidth || 360;
                 const vh = ((_b = window.visualViewport) === null || _b === void 0 ? void 0 : _b.height) || window.innerHeight || 640;
-                setSize(Math.max(240, Math.min(vw - 24, vh - 150)));
+                setSize(Math.max(240, Math.min(vw - 24, vh - 210)));
                 return;
             }
             const el = wrapRef.current;
@@ -1583,7 +1583,34 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
             .rotate([rot.current[0], rot.current[1], 0])
             .clipAngle(90);
         const path = d3.geoPath(proj, ctx);
-        const { isOn: on, selected: sel, geo: g, marks: mk, light: lt } = state.current;
+        const { isOn: on, selected: sel, geo: g, marks: mk, light: lt, full: fs, } = state.current;
+        // пояс флагов вокруг нижней части глобуса — только во весь экран
+        const beltFlags = fs ? COUNTRIES.filter((c) => on(c.a3)) : [];
+        const beltY = cy + R * 0.58;
+        const beltRx = R * 1.16;
+        const beltRy = R * 0.3;
+        const drawBelt = (front) => {
+            if (!beltFlags.length)
+                return;
+            const n = beltFlags.length;
+            beltFlags.forEach((c, i) => {
+                const a = belt.current + (i * Math.PI * 2) / n;
+                const sn = Math.sin(a);
+                if (front !== sn > 0)
+                    return;
+                const x = cx + beltRx * Math.cos(a);
+                const y = beltY + beltRy * sn;
+                const k = 0.7 + 0.45 * (sn + 1) * 0.5;
+                ctx.save();
+                ctx.globalAlpha = front ? 1 : 0.5;
+                ctx.font = `${Math.round(26 * k)}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText(flag(c.a2), x, y);
+                ctx.restore();
+            });
+        };
+        drawBelt(false);
         const sun = sunPoint(new Date());
         const center = [-rot.current[0], -rot.current[1]];
         // океан с объёмом
@@ -1786,6 +1813,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         ctx.strokeStyle = "rgba(130,190,230,.45)";
         ctx.lineWidth = 1;
         ctx.stroke();
+        drawBelt(true);
     }, [size]);
     /* кадр всегда рисуется актуальной функцией, а не той, что была на момент планирования */
     const drawRef = useRef(draw);
@@ -1864,6 +1892,19 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         playRef.current = false;
         setPlaying(false);
     }, []);
+    /* пояс флагов крутится сам, пока открыт полный экран */
+    useEffect(() => {
+        if (!full)
+            return;
+        let raf2 = 0;
+        const step = () => {
+            belt.current += 0.006;
+            drawRef.current();
+            raf2 = requestAnimationFrame(step);
+        };
+        raf2 = requestAnimationFrame(step);
+        return () => cancelAnimationFrame(raf2);
+    }, [full]);
     /* автовращение: ровный ход без наездов */
     useEffect(() => {
         playRef.current = playing;
@@ -2809,7 +2850,7 @@ function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, 
                 } }))))));
 }
 /* шторка: настройки — поведение приложения */
-function SettingsSheet({ open, onClose, box, visits, theme, onTheme, quality, onQuality, cityPins, onToggleCityPins, hasPin, faceAvailable, faceOn, onSetPin, onDropPin, onLock, onFace, }) {
+function SettingsSheet({ open, onClose, box, visits, theme, onTheme, quality, onQuality, cityPins, onToggleCityPins, spinStart, onToggleSpin, hasPin, faceAvailable, faceOn, onSetPin, onDropPin, onLock, onFace, }) {
     const [usage, setUsage] = useState(null);
     const [probe, setProbe] = useState(null);
     const [updMsg, setUpdMsg] = useState("");
@@ -2857,6 +2898,14 @@ function SettingsSheet({ open, onClose, box, visits, theme, onTheme, quality, on
                         ? "Каждый город поездки отмечен булавкой"
                         : "Страны закрашены, булавок нет")),
                 React.createElement("span", { className: "switch" + (cityPins ? " on" : "") },
+                    React.createElement("i", null))),
+            React.createElement("button", { className: "switch-row", onClick: () => onToggleSpin(!spinStart) },
+                React.createElement("span", { className: "switch-text" },
+                    "\u0412\u0440\u0430\u0449\u0430\u0442\u044C \u043F\u0440\u0438 \u0437\u0430\u043F\u0443\u0441\u043A\u0435",
+                    React.createElement("em", null, spinStart
+                        ? "Глобус начинает вращаться сразу"
+                        : "Глобус стоит, пока не нажмёте воспроизведение")),
+                React.createElement("span", { className: "switch" + (spinStart ? " on" : "") },
                     React.createElement("i", null))),
             React.createElement("p", { className: "step-title" }, "\u041E\u0444\u043E\u0440\u043C\u043B\u0435\u043D\u0438\u0435"),
             React.createElement("div", { className: "theme-row" }, [
@@ -3191,10 +3240,21 @@ function Atlas() {
     const [cityPins, setCityPinsState] = useState(false);
     const [theme, setThemeState] = useState("system");
     const [photoQuality, setPhotoQualityState] = useState("light");
+    const [spinStart, setSpinStartState] = useState(false);
+    const [spinning, setSpinning] = useState(false);
+    const setSpinStart = useCallback(async (v) => {
+        setSpinStartState(v);
+        await store.set(K_SETTINGS, {
+            cityPins,
+            theme,
+            photoQuality,
+            spinStart: v,
+        });
+    }, [cityPins, theme, photoQuality]);
     const setPhotoQuality = useCallback(async (v) => {
         setPhotoQualityState(v);
-        await store.set(K_SETTINGS, { cityPins, theme, photoQuality: v });
-    }, [cityPins, theme]);
+        await store.set(K_SETTINGS, { cityPins, theme, photoQuality: v, spinStart });
+    }, [cityPins, theme, spinStart]);
     const [sysDark, setSysDark] = useState(true);
     useEffect(() => {
         var _a, _b;
@@ -3208,14 +3268,14 @@ function Atlas() {
     }, []);
     const setTheme = useCallback(async (v) => {
         setThemeState(v);
-        await store.set(K_SETTINGS, { cityPins, theme: v, photoQuality });
+        await store.set(K_SETTINGS, { cityPins, theme: v, photoQuality, spinStart });
     }, [cityPins, photoQuality]);
     const light = theme === "light" || (theme === "system" && !sysDark);
     const [avatarDraft, setAvatarDraft] = useState(null);
     const setCityPins = useCallback(async (v) => {
         setCityPinsState(v);
-        await store.set(K_SETTINGS, { cityPins: v, theme, photoQuality });
-    }, [theme, photoQuality]);
+        await store.set(K_SETTINGS, { cityPins: v, theme, photoQuality, spinStart });
+    }, [theme, photoQuality, spinStart]);
     const [geo, setGeo] = useState(null);
     const [visits, setVisits] = useState({});
     const [selected, setSelected] = useState(null);
@@ -3417,6 +3477,10 @@ function Atlas() {
                 setThemeState(st.theme);
             if (st === null || st === void 0 ? void 0 : st.photoQuality)
                 setPhotoQualityState(st.photoQuality);
+            if (typeof (st === null || st === void 0 ? void 0 : st.spinStart) === "boolean") {
+                setSpinStartState(st.spinStart);
+                setSpinning(st.spinStart);
+            }
             if ((_b = window.PublicKeyCredential) === null || _b === void 0 ? void 0 : _b.isUserVerifyingPlatformAuthenticatorAvailable) {
                 try {
                     setFaceAvailable(await window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable());
@@ -3603,7 +3667,7 @@ function Atlas() {
             version: 1,
             savedAt: new Date().toISOString(),
             visits,
-            settings: { cityPins, theme, photoQuality },
+            settings: { cityPins, theme, photoQuality, spinStart },
             avatar: (profile === null || profile === void 0 ? void 0 : profile.avatar) || null,
             photos,
         };
@@ -3616,7 +3680,7 @@ function Atlas() {
         a.click();
         a.remove();
         setTimeout(() => URL.revokeObjectURL(url), 3000);
-    }, [visits, cityPins, theme, photoQuality, profile]);
+    }, [visits, cityPins, theme, photoQuality, spinStart, profile]);
     const importData = useCallback(async (file) => {
         try {
             const text = await file.text();
@@ -3648,7 +3712,10 @@ function Atlas() {
                     cityPins: !!d.settings.cityPins,
                     theme: d.settings.theme || "system",
                     photoQuality: d.settings.photoQuality || "light",
+                    spinStart: !!d.settings.spinStart,
                 });
+                if (typeof d.settings.spinStart === "boolean")
+                    setSpinStartState(d.settings.spinStart);
             }
             if (d.avatar) {
                 const prof = { ...(profile || {}), avatar: d.avatar };
@@ -3719,8 +3786,8 @@ function Atlas() {
         React.createElement("style", null, CSS),
         React.createElement("header", { className: "top" },
             React.createElement("div", { className: "brand" }, "\u0410\u0442\u043B\u0430\u0441")),
-        React.createElement(Globe, { geo: geo, isOn: isOn, onPick: (a3) => setSelected(BY_A3[a3] ? a3 : null), selected: selected, full: false, onToggleFull: () => setFull(true), visitKey: visitKey, home: lastTrip, boxWidth: globeBox, marks: marks, light: light }),
-        full && (React.createElement(Globe, { geo: geo, isOn: isOn, onPick: (a3) => setSelected(BY_A3[a3] ? a3 : null), selected: selected, full: true, onToggleFull: () => setFull(false), visitKey: visitKey, home: lastTrip, boxWidth: globeBox, marks: marks, light: light })),
+        React.createElement(Globe, { geo: geo, isOn: isOn, onPick: (a3) => setSelected(BY_A3[a3] ? a3 : null), selected: selected, full: false, onToggleFull: () => setFull(true), visitKey: visitKey, home: lastTrip, boxWidth: globeBox, marks: marks, light: light, playing: spinning, setPlaying: setSpinning }),
+        full && (React.createElement(Globe, { geo: geo, isOn: isOn, onPick: (a3) => setSelected(BY_A3[a3] ? a3 : null), selected: selected, full: true, onToggleFull: () => setFull(false), visitKey: visitKey, home: lastTrip, boxWidth: globeBox, marks: marks, light: light, playing: spinning, setPlaying: setSpinning })),
         React.createElement("section", { className: "focus" }, sel ? (React.createElement(React.Fragment, null,
             React.createElement("div", { className: "focus-head" },
                 React.createElement("span", { className: "big-fl" }, flag(sel.a2)),
@@ -3759,7 +3826,7 @@ function Atlas() {
                 setProfile(prof);
                 await store.set(K_PROFILE, prof);
             }, onPickAvatar: (src) => setAvatarDraft(src), onExport: exportData, onImport: importData, visits: visits }),
-        React.createElement(SettingsSheet, { open: sheet === "settings", onClose: () => setSheet(null), box: box, visits: visits, theme: theme, onTheme: setTheme, quality: photoQuality, onQuality: setPhotoQuality, cityPins: cityPins, onToggleCityPins: setCityPins, hasPin: !!profile.pinHash, faceAvailable: faceAvailable, faceOn: !!profile.credId, onSetPin: () => {
+        React.createElement(SettingsSheet, { open: sheet === "settings", onClose: () => setSheet(null), box: box, visits: visits, theme: theme, onTheme: setTheme, quality: photoQuality, onQuality: setPhotoQuality, cityPins: cityPins, onToggleCityPins: setCityPins, spinStart: spinStart, onToggleSpin: setSpinStart, hasPin: !!profile.pinHash, faceAvailable: faceAvailable, faceOn: !!profile.credId, onSetPin: () => {
                 setSheet(null);
                 setProfile(null);
             }, onDropPin: async () => {
