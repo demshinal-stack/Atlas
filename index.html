@@ -748,7 +748,7 @@ const K_DATA = "atlas:data:main";
 const K_SETTINGS = "atlas:settings";
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "3.0";
+const APP_VERSION = "3.1";
 const APP_BUILD = "2026-09-12";
 /* проверка: доступно ли постоянное хранилище и переживает ли запись перезапуск */
 async function checkStorage() {
@@ -2113,7 +2113,7 @@ function Sheet({ open, onClose, title, children, box }) {
                 transform: shown
                     ? `translate(-50%, ${shift}px)`
                     : "translate(-50%, 100%)",
-                bottom: kb,
+                bottom: kb ? kb : undefined,
                 maxHeight: kb ? `calc(100% - ${kb + 12}px)` : undefined,
             } },
             React.createElement("div", { className: "sheet-grab", onTouchStart: (e) => (swipe.current = e.touches[0].clientY), onTouchMove: (e) => {
@@ -2131,8 +2131,7 @@ function Sheet({ open, onClose, title, children, box }) {
                 } },
                 React.createElement("span", null)),
             React.createElement("div", { className: "sheet-head" },
-                React.createElement("h2", null, title),
-                React.createElement("button", { className: "x", onClick: close }, "\u2715")),
+                React.createElement("h2", null, title)),
             children(close))));
 }
 function WhenRow({ year, setYear, month, setMonth }) {
@@ -3760,21 +3759,21 @@ function Atlas() {
             } }),
         React.createElement(ListSheet, { visits: visits, stats: stats, open: sheet === "list", onClose: () => setSheet(null), onPick: (a3) => setSelected(a3), onRemove: removeTrip, onAdd: () => setSheet("add"), box: box }),
         React.createElement("nav", { className: "tabbar" },
-            React.createElement("button", { className: "tab" + (sheet === "list" ? " on" : ""), onClick: () => setSheet("list") },
+            React.createElement("button", { className: "tab" + (sheet === "list" ? " on" : ""), onClick: () => setSheet((v) => (v === "list" ? null : "list")) },
                 React.createElement("svg", { viewBox: "0 0 24 24", width: "22", height: "22" },
                     React.createElement("path", { d: "M4 7h16M4 12h16M4 17h10", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round" })),
                 React.createElement("em", null, "\u041F\u043E\u0435\u0437\u0434\u043A\u0438")),
-            React.createElement("button", { className: "tab add", onClick: () => setSheet("add") },
+            React.createElement("button", { className: "tab add" + (sheet === "add" ? " on" : ""), onClick: () => setSheet((v) => (v === "add" ? null : "add")) },
                 React.createElement("span", { className: "tab-plus" },
                     React.createElement("svg", { viewBox: "0 0 24 24", width: "24", height: "24" },
                         React.createElement("path", { d: "M12 5v14M5 12h14", fill: "none", stroke: "currentColor", strokeWidth: "2.2", strokeLinecap: "round" }))),
                 React.createElement("em", null, "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C")),
-            React.createElement("button", { className: "tab" + (sheet === "settings" ? " on" : ""), onClick: () => setSheet("settings") },
+            React.createElement("button", { className: "tab" + (sheet === "settings" ? " on" : ""), onClick: () => setSheet((v) => (v === "settings" ? null : "settings")) },
                 React.createElement("svg", { viewBox: "0 0 24 24", width: "22", height: "22" },
                     React.createElement("circle", { cx: "12", cy: "12", r: "3.2", fill: "none", stroke: "currentColor", strokeWidth: "1.8" }),
                     React.createElement("path", { d: "M19.4 13.5a7.8 7.8 0 0 0 0-3l1.7-1.3-1.8-3.1-2 .8a7.8 7.8 0 0 0-2.6-1.5L14.4 3h-3.6l-.3 2.4a7.8 7.8 0 0 0-2.6 1.5l-2-.8L4 9.2l1.7 1.3a7.8 7.8 0 0 0 0 3L4 14.8l1.8 3.1 2-.8a7.8 7.8 0 0 0 2.6 1.5l.3 2.4h3.6l.3-2.4a7.8 7.8 0 0 0 2.6-1.5l2 .8 1.8-3.1z", fill: "none", stroke: "currentColor", strokeWidth: "1.6", strokeLinejoin: "round" })),
                 React.createElement("em", null, "\u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438")),
-            React.createElement("button", { className: "tab" + (sheet === "profile" ? " on" : ""), onClick: () => setSheet("profile") },
+            React.createElement("button", { className: "tab" + (sheet === "profile" ? " on" : ""), onClick: () => setSheet((v) => (v === "profile" ? null : "profile")) },
                 profile.avatar ? (React.createElement("img", { className: "tab-ava", src: profile.avatar, alt: "" })) : (React.createElement("svg", { viewBox: "0 0 24 24", width: "22", height: "22" },
                     React.createElement("circle", { cx: "12", cy: "8.5", r: "3.6", fill: "none", stroke: "currentColor", strokeWidth: "1.7" }),
                     React.createElement("path", { d: "M4.8 20c.7-3.7 3.6-5.8 7.2-5.8s6.5 2.1 7.2 5.8", fill: "none", stroke: "currentColor", strokeWidth: "1.7", strokeLinecap: "round" }))),
@@ -3816,6 +3815,7 @@ body > div{max-width:100%;}
 .root{
   --ink:#eaf0f6; --dim:#8fa4b8; --deep:#0d1b2a; --panel:#132436;
   --line:#22384d; --gold:#e8b84b; --el:#0f2030; --el2:#16293c;
+  --tabh:calc(62px + env(safe-area-inset-bottom));
   --field:#0a1622; --sheet:#0f1f2f; --track:#26415a; --shadow:rgba(0,0,0,.5);
   font: -apple-system-body; font-size:1rem;
   background:var(--deep); color:var(--ink); min-height:100%;
@@ -3926,9 +3926,9 @@ body > div{max-width:100%;}
 .cta{width:100%; margin-top:9px; padding:11px; border:0; border-radius:9px; background:var(--gold); color:#1a1206; font-size:0.875rem; font-weight:600; cursor:pointer;}
 
 .sheet-layer{position:fixed; top:0; left:0; width:100%; height:100%; overflow:hidden; z-index:90;}
-.sheet-dim{position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(4,10,17,0); transition:background .2s ease;}
+.sheet-dim{position:absolute; top:0; left:0; width:100%; height:calc(100% - var(--tabh)); background:rgba(4,10,17,0); transition:background .2s ease;}
 .sheet-layer.in .sheet-dim{background:rgba(4,10,17,.55);}
-.sheet{padding-bottom:env(safe-area-inset-bottom); position:absolute; left:50%; bottom:0; width:100%; max-width:100%; max-height:86vh; display:flex; flex-direction:column;
+.sheet{padding-bottom:8px; position:absolute; left:50%; bottom:var(--tabh); width:100%; max-width:100%; max-height:calc(100% - var(--tabh) - 14px); display:flex; flex-direction:column;
   background:var(--sheet); border-top:1px solid var(--line); border-radius:20px 20px 0 0;
   box-shadow:0 -14px 40px var(--shadow); transform:translate(-50%, 100%); transition:transform .22s cubic-bezier(.22,.7,.3,1);}
 .sheet-grab{padding:10px 0 6px; display:flex; justify-content:center; touch-action:none; cursor:grab;}
@@ -4137,7 +4137,7 @@ body > div{max-width:100%;}
 .focus .trips{margin:12px 0 0;}
 .focus .cta{margin-top:12px;}
 
-.tabbar{position:fixed; left:0; bottom:0; width:100%; z-index:70; display:flex;
+.tabbar{position:fixed; left:0; bottom:0; width:100%; z-index:120; display:flex;
   padding:6px 4px calc(6px + env(safe-area-inset-bottom));
   background:var(--panel); border-top:1px solid var(--line);
   -webkit-backdrop-filter:saturate(140%) blur(18px); backdrop-filter:saturate(140%) blur(18px);}
