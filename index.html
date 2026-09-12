@@ -744,7 +744,7 @@ const K_DATA = "atlas:data:main";
 const K_SETTINGS = "atlas:settings";
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "1.9";
+const APP_VERSION = "2.0";
 const APP_BUILD = "2026-09-12";
 /* проверка: доступно ли постоянное хранилище и переживает ли запись перезапуск */
 async function checkStorage() {
@@ -2464,11 +2464,11 @@ function AvatarEditor({ src, onDone, onCancel }) {
    без автозамены, со сбросом и правильной клавиатурой */
 function TextField({ value, onChange, placeholder, search = false, onFocus, autoFocus, }) {
     const ref = useRef(null);
-    return (React.createElement("div", { className: "tf" + (search ? " tf-search" : "") },
+    return (React.createElement("div", { className: "tf" + (search ? " tf-search" : ""), role: "search" },
         search && (React.createElement("svg", { className: "tf-icon", viewBox: "0 0 24 24", width: "17", height: "17" },
             React.createElement("circle", { cx: "11", cy: "11", r: "6.5", fill: "none", stroke: "currentColor", strokeWidth: "1.8" }),
             React.createElement("path", { d: "M16 16l4.5 4.5", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round" }))),
-        React.createElement("input", { ref: ref, className: "tf-input", type: search ? "search" : "text", role: search ? "searchbox" : undefined, name: search ? "q" : "field", value: value, placeholder: placeholder, onChange: onChange, onFocus: onFocus, autoFocus: autoFocus, inputMode: search ? "search" : "text", enterKeyHint: search ? "search" : "done", autoComplete: "off", autoCorrect: "off", autoCapitalize: search ? "none" : "sentences", spellCheck: "false", "aria-autocomplete": "none", "data-lpignore": "true", "data-1p-ignore": "true", "data-form-type": "other" }),
+        React.createElement("input", { ref: ref, className: "tf-input", type: search ? "search" : "text", role: search ? "searchbox" : undefined, name: search ? "q" : "field", value: value, placeholder: placeholder, onChange: onChange, onFocus: onFocus, autoFocus: autoFocus, inputMode: search ? "search" : "text", enterKeyHint: search ? "search" : "done", autoComplete: "off", autoCorrect: "off", autoCapitalize: search ? "none" : "sentences", spellCheck: "false", "aria-autocomplete": "none", "data-lpignore": "true", "data-1p-ignore": "true", "data-form-type": "other", "x-autocompletetype": "off" }),
         value ? (React.createElement("button", { className: "tf-clear", "aria-label": "\u041E\u0447\u0438\u0441\u0442\u0438\u0442\u044C", onMouseDown: (e) => e.preventDefault(), onClick: () => {
                 var _a;
                 onChange({ target: { value: "" } });
@@ -2643,7 +2643,8 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality 
         : "";
     return (React.createElement(Sheet, { open: open, onClose: onClose, box: box, title: country ? country.name : mode === "edit" ? "Поездка" : "Новая поездка" }, (close) => (React.createElement("div", { className: "sheet-body" },
         !country ? (React.createElement(React.Fragment, null,
-            React.createElement(TextField, { search: true, value: q, placeholder: "\u0421\u0442\u0440\u0430\u043D\u0430 \u0438\u043B\u0438 \u0433\u043E\u0440\u043E\u0434 \u2014 \u041F\u0445\u0443\u043A\u0435\u0442, \u041F\u0440\u0430\u0433\u0430, \u0411\u0430\u043B\u0438", onChange: (e) => setQ(e.target.value) }),
+            React.createElement(TextField, { search: true, value: q, placeholder: "\u041D\u0430\u0447\u043D\u0438\u0442\u0435 \u0432\u0432\u043E\u0434\u0438\u0442\u044C \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u0435", onChange: (e) => setQ(e.target.value) }),
+            React.createElement("p", { className: "tf-hint" }, "\u041D\u0430\u043F\u0440\u0438\u043C\u0435\u0440: \u042F\u043F\u043E\u043D\u0438\u044F, \u041F\u0445\u0443\u043A\u0435\u0442, \u041F\u0440\u0430\u0433\u0430"),
             React.createElement("div", { className: "sheet-list inline-list" }, results.map(({ c, via }) => {
                 var _a;
                 return (React.createElement("button", { key: c.a3, className: "opt" + (((_a = visits[c.a3]) === null || _a === void 0 ? void 0 : _a.length) ? " opt-on" : ""), onClick: () => setDraft({
@@ -2673,7 +2674,7 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality 
             draft.cities.length > 0 && (React.createElement("div", { className: "city-chips" }, draft.cities.map((c) => (React.createElement("span", { key: c, className: "city-chip" },
                 c,
                 React.createElement("button", { onClick: () => patch({ cities: draft.cities.filter((x) => x !== c) }) }, "\u2715")))))),
-            draft.cities.length === 0 || addCity ? (React.createElement(Suggest, { placeholder: "\u041D\u0430\u0447\u043D\u0438\u0442\u0435 \u0432\u0432\u043E\u0434\u0438\u0442\u044C \u0433\u043E\u0440\u043E\u0434", pool: cityPool, exclude: draft.cities, onAdd: (c) => {
+            draft.cities.length === 0 || addCity ? (React.createElement(Suggest, { placeholder: "\u041D\u0430\u0447\u043D\u0438\u0442\u0435 \u0432\u0432\u043E\u0434\u0438\u0442\u044C \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u0435", pool: cityPool, exclude: draft.cities, onAdd: (c) => {
                     patch({ cities: [...draft.cities, c] });
                     setAddCity(false);
                 } })) : (React.createElement("button", { className: "link-btn", onClick: () => setAddCity(true) }, "\uFF0B \u0435\u0449\u0451 \u0433\u043E\u0440\u043E\u0434")))),
@@ -2687,7 +2688,7 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality 
                 React.createElement("button", { className: "icon-btn small", onClick: () => patch({
                         hotels: draft.hotels.filter((_, n) => n !== i),
                     }), "aria-label": "\u0423\u0431\u0440\u0430\u0442\u044C" }, "\u2715")))))),
-            draft.hotels.length === 0 || addHotel ? (React.createElement(Suggest, { placeholder: "\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u043E\u0442\u0435\u043B\u044F \u0438\u043B\u0438 \u0436\u0438\u043B\u044C\u044F", pool: knownHotels, exclude: draft.hotels.map((h) => h.name), onAdd: (name) => {
+            draft.hotels.length === 0 || addHotel ? (React.createElement(Suggest, { placeholder: "\u041D\u0430\u0447\u043D\u0438\u0442\u0435 \u0432\u0432\u043E\u0434\u0438\u0442\u044C \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u0435", pool: knownHotels, exclude: draft.hotels.map((h) => h.name), onAdd: (name) => {
                     patch({ hotels: [...draft.hotels, { name, stars: 0 }] });
                     setAddHotel(false);
                 } })) : (React.createElement("button", { className: "link-btn", onClick: () => setAddHotel(true) }, "\uFF0B \u0435\u0449\u0451 \u043E\u0442\u0435\u043B\u044C")))),
@@ -2973,7 +2974,7 @@ function ListSheet({ visits, stats, open, onClose, onPick, onRemove, box }) {
                 ["cont", "По частям света"],
             ].map(([v, t]) => (React.createElement("button", { key: v, className: "seg-btn" + (mode === v ? " on" : ""), onClick: () => setMode(v) }, t)))),
             React.createElement("div", { className: "list-search" },
-                React.createElement(TextField, { search: true, value: q, placeholder: "\u0421\u0442\u0440\u0430\u043D\u0430, \u0433\u043E\u0440\u043E\u0434, \u043E\u0442\u0435\u043B\u044C \u0438\u043B\u0438 \u0433\u043E\u0434", onChange: (e) => setQ(e.target.value) })),
+                React.createElement(TextField, { search: true, value: q, placeholder: "\u041F\u043E\u0438\u0441\u043A \u043F\u043E \u0437\u0430\u043F\u0438\u0441\u044F\u043C", onChange: (e) => setQ(e.target.value) })),
             React.createElement("button", { className: "stats-toggle", onClick: () => setShowStats((v) => !v) },
                 stats.countries,
                 " \u0438\u0437 ",
@@ -3803,6 +3804,7 @@ body > div{max-width:100%;}
   appearance:none; -webkit-appearance:none; border-radius:0;}
 .tf-input::placeholder{color:var(--dim);}
 .tf-input::-webkit-search-cancel-button{display:none;}
+.tf-hint{margin:6px 2px 0; font-size:0.7rem; color:var(--dim);}
 .tf-clear{flex:none; width:32px; height:32px; display:flex; align-items:center; justify-content:center;
   padding:0; border:0; background:none; color:var(--dim); cursor:pointer;}
 .list-search{margin-top:8px;}
