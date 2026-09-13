@@ -479,7 +479,13 @@ const flag = (a2) => {
         return "🏳";
     }
 };
-const tripLabel = (t) => (t.m ? `${MONTHS[t.m - 1]} ${t.y}` : `${t.y}`);
+const tripLabel = (t) => {
+    if (t.y2 && t.y2 !== t.y)
+        return `${t.y}–${t.y2}`;
+    if (t.approx)
+        return `около ${t.y}`;
+    return t.m ? `${MONTHS[t.m - 1]} ${t.y}` : `${t.y}`;
+};
 const tripFull = (t) => {
     var _a;
     const extra = [
@@ -749,7 +755,7 @@ const K_SETTINGS = "atlas:settings";
 const K_BACKUP = "atlas:data:backup";
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "4.4";
+const APP_VERSION = "4.5";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData() {
@@ -3110,7 +3116,7 @@ function Done({ label, value, onEdit }) {
         React.createElement("span", { className: "step-value" }, value),
         React.createElement("span", { className: "step-pen" }, "\u270E")));
 }
-function WhenPicker({ y, m, noMonth, onChange }) {
+function WhenPicker({ y, m, noMonth, y2, approx, onChange }) {
     const row = {
         position: "relative",
         display: "flex",
@@ -3145,24 +3151,29 @@ function WhenPicker({ y, m, noMonth, onChange }) {
         border: 0,
         background: "transparent",
     };
+    const Picker = ({ title, val, text, onPick, options }) => (React.createElement("div", { style: row },
+        React.createElement("span", { style: label }, title),
+        React.createElement("span", { style: value }, text),
+        React.createElement("span", { style: chev }, "\u25BE"),
+        React.createElement("select", { style: hidden, value: val, onChange: onPick }, options)));
     return (React.createElement("div", null,
-        React.createElement("div", { style: row },
-            React.createElement("span", { style: label }, "\u0413\u043E\u0434"),
-            React.createElement("span", { style: value }, y || "не выбран"),
-            React.createElement("span", { style: chev }, "\u25BE"),
-            React.createElement("select", { style: hidden, value: y || "", onChange: (e) => onChange({ y: +e.target.value }) },
+        React.createElement(Picker, { title: approx ? "С" : "Год", val: y || "", text: y || "не выбран", onPick: (e) => onChange({ y: +e.target.value }), options: React.createElement(React.Fragment, null,
                 !y && React.createElement("option", { value: "" }, "\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0433\u043E\u0434"),
-                YEARS.map((v) => (React.createElement("option", { key: v, value: v }, v))))),
-        React.createElement("div", { style: row },
-            React.createElement("span", { style: label }, "\u041C\u0435\u0441\u044F\u0446"),
-            React.createElement("span", { style: value }, m ? MONTHS[m - 1] : "не помню"),
-            React.createElement("span", { style: chev }, "\u25BE"),
-            React.createElement("select", { style: hidden, value: m || 0, onChange: (e) => {
-                    const v = +e.target.value;
-                    onChange({ m: v || null, noMonth: !v });
-                } },
+                YEARS.map((v) => (React.createElement("option", { key: v, value: v }, v)))) }),
+        approx ? (React.createElement(Picker, { title: "\u041F\u043E", val: y2 || y || "", text: y2 || y || "не выбран", onPick: (e) => onChange({ y2: +e.target.value }), options: YEARS.filter((v) => !y || v >= y).map((v) => (React.createElement("option", { key: v, value: v }, v))) })) : (React.createElement(Picker, { title: "\u041C\u0435\u0441\u044F\u0446", val: m || 0, text: m ? MONTHS[m - 1] : "не помню", onPick: (e) => {
+                const v = +e.target.value;
+                onChange({ m: v || null, noMonth: !v });
+            }, options: React.createElement(React.Fragment, null,
                 React.createElement("option", { value: 0 }, "\u043D\u0435 \u043F\u043E\u043C\u043D\u044E"),
-                MONTHS.map((name, i) => (React.createElement("option", { key: name, value: i + 1 }, name)))))));
+                MONTHS.map((name, i) => (React.createElement("option", { key: name, value: i + 1 }, name)))) })),
+        React.createElement("button", { className: "approx-row", onClick: () => onChange(approx
+                ? { approx: false, y2: null }
+                : { approx: true, m: null, noMonth: true, y2: y }) },
+            React.createElement("span", null,
+                "\u0422\u043E\u0447\u043D\u0443\u044E \u0434\u0430\u0442\u0443 \u043D\u0435 \u043F\u043E\u043C\u043D\u044E",
+                React.createElement("em", null, "\u0423\u043A\u0430\u0436\u0443 \u043F\u0440\u0438\u043C\u0435\u0440\u043D\u044B\u0439 \u043F\u0435\u0440\u0438\u043E\u0434")),
+            React.createElement("span", { className: "switch" + (approx ? " on" : "") },
+                React.createElement("i", null)))));
 }
 function Suggest({ placeholder, pool, exclude, onAdd, allowCustom = true }) {
     const [q, setQ] = useState("");
@@ -3218,6 +3229,8 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality 
                 y: initial.trip.y,
                 m: initial.trip.m || null,
                 noMonth: !initial.trip.m,
+                y2: initial.trip.y2 || null,
+                approx: !!initial.trip.approx,
                 cities: initial.trip.cities || [],
                 hotels: initial.trip.hotels || [],
                 photos: initial.trip.photos || [],
@@ -3275,6 +3288,8 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality 
                         y: NOW.getFullYear(),
                         m: null,
                         noMonth: true,
+                        y2: null,
+                        approx: false,
                         cities: via ? [via] : [],
                         hotels: [],
                         photos: [],
@@ -3290,7 +3305,7 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality 
         country &&
             (editWhen ? (React.createElement("div", { className: "step" },
                 React.createElement("p", { className: "step-title" }, "\u041A\u043E\u0433\u0434\u0430 \u044D\u0442\u043E \u0431\u044B\u043B\u043E"),
-                React.createElement(WhenPicker, { y: draft.y, m: draft.m, noMonth: draft.noMonth, onChange: (p) => patch(p) }),
+                React.createElement(WhenPicker, { y: draft.y, m: draft.m, noMonth: draft.noMonth, y2: draft.y2, approx: draft.approx, onChange: (p) => patch(p) }),
                 React.createElement("button", { className: "cta slim", onClick: () => draft.y && setEditWhen(false) }, "\u0413\u043E\u0442\u043E\u0432\u043E"))) : (React.createElement(Done, { label: "\u041A\u043E\u0433\u0434\u0430", value: whenText, onEdit: () => setEditWhen(true) }))),
         country && whenReady && !editWhen && (React.createElement("div", { className: "step" },
             React.createElement("p", { className: "step-title" }, "\u0413\u043E\u0440\u043E\u0434\u0430"),
@@ -3321,6 +3336,8 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality 
                     onSave(draft.a3, {
                         y: draft.y,
                         m: draft.m || null,
+                        y2: draft.approx ? draft.y2 || draft.y : null,
+                        approx: !!draft.approx,
                         cities: draft.cities,
                         hotels: draft.hotels,
                         photos: draft.photos || [],
@@ -4277,6 +4294,8 @@ function Atlas() {
         const entry = {
             y: (trip === null || trip === void 0 ? void 0 : trip.y) || NOW.getFullYear(),
             m: (trip === null || trip === void 0 ? void 0 : trip.m) || null,
+            y2: (trip === null || trip === void 0 ? void 0 : trip.y2) || null,
+            approx: !!(trip === null || trip === void 0 ? void 0 : trip.approx),
             cities: (trip === null || trip === void 0 ? void 0 : trip.cities) || [],
             hotel: (trip === null || trip === void 0 ? void 0 : trip.hotel) || "",
         };
@@ -4307,13 +4326,23 @@ function Atlas() {
     };
     const allYears = useMemo(() => {
         const s = new Set();
-        Object.values(visits).forEach((arr) => arr.forEach((t) => s.add(t.y)));
+        Object.values(visits).forEach((arr) => arr.forEach((t) => {
+            const to = t.y2 && t.y2 > t.y ? t.y2 : t.y;
+            for (let y = t.y; y <= to; y++)
+                s.add(y);
+        }));
         return [...s].sort((a, b) => b - a);
     }, [visits]);
     const activeSet = useMemo(() => {
         const s = new Set();
         Object.entries(visits).forEach(([a3, arr]) => {
-            if (yearFilter === "all" || arr.some((t) => t.y === +yearFilter))
+            const hit = arr.some((t) => {
+                if (yearFilter === "all")
+                    return true;
+                const y = +yearFilter;
+                return t.y2 ? y >= t.y && y <= t.y2 : t.y === y;
+            });
+            if (hit)
                 s.add(a3);
         });
         return s;
@@ -4462,7 +4491,12 @@ function Atlas() {
     const marks = useMemo(() => {
         const out = [];
         Object.entries(visits).forEach(([a3, arr]) => {
-            const trips = arr.filter((t) => yearFilter === "all" || t.y === +yearFilter);
+            const trips = arr.filter((t) => {
+                if (yearFilter === "all")
+                    return true;
+                const y = +yearFilter;
+                return t.y2 ? y >= t.y && y <= t.y2 : t.y === y;
+            });
             if (!trips.length)
                 return;
             if (!cityPins)
@@ -4492,7 +4526,9 @@ function Atlas() {
                 per[c.cont]++;
         });
         Object.entries(visits).forEach(([, arr]) => arr.forEach((t) => {
-            if (yearFilter === "all" || t.y === +yearFilter)
+            const y = +yearFilter;
+            const hit = yearFilter === "all" || (t.y2 ? y >= t.y && y <= t.y2 : t.y === y);
+            if (hit)
                 trips++;
         }));
         return { countries: activeSet.size, trips, per };
@@ -4957,6 +4993,9 @@ body > div{max-width:100%;}
 .sheet .theme-row{display:flex; gap:7px; margin-bottom:8px;}
 .sheet .theme-cell{flex:1 1 0; min-width:0; padding:12px 4px; border-radius:11px; border:1px solid var(--line); background:var(--el); color:var(--dim); font-size:0.8rem; cursor:pointer;}
 .sheet .theme-cell.on{background:var(--gold); border-color:var(--gold); color:#1a1206; font-weight:600;}
+.approx-row{display:flex; align-items:center; gap:12px; width:100%; margin-top:2px; padding:11px 14px; background:none; border:1px dashed var(--line); border-radius:11px; color:var(--ink); font-size:0.85rem; text-align:left; cursor:pointer; min-width:0;}
+.approx-row > span:first-child{flex:1 1 auto; min-width:0;}
+.approx-row em{display:block; margin-top:2px; font-style:normal; font-size:0.7rem; color:var(--dim);}
 .sheet .step-title{font-size:0.812rem; color:var(--dim); margin:0 0 10px;}
 .sheet .step-done{display:flex; align-items:center; gap:10px; width:100%; margin-top:10px; padding:13px 14px; background:var(--el); border:1px solid var(--line); border-radius:11px; color:var(--ink); font-size:0.875rem; text-align:left; cursor:pointer; min-width:0;}
 .sheet .step-label{flex:none; font-size:0.750rem; color:var(--dim);}
