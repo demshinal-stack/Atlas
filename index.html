@@ -748,7 +748,7 @@ const K_DATA = "atlas:data:main";
 const K_SETTINGS = "atlas:settings";
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "4.1";
+const APP_VERSION = "4.2";
 const APP_BUILD = "2026-09-12";
 /* проверка: доступно ли постоянное хранилище и переживает ли запись перезапуск */
 async function checkStorage() {
@@ -3874,33 +3874,6 @@ function Atlas() {
     }, [cityPins, photoQuality]);
     const light = theme === "light" || (theme === "system" && !sysDark);
     const [avatarDraft, setAvatarDraft] = useState(null);
-    const [photoUsage, setPhotoUsage] = useState(null);
-    useEffect(() => {
-        if (sheet !== "photomode" && sheet !== "settings")
-            return;
-        let dead = false;
-        (async () => {
-            let bytes = 0;
-            let count = 0;
-            for (const arr of Object.values(visits)) {
-                for (const t of arr) {
-                    for (const p of t.photos || []) {
-                        const v = await store.get(photoKey(p.id));
-                        const big = (v === null || v === void 0 ? void 0 : v.full) || (v === null || v === void 0 ? void 0 : v.data) || "";
-                        if (big) {
-                            bytes += Math.round((big.length * 3) / 4);
-                            count += 1;
-                        }
-                    }
-                }
-            }
-            if (!dead)
-                setPhotoUsage({ mb: bytes / 1048576, count });
-        })();
-        return () => {
-            dead = true;
-        };
-    }, [sheet, visits]);
     const setCityPins = useCallback(async (v) => {
         setCityPinsState(v);
         await store.set(K_SETTINGS, { cityPins: v, theme, photoQuality, spinStart });
@@ -4363,6 +4336,33 @@ function Atlas() {
         await store.set(K_PROFILE, prof);
         setAvatarDraft(null);
     }, [profile]);
+    const [photoUsage, setPhotoUsage] = useState(null);
+    useEffect(() => {
+        if (sheet !== "photomode" && sheet !== "settings")
+            return;
+        let dead = false;
+        (async () => {
+            let bytes = 0;
+            let count = 0;
+            for (const arr of Object.values(visits)) {
+                for (const t of arr) {
+                    for (const p of t.photos || []) {
+                        const v = await store.get(photoKey(p.id));
+                        const big = (v === null || v === void 0 ? void 0 : v.full) || (v === null || v === void 0 ? void 0 : v.data) || "";
+                        if (big) {
+                            bytes += Math.round((big.length * 3) / 4);
+                            count += 1;
+                        }
+                    }
+                }
+            }
+            if (!dead)
+                setPhotoUsage({ mb: bytes / 1048576, count });
+        })();
+        return () => {
+            dead = true;
+        };
+    }, [sheet, visits]);
     const marks = useMemo(() => {
         const out = [];
         Object.entries(visits).forEach(([a3, arr]) => {
