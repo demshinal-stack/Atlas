@@ -755,7 +755,7 @@ const K_SETTINGS = "atlas:settings";
 const K_BACKUP = "atlas:data:backup";
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "6.2";
+const APP_VERSION = "6.3";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData() {
@@ -973,8 +973,20 @@ const frame = (w, e, s0, n) => ({
     ],
 });
 const MAP_PAGES = [
-    { id: "west", title: "Америки", box: frame(-172, -20, -50, 74), lon: [-172, -20] },
-    { id: "east", title: "Евразия и Африка", box: frame(-13, 139, -46, 78), lon: [-13, 180] },
+    {
+        id: "west",
+        title: "Америки",
+        box: frame(-170, -33, -56, 73),
+        lon: [-170, -33],
+        aspect: 137 / 129,
+    },
+    {
+        id: "east",
+        title: "Евразия, Африка, Океания",
+        box: frame(-20, 180, -47, 78),
+        lon: [-20, 180],
+        aspect: 200 / 125,
+    },
 ];
 /* кадр карты: без Антарктиды и пустого приполярья */
 const MAP_FRAME = {
@@ -2061,7 +2073,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                 const vw = ((_a = window.visualViewport) === null || _a === void 0 ? void 0 : _a.width) || window.innerWidth || 360;
                 const vh = ((_b = window.visualViewport) === null || _b === void 0 ? void 0 : _b.height) || window.innerHeight || 640;
                 setSize(isMap
-                    ? Math.max(240, vw - 24)
+                    ? Math.max(240, Math.min(vw - 16, (vh - 190) * MAP_PAGES[page.current].aspect))
                     : Math.max(240, Math.min(vw - 24, vh - 210)));
                 return;
             }
@@ -2114,7 +2126,9 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         if (!cv || !size)
             return;
         const dpr = Math.min(2, window.devicePixelRatio || 1);
-        const hh = state.current.isMap ? Math.round(size * 0.82) : size;
+        const hh = state.current.isMap
+            ? Math.round(size / MAP_PAGES[page.current].aspect)
+            : size;
         if (cv.width !== Math.round(size * dpr) ||
             cv.height !== Math.round(hh * dpr)) {
             cv.width = Math.round(size * dpr);
@@ -2125,7 +2139,9 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         const ctx = cv.getContext("2d");
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         ctx.clearRect(0, 0, size, hh);
-        const H = state.current.isMap ? Math.round(size * 0.82) : size;
+        const H = state.current.isMap
+            ? Math.round(size / MAP_PAGES[page.current].aspect)
+            : size;
         const cx = size / 2;
         const cy = H / 2;
         let proj;
@@ -2648,7 +2664,9 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         const r = cv.getBoundingClientRect();
         const px = x - r.left;
         const py = y - r.top;
-        const H = isMap ? Math.round(size * 0.82) : size;
+        const H = isMap
+            ? Math.round(size / MAP_PAGES[page.current].aspect)
+            : size;
         const cx = size / 2;
         const cy = H / 2;
         let proj;
