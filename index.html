@@ -755,7 +755,7 @@ const K_SETTINGS = "atlas:settings";
 const K_BACKUP = "atlas:data:backup";
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "5.9";
+const APP_VERSION = "6.0";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData() {
@@ -965,8 +965,8 @@ const frame = (w, e, s0, n) => ({
     coordinates: [[[w, s0], [e, s0], [e, n], [w, n], [w, s0]]],
 });
 const MAP_PAGES = [
-    { id: "west", title: "Америки", box: frame(-168, -32, -56, 72), lon: [-168, -32] },
-    { id: "east", title: "Евразия и Африка", box: frame(-20, 152, -38, 72), lon: [-20, 180] },
+    { id: "west", title: "Америки", box: frame(-170, -22, -56, 72), lon: [-170, -25] },
+    { id: "east", title: "Евразия и Африка", box: frame(-20, 150, -40, 72), lon: [-20, 180] },
 ];
 /* кадр карты: без Антарктиды и пустого приполярья */
 const MAP_FRAME = {
@@ -2205,12 +2205,12 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
             grad.addColorStop(1, "#061019");
         }
         if (state.current.isMap) {
-            ctx.save();
-            ctx.beginPath();
-            ctx.rect(0, 0, size, H);
-            ctx.clip();
             ctx.fillStyle = "#a9c9e8";
             ctx.fillRect(0, 0, size, H);
+            ctx.save();
+            ctx.beginPath();
+            path(MAP_PAGES[page.current].box);
+            ctx.clip();
         }
         else {
             ctx.beginPath();
@@ -2513,6 +2513,10 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         turnTo([-c.lon, Math.max(-70, Math.min(70, -c.lat))], 650);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selected]);
+    useEffect(() => {
+        if (isMap)
+            requestDraw();
+    }, [pageUi, isMap, requestDraw]);
     /* карта открывается на той части света, где больше отмечено */
     const mapHomed = useRef(false);
     useEffect(() => {
@@ -2624,12 +2628,10 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
             const shift = panX.current;
             const limit = size * 0.22;
             if (Math.abs(shift) > limit) {
-                const next = shift < 0 ? page.current + 1 : page.current - 1;
-                if (next >= 0 && next < MAP_PAGES.length) {
-                    page.current = next;
-                    setPageUi(next);
-                }
+                const next = Math.max(0, Math.min(MAP_PAGES.length - 1, page.current + (shift < 0 ? 1 : -1)));
+                page.current = next;
             }
+            setPageUi(page.current);
             panX.current = 0;
             panY.current = 0;
             requestDraw();
@@ -2676,10 +2678,12 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         }
         const center = [-rot.current[0], -rot.current[1]];
         const seen = (lon, lat) => isMap ? true : d3.geoDistance([lon, lat], center) < Math.PI / 2 - 0.03;
+        const pg = isMap ? MAP_PAGES[page.current].lon : null;
+        const inPage = (lon) => !pg || (lon >= pg[0] && lon <= pg[1]);
         let best = null;
         let bestD = 26;
         (state.current.marks || []).forEach((m) => {
-            if (!seen(m.lon, m.lat))
+            if (!seen(m.lon, m.lat) || !inPage(m.lon))
                 return;
             const q = proj([m.lon, m.lat]);
             if (!q)
@@ -2692,7 +2696,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         });
         if (!best) {
             COUNTRIES.forEach((c) => {
-                if (!seen(c.lon, c.lat))
+                if (!seen(c.lon, c.lat) || !inPage(c.lon))
                     return;
                 const q = proj([c.lon, c.lat]);
                 if (!q)
