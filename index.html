@@ -755,7 +755,7 @@ const K_SETTINGS = "atlas:settings";
 const K_BACKUP = "atlas:data:backup";
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "6.3";
+const APP_VERSION = "6.4";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData() {
@@ -973,19 +973,18 @@ const frame = (w, e, s0, n) => ({
     ],
 });
 const MAP_PAGES = [
+    // границы кадров — вплотную по суше, без лишнего океана
     {
         id: "west",
         title: "Америки",
-        box: frame(-170, -33, -56, 73),
-        lon: [-170, -33],
-        aspect: 137 / 129,
+        box: frame(-168, -34, -55, 72),
+        lon: [-180, -30],
     },
     {
         id: "east",
-        title: "Евразия, Африка, Океания",
-        box: frame(-20, 180, -47, 78),
-        lon: [-20, 180],
-        aspect: 200 / 125,
+        title: "Остальной мир",
+        box: frame(-18, 179, -47, 72),
+        lon: [-25, 180],
     },
 ];
 /* кадр карты: без Антарктиды и пустого приполярья */
@@ -2072,9 +2071,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
             if (full) {
                 const vw = ((_a = window.visualViewport) === null || _a === void 0 ? void 0 : _a.width) || window.innerWidth || 360;
                 const vh = ((_b = window.visualViewport) === null || _b === void 0 ? void 0 : _b.height) || window.innerHeight || 640;
-                setSize(isMap
-                    ? Math.max(240, Math.min(vw - 16, (vh - 190) * MAP_PAGES[page.current].aspect))
-                    : Math.max(240, Math.min(vw - 24, vh - 210)));
+                setSize(Math.max(240, Math.min(vw - 24, vh - 210)));
                 return;
             }
             const el = wrapRef.current;
@@ -2126,9 +2123,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         if (!cv || !size)
             return;
         const dpr = Math.min(2, window.devicePixelRatio || 1);
-        const hh = state.current.isMap
-            ? Math.round(size / MAP_PAGES[page.current].aspect)
-            : size;
+        const hh = size;
         if (cv.width !== Math.round(size * dpr) ||
             cv.height !== Math.round(hh * dpr)) {
             cv.width = Math.round(size * dpr);
@@ -2139,18 +2134,17 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         const ctx = cv.getContext("2d");
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         ctx.clearRect(0, 0, size, hh);
-        const H = state.current.isMap
-            ? Math.round(size / MAP_PAGES[page.current].aspect)
-            : size;
+        const H = size;
         const cx = size / 2;
         const cy = H / 2;
         let proj;
         let R;
         if (state.current.isMap) {
             proj = d3.geoEquirectangular();
+            const pad = 6;
             proj.fitExtent([
-                [0, 0],
-                [size, H],
+                [pad, pad],
+                [size - pad, H - pad],
             ], MAP_PAGES[page.current].box);
             proj.scale(proj.scale() * zoom.current);
             const pb = d3.geoPath(proj).bounds(MAP_PAGES[page.current].box);
@@ -2228,7 +2222,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
             ctx.fillRect(0, 0, size, H);
             ctx.save();
             ctx.beginPath();
-            path(MAP_PAGES[page.current].box);
+            ctx.rect(0, 0, size, H);
             ctx.clip();
         }
         else {
@@ -2252,9 +2246,15 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         // суша и страны
         if (g) {
             const drawn = new Set();
+            const pgLon = state.current.isMap
+                ? MAP_PAGES[page.current].lon
+                : null;
+            const inPage = (c) => !pgLon || (c && c.lon >= pgLon[0] && c.lon <= pgLon[1]);
             g.features.forEach((f) => {
                 if (f.id)
                     drawn.add(f.id);
+                if (pgLon && !inPage(BY_A3[f.id]))
+                    return;
                 const visited = on(f.id);
                 ctx.beginPath();
                 path(f);
@@ -2292,7 +2292,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                     tiny.add(f.id);
             });
             COUNTRIES.forEach((c) => {
-                if (!on(c.a3))
+                if (!on(c.a3) || !inPage(c))
                     return;
                 if (drawn.has(c.a3) && !tiny.has(c.a3))
                     return;
@@ -2664,17 +2664,16 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         const r = cv.getBoundingClientRect();
         const px = x - r.left;
         const py = y - r.top;
-        const H = isMap
-            ? Math.round(size / MAP_PAGES[page.current].aspect)
-            : size;
+        const H = size;
         const cx = size / 2;
         const cy = H / 2;
         let proj;
         if (isMap) {
             proj = d3.geoEquirectangular();
+            const pad = 6;
             proj.fitExtent([
-                [0, 0],
-                [size, H],
+                [pad, pad],
+                [size - pad, H - pad],
             ], MAP_PAGES[page.current].box);
             proj.scale(proj.scale() * zoom.current);
             const pb = d3.geoPath(proj).bounds(MAP_PAGES[page.current].box);
