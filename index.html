@@ -755,7 +755,7 @@ const K_SETTINGS = "atlas:settings";
 const K_BACKUP = "atlas:data:backup";
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "6.4";
+const APP_VERSION = "6.8";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData() {
@@ -977,16 +977,28 @@ const MAP_PAGES = [
     {
         id: "west",
         title: "Америки",
-        box: frame(-168, -34, -55, 72),
-        lon: [-180, -30],
+        box: frame(-168, -34, -56, 72),
+        conts: ["NA", "SA"],
+        extra: [],
     },
     {
         id: "east",
         title: "Остальной мир",
         box: frame(-18, 179, -47, 72),
-        lon: [-25, 180],
+        conts: ["EU", "AS", "AF", "OC"],
+        extra: [],
     },
 ];
+/* какому развороту принадлежит страна */
+const onPage = (a3, idx) => {
+    const pg = MAP_PAGES[idx];
+    if (!pg)
+        return true;
+    if (pg.extra.includes(a3))
+        return true;
+    const c = BY_A3[a3];
+    return c ? pg.conts.includes(c.cont) : false;
+};
 /* кадр карты: без Антарктиды и пустого приполярья */
 const MAP_FRAME = {
     type: "Polygon",
@@ -2141,7 +2153,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         let R;
         if (state.current.isMap) {
             proj = d3.geoEquirectangular();
-            const pad = 6;
+            const pad = 10;
             proj.fitExtent([
                 [pad, pad],
                 [size - pad, H - pad],
@@ -2218,7 +2230,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
             grad.addColorStop(1, "#061019");
         }
         if (state.current.isMap) {
-            ctx.fillStyle = "#a9c9e8";
+            ctx.fillStyle = lt ? "#dce8f0" : "#0b1725";
             ctx.fillRect(0, 0, size, H);
             ctx.save();
             ctx.beginPath();
@@ -2246,37 +2258,49 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         // суша и страны
         if (g) {
             const drawn = new Set();
-            const pgLon = state.current.isMap
-                ? MAP_PAGES[page.current].lon
-                : null;
-            const inPage = (c) => !pgLon || (c && c.lon >= pgLon[0] && c.lon <= pgLon[1]);
+            const mapMode = state.current.isMap;
+            const mine = (a3) => !mapMode || onPage(a3, page.current);
             g.features.forEach((f) => {
                 if (f.id)
                     drawn.add(f.id);
-                if (pgLon && !inPage(BY_A3[f.id]))
+                if (!mine(f.id))
                     return;
                 const visited = on(f.id);
                 ctx.beginPath();
                 path(f);
-                ctx.fillStyle = visited
-                    ? fillStyleFor(ctx, f.id, path.bounds(f))
-                    : state.current.isMap
-                        ? "#fdfdfb"
+                if (state.current.isMap) {
+                    if (visited) {
+                        ctx.fillStyle = fillStyleFor(ctx, f.id, path.bounds(f));
+                        ctx.globalAlpha = sel === f.id ? 1 : 0.9;
+                        ctx.fill();
+                        ctx.globalAlpha = 1;
+                    }
+                    else {
+                        ctx.fillStyle = lt ? "rgba(255,255,255,.5)" : "rgba(255,255,255,.05)";
+                        ctx.fill();
+                    }
+                }
+                else {
+                    ctx.fillStyle = visited
+                        ? fillStyleFor(ctx, f.id, path.bounds(f))
                         : lt
                             ? "#e8eef3"
                             : "#2f5e7e";
-                ctx.globalAlpha = visited ? (sel === f.id ? 1 : 0.92) : 1;
-                ctx.fill();
-                ctx.globalAlpha = 1;
+                    ctx.globalAlpha = visited ? (sel === f.id ? 1 : 0.88) : 1;
+                    ctx.fill();
+                    ctx.globalAlpha = 1;
+                }
                 ctx.strokeStyle = state.current.isMap
-                    ? "rgba(35,40,45,.85)"
+                    ? lt
+                        ? "rgba(30,60,90,.55)"
+                        : "rgba(255,255,255,.62)"
                     : visited
                         ? "rgba(255,255,255,.45)"
                         : "rgba(10,25,38,.75)";
                 ctx.lineWidth =
-                    sel === f.id ? 1.8 : state.current.isMap ? 0.7 : 0.4;
+                    sel === f.id ? 1.6 : state.current.isMap ? 0.55 : 0.4;
                 if (sel === f.id)
-                    ctx.strokeStyle = state.current.isMap ? "#1a1a1a" : "#ffffff";
+                    ctx.strokeStyle = "#ffffff";
                 ctx.stroke();
             });
             // мелкие страны и территории, которых нет в наборе границ,
@@ -2292,7 +2316,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                     tiny.add(f.id);
             });
             COUNTRIES.forEach((c) => {
-                if (!on(c.a3) || !inPage(c))
+                if (!on(c.a3) || !mine(c.a3))
                     return;
                 if (drawn.has(c.a3) && !tiny.has(c.a3))
                     return;
@@ -2319,27 +2343,39 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                 ctx.globalAlpha = sel === c.a3 ? 1 : 0.92;
                 ctx.fill();
                 ctx.globalAlpha = 1;
-                ctx.strokeStyle = sel === c.a3 ? "#ffffff" : "rgba(255,255,255,.6)";
-                ctx.lineWidth = sel === c.a3 ? 1.5 : 1;
+                ctx.strokeStyle = sel === c.a3 ? "#ffffff" : "rgba(255,255,255,.7)";
+                ctx.lineWidth = sel === c.a3 ? 1.5 : 0.9;
                 ctx.stroke();
             });
         }
         else {
+            if (state.current.isMap) {
+                ctx.beginPath();
+                path(MAP_PAGES[page.current].box);
+                ctx.save();
+                ctx.clip();
+            }
             ctx.beginPath();
             LAND.features.forEach((f) => path(f));
             ctx.fillStyle = state.current.isMap
-                ? "#fdfdfb"
+                ? lt
+                    ? "rgba(255,255,255,.5)"
+                    : "rgba(255,255,255,.05)"
                 : lt
                     ? "#e8eef3"
                     : "#2f5e7e";
             ctx.fill();
             ctx.strokeStyle = state.current.isMap
-                ? "rgba(35,40,45,.85)"
+                ? lt
+                    ? "rgba(30,60,90,.55)"
+                    : "rgba(255,255,255,.62)"
                 : lt
                     ? "rgba(60,100,130,.4)"
                     : "rgba(120,175,205,.45)";
             ctx.lineWidth = 0.6;
             ctx.stroke();
+            if (state.current.isMap)
+                ctx.restore();
         }
         // булавки городов (если городов нет — одна на страну)
         const pins = [];
@@ -2541,7 +2577,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
     useEffect(() => {
         if (!isMap || mapHomed.current)
             return;
-        const score = MAP_PAGES.map((pg) => COUNTRIES.filter((c) => isOn(c.a3) && c.lon >= pg.lon[0] && c.lon <= pg.lon[1]).length);
+        const score = MAP_PAGES.map((pg, i) => COUNTRIES.filter((c) => isOn(c.a3) && onPage(c.a3, i)).length);
         if (score[0] + score[1] === 0)
             return;
         mapHomed.current = true;
@@ -2670,7 +2706,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         let proj;
         if (isMap) {
             proj = d3.geoEquirectangular();
-            const pad = 6;
+            const pad = 10;
             proj.fitExtent([
                 [pad, pad],
                 [size - pad, H - pad],
@@ -2693,12 +2729,11 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         }
         const center = [-rot.current[0], -rot.current[1]];
         const seen = (lon, lat) => isMap ? true : d3.geoDistance([lon, lat], center) < Math.PI / 2 - 0.03;
-        const pg = isMap ? MAP_PAGES[page.current].lon : null;
-        const inPage = (lon) => !pg || (lon >= pg[0] && lon <= pg[1]);
+        const inPage = (a3) => !isMap || onPage(a3, page.current);
         let best = null;
         let bestD = 26;
         (state.current.marks || []).forEach((m) => {
-            if (!seen(m.lon, m.lat) || !inPage(m.lon))
+            if (!seen(m.lon, m.lat) || !inPage(m.a3))
                 return;
             const q = proj([m.lon, m.lat]);
             if (!q)
@@ -2711,7 +2746,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         });
         if (!best) {
             COUNTRIES.forEach((c) => {
-                if (!seen(c.lon, c.lat) || !inPage(c.lon))
+                if (!seen(c.lon, c.lat) || !inPage(c.a3))
                     return;
                 const q = proj([c.lon, c.lat]);
                 if (!q)
