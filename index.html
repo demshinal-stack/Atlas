@@ -755,7 +755,7 @@ const K_SETTINGS = "atlas:settings";
 const K_BACKUP = "atlas:data:backup";
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "4.8";
+const APP_VERSION = "4.9";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData() {
@@ -3760,9 +3760,9 @@ function ListSheet({ visits, stats, open, onClose, onPick, onRemove, box, mode }
         };
         found.forEach((row) => {
             if (mode === "year") {
-                const to = row.t.y2 && row.t.y2 > row.t.y ? row.t.y2 : row.t.y;
-                for (let y = row.t.y; y <= to; y++)
-                    push(String(y), row);
+                push(row.t.approx && row.t.y2 && row.t.y2 !== row.t.y
+                    ? `${row.t.y}–${row.t.y2}`
+                    : String(row.t.y), row);
             }
             else if (mode === "country") {
                 push(row.c.name, row);
@@ -3773,7 +3773,7 @@ function ListSheet({ visits, stats, open, onClose, onPick, onRemove, box, mode }
         });
         const list = [...map.entries()];
         if (mode === "year")
-            list.sort((a, b) => +b[0] - +a[0]);
+            list.sort((a, b) => parseInt(b[0], 10) - parseInt(a[0], 10));
         else if (mode === "country")
             list.sort((a, b) => a[0].localeCompare(b[0], "ru"));
         else
@@ -3789,9 +3789,8 @@ function ListSheet({ visits, stats, open, onClose, onPick, onRemove, box, mode }
         Object.values(visits).forEach((arr) => arr.forEach((t) => {
             (t.cities || []).forEach((c) => cities.add(c));
             (t.hotels || []).forEach((h) => hotels.add(h.name));
-            const to = t.y2 && t.y2 > t.y ? t.y2 : t.y;
-            for (let y = t.y; y <= to; y++)
-                years.add(y);
+            if (!t.approx)
+                years.add(t.y);
             photos += (t.photos || []).length;
         }));
         return {
@@ -3880,7 +3879,7 @@ function ListSheet({ visits, stats, open, onClose, onPick, onRemove, box, mode }
             const hidden = closed[key];
             return (React.createElement("div", { key: key, className: "grp" },
                 React.createElement("button", { className: "grp-head", onClick: () => setClosed((c) => ({ ...c, [key]: !c[key] })) },
-                    React.createElement("span", { className: "grp-name" }, key),
+                    React.createElement("span", { className: "grp-name" }, key.includes("–") ? `${key} · точная дата неизвестна` : key),
                     React.createElement("span", { className: "grp-count" }, rows.length),
                     React.createElement("span", { className: "grp-chev" }, hidden ? "▾" : "▴")),
                 !hidden &&
@@ -4356,9 +4355,8 @@ function Atlas() {
     const allYears = useMemo(() => {
         const s = new Set();
         Object.values(visits).forEach((arr) => arr.forEach((t) => {
-            const to = t.y2 && t.y2 > t.y ? t.y2 : t.y;
-            for (let y = t.y; y <= to; y++)
-                s.add(y);
+            if (!t.approx)
+                s.add(t.y);
         }));
         return [...s].sort((a, b) => b - a);
     }, [visits]);
@@ -4368,8 +4366,9 @@ function Atlas() {
             const hit = arr.some((t) => {
                 if (yearFilter === "all")
                     return true;
-                const y = +yearFilter;
-                return t.y2 ? y >= t.y && y <= t.y2 : t.y === y;
+                if (t.approx)
+                    return false; // период — не доказательство года
+                return t.y === +yearFilter;
             });
             if (hit)
                 s.add(a3);
@@ -4528,8 +4527,9 @@ function Atlas() {
             const trips = arr.filter((t) => {
                 if (yearFilter === "all")
                     return true;
-                const y = +yearFilter;
-                return t.y2 ? y >= t.y && y <= t.y2 : t.y === y;
+                if (t.approx)
+                    return false;
+                return t.y === +yearFilter;
             });
             if (!trips.length)
                 return;
@@ -4560,8 +4560,7 @@ function Atlas() {
                 per[c.cont]++;
         });
         Object.entries(visits).forEach(([, arr]) => arr.forEach((t) => {
-            const y = +yearFilter;
-            const hit = yearFilter === "all" || (t.y2 ? y >= t.y && y <= t.y2 : t.y === y);
+            const hit = yearFilter === "all" || (!t.approx && t.y === +yearFilter);
             if (hit)
                 trips++;
         }));
