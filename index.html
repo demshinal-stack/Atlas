@@ -755,7 +755,7 @@ const K_SETTINGS = "atlas:settings";
 const K_BACKUP = "atlas:data:backup";
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "6.0";
+const APP_VERSION = "6.1";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData() {
@@ -965,8 +965,8 @@ const frame = (w, e, s0, n) => ({
     coordinates: [[[w, s0], [e, s0], [e, n], [w, n], [w, s0]]],
 });
 const MAP_PAGES = [
-    { id: "west", title: "Америки", box: frame(-170, -22, -56, 72), lon: [-170, -25] },
-    { id: "east", title: "Евразия и Африка", box: frame(-20, 150, -40, 72), lon: [-20, 180] },
+    { id: "west", title: "Америки", box: frame(-172, -20, -50, 74), lon: [-172, -20] },
+    { id: "east", title: "Евразия и Африка", box: frame(-13, 139, -46, 78), lon: [-13, 180] },
 ];
 /* кадр карты: без Антарктиды и пустого приполярья */
 const MAP_FRAME = {
@@ -2128,13 +2128,8 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                 [0, 0],
                 [size, H],
             ], MAP_PAGES[page.current].box);
-            // заполняем холст целиком: лишнее по краям обрежется
-            let pb = d3.geoPath(proj).bounds(MAP_PAGES[page.current].box);
-            const bw = pb[1][0] - pb[0][0];
-            const bh = pb[1][1] - pb[0][1];
-            const k = Math.max(size / bw, H / bh) * zoom.current;
-            proj.scale(proj.scale() * k);
-            pb = d3.geoPath(proj).bounds(MAP_PAGES[page.current].box);
+            proj.scale(proj.scale() * zoom.current);
+            const pb = d3.geoPath(proj).bounds(MAP_PAGES[page.current].box);
             const tt = proj.translate();
             proj.translate([
                 tt[0] + (size / 2 - (pb[0][0] + pb[1][0]) / 2) + panX.current,
@@ -2655,13 +2650,8 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                 [0, 0],
                 [size, H],
             ], MAP_PAGES[page.current].box);
-            // заполняем холст целиком: лишнее по краям обрежется
-            let pb = d3.geoPath(proj).bounds(MAP_PAGES[page.current].box);
-            const bw = pb[1][0] - pb[0][0];
-            const bh = pb[1][1] - pb[0][1];
-            const k = Math.max(size / bw, H / bh) * zoom.current;
-            proj.scale(proj.scale() * k);
-            pb = d3.geoPath(proj).bounds(MAP_PAGES[page.current].box);
+            proj.scale(proj.scale() * zoom.current);
+            const pb = d3.geoPath(proj).bounds(MAP_PAGES[page.current].box);
             const tt = proj.translate();
             proj.translate([
                 tt[0] + (size / 2 - (pb[0][0] + pb[1][0]) / 2) + panX.current,
