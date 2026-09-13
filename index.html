@@ -755,7 +755,7 @@ const K_SETTINGS = "atlas:settings";
 const K_BACKUP = "atlas:data:backup";
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "6.1";
+const APP_VERSION = "6.2";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData() {
@@ -962,7 +962,15 @@ function topoToGeo(topo, objName) {
 /* два разворота карты: Америки и остальной мир */
 const frame = (w, e, s0, n) => ({
     type: "Polygon",
-    coordinates: [[[w, s0], [e, s0], [e, n], [w, n], [w, s0]]],
+    coordinates: [
+        [
+            [w, s0],
+            [w, n],
+            [e, n],
+            [e, s0],
+            [w, s0],
+        ],
+    ],
 });
 const MAP_PAGES = [
     { id: "west", title: "Америки", box: frame(-172, -20, -50, 74), lon: [-172, -20] },
@@ -2739,13 +2747,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                 if (!wasMoved)
                     pickAt(e.clientX, e.clientY);
             }, onMouseLeave: endDrag, onTouchStart: onTouchStart, onTouchMove: onTouchMove, onTouchEnd: onTouchEnd, onTouchCancel: onTouchEnd })));
-    const pager = isMap ? (React.createElement("div", { className: "map-pager" }, MAP_PAGES.map((pg, i) => (React.createElement("button", { key: pg.id, className: "map-dot" + (pageUi === i ? " on" : ""), onClick: () => {
-            page.current = i;
-            setPageUi(i);
-            panX.current = 0;
-            panY.current = 0;
-            requestDraw();
-        } }, pg.title))))) : null;
+    const pager = isMap ? (React.createElement("div", { className: "map-pager" }, MAP_PAGES.map((pg, i) => (React.createElement("span", { key: pg.id, className: "map-dot" + (pageUi === i ? " on" : "") }))))) : null;
     const controls = (React.createElement("div", { className: "globe-controls" },
         !isMap && (React.createElement("button", { className: "play" + (playing ? " on" : ""), onClick: () => setPlaying((v) => !v), "aria-label": playing ? "Остановить вращение" : "Вращать глобус" }, playing ? (React.createElement("svg", { viewBox: "0 0 24 24", width: "15", height: "15" },
             React.createElement("path", { d: "M8 6h3v12H8zM13 6h3v12h-3z", fill: "currentColor" }))) : (React.createElement("svg", { viewBox: "0 0 24 24", width: "15", height: "15" },
@@ -5042,9 +5044,9 @@ body > div{max-width:100%;}
 .rim{fill:none; stroke:#4d7ea3; stroke-width:1; stroke-opacity:.55; pointer-events:none;}
 .land{fill:#33607f; stroke:#4a7f9f; stroke-width:.4;}
 .grat{fill:none; stroke:#2a4a63; stroke-width:.45; stroke-opacity:.5;}
-.map-pager{display:flex; justify-content:center; gap:7px; padding:2px 10px 0;}
-.map-dot{flex:0 1 auto; min-width:0; padding:7px 13px; border-radius:999px; border:1px solid var(--line); background:var(--el); color:var(--dim); font-size:0.68rem; cursor:pointer; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-.map-dot.on{border-color:var(--gold); color:var(--gold);}
+.map-pager{display:flex; justify-content:center; gap:6px; padding:9px 0 2px;}
+.map-dot{width:6px; height:6px; border-radius:50%; background:var(--track);}
+.map-dot.on{background:var(--gold);}
 .globe-controls{display:flex; justify-content:center; gap:8px; padding:4px 0 12px;}
 .globe-controls .play{color:var(--gold);}
 .globe-controls svg{display:block;}
