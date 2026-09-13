@@ -755,7 +755,7 @@ const K_SETTINGS = "atlas:settings";
 const K_BACKUP = "atlas:data:backup";
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "7.2";
+const APP_VERSION = "7.3";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData() {
@@ -2387,9 +2387,10 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         }
         // булавки городов (если городов нет — одна на страну)
         const pins = [];
+        const pageOk = (a3) => !state.current.isMap || onPage(a3, page.current);
         (mk || []).forEach((m) => {
             const d = d3.geoDistance([m.lon, m.lat], center);
-            if (!visibleAt(m.lon, m.lat))
+            if (!visibleAt(m.lon, m.lat) || !pageOk(m.a3))
                 return;
             const q = proj([m.lon, m.lat]);
             if (q)
@@ -2398,7 +2399,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         // страны без границ подсвечиваем областью
         if (!g) {
             COUNTRIES.forEach((c0) => {
-                if (!on(c0.a3))
+                if (!on(c0.a3) || !pageOk(c0.a3))
                     return;
                 const m = { a3: c0.a3 };
                 const c = c0;
