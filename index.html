@@ -755,7 +755,7 @@ const K_SETTINGS = "atlas:settings";
 const K_BACKUP = "atlas:data:backup";
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "5.5";
+const APP_VERSION = "5.6";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData() {
@@ -2082,7 +2082,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         if (!cv || !size)
             return;
         const dpr = Math.min(2, window.devicePixelRatio || 1);
-        const hh = size;
+        const hh = state.current.isMap ? Math.round(size * 0.62) : size;
         if (cv.width !== Math.round(size * dpr) ||
             cv.height !== Math.round(hh * dpr)) {
             cv.width = Math.round(size * dpr);
@@ -2093,17 +2093,19 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         const ctx = cv.getContext("2d");
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         ctx.clearRect(0, 0, size, hh);
-        const H = size;
+        const H = state.current.isMap ? Math.round(size * 0.62) : size;
         const cx = size / 2;
         const cy = H / 2;
         let proj;
         let R;
         if (state.current.isMap) {
             proj = d3.geoEquirectangular();
-            proj.fitSize([size - 6, H - 6], { type: "Sphere" });
+            proj.fitWidth(size - 4, { type: "Sphere" });
             proj.scale(proj.scale() * zoom.current);
-            const t = proj.translate();
-            proj.translate([t[0] + panX.current, t[1] + panY.current]);
+            proj.translate([
+                size / 2 + panX.current,
+                H / 2 + panY.current,
+            ]);
             R = size / 2;
         }
         else {
@@ -2169,11 +2171,11 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
             grad.addColorStop(1, "#061019");
         }
         if (state.current.isMap) {
+            ctx.fillStyle = "#a8c8e6";
+            ctx.fillRect(0, 0, size, H);
             ctx.beginPath();
             path({ type: "Sphere" });
-            ctx.fillStyle = grad;
-            ctx.fill();
-            ctx.strokeStyle = lt ? "rgba(60,100,130,.45)" : "rgba(120,175,215,.3)";
+            ctx.strokeStyle = "rgba(40,70,95,.35)";
             ctx.lineWidth = 1;
             ctx.stroke();
         }
@@ -2186,7 +2188,11 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         // сетка
         ctx.beginPath();
         path(d3.geoGraticule10());
-        ctx.strokeStyle = lt ? "rgba(30,70,100,0.16)" : "rgba(125,175,215,0.14)";
+        ctx.strokeStyle = state.current.isMap
+            ? "rgba(40,70,95,0.12)"
+            : lt
+                ? "rgba(30,70,100,0.16)"
+                : "rgba(125,175,215,0.14)";
         ctx.lineWidth = 0.6;
         ctx.stroke();
         // суша и страны
@@ -2200,18 +2206,23 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                 path(f);
                 ctx.fillStyle = visited
                     ? fillStyleFor(ctx, f.id, path.bounds(f))
-                    : lt
-                        ? "#e8eef3"
-                        : "#2f5e7e";
-                ctx.globalAlpha = visited ? (sel === f.id ? 1 : 0.88) : 1;
+                    : state.current.isMap
+                        ? "#fdfdfb"
+                        : lt
+                            ? "#e8eef3"
+                            : "#2f5e7e";
+                ctx.globalAlpha = visited ? (sel === f.id ? 1 : 0.92) : 1;
                 ctx.fill();
                 ctx.globalAlpha = 1;
-                ctx.strokeStyle = visited
-                    ? "rgba(255,255,255,.45)"
-                    : "rgba(10,25,38,.75)";
-                ctx.lineWidth = sel === f.id ? 1.4 : 0.4;
+                ctx.strokeStyle = state.current.isMap
+                    ? "rgba(35,40,45,.85)"
+                    : visited
+                        ? "rgba(255,255,255,.45)"
+                        : "rgba(10,25,38,.75)";
+                ctx.lineWidth =
+                    sel === f.id ? 1.8 : state.current.isMap ? 0.7 : 0.4;
                 if (sel === f.id)
-                    ctx.strokeStyle = "#ffffff";
+                    ctx.strokeStyle = state.current.isMap ? "#1a1a1a" : "#ffffff";
                 ctx.stroke();
             });
             // мелкие страны и территории, которых нет в наборе границ,
@@ -2262,9 +2273,17 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         else {
             ctx.beginPath();
             LAND.features.forEach((f) => path(f));
-            ctx.fillStyle = lt ? "#e8eef3" : "#2f5e7e";
+            ctx.fillStyle = state.current.isMap
+                ? "#fdfdfb"
+                : lt
+                    ? "#e8eef3"
+                    : "#2f5e7e";
             ctx.fill();
-            ctx.strokeStyle = lt ? "rgba(60,100,130,.4)" : "rgba(120,175,205,.45)";
+            ctx.strokeStyle = state.current.isMap
+                ? "rgba(35,40,45,.85)"
+                : lt
+                    ? "rgba(60,100,130,.4)"
+                    : "rgba(120,175,205,.45)";
             ctx.lineWidth = 0.6;
             ctx.stroke();
         }
@@ -2302,7 +2321,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                 ctx.stroke();
             });
             COUNTRIES.forEach((c) => {
-                if (on(c.a3))
+                if (on(c.a3) || state.current.isMap)
                     return;
                 if (!visibleAt(c.lon, c.lat))
                     return;
@@ -2559,16 +2578,18 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         const r = cv.getBoundingClientRect();
         const px = x - r.left;
         const py = y - r.top;
-        const H = size;
+        const H = isMap ? Math.round(size * 0.62) : size;
         const cx = size / 2;
         const cy = H / 2;
         let proj;
         if (isMap) {
             proj = d3.geoEquirectangular();
-            proj.fitSize([size - 6, H - 6], { type: "Sphere" });
+            proj.fitWidth(size - 4, { type: "Sphere" });
             proj.scale(proj.scale() * zoom.current);
-            const t = proj.translate();
-            proj.translate([t[0] + panX.current, t[1] + panY.current]);
+            proj.translate([
+                size / 2 + panX.current,
+                H / 2 + panY.current,
+            ]);
         }
         else {
             proj = d3
