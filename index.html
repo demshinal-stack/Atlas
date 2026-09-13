@@ -749,7 +749,7 @@ const K_SETTINGS = "atlas:settings";
 const K_BACKUP = "atlas:data:backup";
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "4.3";
+const APP_VERSION = "4.4";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData() {
@@ -2317,12 +2317,18 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
             ctx.fillRect(0, 0, size, size);
             ctx.restore();
         }
-        // край диска
+        // мягкое свечение атмосферы вместо жёсткого контура
+        const rim = ctx.createRadialGradient(cx, cy, R * 0.93, cx, cy, R * 1.05);
+        rim.addColorStop(0, lt ? "rgba(90,140,175,0)" : "rgba(120,180,225,0)");
+        rim.addColorStop(0.55, lt ? "rgba(90,140,175,.16)" : "rgba(120,180,225,.16)");
+        rim.addColorStop(1, lt ? "rgba(90,140,175,0)" : "rgba(120,180,225,0)");
+        ctx.save();
+        ctx.globalCompositeOperation = "lighter";
+        ctx.fillStyle = rim;
         ctx.beginPath();
-        path({ type: "Sphere" });
-        ctx.strokeStyle = "rgba(130,190,230,.45)";
-        ctx.lineWidth = 1;
-        ctx.stroke();
+        ctx.arc(cx, cy, R * 1.06, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
         drawBelt(true);
     }, [size]);
     /* кадр всегда рисуется актуальной функцией, а не той, что была на момент планирования */
