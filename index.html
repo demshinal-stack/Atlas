@@ -755,7 +755,7 @@ const K_SETTINGS = "atlas:settings";
 const K_BACKUP = "atlas:data:backup";
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "7.4";
+const APP_VERSION = "7.5";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData() {
@@ -977,7 +977,7 @@ const MAP_PAGES = [
     {
         id: "west",
         title: "Америки",
-        box: frame(-168, -34, -56, 74),
+        box: frame(-168, -34, -55, 72),
         lonRange: [-170, -32],
         conts: ["NA", "SA"],
         extra: [],
@@ -2142,7 +2142,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         if (!cv || !size)
             return;
         const dpr = Math.min(2, window.devicePixelRatio || 1);
-        const hh = state.current.isMap ? Math.round(size / 1.42) : size;
+        const hh = size;
         if (cv.width !== Math.round(size * dpr) ||
             cv.height !== Math.round(hh * dpr)) {
             cv.width = Math.round(size * dpr);
@@ -2153,14 +2153,14 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         const ctx = cv.getContext("2d");
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         ctx.clearRect(0, 0, size, hh);
-        const H = state.current.isMap ? Math.round(size / 1.42) : size;
+        const H = size;
         const cx = size / 2;
         const cy = H / 2;
         let proj;
         let R;
         if (state.current.isMap) {
             proj = d3.geoEquirectangular();
-            const pad = 10;
+            const pad = 8;
             const shape = MAP_PAGES[page.current].box;
             proj.fitExtent([
                 [pad, pad],
@@ -2709,13 +2709,13 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         const r = cv.getBoundingClientRect();
         const px = x - r.left;
         const py = y - r.top;
-        const H = isMap ? Math.round(size / 1.42) : size;
+        const H = size;
         const cx = size / 2;
         const cy = H / 2;
         let proj;
         if (isMap) {
             proj = d3.geoEquirectangular();
-            const pad = 10;
+            const pad = 8;
             const shape = MAP_PAGES[page.current].box;
             proj.fitExtent([
                 [pad, pad],
