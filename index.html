@@ -755,7 +755,7 @@ const K_SETTINGS = "atlas:settings";
 const K_BACKUP = "atlas:data:backup";
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "7.0";
+const APP_VERSION = "7.2";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData() {
@@ -977,7 +977,8 @@ const MAP_PAGES = [
     {
         id: "west",
         title: "Америки",
-        box: frame(-160, -34, -56, 73),
+        box: frame(-168, -34, -56, 73),
+        lonRange: [-170, -32],
         conts: ["NA", "SA"],
         extra: [],
         zoom: 1,
@@ -985,7 +986,8 @@ const MAP_PAGES = [
     {
         id: "east",
         title: "Остальной мир",
-        box: frame(-18, 179, -47, 72),
+        box: frame(-12, 180, -47, 72),
+        lonRange: [-14, 180],
         conts: ["EU", "AS", "AF", "OC"],
         extra: [],
         zoom: 1,
@@ -999,7 +1001,10 @@ const onPage = (a3, idx) => {
     if (pg.extra.includes(a3))
         return true;
     const c = BY_A3[a3];
-    return c ? pg.conts.includes(c.cont) : false;
+    if (!c || !pg.conts.includes(c.cont))
+        return false;
+    // далёкие острова в кадр не берём — иначе карта уезжает в сторону
+    return c.lon >= pg.lonRange[0] && c.lon <= pg.lonRange[1];
 };
 /* кадр карты: без Антарктиды и пустого приполярья */
 const MAP_FRAME = {
@@ -2156,12 +2161,13 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         if (state.current.isMap) {
             proj = d3.geoEquirectangular();
             const pad = 10;
+            const shape = MAP_PAGES[page.current].box;
             proj.fitExtent([
                 [pad, pad],
                 [size - pad, H - pad],
-            ], MAP_PAGES[page.current].box);
+            ], shape);
             proj.scale(proj.scale() * zoom.current * (MAP_PAGES[page.current].zoom || 1));
-            const pb = d3.geoPath(proj).bounds(MAP_PAGES[page.current].box);
+            const pb = d3.geoPath(proj).bounds(shape);
             const tt = proj.translate();
             proj.translate([
                 tt[0] + (size / 2 - (pb[0][0] + pb[1][0]) / 2) + panX.current,
@@ -2709,12 +2715,13 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         if (isMap) {
             proj = d3.geoEquirectangular();
             const pad = 10;
+            const shape = MAP_PAGES[page.current].box;
             proj.fitExtent([
                 [pad, pad],
                 [size - pad, H - pad],
-            ], MAP_PAGES[page.current].box);
+            ], shape);
             proj.scale(proj.scale() * zoom.current * (MAP_PAGES[page.current].zoom || 1));
-            const pb = d3.geoPath(proj).bounds(MAP_PAGES[page.current].box);
+            const pb = d3.geoPath(proj).bounds(shape);
             const tt = proj.translate();
             proj.translate([
                 tt[0] + (size / 2 - (pb[0][0] + pb[1][0]) / 2) + panX.current,
