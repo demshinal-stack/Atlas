@@ -755,7 +755,7 @@ const K_SETTINGS = "atlas:settings";
 const K_BACKUP = "atlas:data:backup";
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "5.4";
+const APP_VERSION = "5.5";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData() {
@@ -2082,7 +2082,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         if (!cv || !size)
             return;
         const dpr = Math.min(2, window.devicePixelRatio || 1);
-        const hh = state.current.isMap ? Math.round(size * 0.5) : size;
+        const hh = size;
         if (cv.width !== Math.round(size * dpr) ||
             cv.height !== Math.round(hh * dpr)) {
             cv.width = Math.round(size * dpr);
@@ -2093,14 +2093,14 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         const ctx = cv.getContext("2d");
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         ctx.clearRect(0, 0, size, hh);
-        const H = state.current.isMap ? Math.round(size * 0.5) : size;
+        const H = size;
         const cx = size / 2;
         const cy = H / 2;
         let proj;
         let R;
         if (state.current.isMap) {
             proj = d3.geoEquirectangular();
-            proj.fitSize([size, H], { type: "Sphere" });
+            proj.fitSize([size - 6, H - 6], { type: "Sphere" });
             proj.scale(proj.scale() * zoom.current);
             const t = proj.translate();
             proj.translate([t[0] + panX.current, t[1] + panY.current]);
@@ -2169,8 +2169,13 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
             grad.addColorStop(1, "#061019");
         }
         if (state.current.isMap) {
+            ctx.beginPath();
+            path({ type: "Sphere" });
             ctx.fillStyle = grad;
-            ctx.fillRect(0, 0, size, H);
+            ctx.fill();
+            ctx.strokeStyle = lt ? "rgba(60,100,130,.45)" : "rgba(120,175,215,.3)";
+            ctx.lineWidth = 1;
+            ctx.stroke();
         }
         else {
             ctx.beginPath();
@@ -2351,33 +2356,35 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
             ctx.fillText("📍", fs * 0.1, fs * 0.12);
             ctx.restore();
         });
-        // ночная сторона и сумерки
-        const [slon, slat] = sun;
-        const anti = [slon + 180, -slat];
-        [
-            [100, "rgba(3,8,18,0.10)"],
-            [95, "rgba(3,8,18,0.16)"],
-            [90, "rgba(3,8,18,0.34)"],
-            [80, "rgba(2,6,14,0.22)"],
-        ].forEach(([r, fill]) => {
-            ctx.beginPath();
-            path(d3.geoCircle().center(anti).radius(r)());
-            ctx.fillStyle = fill;
-            ctx.fill();
-        });
-        // блик на дневной стороне
-        const sunPix = proj([slon, slat]);
-        if (sunPix && d3.geoDistance([slon, slat], center) < Math.PI / 2) {
-            const halo = ctx.createRadialGradient(sunPix[0], sunPix[1], 0, sunPix[0], sunPix[1], R * 0.75);
-            halo.addColorStop(0, "rgba(255,236,190,0.16)");
-            halo.addColorStop(1, "rgba(255,236,190,0)");
-            ctx.save();
-            ctx.beginPath();
-            path({ type: "Sphere" });
-            ctx.clip();
-            ctx.fillStyle = halo;
-            ctx.fillRect(0, 0, size, size);
-            ctx.restore();
+        // ночная сторона и сумерки — только на глобусе
+        if (!state.current.isMap) {
+            const [slon, slat] = sun;
+            const anti = [slon + 180, -slat];
+            [
+                [100, "rgba(3,8,18,0.10)"],
+                [95, "rgba(3,8,18,0.16)"],
+                [90, "rgba(3,8,18,0.34)"],
+                [80, "rgba(2,6,14,0.22)"],
+            ].forEach(([r, fill]) => {
+                ctx.beginPath();
+                path(d3.geoCircle().center(anti).radius(r)());
+                ctx.fillStyle = fill;
+                ctx.fill();
+            });
+            // блик на дневной стороне
+            const sunPix = proj([slon, slat]);
+            if (sunPix && d3.geoDistance([slon, slat], center) < Math.PI / 2) {
+                const halo = ctx.createRadialGradient(sunPix[0], sunPix[1], 0, sunPix[0], sunPix[1], R * 0.75);
+                halo.addColorStop(0, "rgba(255,236,190,0.16)");
+                halo.addColorStop(1, "rgba(255,236,190,0)");
+                ctx.save();
+                ctx.beginPath();
+                path({ type: "Sphere" });
+                ctx.clip();
+                ctx.fillStyle = halo;
+                ctx.fillRect(0, 0, size, size);
+                ctx.restore();
+            }
         }
         // мягкое свечение атмосферы вместо жёсткого контура
         if (!state.current.isMap) {
@@ -2552,13 +2559,13 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         const r = cv.getBoundingClientRect();
         const px = x - r.left;
         const py = y - r.top;
-        const H = isMap ? Math.round(size * 0.5) : size;
+        const H = size;
         const cx = size / 2;
         const cy = H / 2;
         let proj;
         if (isMap) {
             proj = d3.geoEquirectangular();
-            proj.fitSize([size, H], { type: "Sphere" });
+            proj.fitSize([size - 6, H - 6], { type: "Sphere" });
             proj.scale(proj.scale() * zoom.current);
             const t = proj.translate();
             proj.translate([t[0] + panX.current, t[1] + panY.current]);
@@ -4756,7 +4763,9 @@ function Atlas() {
                         " \u0441\u0442\u0440\u0430\u043D \u00B7 ",
                         stats.trips,
                         " \u043F\u043E\u0435\u0437\u0434\u043E\u043A"))),
-            React.createElement("p", { className: "focus-empty" }, "\u041F\u043E\u0432\u0435\u0440\u043D\u0438\u0442\u0435 \u0433\u043B\u043E\u0431\u0443\u0441 \u0438 \u043D\u0430\u0436\u043C\u0438\u0442\u0435 \u0442\u043E\u0447\u043A\u0443, \u0447\u0442\u043E\u0431\u044B \u043F\u043E\u0441\u043C\u043E\u0442\u0440\u0435\u0442\u044C \u0441\u0442\u0440\u0430\u043D\u0443.")))),
+            React.createElement("p", { className: "focus-empty" }, mapView === "map"
+                ? "Нажмите страну на карте, чтобы посмотреть её."
+                : "Поверните глобус и нажмите страну, чтобы посмотреть её.")))),
         React.createElement(TripSheet, { open: sheet === "add", onClose: () => setSheet(null), box: box, initial: null, visits: visits, onSave: (a3, trip) => addTrip(a3, trip), mode: "add", quality: photoQuality, since: profile.since }),
         React.createElement(TripSheet, { open: sheet === "edit" && !!sel && !!selTrips.length, onClose: () => setSheet(null), box: box, initial: sel && selTrips.length
                 ? { a3: sel.a3, idx: editIdx, trip: selTrips[editIdx] || selTrips[0] }
@@ -4825,10 +4834,14 @@ function Atlas() {
                     React.createElement("circle", { cx: "12", cy: "12", r: "3.2", fill: "none", stroke: "currentColor", strokeWidth: "1.8" }),
                     React.createElement("path", { d: "M19.4 13.5a7.8 7.8 0 0 0 0-3l1.7-1.3-1.8-3.1-2 .8a7.8 7.8 0 0 0-2.6-1.5L14.4 3h-3.6l-.3 2.4a7.8 7.8 0 0 0-2.6 1.5l-2-.8L4 9.2l1.7 1.3a7.8 7.8 0 0 0 0 3L4 14.8l1.8 3.1 2-.8a7.8 7.8 0 0 0 2.6 1.5l.3 2.4h3.6l.3-2.4a7.8 7.8 0 0 0 2.6-1.5l2 .8 1.8-3.1z", fill: "none", stroke: "currentColor", strokeWidth: "1.6", strokeLinejoin: "round" })),
                 React.createElement("em", null, "\u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438")),
-            (sheet === "country" || sheet === "photomode") && (React.createElement("button", { className: "tab close", onClick: () => setSheet(null) },
+            React.createElement("button", { className: "tab" + (sheet === null ? " on" : ""), onClick: () => {
+                    setSheet(null);
+                    setSheetBack(null);
+                } },
                 React.createElement("svg", { viewBox: "0 0 24 24", width: "22", height: "22" },
-                    React.createElement("path", { d: "M7 7l10 10M17 7L7 17", fill: "none", stroke: "currentColor", strokeWidth: "1.9", strokeLinecap: "round" })),
-                React.createElement("em", null, "\u0417\u0430\u043A\u0440\u044B\u0442\u044C")))),
+                    React.createElement("path", { d: "M4 11l8-6.5 8 6.5", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round" }),
+                    React.createElement("path", { d: "M6.5 10v9h11v-9", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round" })),
+                React.createElement("em", null, "\u0413\u043B\u0430\u0432\u043D\u0430\u044F"))),
         avatarDraft && (React.createElement("div", { className: "modal", style: box ? { left: box.left, width: box.width } : undefined },
             React.createElement(AvatarEditor, { src: avatarDraft, onDone: saveAvatar, onCancel: () => setAvatarDraft(null) }))),
         updateReady && (React.createElement("div", { className: "banner" },
@@ -5236,8 +5249,8 @@ body > div{max-width:100%;}
   background:var(--panel); border-top:1px solid var(--line);
   -webkit-backdrop-filter:saturate(140%) blur(18px); backdrop-filter:saturate(140%) blur(18px);}
 .tab{flex:1 1 0; min-width:0; display:flex; flex-direction:column; align-items:center; gap:3px;
-  padding:7px 2px; background:none; border:0; color:var(--dim); cursor:pointer;}
-.tab em{font-style:normal; font-size:0.62rem; line-height:1;}
+  padding:7px 1px; background:none; border:0; color:var(--dim); cursor:pointer;}
+.tab em{font-style:normal; font-size:0.58rem; line-height:1; white-space:nowrap;}
 .tab.on{color:var(--gold);}
 .tab:active{opacity:.6;}
 .tab-ava{width:23px; height:23px; border-radius:50%; object-fit:cover;}
