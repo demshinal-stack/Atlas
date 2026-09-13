@@ -755,7 +755,7 @@ const K_SETTINGS = "atlas:settings";
 const K_BACKUP = "atlas:data:backup";
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "5.0";
+const APP_VERSION = "5.3";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData() {
@@ -959,7 +959,7 @@ function topoToGeo(topo, objName) {
             .filter(Boolean),
     };
 }
-const K_GEO = "atlas:borders:v1";
+const K_GEO = "atlas:borders:v2";
 /* примерный «охват» страны в градусах — для подсветки области на глобусе */
 const COUNTRY_R = {
     RUS: 21, CAN: 16, USA: 15, CHN: 14, BRA: 14, AUS: 14, IDN: 11, IND: 9.5,
@@ -1999,7 +1999,7 @@ function sunPoint(now) {
 /* ================================================================== */
 /*  Карта                                                             */
 /* ================================================================== */
-function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home, boxWidth, marks, light, playing, setPlaying }) {
+function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home, boxWidth, marks, light, playing, setPlaying, view }) {
     const wrapRef = useRef(null);
     const canvasRef = useRef(null);
     const [size, setSize] = useState(320);
@@ -2013,8 +2013,10 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
     const playRaf = useRef(0);
     const playRef = useRef(false);
     const belt = useRef(0);
-    const state = useRef({ isOn, selected, geo, marks, light, full });
-    state.current = { isOn, selected, geo, marks, light, full };
+    const panY = useRef(0);
+    const isMap = view === "map";
+    const state = useRef({ isOn, selected, geo, marks, light, full, isMap });
+    state.current = { isOn, selected, geo, marks, light, full, isMap };
     /* размер: по фактической ширине плитки, с повторами до готовности разметки */
     useEffect(() => {
         var _a;
@@ -2025,7 +2027,9 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
             if (full) {
                 const vw = ((_a = window.visualViewport) === null || _a === void 0 ? void 0 : _a.width) || window.innerWidth || 360;
                 const vh = ((_b = window.visualViewport) === null || _b === void 0 ? void 0 : _b.height) || window.innerHeight || 640;
-                setSize(Math.max(240, Math.min(vw - 24, vh - 210)));
+                setSize(isMap
+                    ? Math.max(240, vw - 24)
+                    : Math.max(240, Math.min(vw - 24, vh - 210)));
                 return;
             }
             const el = wrapRef.current;
@@ -2077,28 +2081,48 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         if (!cv || !size)
             return;
         const dpr = Math.min(2, window.devicePixelRatio || 1);
-        if (cv.width !== Math.round(size * dpr)) {
+        const hh = state.current.isMap ? Math.round(size * 0.54) : size;
+        if (cv.width !== Math.round(size * dpr) ||
+            cv.height !== Math.round(hh * dpr)) {
             cv.width = Math.round(size * dpr);
-            cv.height = Math.round(size * dpr);
+            cv.height = Math.round(hh * dpr);
             cv.style.width = size + "px";
-            cv.style.height = size + "px";
+            cv.style.height = hh + "px";
         }
         const ctx = cv.getContext("2d");
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        ctx.clearRect(0, 0, size, size);
+        ctx.clearRect(0, 0, size, hh);
+        const H = state.current.isMap ? Math.round(size * 0.54) : size;
         const cx = size / 2;
-        const cy = size / 2;
-        const R = (size / 2 - 6) * zoom.current;
-        const proj = d3
-            .geoOrthographic()
-            .translate([cx, cy])
-            .scale(R)
-            .rotate([rot.current[0], rot.current[1], 0])
-            .clipAngle(90);
+        const cy = H / 2;
+        let proj;
+        let R;
+        if (state.current.isMap) {
+            proj = d3.geoNaturalEarth1().rotate([rot.current[0], 0, 0]);
+            proj.fitSize([size - 4, H - 4], { type: "Sphere" });
+            proj.scale(proj.scale() * zoom.current);
+            const t = proj.translate();
+            proj.translate([t[0], t[1] + panY.current]);
+            R = size / 2;
+        }
+        else {
+            R = (size / 2 - 6) * zoom.current;
+            proj = d3
+                .geoOrthographic()
+                .translate([cx, cy])
+                .scale(R)
+                .rotate([rot.current[0], rot.current[1], 0])
+                .clipAngle(90);
+        }
         const path = d3.geoPath(proj, ctx);
         const { isOn: on, selected: sel, geo: g, marks: mk, light: lt, full: fs, } = state.current;
+        const visibleAt = (lon, lat) => state.current.isMap
+            ? true
+            : d3.geoDistance([lon, lat], center) < Math.PI / 2 - 0.03;
         // пояс флагов вокруг нижней части глобуса — только во весь экран
-        const beltFlags = fs ? COUNTRIES.filter((c) => on(c.a3)) : [];
+        const beltFlags = fs && !state.current.isMap
+            ? COUNTRIES.filter((c) => on(c.a3))
+            : [];
         const beltY = cy + R * 0.6;
         const beltRx = Math.min(R * 0.92, size / 2 - 26);
         const beltRy = beltRx * 0.26;
@@ -2130,7 +2154,9 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         const sun = sunPoint(new Date());
         const center = [-rot.current[0], -rot.current[1]];
         // океан с объёмом
-        const grad = ctx.createRadialGradient(cx - R * 0.38, cy - R * 0.38, R * 0.05, cx, cy, R);
+        const grad = state.current.isMap
+            ? ctx.createLinearGradient(0, 0, 0, H)
+            : ctx.createRadialGradient(cx - R * 0.38, cy - R * 0.38, R * 0.05, cx, cy, R);
         if (lt) {
             grad.addColorStop(0, "#bcd8e8");
             grad.addColorStop(0.55, "#8fb8d0");
@@ -2176,24 +2202,48 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                     ctx.strokeStyle = "#ffffff";
                 ctx.stroke();
             });
-            // отдельные территории вроде Гонконга в наборе границ отсутствуют
-            COUNTRIES.forEach((c) => {
-                if (drawn.has(c.a3) || !on(c.a3))
+            // мелкие страны и территории, которых нет в наборе границ,
+            // подсвечиваем кругом — иначе их не видно
+            const tiny = new Set();
+            g.features.forEach((f) => {
+                if (!f.id || !on(f.id))
                     return;
-                if (d3.geoDistance([c.lon, c.lat], center) > Math.PI / 2 + 0.3)
+                const b = path.bounds(f);
+                const w = b[1][0] - b[0][0];
+                const h = b[1][1] - b[0][1];
+                if (isFinite(w) && isFinite(h) && Math.max(w, h) < 9)
+                    tiny.add(f.id);
+            });
+            COUNTRIES.forEach((c) => {
+                if (!on(c.a3))
+                    return;
+                if (drawn.has(c.a3) && !tiny.has(c.a3))
+                    return;
+                if (!state.current.isMap && d3.geoDistance([c.lon, c.lat], center) > Math.PI / 2 + 0.3)
+                    return;
+                const q = proj([c.lon, c.lat]);
+                if (!q)
                     return;
                 const circle = d3
                     .geoCircle()
                     .center([c.lon, c.lat])
-                    .radius(Math.max(0.8, countryR(c.a3)))();
+                    .radius(Math.max(1.1, countryR(c.a3)))();
+                const bb = path.bounds(circle);
+                const seen = Math.max(bb[1][0] - bb[0][0], bb[1][1] - bb[0][1]);
                 ctx.beginPath();
-                path(circle);
-                ctx.fillStyle = fillStyleFor(ctx, c.a3, path.bounds(circle));
-                ctx.globalAlpha = sel === c.a3 ? 1 : 0.9;
+                if (isFinite(seen) && seen >= 7) {
+                    path(circle);
+                }
+                else {
+                    // совсем крошечные показываем точкой заметного размера
+                    ctx.arc(q[0], q[1], 4.2, 0, Math.PI * 2);
+                }
+                ctx.fillStyle = fillStyleFor(ctx, c.a3, bb);
+                ctx.globalAlpha = sel === c.a3 ? 1 : 0.92;
                 ctx.fill();
                 ctx.globalAlpha = 1;
-                ctx.strokeStyle = sel === c.a3 ? "#ffffff" : "rgba(255,255,255,.5)";
-                ctx.lineWidth = sel === c.a3 ? 1.4 : 0.8;
+                ctx.strokeStyle = sel === c.a3 ? "#ffffff" : "rgba(255,255,255,.6)";
+                ctx.lineWidth = sel === c.a3 ? 1.5 : 1;
                 ctx.stroke();
             });
         }
@@ -2210,11 +2260,11 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         const pins = [];
         (mk || []).forEach((m) => {
             const d = d3.geoDistance([m.lon, m.lat], center);
-            if (d > Math.PI / 2 - 0.03)
+            if (!visibleAt(m.lon, m.lat))
                 return;
             const q = proj([m.lon, m.lat]);
             if (q)
-                pins.push({ m, q, d });
+                pins.push({ m, q, d: state.current.isMap ? 0 : d });
         });
         // страны без границ подсвечиваем областью
         if (!g) {
@@ -2242,8 +2292,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
             COUNTRIES.forEach((c) => {
                 if (on(c.a3))
                     return;
-                const d = d3.geoDistance([c.lon, c.lat], center);
-                if (d > Math.PI / 2 - 0.03)
+                if (!visibleAt(c.lon, c.lat))
                     return;
                 const q = proj([c.lon, c.lat]);
                 if (!q)
@@ -2324,17 +2373,19 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
             ctx.restore();
         }
         // мягкое свечение атмосферы вместо жёсткого контура
-        const rim = ctx.createRadialGradient(cx, cy, R * 0.93, cx, cy, R * 1.05);
-        rim.addColorStop(0, lt ? "rgba(90,140,175,0)" : "rgba(120,180,225,0)");
-        rim.addColorStop(0.55, lt ? "rgba(90,140,175,.16)" : "rgba(120,180,225,.16)");
-        rim.addColorStop(1, lt ? "rgba(90,140,175,0)" : "rgba(120,180,225,0)");
-        ctx.save();
-        ctx.globalCompositeOperation = "lighter";
-        ctx.fillStyle = rim;
-        ctx.beginPath();
-        ctx.arc(cx, cy, R * 1.06, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
+        if (!state.current.isMap) {
+            const rim = ctx.createRadialGradient(cx, cy, R * 0.93, cx, cy, R * 1.05);
+            rim.addColorStop(0, lt ? "rgba(90,140,175,0)" : "rgba(120,180,225,0)");
+            rim.addColorStop(0.55, lt ? "rgba(90,140,175,.16)" : "rgba(120,180,225,.16)");
+            rim.addColorStop(1, lt ? "rgba(90,140,175,0)" : "rgba(120,180,225,0)");
+            ctx.save();
+            ctx.globalCompositeOperation = "lighter";
+            ctx.fillStyle = rim;
+            ctx.beginPath();
+            ctx.arc(cx, cy, R * 1.06, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
         drawBelt(true);
     }, [size]);
     /* кадр всегда рисуется актуальной функцией, а не той, что была на момент планирования */
@@ -2350,7 +2401,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
     }, []);
     useEffect(() => {
         requestDraw();
-    }, [size, selected, visitKey, geo, light, requestDraw]);
+    }, [size, selected, visitKey, geo, light, isMap, requestDraw]);
     useEffect(() => {
         const id = setInterval(requestDraw, 60000);
         return () => clearInterval(id);
@@ -2455,7 +2506,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         cancelAnimationFrame(anim.current);
         anim.current = null;
         moved.current = false;
-        drag.current = { x, y, r0: rot.current.slice() };
+        drag.current = { x, y, r0: rot.current.slice(), pan0: panY.current };
     };
     const moveDrag = (x, y) => {
         const d = drag.current;
@@ -2466,10 +2517,16 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         if (Math.abs(dx) + Math.abs(dy) > 4)
             moved.current = true;
         const s = sens();
-        rot.current = [
-            d.r0[0] + dx * s,
-            Math.max(-75, Math.min(75, d.r0[1] - dy * s)),
-        ];
+        if (isMap) {
+            rot.current = [d.r0[0] + dx * s * 0.6, 0];
+            panY.current = (d.pan0 || 0) + dy;
+        }
+        else {
+            rot.current = [
+                d.r0[0] + dx * s,
+                Math.max(-75, Math.min(75, d.r0[1] - dy * s)),
+            ];
+        }
         requestDraw();
     };
     const endDrag = () => {
@@ -2482,20 +2539,31 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         const r = cv.getBoundingClientRect();
         const px = x - r.left;
         const py = y - r.top;
+        const H = isMap ? Math.round(size * 0.54) : size;
         const cx = size / 2;
-        const cy = size / 2;
-        const R = (size / 2 - 6) * zoom.current;
-        const proj = d3
-            .geoOrthographic()
-            .translate([cx, cy])
-            .scale(R)
-            .rotate([rot.current[0], rot.current[1], 0])
-            .clipAngle(90);
+        const cy = H / 2;
+        let proj;
+        if (isMap) {
+            proj = d3.geoNaturalEarth1().rotate([rot.current[0], 0, 0]);
+            proj.fitSize([size - 4, H - 4], { type: "Sphere" });
+            proj.scale(proj.scale() * zoom.current);
+            const t = proj.translate();
+            proj.translate([t[0], t[1] + panY.current]);
+        }
+        else {
+            proj = d3
+                .geoOrthographic()
+                .translate([cx, cy])
+                .scale((size / 2 - 6) * zoom.current)
+                .rotate([rot.current[0], rot.current[1], 0])
+                .clipAngle(90);
+        }
         const center = [-rot.current[0], -rot.current[1]];
+        const seen = (lon, lat) => isMap ? true : d3.geoDistance([lon, lat], center) < Math.PI / 2 - 0.03;
         let best = null;
         let bestD = 26;
         (state.current.marks || []).forEach((m) => {
-            if (d3.geoDistance([m.lon, m.lat], center) > Math.PI / 2 - 0.03)
+            if (!seen(m.lon, m.lat))
                 return;
             const q = proj([m.lon, m.lat]);
             if (!q)
@@ -2508,7 +2576,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         });
         if (!best) {
             COUNTRIES.forEach((c) => {
-                if (d3.geoDistance([c.lon, c.lat], center) > Math.PI / 2 - 0.03)
+                if (!seen(c.lon, c.lat))
                     return;
                 const q = proj([c.lon, c.lat]);
                 if (!q)
@@ -3405,7 +3473,7 @@ function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, 
                 } }))))));
 }
 /* шторка: настройки — поведение приложения */
-function SettingsSheet({ open, onClose, box, visits, theme, onTheme, quality, onQuality, cityPins, onToggleCityPins, spinStart, onToggleSpin, hasPin, faceAvailable, faceOn, onSetPin, onDropPin, onLock, onFace, }) {
+function SettingsSheet({ open, onClose, box, visits, theme, onTheme, quality, onQuality, cityPins, onToggleCityPins, spinStart, onToggleSpin, mapView, onMapView, geoCount, onReloadGeo, hasPin, faceAvailable, faceOn, onSetPin, onDropPin, onLock, onFace, }) {
     const where = store.kind() === "idb"
         ? "база браузера"
         : store.kind() === "ls"
@@ -3416,7 +3484,11 @@ function SettingsSheet({ open, onClose, box, visits, theme, onTheme, quality, on
     return (React.createElement(Sheet, { open: open, onClose: onClose, title: "\u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438", box: box }, (close) => {
         var _a;
         return (React.createElement("div", { className: "sheet-body" },
-            React.createElement("p", { className: "step-title" }, "\u0413\u043B\u043E\u0431\u0443\u0441"),
+            React.createElement("p", { className: "step-title" }, "\u041A\u0430\u0440\u0442\u0430 \u043C\u0438\u0440\u0430"),
+            React.createElement("div", { className: "theme-row" }, [
+                ["globe", "Глобус"],
+                ["map", "Карта"],
+            ].map(([v, t]) => (React.createElement("button", { key: v, className: "theme-cell" + (mapView === v ? " on" : ""), onClick: () => onMapView(v) }, t)))),
             React.createElement("button", { className: "switch-row", onClick: () => onToggleCityPins(!cityPins) },
                 React.createElement("span", { className: "switch-text" },
                     "\u0411\u0443\u043B\u0430\u0432\u043A\u0438 \u043F\u043E \u0433\u043E\u0440\u043E\u0434\u0430\u043C",
@@ -3474,6 +3546,14 @@ function SettingsSheet({ open, onClose, box, visits, theme, onTheme, quality, on
             React.createElement("div", { className: "about-row" },
                 React.createElement("span", null, "\u0425\u0440\u0430\u043D\u0435\u043D\u0438\u0435"),
                 React.createElement("b", null, where)),
+            React.createElement("div", { className: "about-row" },
+                React.createElement("span", null, "\u0413\u0440\u0430\u043D\u0438\u0446\u044B"),
+                React.createElement("b", null, geoCount ? `${geoCount} стран` : "по контурам материков")),
+            React.createElement("button", { className: "switch-row", onClick: onReloadGeo },
+                React.createElement("span", { className: "switch-text" },
+                    "\u041E\u0431\u043D\u043E\u0432\u0438\u0442\u044C \u043A\u0430\u0440\u0442\u0443 \u0433\u0440\u0430\u043D\u0438\u0446",
+                    React.createElement("em", null, "\u0415\u0441\u043B\u0438 \u043A\u0430\u043A\u0430\u044F-\u0442\u043E \u0441\u0442\u0440\u0430\u043D\u0430 \u043D\u0435 \u0437\u0430\u043A\u0440\u0430\u0448\u0438\u0432\u0430\u0435\u0442\u0441\u044F")),
+                React.createElement("span", { className: "step-pen" }, "\u27F3")),
             React.createElement("div", { className: "about-row" },
                 React.createElement("span", null, "\u0420\u0435\u0436\u0438\u043C"),
                 React.createElement("b", null, typeof window !== "undefined" &&
@@ -3931,6 +4011,7 @@ function ListSheet({ visits, stats, open, onClose, onPick, onRemove, box, mode }
 /*  Приложение                                                        */
 /* ================================================================== */
 function Atlas() {
+    var _a;
     const [booting, setBooting] = useState(true);
     const [profile, setProfile] = useState(null);
     const [unlocked, setUnlocked] = useState(false);
@@ -3961,6 +4042,17 @@ function Atlas() {
     const [theme, setThemeState] = useState("system");
     const [photoQuality, setPhotoQualityState] = useState("light");
     const [spinStart, setSpinStartState] = useState(false);
+    const [mapView, setMapViewState] = useState("globe");
+    const setMapView = useCallback(async (v) => {
+        setMapViewState(v);
+        await store.set(K_SETTINGS, {
+            cityPins,
+            theme,
+            photoQuality,
+            spinStart,
+            mapView: v,
+        });
+    }, [cityPins, theme, photoQuality, spinStart]);
     const [spinning, setSpinning] = useState(false);
     const setSpinStart = useCallback(async (v) => {
         setSpinStartState(v);
@@ -3969,12 +4061,13 @@ function Atlas() {
             theme,
             photoQuality,
             spinStart: v,
+            mapView,
         });
-    }, [cityPins, theme, photoQuality]);
+    }, [cityPins, theme, photoQuality, mapView]);
     const setPhotoQuality = useCallback(async (v) => {
         setPhotoQualityState(v);
-        await store.set(K_SETTINGS, { cityPins, theme, photoQuality: v, spinStart });
-    }, [cityPins, theme, spinStart]);
+        await store.set(K_SETTINGS, { cityPins, theme, photoQuality: v, spinStart, mapView });
+    }, [cityPins, theme, spinStart, mapView]);
     const [sysDark, setSysDark] = useState(true);
     useEffect(() => {
         var _a, _b;
@@ -3988,14 +4081,14 @@ function Atlas() {
     }, []);
     const setTheme = useCallback(async (v) => {
         setThemeState(v);
-        await store.set(K_SETTINGS, { cityPins, theme: v, photoQuality, spinStart });
+        await store.set(K_SETTINGS, { cityPins, theme: v, photoQuality, spinStart, mapView });
     }, [cityPins, photoQuality]);
     const light = theme === "light" || (theme === "system" && !sysDark);
     const [avatarDraft, setAvatarDraft] = useState(null);
     const setCityPins = useCallback(async (v) => {
         setCityPinsState(v);
-        await store.set(K_SETTINGS, { cityPins: v, theme, photoQuality, spinStart });
-    }, [theme, photoQuality, spinStart]);
+        await store.set(K_SETTINGS, { cityPins: v, theme, photoQuality, spinStart, mapView });
+    }, [theme, photoQuality, spinStart, mapView]);
     const [geo, setGeo] = useState(null);
     const [visits, setVisits] = useState({});
     const [selected, setSelected] = useState(null);
@@ -4124,12 +4217,12 @@ function Atlas() {
                 type: "FeatureCollection",
                 features: j.features
                     .map((f) => {
-                    var _a, _b, _c;
-                    const raw = String((_c = (_a = f.id) !== null && _a !== void 0 ? _a : (_b = f.properties) === null || _b === void 0 ? void 0 : _b.iso_a3) !== null && _c !== void 0 ? _c : "");
+                    var _a, _b, _c, _d, _e;
+                    const raw = String((_e = (_c = (_a = f.id) !== null && _a !== void 0 ? _a : (_b = f.properties) === null || _b === void 0 ? void 0 : _b.iso_a3) !== null && _c !== void 0 ? _c : (_d = f.properties) === null || _d === void 0 ? void 0 : _d.ISO_A3) !== null && _e !== void 0 ? _e : "");
                     const id = raw.length === 3 && /^\d+$/.test(raw)
                         ? NUM_TO_A3[raw]
                         : raw.toUpperCase();
-                    return id && f.geometry
+                    return id && /^[A-Z]{3}$/.test(id) && f.geometry
                         ? { type: "Feature", id, properties: {}, geometry: f.geometry }
                         : null;
                 })
@@ -4139,7 +4232,11 @@ function Atlas() {
         (async () => {
             var _a;
             const cached = await store.get(K_GEO);
-            if ((_a = cached === null || cached === void 0 ? void 0 : cached.features) === null || _a === void 0 ? void 0 : _a.length) {
+            // кеш годится, только если у стран есть буквенные коды
+            const okCache = ((_a = cached === null || cached === void 0 ? void 0 : cached.features) === null || _a === void 0 ? void 0 : _a.length) > 100 &&
+                cached.features.filter((f) => /^[A-Z]{3}$/.test(String(f.id))).length >
+                    100;
+            if (okCache) {
                 if (dead)
                     return;
                 setGeo(cached);
@@ -4206,6 +4303,8 @@ function Atlas() {
                 setThemeState(st.theme);
             if (st === null || st === void 0 ? void 0 : st.photoQuality)
                 setPhotoQualityState(st.photoQuality);
+            if (st === null || st === void 0 ? void 0 : st.mapView)
+                setMapViewState(st.mapView);
             if (typeof (st === null || st === void 0 ? void 0 : st.spinStart) === "boolean") {
                 setSpinStartState(st.spinStart);
                 setSpinning(st.spinStart);
@@ -4425,7 +4524,7 @@ function Atlas() {
             version: 1,
             savedAt: new Date().toISOString(),
             visits,
-            settings: { cityPins, theme, photoQuality, spinStart },
+            settings: { cityPins, theme, photoQuality, spinStart, mapView },
             avatar: (profile === null || profile === void 0 ? void 0 : profile.avatar) || null,
             since: (profile === null || profile === void 0 ? void 0 : profile.since) || null,
             photos,
@@ -4439,7 +4538,7 @@ function Atlas() {
         a.click();
         a.remove();
         setTimeout(() => URL.revokeObjectURL(url), 3000);
-    }, [visits, cityPins, theme, photoQuality, spinStart, profile]);
+    }, [visits, cityPins, theme, photoQuality, spinStart, mapView, profile]);
     const importData = useCallback(async (file) => {
         try {
             const text = await file.text();
@@ -4472,6 +4571,7 @@ function Atlas() {
                     theme: d.settings.theme || "system",
                     photoQuality: d.settings.photoQuality || "light",
                     spinStart: !!d.settings.spinStart,
+                    mapView: d.settings.mapView || "globe",
                 });
                 if (typeof d.settings.spinStart === "boolean")
                     setSpinStartState(d.settings.spinStart);
@@ -4491,6 +4591,11 @@ function Atlas() {
             /* файл не подошёл — данные не трогаем */
         }
     }, [profile]);
+    const reloadGeo = useCallback(async () => {
+        await store.set(K_GEO, { features: [] });
+        setGeo(null);
+        window.location.reload();
+    }, []);
     const [restoreMsg, setRestoreMsg] = useState("");
     const restoreData = useCallback(async () => {
         setRestoreMsg("Ищем…");
@@ -4603,8 +4708,8 @@ function Atlas() {
         React.createElement("style", null, CSS),
         React.createElement("header", { className: "top" },
             React.createElement("div", { className: "brand" }, "\u0410\u0442\u043B\u0430\u0441")),
-        React.createElement(Globe, { geo: geo, isOn: isOn, onPick: (a3) => setSelected(BY_A3[a3] ? a3 : null), selected: selected, full: false, onToggleFull: () => setFull(true), visitKey: visitKey, home: lastTrip, boxWidth: globeBox, marks: marks, light: light, playing: spinning, setPlaying: setSpinning }),
-        full && (React.createElement(Globe, { geo: geo, isOn: isOn, onPick: (a3) => setSelected(BY_A3[a3] ? a3 : null), selected: selected, full: true, onToggleFull: () => setFull(false), visitKey: visitKey, home: lastTrip, boxWidth: globeBox, marks: marks, light: light, playing: spinning, setPlaying: setSpinning })),
+        React.createElement(Globe, { geo: geo, isOn: isOn, onPick: (a3) => setSelected(BY_A3[a3] ? a3 : null), selected: selected, full: false, onToggleFull: () => setFull(true), visitKey: visitKey, home: lastTrip, boxWidth: globeBox, marks: marks, light: light, playing: spinning, setPlaying: setSpinning, view: mapView }),
+        full && (React.createElement(Globe, { geo: geo, isOn: isOn, onPick: (a3) => setSelected(BY_A3[a3] ? a3 : null), selected: selected, full: true, onToggleFull: () => setFull(false), visitKey: visitKey, home: lastTrip, boxWidth: globeBox, marks: marks, light: light, playing: spinning, setPlaying: setSpinning, view: mapView })),
         React.createElement("section", { className: "focus" }, sel ? (React.createElement(React.Fragment, null,
             React.createElement("div", { className: "focus-head" },
                 React.createElement("span", { className: "big-fl" }, flag(sel.a2)),
@@ -4655,7 +4760,7 @@ function Atlas() {
         React.createElement(SettingsSheet, { open: sheet === "settings", onClose: () => setSheet(null), box: box, visits: visits, theme: theme, onTheme: setTheme, quality: photoQuality, onQuality: (v) => {
                 setPhotoQuality(v);
                 setSheet("photomode");
-            }, cityPins: cityPins, onToggleCityPins: setCityPins, spinStart: spinStart, onToggleSpin: setSpinStart, hasPin: !!profile.pinHash, faceAvailable: faceAvailable, faceOn: !!profile.credId, onSetPin: () => {
+            }, cityPins: cityPins, onToggleCityPins: setCityPins, spinStart: spinStart, onToggleSpin: setSpinStart, mapView: mapView, onMapView: setMapView, geoCount: ((_a = geo === null || geo === void 0 ? void 0 : geo.features) === null || _a === void 0 ? void 0 : _a.length) || 0, onReloadGeo: reloadGeo, hasPin: !!profile.pinHash, faceAvailable: faceAvailable, faceOn: !!profile.credId, onSetPin: () => {
                 setSheet(null);
                 setProfile(null);
             }, onDropPin: async () => {
