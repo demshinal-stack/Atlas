@@ -755,7 +755,7 @@ const K_SETTINGS = "atlas:settings";
 const K_BACKUP = "atlas:data:backup";
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "5.3";
+const APP_VERSION = "5.4";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData() {
@@ -2014,6 +2014,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
     const playRef = useRef(false);
     const belt = useRef(0);
     const panY = useRef(0);
+    const panX = useRef(0);
     const isMap = view === "map";
     const state = useRef({ isOn, selected, geo, marks, light, full, isMap });
     state.current = { isOn, selected, geo, marks, light, full, isMap };
@@ -2081,7 +2082,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         if (!cv || !size)
             return;
         const dpr = Math.min(2, window.devicePixelRatio || 1);
-        const hh = state.current.isMap ? Math.round(size * 0.54) : size;
+        const hh = state.current.isMap ? Math.round(size * 0.5) : size;
         if (cv.width !== Math.round(size * dpr) ||
             cv.height !== Math.round(hh * dpr)) {
             cv.width = Math.round(size * dpr);
@@ -2092,17 +2093,17 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         const ctx = cv.getContext("2d");
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         ctx.clearRect(0, 0, size, hh);
-        const H = state.current.isMap ? Math.round(size * 0.54) : size;
+        const H = state.current.isMap ? Math.round(size * 0.5) : size;
         const cx = size / 2;
         const cy = H / 2;
         let proj;
         let R;
         if (state.current.isMap) {
-            proj = d3.geoNaturalEarth1().rotate([rot.current[0], 0, 0]);
-            proj.fitSize([size - 4, H - 4], { type: "Sphere" });
+            proj = d3.geoEquirectangular();
+            proj.fitSize([size, H], { type: "Sphere" });
             proj.scale(proj.scale() * zoom.current);
             const t = proj.translate();
-            proj.translate([t[0], t[1] + panY.current]);
+            proj.translate([t[0] + panX.current, t[1] + panY.current]);
             R = size / 2;
         }
         else {
@@ -2158,19 +2159,25 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
             ? ctx.createLinearGradient(0, 0, 0, H)
             : ctx.createRadialGradient(cx - R * 0.38, cy - R * 0.38, R * 0.05, cx, cy, R);
         if (lt) {
-            grad.addColorStop(0, "#bcd8e8");
-            grad.addColorStop(0.55, "#8fb8d0");
-            grad.addColorStop(1, "#5b8aa6");
+            grad.addColorStop(0, "#cfe2ee");
+            grad.addColorStop(0.55, "#a9cadc");
+            grad.addColorStop(1, "#8ab4cb");
         }
         else {
             grad.addColorStop(0, "#22546f");
             grad.addColorStop(0.55, "#123349");
             grad.addColorStop(1, "#061019");
         }
-        ctx.beginPath();
-        path({ type: "Sphere" });
-        ctx.fillStyle = grad;
-        ctx.fill();
+        if (state.current.isMap) {
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, size, H);
+        }
+        else {
+            ctx.beginPath();
+            path({ type: "Sphere" });
+            ctx.fillStyle = grad;
+            ctx.fill();
+        }
         // сетка
         ctx.beginPath();
         path(d3.geoGraticule10());
@@ -2480,8 +2487,8 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
     }, [full]);
     /* автовращение: ровный ход без наездов */
     useEffect(() => {
-        playRef.current = playing;
-        if (!playing) {
+        playRef.current = playing && !isMap;
+        if (!playing || isMap) {
             cancelAnimationFrame(playRaf.current);
             return;
         }
@@ -2506,7 +2513,13 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         cancelAnimationFrame(anim.current);
         anim.current = null;
         moved.current = false;
-        drag.current = { x, y, r0: rot.current.slice(), pan0: panY.current };
+        drag.current = {
+            x,
+            y,
+            r0: rot.current.slice(),
+            px0: panX.current,
+            py0: panY.current,
+        };
     };
     const moveDrag = (x, y) => {
         const d = drag.current;
@@ -2518,8 +2531,8 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
             moved.current = true;
         const s = sens();
         if (isMap) {
-            rot.current = [d.r0[0] + dx * s * 0.6, 0];
-            panY.current = (d.pan0 || 0) + dy;
+            panX.current = (d.px0 || 0) + dx;
+            panY.current = (d.py0 || 0) + dy;
         }
         else {
             rot.current = [
@@ -2539,16 +2552,16 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         const r = cv.getBoundingClientRect();
         const px = x - r.left;
         const py = y - r.top;
-        const H = isMap ? Math.round(size * 0.54) : size;
+        const H = isMap ? Math.round(size * 0.5) : size;
         const cx = size / 2;
         const cy = H / 2;
         let proj;
         if (isMap) {
-            proj = d3.geoNaturalEarth1().rotate([rot.current[0], 0, 0]);
-            proj.fitSize([size - 4, H - 4], { type: "Sphere" });
+            proj = d3.geoEquirectangular();
+            proj.fitSize([size, H], { type: "Sphere" });
             proj.scale(proj.scale() * zoom.current);
             const t = proj.translate();
-            proj.translate([t[0], t[1] + panY.current]);
+            proj.translate([t[0] + panX.current, t[1] + panY.current]);
         }
         else {
             proj = d3
@@ -2630,9 +2643,9 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                     pickAt(e.clientX, e.clientY);
             }, onMouseLeave: endDrag, onTouchStart: onTouchStart, onTouchMove: onTouchMove, onTouchEnd: onTouchEnd, onTouchCancel: onTouchEnd })));
     const controls = (React.createElement("div", { className: "globe-controls" },
-        React.createElement("button", { className: "play" + (playing ? " on" : ""), onClick: () => setPlaying((v) => !v), "aria-label": playing ? "Остановить вращение" : "Вращать глобус" }, playing ? (React.createElement("svg", { viewBox: "0 0 24 24", width: "15", height: "15" },
+        !isMap && (React.createElement("button", { className: "play" + (playing ? " on" : ""), onClick: () => setPlaying((v) => !v), "aria-label": playing ? "Остановить вращение" : "Вращать глобус" }, playing ? (React.createElement("svg", { viewBox: "0 0 24 24", width: "15", height: "15" },
             React.createElement("path", { d: "M8 6h3v12H8zM13 6h3v12h-3z", fill: "currentColor" }))) : (React.createElement("svg", { viewBox: "0 0 24 24", width: "15", height: "15" },
-            React.createElement("path", { d: "M9 6l9 6-9 6z", fill: "currentColor" })))),
+            React.createElement("path", { d: "M9 6l9 6-9 6z", fill: "currentColor" }))))),
         React.createElement("button", { onClick: onToggleFull, "aria-label": "\u0412\u043E \u0432\u0435\u0441\u044C \u044D\u043A\u0440\u0430\u043D" }, full ? "✕" : "⛶")));
     if (full)
         return (React.createElement("div", { className: "globe-full", ref: wrapRef },
