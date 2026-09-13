@@ -755,7 +755,7 @@ const K_SETTINGS = "atlas:settings";
 const K_BACKUP = "atlas:data:backup";
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "5.8";
+const APP_VERSION = "5.9";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData() {
@@ -965,8 +965,8 @@ const frame = (w, e, s0, n) => ({
     coordinates: [[[w, s0], [e, s0], [e, n], [w, n], [w, s0]]],
 });
 const MAP_PAGES = [
-    { id: "west", title: "Америки", box: frame(-170, -28, -56, 74), lon: [-170, -28] },
-    { id: "east", title: "Европа, Азия, Африка", box: frame(-22, 180, -48, 74), lon: [-22, 180] },
+    { id: "west", title: "Америки", box: frame(-168, -32, -56, 72), lon: [-168, -32] },
+    { id: "east", title: "Евразия и Африка", box: frame(-20, 152, -38, 72), lon: [-20, 180] },
 ];
 /* кадр карты: без Антарктиды и пустого приполярья */
 const MAP_FRAME = {
@@ -2106,7 +2106,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         if (!cv || !size)
             return;
         const dpr = Math.min(2, window.devicePixelRatio || 1);
-        const hh = state.current.isMap ? Math.round(size * 0.78) : size;
+        const hh = state.current.isMap ? Math.round(size * 0.82) : size;
         if (cv.width !== Math.round(size * dpr) ||
             cv.height !== Math.round(hh * dpr)) {
             cv.width = Math.round(size * dpr);
@@ -2117,7 +2117,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         const ctx = cv.getContext("2d");
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         ctx.clearRect(0, 0, size, hh);
-        const H = state.current.isMap ? Math.round(size * 0.78) : size;
+        const H = state.current.isMap ? Math.round(size * 0.82) : size;
         const cx = size / 2;
         const cy = H / 2;
         let proj;
@@ -2125,12 +2125,21 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         if (state.current.isMap) {
             proj = d3.geoEquirectangular();
             proj.fitExtent([
-                [3, 3],
-                [size - 3, H - 3],
+                [0, 0],
+                [size, H],
             ], MAP_PAGES[page.current].box);
-            proj.scale(proj.scale() * zoom.current);
-            const t = proj.translate();
-            proj.translate([t[0] + panX.current, t[1] + panY.current]);
+            // заполняем холст целиком: лишнее по краям обрежется
+            let pb = d3.geoPath(proj).bounds(MAP_PAGES[page.current].box);
+            const bw = pb[1][0] - pb[0][0];
+            const bh = pb[1][1] - pb[0][1];
+            const k = Math.max(size / bw, H / bh) * zoom.current;
+            proj.scale(proj.scale() * k);
+            pb = d3.geoPath(proj).bounds(MAP_PAGES[page.current].box);
+            const tt = proj.translate();
+            proj.translate([
+                tt[0] + (size / 2 - (pb[0][0] + pb[1][0]) / 2) + panX.current,
+                tt[1] + (H / 2 - (pb[0][1] + pb[1][1]) / 2) + panY.current,
+            ]);
             R = size / 2;
         }
         else {
@@ -2196,6 +2205,10 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
             grad.addColorStop(1, "#061019");
         }
         if (state.current.isMap) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(0, 0, size, H);
+            ctx.clip();
             ctx.fillStyle = "#a9c9e8";
             ctx.fillRect(0, 0, size, H);
         }
@@ -2442,6 +2455,8 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
             ctx.restore();
         }
         drawBelt(true);
+        if (state.current.isMap)
+            ctx.restore();
     }, [size]);
     /* кадр всегда рисуется актуальной функцией, а не той, что была на момент планирования */
     const drawRef = useRef(draw);
@@ -2628,19 +2643,28 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         const r = cv.getBoundingClientRect();
         const px = x - r.left;
         const py = y - r.top;
-        const H = isMap ? Math.round(size * 0.78) : size;
+        const H = isMap ? Math.round(size * 0.82) : size;
         const cx = size / 2;
         const cy = H / 2;
         let proj;
         if (isMap) {
             proj = d3.geoEquirectangular();
             proj.fitExtent([
-                [3, 3],
-                [size - 3, H - 3],
+                [0, 0],
+                [size, H],
             ], MAP_PAGES[page.current].box);
-            proj.scale(proj.scale() * zoom.current);
-            const t = proj.translate();
-            proj.translate([t[0] + panX.current, t[1] + panY.current]);
+            // заполняем холст целиком: лишнее по краям обрежется
+            let pb = d3.geoPath(proj).bounds(MAP_PAGES[page.current].box);
+            const bw = pb[1][0] - pb[0][0];
+            const bh = pb[1][1] - pb[0][1];
+            const k = Math.max(size / bw, H / bh) * zoom.current;
+            proj.scale(proj.scale() * k);
+            pb = d3.geoPath(proj).bounds(MAP_PAGES[page.current].box);
+            const tt = proj.translate();
+            proj.translate([
+                tt[0] + (size / 2 - (pb[0][0] + pb[1][0]) / 2) + panX.current,
+                tt[1] + (H / 2 - (pb[0][1] + pb[1][1]) / 2) + panY.current,
+            ]);
         }
         else {
             proj = d3
