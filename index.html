@@ -748,7 +748,7 @@ const K_DATA = "atlas:data:main";
 const K_SETTINGS = "atlas:settings";
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "4.0";
+const APP_VERSION = "4.1";
 const APP_BUILD = "2026-09-12";
 /* проверка: доступно ли постоянное хранилище и переживает ли запись перезапуск */
 async function checkStorage() {
@@ -3322,35 +3322,6 @@ function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, 
 }
 /* шторка: настройки — поведение приложения */
 function SettingsSheet({ open, onClose, box, visits, theme, onTheme, quality, onQuality, cityPins, onToggleCityPins, spinStart, onToggleSpin, hasPin, faceAvailable, faceOn, onSetPin, onDropPin, onLock, onFace, }) {
-    const [usage, setUsage] = useState(null);
-    const [probe, setProbe] = useState(null);
-    const [updMsg, setUpdMsg] = useState("");
-    useEffect(() => {
-        if (!open)
-            return;
-        let dead = false;
-        (async () => {
-            let bytes = 0;
-            let count = 0;
-            for (const arr of Object.values(visits)) {
-                for (const t of arr) {
-                    for (const p of t.photos || []) {
-                        const v = await store.get(photoKey(p.id));
-                        const big = (v === null || v === void 0 ? void 0 : v.full) || (v === null || v === void 0 ? void 0 : v.data) || "";
-                        if (big) {
-                            bytes += Math.round((big.length * 3) / 4);
-                            count += 1;
-                        }
-                    }
-                }
-            }
-            if (!dead)
-                setUsage({ mb: bytes / 1048576, count });
-        })();
-        return () => {
-            dead = true;
-        };
-    }, [open, visits]);
     const where = store.kind() === "idb"
         ? "база браузера"
         : store.kind() === "ls"
@@ -3389,35 +3360,17 @@ function SettingsSheet({ open, onClose, box, visits, theme, onTheme, quality, on
                 ["light", "Экономно"],
                 ["full", "Максимум"],
             ].map(([v, t]) => (React.createElement("button", { key: v, className: "theme-cell" + (quality === v ? " on" : ""), onClick: () => onQuality(v) }, t)))),
-            React.createElement("p", { className: "hint small" },
-                usage
-                    ? `Занято ${usage.mb.toFixed(1)} МБ · ${usage.count} из ${TOTAL_MAX[quality] || TOTAL_MAX.light} снимков. `
-                    : "",
-                "\u0417\u0430 \u0440\u0430\u0437 \u0434\u043E\u0431\u0430\u0432\u043B\u044F\u0435\u0442\u0441\u044F \u0434\u043E ",
-                BATCH_MAX,
-                " \u0444\u043E\u0442\u043E. \u00AB\u042D\u043A\u043E\u043D\u043E\u043C\u043D\u043E\u00BB \u2014 \u043A\u0430\u0434\u0440 \u0434\u043E 1100 px, \u043F\u0440\u0435\u0434\u0435\u043B ",
-                TOTAL_MAX.light,
-                " \u0441\u043D\u0438\u043C\u043A\u043E\u0432; \u00AB\u041C\u0430\u043A\u0441\u0438\u043C\u0443\u043C\u00BB \u2014 \u0434\u043E 1800 px, \u043F\u0440\u0435\u0434\u0435\u043B",
-                " ",
-                TOTAL_MAX.full,
-                "."),
             React.createElement("p", { className: "step-title" }, "\u0414\u043E\u0441\u0442\u0443\u043F"),
-            hasPin ? (React.createElement(React.Fragment, null,
-                React.createElement("button", { className: "switch-row", onClick: () => {
-                        close();
-                        setTimeout(onLock, 200);
-                    } },
-                    React.createElement("span", { className: "switch-text" }, "\u0417\u0430\u0431\u043B\u043E\u043A\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u0441\u0435\u0439\u0447\u0430\u0441"),
-                    React.createElement("span", { className: "step-pen" }, "\u2192")),
-                React.createElement("button", { className: "switch-row", onClick: onSetPin },
-                    React.createElement("span", { className: "switch-text" }, "\u0421\u043C\u0435\u043D\u0438\u0442\u044C \u043A\u043E\u0434"),
-                    React.createElement("span", { className: "step-pen" }, "\u2192")),
-                React.createElement("button", { className: "switch-row danger-row", onClick: onDropPin },
-                    React.createElement("span", { className: "switch-text" }, "\u0423\u0431\u0440\u0430\u0442\u044C \u043A\u043E\u0434"),
-                    React.createElement("span", { className: "step-pen" }, "\u2192")))) : (React.createElement("button", { className: "switch-row", onClick: onSetPin },
+            React.createElement("button", { className: "switch-row", onClick: () => (hasPin ? onDropPin() : onSetPin()) },
                 React.createElement("span", { className: "switch-text" },
-                    "\u041F\u043E\u0441\u0442\u0430\u0432\u0438\u0442\u044C \u043A\u043E\u0434",
-                    React.createElement("em", null, "\u0412\u0445\u043E\u0434 \u043F\u043E \u0447\u0435\u0442\u044B\u0440\u0451\u043C \u0446\u0438\u0444\u0440\u0430\u043C")),
+                    "\u041A\u043E\u0434 \u043F\u0440\u0438 \u0432\u0445\u043E\u0434\u0435",
+                    React.createElement("em", null, hasPin
+                        ? "Четыре цифры при каждом запуске"
+                        : "Приложение открывается сразу")),
+                React.createElement("span", { className: "switch" + (hasPin ? " on" : "") },
+                    React.createElement("i", null))),
+            hasPin && (React.createElement("button", { className: "switch-row", onClick: onSetPin },
+                React.createElement("span", { className: "switch-text" }, "\u0421\u043C\u0435\u043D\u0438\u0442\u044C \u043A\u043E\u0434"),
                 React.createElement("span", { className: "step-pen" }, "\u2192"))),
             faceAvailable && hasPin && (React.createElement("button", { className: "switch-row", onClick: onFace },
                 React.createElement("span", { className: "switch-text" },
@@ -3443,22 +3396,6 @@ function SettingsSheet({ open, onClose, box, visits, theme, onTheme, quality, on
                     ((_a = window.matchMedia) === null || _a === void 0 ? void 0 : _a.call(window, "(display-mode: standalone)").matches)
                     ? "с домашнего экрана"
                     : "в браузере")),
-            React.createElement("button", { className: "switch-row", onClick: async () => {
-                    var _a, _b;
-                    const found = await ((_b = (_a = window.__atlasCheckUpdate) === null || _a === void 0 ? void 0 : _a.call(window)) !== null && _b !== void 0 ? _b : false);
-                    setUpdMsg(found
-                        ? "Новая версия найдена — закройте настройки и нажмите «Обновить»"
-                        : "У вас последняя версия");
-                } },
-                React.createElement("span", { className: "switch-text" },
-                    "\u041F\u0440\u043E\u0432\u0435\u0440\u0438\u0442\u044C \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u044F",
-                    React.createElement("em", null, updMsg || "Приложение обновляется само, данные не трогает")),
-                React.createElement("span", { className: "step-pen" }, "\u2192")),
-            React.createElement("button", { className: "switch-row", onClick: async () => setProbe(await checkStorage()) },
-                React.createElement("span", { className: "switch-text" },
-                    "\u041F\u0440\u043E\u0432\u0435\u0440\u0438\u0442\u044C \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u0435",
-                    React.createElement("em", null, probe ? probe.text : "Записать метку и прочитать её")),
-                React.createElement("span", { className: "step-pen" }, probe ? (probe.ok ? "✓" : "✕") : "→")),
             React.createElement("div", { className: "copyright" },
                 React.createElement("b", null, "Demshin_lab"),
                 React.createElement("span", null,
@@ -3623,6 +3560,47 @@ function CountrySheet({ country, open, onClose, box }) {
                         React.createElement("b", null, orig),
                         React.createElement("em", null, tr))));
             }))))))));
+}
+/* шторка: что означает выбранный режим хранения снимков */
+function PhotoModeSheet({ open, onClose, box, quality, usage }) {
+    const full = quality === "full";
+    return (React.createElement(Sheet, { open: open, onClose: onClose, title: "\u041A\u0430\u0447\u0435\u0441\u0442\u0432\u043E \u0441\u043D\u0438\u043C\u043A\u043E\u0432", box: box }, () => (React.createElement("div", { className: "sheet-body" },
+        React.createElement("div", { className: "cs-head" },
+            React.createElement("span", { className: "cs-flag" }, full ? "🖼" : "🗜"),
+            React.createElement("span", { className: "cs-title" },
+                React.createElement("b", null, full ? "Максимум" : "Экономно"),
+                React.createElement("em", null, full
+                    ? "Кадр до 1800 px по длинной стороне"
+                    : "Кадр до 1100 px по длинной стороне"))),
+        React.createElement("div", { className: "facts" },
+            React.createElement("div", { className: "fact" },
+                React.createElement("span", { className: "fact-ico" }, "\uD83D\uDCD0"),
+                React.createElement("span", { className: "fact-body" },
+                    React.createElement("em", null, "\u0420\u0430\u0437\u043C\u0435\u0440 \u043A\u0430\u0434\u0440\u0430"),
+                    React.createElement("b", null, full ? "до 1800 px" : "до 1100 px"))),
+            React.createElement("div", { className: "fact" },
+                React.createElement("span", { className: "fact-ico" }, "\u2696\uFE0F"),
+                React.createElement("span", { className: "fact-body" },
+                    React.createElement("em", null, "\u0412\u0435\u0441 \u0441\u043D\u0438\u043C\u043A\u0430"),
+                    React.createElement("b", null, full ? "250–400 КБ" : "60–90 КБ"))),
+            React.createElement("div", { className: "fact" },
+                React.createElement("span", { className: "fact-ico" }, "\uD83D\uDD22"),
+                React.createElement("span", { className: "fact-body" },
+                    React.createElement("em", null, "\u041F\u0440\u0435\u0434\u0435\u043B"),
+                    React.createElement("b", null,
+                        full ? TOTAL_MAX.full : TOTAL_MAX.light,
+                        " \u0441\u043D\u0438\u043C\u043A\u043E\u0432"))),
+            React.createElement("div", { className: "fact" },
+                React.createElement("span", { className: "fact-ico" }, "\uD83D\uDCBE"),
+                React.createElement("span", { className: "fact-body" },
+                    React.createElement("em", null, "\u0417\u0430\u043D\u044F\u0442\u043E \u0441\u0435\u0439\u0447\u0430\u0441"),
+                    React.createElement("b", null, usage
+                        ? `${usage.mb.toFixed(1)} МБ · ${usage.count} шт.`
+                        : "считаем…")))),
+        React.createElement("p", { className: "hint small" },
+            "\u0417\u0430 \u043E\u0434\u0438\u043D \u0440\u0430\u0437 \u0434\u043E\u0431\u0430\u0432\u043B\u044F\u0435\u0442\u0441\u044F \u0434\u043E ",
+            BATCH_MAX,
+            " \u0441\u043D\u0438\u043C\u043A\u043E\u0432. \u041D\u0430 \u044D\u043A\u0440\u0430\u043D\u0435 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430 \u0440\u0430\u0437\u043D\u0438\u0446\u044B \u043C\u0435\u0436\u0434\u0443 \u0440\u0435\u0436\u0438\u043C\u0430\u043C\u0438 \u043F\u043E\u0447\u0442\u0438 \u043D\u0435 \u0432\u0438\u0434\u043D\u043E \u2014 \u00AB\u041C\u0430\u043A\u0441\u0438\u043C\u0443\u043C\u00BB \u043F\u0440\u0438\u0433\u043E\u0434\u0438\u0442\u0441\u044F, \u0435\u0441\u043B\u0438 \u0441\u043C\u043E\u0442\u0440\u0438\u0442\u0435 \u0444\u043E\u0442\u043E \u043D\u0430 \u0431\u043E\u043B\u044C\u0448\u043E\u043C \u044D\u043A\u0440\u0430\u043D\u0435. \u0423\u0436\u0435 \u0434\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u043D\u044B\u0435 \u0441\u043D\u0438\u043C\u043A\u0438 \u043D\u0435 \u043F\u0435\u0440\u0435\u0441\u043E\u0445\u0440\u0430\u043D\u044F\u044E\u0442\u0441\u044F: \u0440\u0435\u0436\u0438\u043C \u0432\u043B\u0438\u044F\u0435\u0442 \u043D\u0430 \u043D\u043E\u0432\u044B\u0435.")))));
 }
 /* шторка: фильтры — для глобуса и для списка поездок */
 function FiltersSheet({ open, onClose, box, target, years, yearFilter, onYear, mode, onMode, }) {
@@ -3896,6 +3874,33 @@ function Atlas() {
     }, [cityPins, photoQuality]);
     const light = theme === "light" || (theme === "system" && !sysDark);
     const [avatarDraft, setAvatarDraft] = useState(null);
+    const [photoUsage, setPhotoUsage] = useState(null);
+    useEffect(() => {
+        if (sheet !== "photomode" && sheet !== "settings")
+            return;
+        let dead = false;
+        (async () => {
+            let bytes = 0;
+            let count = 0;
+            for (const arr of Object.values(visits)) {
+                for (const t of arr) {
+                    for (const p of t.photos || []) {
+                        const v = await store.get(photoKey(p.id));
+                        const big = (v === null || v === void 0 ? void 0 : v.full) || (v === null || v === void 0 ? void 0 : v.data) || "";
+                        if (big) {
+                            bytes += Math.round((big.length * 3) / 4);
+                            count += 1;
+                        }
+                    }
+                }
+            }
+            if (!dead)
+                setPhotoUsage({ mb: bytes / 1048576, count });
+        })();
+        return () => {
+            dead = true;
+        };
+    }, [sheet, visits]);
     const setCityPins = useCallback(async (v) => {
         setCityPinsState(v);
         await store.set(K_SETTINGS, { cityPins: v, theme, photoQuality, spinStart });
@@ -4455,7 +4460,10 @@ function Atlas() {
                 setProfile(prof);
                 await store.set(K_PROFILE, prof);
             }, onPickAvatar: (src) => setAvatarDraft(src), onExport: exportData, onImport: importData, visits: visits }),
-        React.createElement(SettingsSheet, { open: sheet === "settings", onClose: () => setSheet(null), box: box, visits: visits, theme: theme, onTheme: setTheme, quality: photoQuality, onQuality: setPhotoQuality, cityPins: cityPins, onToggleCityPins: setCityPins, spinStart: spinStart, onToggleSpin: setSpinStart, hasPin: !!profile.pinHash, faceAvailable: faceAvailable, faceOn: !!profile.credId, onSetPin: () => {
+        React.createElement(SettingsSheet, { open: sheet === "settings", onClose: () => setSheet(null), box: box, visits: visits, theme: theme, onTheme: setTheme, quality: photoQuality, onQuality: (v) => {
+                setPhotoQuality(v);
+                setSheet("photomode");
+            }, cityPins: cityPins, onToggleCityPins: setCityPins, spinStart: spinStart, onToggleSpin: setSpinStart, hasPin: !!profile.pinHash, faceAvailable: faceAvailable, faceOn: !!profile.credId, onSetPin: () => {
                 setSheet(null);
                 setProfile(null);
             }, onDropPin: async () => {
@@ -4474,6 +4482,7 @@ function Atlas() {
                 }
             } }),
         React.createElement(CountrySheet, { country: sel, open: sheet === "country" && !!sel, onClose: () => setSheet(null), box: box }),
+        React.createElement(PhotoModeSheet, { open: sheet === "photomode", onClose: () => setSheet(null), box: box, quality: photoQuality, usage: photoUsage }),
         React.createElement(FiltersSheet, { open: sheet === "filters", onClose: () => setSheet(null), box: box, target: sheetBack === "list" ? "list" : "globe", years: allYears, yearFilter: yearFilter, onYear: (v) => {
                 setYearFilter(v);
                 setSheet(sheetBack);
@@ -4506,7 +4515,7 @@ function Atlas() {
                     React.createElement("circle", { cx: "12", cy: "12", r: "3.2", fill: "none", stroke: "currentColor", strokeWidth: "1.8" }),
                     React.createElement("path", { d: "M19.4 13.5a7.8 7.8 0 0 0 0-3l1.7-1.3-1.8-3.1-2 .8a7.8 7.8 0 0 0-2.6-1.5L14.4 3h-3.6l-.3 2.4a7.8 7.8 0 0 0-2.6 1.5l-2-.8L4 9.2l1.7 1.3a7.8 7.8 0 0 0 0 3L4 14.8l1.8 3.1 2-.8a7.8 7.8 0 0 0 2.6 1.5l.3 2.4h3.6l.3-2.4a7.8 7.8 0 0 0 2.6-1.5l2 .8 1.8-3.1z", fill: "none", stroke: "currentColor", strokeWidth: "1.6", strokeLinejoin: "round" })),
                 React.createElement("em", null, "\u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438")),
-            sheet === "country" && (React.createElement("button", { className: "tab close", onClick: () => setSheet(null) },
+            (sheet === "country" || sheet === "photomode") && (React.createElement("button", { className: "tab close", onClick: () => setSheet(null) },
                 React.createElement("svg", { viewBox: "0 0 24 24", width: "22", height: "22" },
                     React.createElement("path", { d: "M7 7l10 10M17 7L7 17", fill: "none", stroke: "currentColor", strokeWidth: "1.9", strokeLinecap: "round" })),
                 React.createElement("em", null, "\u0417\u0430\u043A\u0440\u044B\u0442\u044C")))),
