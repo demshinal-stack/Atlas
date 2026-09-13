@@ -748,7 +748,7 @@ const K_DATA = "atlas:data:main";
 const K_SETTINGS = "atlas:settings";
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "3.9";
+const APP_VERSION = "4.0";
 const APP_BUILD = "2026-09-12";
 /* проверка: доступно ли постоянное хранилище и переживает ли запись перезапуск */
 async function checkStorage() {
@@ -1616,6 +1616,325 @@ const TIPS = {
     ARG: { plug: "C/I, 220 В", water: "Можно в крупных городах", tip: "10%", sos: "911" },
     ISR: { plug: "C/H, 230 В", water: "Можно пить из-под крана", tip: "12–15%", sos: "100 / 101" },
     MAR: { plug: "C/E, 220 В", water: "Только бутилированная", tip: "10%", sos: "19 / 15" },
+};
+/* названия валют, часовые пояса и такси */
+const CUR_NAME = {
+    EUR: "евро",
+    USD: "доллар США",
+    RUB: "рубль",
+    GBP: "фунт стерлингов",
+    JPY: "иена",
+    CNY: "юань",
+    CHF: "франк",
+    SEK: "шведская крона",
+    NOK: "норвежская крона",
+    DKK: "датская крона",
+    ISK: "исландская крона",
+    CZK: "чешская крона",
+    PLN: "злотый",
+    HUF: "форинт",
+    RON: "лей",
+    BGN: "лев",
+    RSD: "сербский динар",
+    TRY: "лира",
+    UAH: "гривна",
+    BYN: "белорусский рубль",
+    KZT: "тенге",
+    GEL: "лари",
+    AMD: "драм",
+    AZN: "манат",
+    UZS: "сум",
+    KGS: "сом",
+    TJS: "сомони",
+    TMT: "туркменский манат",
+    MNT: "тугрик",
+    THB: "бат",
+    VND: "донг",
+    IDR: "рупия",
+    MYR: "ринггит",
+    SGD: "сингапурский доллар",
+    PHP: "песо",
+    KHR: "риель",
+    LAK: "кип",
+    MMK: "кьят",
+    INR: "рупия",
+    LKR: "рупия",
+    NPR: "рупия",
+    BDT: "така",
+    PKR: "рупия",
+    AFN: "афгани",
+    IRR: "риал",
+    IQD: "динар",
+    ILS: "шекель",
+    JOD: "динар",
+    SAR: "риял",
+    AED: "дирхам",
+    QAR: "риал",
+    KWD: "динар",
+    BHD: "динар",
+    OMR: "риал",
+    YER: "риал",
+    EGP: "фунт",
+    MAD: "дирхам",
+    TND: "динар",
+    DZD: "динар",
+    LYD: "динар",
+    ZAR: "рэнд",
+    NGN: "найра",
+    KES: "шиллинг",
+    TZS: "шиллинг",
+    UGX: "шиллинг",
+    ETB: "быр",
+    GHS: "седи",
+    XOF: "франк КФА",
+    XAF: "франк КФА",
+    MUR: "рупия",
+    SCR: "рупия",
+    MVR: "руфия",
+    MGA: "ариари",
+    AUD: "австралийский доллар",
+    NZD: "новозеландский доллар",
+    FJD: "доллар",
+    CAD: "канадский доллар",
+    MXN: "песо",
+    BRL: "реал",
+    ARS: "песо",
+    CLP: "песо",
+    COP: "песо",
+    PEN: "соль",
+    UYU: "песо",
+    BOB: "боливиано",
+    PYG: "гуарани",
+    VES: "боливар",
+    CRC: "колон",
+    GTQ: "кетсаль",
+    DOP: "песо",
+    CUP: "песо",
+    JMD: "доллар",
+    TTD: "доллар",
+    BSD: "доллар",
+    BBD: "доллар",
+    XCD: "восточнокарибский доллар",
+    PAB: "бальбоа",
+    HNL: "лемпира",
+    NIO: "кордоба",
+    HKD: "гонконгский доллар",
+    TWD: "тайваньский доллар",
+    KRW: "вона",
+    KPW: "вона",
+    BND: "доллар",
+    BWP: "пула",
+    NAD: "доллар",
+    ZMW: "квача",
+    MWK: "квача",
+    MZN: "метикал",
+    AOA: "кванза",
+    CVE: "эскудо",
+    STN: "добра",
+    SZL: "лилангени",
+    LSL: "лоти",
+    SDG: "фунт",
+    SSP: "фунт",
+    SOS: "шиллинг",
+    DJF: "франк",
+    RWF: "франк",
+    BIF: "франк",
+    KMF: "франк",
+    CDF: "франк",
+    GNF: "франк",
+    MRU: "угия",
+    SLE: "леоне",
+    LRD: "доллар",
+    GMD: "даласи",
+    ERN: "накфа",
+    SRD: "доллар",
+    GYD: "доллар",
+    BZD: "доллар",
+    HTG: "гурд",
+    AWG: "флорин",
+    PGK: "кина",
+    SBD: "доллар",
+    VUV: "вату",
+    WST: "тала",
+    TOP: "паанга",
+    BAM: "марка",
+    MKD: "денар",
+    ALL: "лек",
+    MDL: "лей",
+    BTN: "нгултрум",
+    SYP: "фунт",
+    LBP: "фунт",
+    ZWG: "зимбабвийский доллар",
+};
+const TZ_BY_CONT = {
+    EU: "UTC+1…+3",
+    AS: "UTC+3…+9",
+    AF: "UTC+0…+3",
+    NA: "UTC−8…−4",
+    SA: "UTC−5…−3",
+    OC: "UTC+10…+13",
+};
+const TZ = {
+    RUS: "UTC+2…+12",
+    USA: "UTC−8…−5",
+    CAN: "UTC−8…−3.5",
+    BRA: "UTC−5…−2",
+    AUS: "UTC+8…+11",
+    CHN: "UTC+8",
+    IND: "UTC+5:30",
+    JPN: "UTC+9",
+    KOR: "UTC+9",
+    THA: "UTC+7",
+    VNM: "UTC+7",
+    IDN: "UTC+7…+9",
+    SGP: "UTC+8",
+    HKG: "UTC+8",
+    TWN: "UTC+8",
+    ARE: "UTC+4",
+    TUR: "UTC+3",
+    EGY: "UTC+2",
+    ISR: "UTC+2",
+    GEO: "UTC+4",
+    ARM: "UTC+4",
+    AZE: "UTC+4",
+    KAZ: "UTC+5…+6",
+    UZB: "UTC+5",
+    KGZ: "UTC+6",
+    GBR: "UTC+0",
+    PRT: "UTC+0",
+    ISL: "UTC+0",
+    FRA: "UTC+1",
+    DEU: "UTC+1",
+    ITA: "UTC+1",
+    ESP: "UTC+1",
+    NLD: "UTC+1",
+    CZE: "UTC+1",
+    POL: "UTC+1",
+    AUT: "UTC+1",
+    CHE: "UTC+1",
+    BEL: "UTC+1",
+    SWE: "UTC+1",
+    NOR: "UTC+1",
+    DNK: "UTC+1",
+    HRV: "UTC+1",
+    HUN: "UTC+1",
+    GRC: "UTC+2",
+    FIN: "UTC+2",
+    UKR: "UTC+2",
+    ROU: "UTC+2",
+    BGR: "UTC+2",
+    MEX: "UTC−7…−5",
+    ARG: "UTC−3",
+    CHL: "UTC−4",
+    PER: "UTC−5",
+    COL: "UTC−5",
+    ZAF: "UTC+2",
+    MAR: "UTC+1",
+    TUN: "UTC+1",
+    KEN: "UTC+3",
+    TZA: "UTC+3",
+    NZL: "UTC+12",
+    MDV: "UTC+5",
+    LKA: "UTC+5:30",
+    NPL: "UTC+5:45",
+    QAT: "UTC+3",
+    SAU: "UTC+3",
+    OMN: "UTC+4",
+    JOR: "UTC+3",
+    CUB: "UTC−5",
+    DOM: "UTC−4",
+    MYS: "UTC+8",
+    PHL: "UTC+8",
+    MNG: "UTC+8",
+};
+const TAXI_BY_CONT = {
+    EU: "Bolt, Uber · карта",
+    AS: "Grab, inDrive · карта и наличные",
+    AF: "Bolt, Yango · чаще наличные",
+    NA: "Uber, Lyft · карта",
+    SA: "Uber, Cabify · карта",
+    OC: "Uber, Ola · карта",
+};
+const TAXI = {
+    RUS: "Яндекс Go · карта",
+    BLR: "Яндекс Go · карта",
+    KAZ: "Яндекс Go, inDrive · карта",
+    UZB: "Яндекс Go · карта и наличные",
+    KGZ: "Яндекс Go, inDrive · наличные",
+    ARM: "Яндекс Go, GG · карта",
+    GEO: "Bolt, Яндекс Go · карта",
+    AZE: "Bolt, Uber · карта",
+    TUR: "BiTaksi, Uber · карта",
+    ARE: "Careem, Uber · карта",
+    SAU: "Careem, Uber · карта",
+    QAT: "Careem · карта",
+    EGY: "Uber, Careem · карта",
+    THA: "Grab, Bolt · карта и наличные",
+    VNM: "Grab, Be · карта и наличные",
+    IDN: "Grab, Gojek · карта",
+    MYS: "Grab · карта",
+    SGP: "Grab · карта",
+    PHL: "Grab · карта",
+    HKG: "Uber, HKTaxi · карта",
+    CHN: "DiDi · только через приложение",
+    JPN: "GO, Uber · карта",
+    KOR: "Kakao T · карта",
+    IND: "Uber, Ola · карта и наличные",
+    LKA: "PickMe, Uber · карта",
+    NPL: "Pathao, inDrive · наличные",
+    USA: "Uber, Lyft · карта",
+    CAN: "Uber, Lyft · карта",
+    MEX: "Uber, DiDi · карта",
+    BRA: "Uber, 99 · карта",
+    ARG: "Cabify, Uber · карта и наличные",
+    CHL: "Uber, Cabify · карта",
+    PER: "Uber, Cabify · карта",
+    COL: "Uber, DiDi · карта",
+    GBR: "Uber, Bolt · карта",
+    FRA: "Uber, Bolt, G7 · карта",
+    DEU: "Uber, FreeNow · карта",
+    ITA: "FreeNow, itTaxi · карта",
+    ESP: "Cabify, Uber · карта",
+    PRT: "Bolt, Uber · карта",
+    GRC: "FreeNow, Uber · карта",
+    POL: "Bolt, Uber · карта",
+    CZE: "Bolt, Uber, Liftago · карта",
+    AUT: "Bolt, Uber · карта",
+    NLD: "Uber, Bolt · карта",
+    CHE: "Uber · карта",
+    SWE: "Bolt, Uber · карта",
+    NOR: "Bolt, Uber · карта",
+    FIN: "Bolt, Uber · карта",
+    HRV: "Bolt, Uber · карта",
+    HUN: "Bolt · карта",
+    ROU: "Bolt, Uber · карта",
+    BGR: "Bolt, Maxim · карта",
+    SRB: "CarGo, Yandex · карта",
+    ZAF: "Uber, Bolt · карта",
+    KEN: "Bolt, Uber · карта и наличные",
+    TZA: "Bolt, Uber · наличные",
+    MAR: "Careem, inDrive · наличные",
+    TUN: "Bolt · наличные",
+    AUS: "Uber, DiDi · карта",
+    NZL: "Uber, Ola · карта",
+    MDV: "такси на островах · наличные",
+    CUB: "уличное такси · только наличные",
+    DOM: "Uber, InDrive · карта и наличные",
+    ISR: "Gett, Yango · карта",
+    MNG: "UBCab · наличные",
+    ISL: "Hreyfill · карта",
+    IRL: "FreeNow · карта",
+    BEL: "Uber, Bolt · карта",
+    DNK: "Dantaxi, Bolt · карта",
+    MNE: "CarGo, Terrae · наличные",
+    ALB: "Speed Taxi · наличные",
+};
+const countryExtra = (a3) => {
+    const c = BY_A3[a3];
+    return {
+        tz: TZ[a3] || TZ_BY_CONT[c === null || c === void 0 ? void 0 : c.cont] || "—",
+        taxi: TAXI[a3] || TAXI_BY_CONT[c === null || c === void 0 ? void 0 : c.cont] || "—",
+    };
 };
 const countryInfo = (a3) => {
     const c = BY_A3[a3];
@@ -3223,6 +3542,7 @@ function CountrySheet({ country, open, onClose, box }) {
     const lang = COUNTRY_LANG[country.a3];
     const phrases = lang ? PHRASES[lang] : null;
     const info = countryInfo(country.a3);
+    const extra = countryExtra(country.a3);
     const rate = (to) => {
         const r = rates === null || rates === void 0 ? void 0 : rates.rates;
         if (!r || !cur || !r[cur] || !r[to])
@@ -3232,31 +3552,46 @@ function CountrySheet({ country, open, onClose, box }) {
     const inRub = rate("RUB");
     const inUsd = rate("USD");
     const inEur = rate("EUR");
-    return (React.createElement(Sheet, { open: open, onClose: onClose, title: country.name, box: box }, () => (React.createElement("div", { className: "sheet-body" },
+    const facts = [
+        ["🔌", "Розетка", info.plug],
+        ["🚰", "Вода", info.water],
+        ["💸", "Чаевые", info.tip],
+        ["🕒", "Время", extra.tz],
+        ["🚕", "Такси", extra.taxi],
+        ["🆘", "Экстренный", info.sos],
+    ];
+    return (React.createElement(Sheet, { open: open, onClose: onClose, title: "\u041F\u0440\u043E \u0441\u0442\u0440\u0430\u043D\u0443", box: box }, () => (React.createElement("div", { className: "sheet-body" },
+        React.createElement("div", { className: "cs-head" },
+            React.createElement("span", { className: "cs-flag" }, flag(country.a2)),
+            React.createElement("span", { className: "cs-title" },
+                React.createElement("b", null, country.name),
+                React.createElement("em", null,
+                    CONTINENTS[country.cont],
+                    lang ? ` · ${LANG_NAME[lang] || lang} язык` : ""))),
         cur && (React.createElement(React.Fragment, null,
             React.createElement("p", { className: "step-title" }, "\u0412\u0430\u043B\u044E\u0442\u0430"),
             React.createElement("div", { className: "rate-card" },
                 React.createElement("div", { className: "rate-head" },
                     React.createElement("b", null,
                         "1 ",
-                        cur),
-                    (rates === null || rates === void 0 ? void 0 : rates.at) && (React.createElement("span", null,
-                        "\u043A\u0443\u0440\u0441 \u043D\u0430",
-                        " ",
-                        new Date(rates.at).toLocaleDateString("ru-RU", {
-                            day: "numeric",
-                            month: "long",
-                        })))),
+                        cur,
+                        CUR_NAME[cur] ? React.createElement("i", null,
+                            " \u00B7 ",
+                            CUR_NAME[cur]) : null),
+                    (rates === null || rates === void 0 ? void 0 : rates.at) && (React.createElement("span", null, new Date(rates.at).toLocaleDateString("ru-RU", {
+                        day: "numeric",
+                        month: "short",
+                    })))),
                 React.createElement("div", { className: "rate-grid" },
                     React.createElement("div", null,
                         React.createElement("b", null, inRub ? money(inRub) : busy ? "…" : "—"),
-                        React.createElement("span", null, "\u0440\u0443\u0431\u043B\u0435\u0439")),
+                        React.createElement("span", null, "\u20BD")),
                     React.createElement("div", null,
                         React.createElement("b", null, inUsd ? money(inUsd) : busy ? "…" : "—"),
-                        React.createElement("span", null, "\u0434\u043E\u043B\u043B\u0430\u0440\u043E\u0432")),
+                        React.createElement("span", null, "$")),
                     React.createElement("div", null,
                         React.createElement("b", null, inEur ? money(inEur) : busy ? "…" : "—"),
-                        React.createElement("span", null, "\u0435\u0432\u0440\u043E"))),
+                        React.createElement("span", null, "\u20AC"))),
                 inRub && (React.createElement("p", { className: "rate-back" },
                     "100 \u20BD \u2248 ",
                     money(100 / inRub),
@@ -3266,36 +3601,28 @@ function CountrySheet({ country, open, onClose, box }) {
                     " ",
                     money(100 / inUsd),
                     " ",
-                    cur)),
-                React.createElement("button", { className: "link-btn", onClick: async () => {
-                        setBusy(true);
-                        setRates(await loadRates(true));
-                        setBusy(false);
-                    } }, "\u041E\u0431\u043D\u043E\u0432\u0438\u0442\u044C \u043A\u0443\u0440\u0441")))),
+                    cur,
+                    React.createElement("button", { className: "rate-upd", onClick: async () => {
+                            setBusy(true);
+                            setRates(await loadRates(true));
+                            setBusy(false);
+                        } }, "\u043E\u0431\u043D\u043E\u0432\u0438\u0442\u044C")))))),
+        React.createElement("p", { className: "step-title" }, "\u0412\u0430\u0436\u043D\u043E\u0435"),
+        React.createElement("div", { className: "facts" }, facts.map(([icon, label, value]) => (React.createElement("div", { key: label, className: "fact" },
+            React.createElement("span", { className: "fact-ico" }, icon),
+            React.createElement("span", { className: "fact-body" },
+                React.createElement("em", null, label),
+                React.createElement("b", null, value)))))),
         phrases && (React.createElement(React.Fragment, null,
-            React.createElement("p", { className: "step-title" },
-                "\u041F\u0435\u0440\u0432\u044B\u0435 \u0441\u043B\u043E\u0432\u0430 \u00B7 ",
-                LANG_NAME[lang] || lang),
+            React.createElement("p", { className: "step-title" }, "\u041F\u0435\u0440\u0432\u044B\u0435 \u0441\u043B\u043E\u0432\u0430"),
             React.createElement("div", { className: "phrases" }, phrases.map((line, i) => {
                 const [orig, tr] = line.split("|");
                 return (React.createElement("div", { key: i, className: "phrase" },
                     React.createElement("span", { className: "phrase-ru" }, PHRASE_LABELS[i]),
-                    React.createElement("span", { className: "phrase-x" }, orig),
-                    React.createElement("span", { className: "phrase-tr" }, tr)));
-            })))),
-        React.createElement("p", { className: "step-title" }, "\u041F\u043E\u043B\u0435\u0437\u043D\u043E\u0435"),
-        React.createElement("div", { className: "about-row" },
-            React.createElement("span", null, "\u0420\u043E\u0437\u0435\u0442\u043A\u0430"),
-            React.createElement("b", null, info.plug)),
-        React.createElement("div", { className: "about-row" },
-            React.createElement("span", null, "\u0412\u043E\u0434\u0430"),
-            React.createElement("b", null, info.water)),
-        React.createElement("div", { className: "about-row" },
-            React.createElement("span", null, "\u0427\u0430\u0435\u0432\u044B\u0435"),
-            React.createElement("b", null, info.tip)),
-        React.createElement("div", { className: "about-row" },
-            React.createElement("span", null, "\u042D\u043A\u0441\u0442\u0440\u0435\u043D\u043D\u044B\u0439"),
-            React.createElement("b", null, info.sos))))));
+                    React.createElement("span", { className: "phrase-body" },
+                        React.createElement("b", null, orig),
+                        React.createElement("em", null, tr))));
+            }))))))));
 }
 /* шторка: фильтры — для глобуса и для списка поездок */
 function FiltersSheet({ open, onClose, box, target, years, yearFilter, onYear, mode, onMode, }) {
@@ -4333,12 +4660,12 @@ body > div{max-width:100%;}
 .sheet-layer{position:fixed; top:0; left:0; width:100%; height:100%; overflow:hidden; z-index:90;}
 .sheet-dim{position:absolute; top:0; left:0; width:100%; height:calc(100% - var(--tabh)); background:rgba(4,10,17,0); transition:background .2s ease;}
 .sheet-layer.in .sheet-dim{background:rgba(4,10,17,.55);}
-.sheet{padding-bottom:8px; position:absolute; left:50%; bottom:var(--tabh); width:100%; max-width:100%; max-height:calc(100% - var(--tabh) - 14px); display:flex; flex-direction:column;
+.sheet{padding-bottom:8px; position:absolute; left:50%; bottom:var(--tabh); width:100%; max-width:100%; max-height:calc(100% - var(--tabh) - 54px - env(safe-area-inset-top)); display:flex; flex-direction:column;
   background:var(--sheet); border-top:1px solid var(--line); border-radius:20px 20px 0 0;
   box-shadow:0 -14px 40px var(--shadow); transform:translate(-50%, 100%); transition:transform .22s cubic-bezier(.22,.7,.3,1);}
 .sheet-grab{padding:10px 0 6px; display:flex; justify-content:center; touch-action:none; cursor:grab;}
 .sheet-grab span{width:40px; height:4px; border-radius:2px; background:var(--track); display:block;}
-.sheet-head{display:flex; align-items:center; padding:2px 16px 10px;}
+.sheet-head{display:flex; align-items:center; padding:4px 16px 12px;}
 .sheet-head h2{margin:0; font-size:1.062rem; font-weight:500;}
 .sheet .when{margin:0 16px; padding:0 0 10px; background:none; border:0;}
 .sheet .search{margin:0; border-top:1px solid var(--line);}
@@ -4490,22 +4817,38 @@ body > div{max-width:100%;}
 .sheet .about-row{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 14px; margin-bottom:6px; background:var(--el); border:1px solid var(--line); border-radius:11px; min-width:0;}
 .sheet .about-row span{flex:none; font-size:0.75rem; color:var(--dim);}
 .sheet .about-row b{flex:1 1 auto; min-width:0; text-align:right; font-size:0.8rem; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-.rate-card{padding:14px; border-radius:14px; border:1px solid var(--line); background:var(--el);}
-.rate-head{display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin-bottom:12px; min-width:0;}
-.rate-head b{font-family:Georgia,serif; font-size:1.25rem; font-weight:400; color:var(--gold);}
-.rate-head span{font-size:0.66rem; color:var(--dim); text-align:right;}
-.rate-grid{display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:7px;}
-.rate-grid > div{padding:11px 4px; background:var(--field); border:1px solid var(--line); border-radius:11px; text-align:center;}
-.rate-grid b{display:block; font-size:1.05rem; font-weight:500;}
-.rate-grid span{display:block; margin-top:2px; font-size:0.62rem; color:var(--dim);}
-.rate-back{margin:10px 0 0; font-size:0.7rem; color:var(--dim); text-align:center;}
-.rate-card .link-btn{display:block; width:100%; margin-top:4px;}
+.cs-head{display:flex; align-items:center; gap:12px; margin-bottom:4px; min-width:0;}
+.cs-flag{flex:none; font-size:2rem; line-height:1;}
+.cs-title{flex:1 1 auto; min-width:0;}
+.cs-title b{display:block; font-family:Georgia,serif; font-size:1.3rem; font-weight:400;}
+.cs-title em{display:block; margin-top:2px; font-style:normal; font-size:0.72rem; color:var(--dim);}
 
-.phrases{display:flex; flex-direction:column; gap:8px;}
-.phrase{padding:11px 13px; border-radius:12px; border:1px solid var(--line); background:var(--el); min-width:0;}
-.phrase-ru{display:block; font-size:0.68rem; color:var(--dim);}
-.phrase-x{display:block; margin-top:3px; font-size:1.05rem; color:var(--ink);}
-.phrase-tr{display:block; margin-top:2px; font-size:0.78rem; color:var(--gold);}
+.rate-card{padding:12px 13px; border-radius:14px; border:1px solid var(--line); background:var(--el);}
+.rate-head{display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin-bottom:9px; min-width:0;}
+.rate-head b{font-size:0.95rem; font-weight:500; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.rate-head b i{font-style:normal; color:var(--dim); font-weight:400;}
+.rate-head span{flex:none; font-size:0.66rem; color:var(--dim);}
+.rate-grid{display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:7px;}
+.rate-grid > div{padding:9px 4px; background:var(--field); border:1px solid var(--line); border-radius:10px; text-align:center;}
+.rate-grid b{display:block; font-size:1rem; font-weight:500;}
+.rate-grid span{display:block; margin-top:1px; font-size:0.7rem; color:var(--dim);}
+.rate-back{display:flex; align-items:center; justify-content:center; gap:8px; flex-wrap:wrap; margin:9px 0 0; font-size:0.68rem; color:var(--dim);}
+.rate-upd{padding:0; border:0; background:none; color:var(--gold); font-size:0.68rem; cursor:pointer;}
+
+.facts{display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:8px;}
+.fact{display:flex; align-items:flex-start; gap:9px; padding:10px 11px; border-radius:12px; border:1px solid var(--line); background:var(--el); min-width:0;}
+.fact-ico{flex:none; font-size:1.15rem; line-height:1.2;}
+.fact-body{flex:1 1 auto; min-width:0;}
+.fact-body em{display:block; font-style:normal; font-size:0.64rem; color:var(--dim);}
+.fact-body b{display:block; margin-top:2px; font-size:0.78rem; font-weight:500; line-height:1.3;}
+
+.phrases{display:flex; flex-direction:column; gap:7px;}
+.phrase{display:flex; align-items:center; gap:10px; padding:9px 12px; border-radius:12px; border:1px solid var(--line); background:var(--el); min-width:0;}
+.phrase-ru{flex:0 0 40%; min-width:0; font-size:0.72rem; color:var(--dim); line-height:1.25;}
+.phrase-body{flex:1 1 auto; min-width:0; text-align:right;}
+.phrase-body b{display:block; font-size:0.95rem; font-weight:500; line-height:1.25;}
+.phrase-body em{display:block; margin-top:1px; font-style:normal; font-size:0.72rem; color:var(--gold);}
+
 .sheet .theme-row{display:flex; gap:7px; margin-bottom:8px;}
 .sheet .theme-cell{flex:1 1 0; min-width:0; padding:12px 4px; border-radius:11px; border:1px solid var(--line); background:var(--el); color:var(--dim); font-size:0.8rem; cursor:pointer;}
 .sheet .theme-cell.on{background:var(--gold); border-color:var(--gold); color:#1a1206; font-weight:600;}
