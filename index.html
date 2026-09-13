@@ -755,7 +755,7 @@ const K_SETTINGS = "atlas:settings";
 const K_BACKUP = "atlas:data:backup";
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "4.5";
+const APP_VERSION = "4.6";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData() {
@@ -3157,7 +3157,10 @@ function WhenPicker({ y, m, noMonth, y2, approx, onChange }) {
         React.createElement("span", { style: chev }, "\u25BE"),
         React.createElement("select", { style: hidden, value: val, onChange: onPick }, options)));
     return (React.createElement("div", null,
-        React.createElement(Picker, { title: approx ? "С" : "Год", val: y || "", text: y || "не выбран", onPick: (e) => onChange({ y: +e.target.value }), options: React.createElement(React.Fragment, null,
+        React.createElement(Picker, { title: approx ? "С" : "Год", val: y || "", text: y || "не выбран", onPick: (e) => {
+                const v = +e.target.value;
+                onChange(approx && y2 && y2 < v ? { y: v, y2: v } : { y: v });
+            }, options: React.createElement(React.Fragment, null,
                 !y && React.createElement("option", { value: "" }, "\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0433\u043E\u0434"),
                 YEARS.map((v) => (React.createElement("option", { key: v, value: v }, v)))) }),
         approx ? (React.createElement(Picker, { title: "\u041F\u043E", val: y2 || y || "", text: y2 || y || "не выбран", onPick: (e) => onChange({ y2: +e.target.value }), options: YEARS.filter((v) => !y || v >= y).map((v) => (React.createElement("option", { key: v, value: v }, v))) })) : (React.createElement(Picker, { title: "\u041C\u0435\u0441\u044F\u0446", val: m || 0, text: m ? MONTHS[m - 1] : "не помню", onPick: (e) => {
@@ -3736,15 +3739,23 @@ function ListSheet({ visits, stats, open, onClose, onPick, onRemove, box, mode }
     /* разрез: по годам, странам или континентам */
     const groups = useMemo(() => {
         const map = new Map();
-        found.forEach((row) => {
-            const key = mode === "year"
-                ? String(row.t.y)
-                : mode === "country"
-                    ? row.c.name
-                    : CONTINENTS[row.c.cont];
+        const push = (key, row) => {
             if (!map.has(key))
                 map.set(key, []);
             map.get(key).push(row);
+        };
+        found.forEach((row) => {
+            if (mode === "year") {
+                const to = row.t.y2 && row.t.y2 > row.t.y ? row.t.y2 : row.t.y;
+                for (let y = row.t.y; y <= to; y++)
+                    push(String(y), row);
+            }
+            else if (mode === "country") {
+                push(row.c.name, row);
+            }
+            else {
+                push(CONTINENTS[row.c.cont], row);
+            }
         });
         const list = [...map.entries()];
         if (mode === "year")
@@ -3764,7 +3775,9 @@ function ListSheet({ visits, stats, open, onClose, onPick, onRemove, box, mode }
         Object.values(visits).forEach((arr) => arr.forEach((t) => {
             (t.cities || []).forEach((c) => cities.add(c));
             (t.hotels || []).forEach((h) => hotels.add(h.name));
-            years.add(t.y);
+            const to = t.y2 && t.y2 > t.y ? t.y2 : t.y;
+            for (let y = t.y; y <= to; y++)
+                years.add(y);
             photos += (t.photos || []).length;
         }));
         return {
@@ -3857,7 +3870,7 @@ function ListSheet({ visits, stats, open, onClose, onPick, onRemove, box, mode }
                     React.createElement("span", { className: "grp-count" }, rows.length),
                     React.createElement("span", { className: "grp-chev" }, hidden ? "▾" : "▴")),
                 !hidden &&
-                    rows.map((row) => (React.createElement("div", { key: row.a3 + row.idx, className: "trip-item" },
+                    rows.map((row) => (React.createElement("div", { key: key + row.a3 + row.idx, className: "trip-item" },
                         React.createElement("button", { className: "trip-main", onClick: () => {
                                 onPick(row.a3);
                                 close();
@@ -3870,7 +3883,9 @@ function ListSheet({ visits, stats, open, onClose, onPick, onRemove, box, mode }
                                 React.createElement("span", { className: "trip-sub" }, mode === "country"
                                     ? sub(row.t).replace(MONTHS[(row.t.m || 1) - 1] + " · ", "")
                                     : sub(row.t) || tripLabel(row.t))),
-                            mode !== "country" && (React.createElement("span", { className: "trip-year" }, row.t.y))),
+                            mode !== "country" && (React.createElement("span", { className: "trip-year" }, row.t.y2 && row.t.y2 !== row.t.y
+                                ? `${row.t.y}–${row.t.y2}`
+                                : row.t.y))),
                         React.createElement("button", { className: "trip-del", onClick: () => onRemove(row.a3, row.idx), "aria-label": "\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u043F\u043E\u0435\u0437\u0434\u043A\u0443" },
                             React.createElement("svg", { viewBox: "0 0 24 24", width: "15", height: "15" },
                                 React.createElement("path", { d: "M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12", fill: "none", stroke: "currentColor", strokeWidth: "1.7", strokeLinecap: "round", strokeLinejoin: "round" }))))))));
