@@ -755,7 +755,7 @@ const K_SETTINGS = "atlas:settings";
 const K_BACKUP = "atlas:data:backup";
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "4.6";
+const APP_VERSION = "4.7";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData() {
@@ -3274,12 +3274,8 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality 
     const country = draft ? BY_A3[draft.a3] : null;
     const patch = (p) => setDraft((d) => ({ ...d, ...p }));
     const cityPool = useMemo(() => (country ? CITIES.filter((c) => c.a3 === country.a3).map((c) => c.city) : []), [country]);
-    const whenReady = !!(draft && draft.y);
-    const whenText = (draft === null || draft === void 0 ? void 0 : draft.y)
-        ? draft.m
-            ? `${MONTHS[draft.m - 1]} ${draft.y}`
-            : `${draft.y}`
-        : "";
+    const whenReady = !!(draft && draft.y && (!draft.approx || draft.y2));
+    const whenText = (draft === null || draft === void 0 ? void 0 : draft.y) ? tripLabel(draft) : "";
     return (React.createElement(Sheet, { open: open, onClose: onClose, box: box, title: country ? country.name : mode === "edit" ? "Поездка" : "Новая поездка" }, (close) => (React.createElement("div", { className: "sheet-body" },
         !country ? (React.createElement(React.Fragment, null,
             React.createElement(TextField, { search: true, value: q, placeholder: "\u041D\u0430\u0447\u043D\u0438\u0442\u0435 \u0432\u0432\u043E\u0434\u0438\u0442\u044C \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u0435", onChange: (e) => setQ(e.target.value) }),
