@@ -755,7 +755,7 @@ const K_SETTINGS = "atlas:settings";
 const K_BACKUP = "atlas:data:backup";
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "6.8";
+const APP_VERSION = "6.9";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData() {
@@ -977,9 +977,10 @@ const MAP_PAGES = [
     {
         id: "west",
         title: "Америки",
-        box: frame(-168, -34, -56, 72),
+        box: frame(-160, -35, -55, 71),
         conts: ["NA", "SA"],
         extra: [],
+        zoom: 1.06,
     },
     {
         id: "east",
@@ -987,6 +988,7 @@ const MAP_PAGES = [
         box: frame(-18, 179, -47, 72),
         conts: ["EU", "AS", "AF", "OC"],
         extra: [],
+        zoom: 1,
     },
 ];
 /* какому развороту принадлежит страна */
@@ -2158,7 +2160,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                 [pad, pad],
                 [size - pad, H - pad],
             ], MAP_PAGES[page.current].box);
-            proj.scale(proj.scale() * zoom.current);
+            proj.scale(proj.scale() * zoom.current * (MAP_PAGES[page.current].zoom || 1));
             const pb = d3.geoPath(proj).bounds(MAP_PAGES[page.current].box);
             const tt = proj.translate();
             proj.translate([
@@ -2711,7 +2713,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                 [pad, pad],
                 [size - pad, H - pad],
             ], MAP_PAGES[page.current].box);
-            proj.scale(proj.scale() * zoom.current);
+            proj.scale(proj.scale() * zoom.current * (MAP_PAGES[page.current].zoom || 1));
             const pb = d3.geoPath(proj).bounds(MAP_PAGES[page.current].box);
             const tt = proj.translate();
             proj.translate([
