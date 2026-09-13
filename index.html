@@ -746,10 +746,49 @@ const K_ACCOUNTS = "atlas:accounts";
 const K_PROFILE = "atlas:profile";
 const K_DATA = "atlas:data:main";
 const K_SETTINGS = "atlas:settings";
+const K_BACKUP = "atlas:data:backup";
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "4.2";
+const APP_VERSION = "4.3";
 const APP_BUILD = "2026-09-12";
+/* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
+async function findAllData() {
+    const found = [];
+    const keys = [K_DATA, K_BACKUP];
+    for (const key of keys) {
+        try {
+            if (typeof window !== "undefined" && window.storage) {
+                const r = await window.storage.get(key, false);
+                const v = r ? JSON.parse(r.value) : null;
+                if (v === null || v === void 0 ? void 0 : v.visits)
+                    found.push({ where: "хранилище приложения", key, v });
+            }
+        }
+        catch {
+            /* пропускаем */
+        }
+        try {
+            const v = await idb.get(key);
+            if (v === null || v === void 0 ? void 0 : v.visits)
+                found.push({ where: "база браузера", key, v });
+        }
+        catch {
+            /* пропускаем */
+        }
+        try {
+            const raw = window.localStorage.getItem(key);
+            const v = raw ? JSON.parse(raw) : null;
+            if (v === null || v === void 0 ? void 0 : v.visits)
+                found.push({ where: "память страницы", key, v });
+        }
+        catch {
+            /* пропускаем */
+        }
+    }
+    found.sort((a, b) => Object.keys(b.v.visits).length - Object.keys(a.v.visits).length ||
+        (b.v.at || 0) - (a.v.at || 0));
+    return found;
+}
 /* проверка: доступно ли постоянное хранилище и переживает ли запись перезапуск */
 async function checkStorage() {
     await pickBackend();
@@ -3286,7 +3325,7 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality 
                     React.createElement("path", { d: "M5 12.5l4.5 4.5L19 7.5", fill: "none", stroke: "currentColor", strokeWidth: "2.2", strokeLinecap: "round", strokeLinejoin: "round" })))))))));
 }
 /* шторка: профиль — вы и ваши данные */
-function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, onExport, onImport, visits, }) {
+function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, onExport, onImport, onRestore, restoreMsg, visits, }) {
     return (React.createElement(Sheet, { open: open, onClose: onClose, title: "\u041F\u0440\u043E\u0444\u0438\u043B\u044C", box: box }, () => (React.createElement("div", { className: "sheet-body" },
         React.createElement("div", { className: "avatar-row" },
             React.createElement("label", { className: "avatar" },
@@ -3302,6 +3341,11 @@ function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, 
                 React.createElement("input", { className: "name-input", value: name || "", placeholder: "\u0412\u0430\u0448\u0435 \u0438\u043C\u044F", onChange: (e) => onName(e.target.value), autoComplete: "off", autoCorrect: "off", spellCheck: "false", "data-lpignore": "true" }),
                 React.createElement("em", null, avatar ? "Нажмите на фото, чтобы заменить" : "Добавьте фото"))),
         React.createElement("p", { className: "step-title" }, "\u041C\u043E\u0438 \u0434\u0430\u043D\u043D\u044B\u0435"),
+        React.createElement("button", { className: "switch-row", onClick: onRestore },
+            React.createElement("span", { className: "switch-text" },
+                "\u041D\u0430\u0439\u0442\u0438 \u043C\u043E\u0438 \u043F\u043E\u0435\u0437\u0434\u043A\u0438",
+                React.createElement("em", null, restoreMsg || "Поиск по всем хранилищам телефона")),
+            React.createElement("span", { className: "step-pen" }, "\u27F3")),
         React.createElement("button", { className: "switch-row", onClick: onExport },
             React.createElement("span", { className: "switch-text" },
                 "\u0412\u044B\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u0432 \u0444\u0430\u0439\u043B",
@@ -4054,7 +4098,7 @@ function Atlas() {
     /* профиль и блокировка */
     useEffect(() => {
         (async () => {
-            var _a, _b, _c;
+            var _a, _b;
             let prof = await store.get(K_PROFILE);
             if (!prof) {
                 // перенос данных из прежней версии с логином и паролем
@@ -4071,7 +4115,16 @@ function Atlas() {
             setProfile(prof);
             if (prof && !prof.pinHash)
                 setUnlocked(true);
-            setVisits(((_a = (await store.get(K_DATA))) === null || _a === void 0 ? void 0 : _a.visits) || {});
+            let data = await store.get(K_DATA);
+            if (!(data === null || data === void 0 ? void 0 : data.visits) || !Object.keys(data.visits).length) {
+                const found = await findAllData();
+                if (found.length) {
+                    data = found[0].v;
+                    store.set(K_DATA, data);
+                }
+            }
+            setVisits((data === null || data === void 0 ? void 0 : data.visits) || {});
+            loaded.current = true;
             const st = await store.get(K_SETTINGS);
             if (st && typeof st.cityPins === "boolean")
                 setCityPinsState(st.cityPins);
@@ -4083,7 +4136,7 @@ function Atlas() {
                 setSpinStartState(st.spinStart);
                 setSpinning(st.spinStart);
             }
-            if ((_b = window.PublicKeyCredential) === null || _b === void 0 ? void 0 : _b.isUserVerifyingPlatformAuthenticatorAvailable) {
+            if ((_a = window.PublicKeyCredential) === null || _a === void 0 ? void 0 : _a.isUserVerifyingPlatformAuthenticatorAvailable) {
                 try {
                     setFaceAvailable(await window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable());
                 }
@@ -4098,7 +4151,7 @@ function Atlas() {
                 probe = await checkStorage();
                 if (probe.ok) {
                     setProfile(await store.get(K_PROFILE));
-                    setVisits(((_c = (await store.get(K_DATA))) === null || _c === void 0 ? void 0 : _c.visits) || {});
+                    setVisits(((_b = (await store.get(K_DATA))) === null || _b === void 0 ? void 0 : _b.visits) || {});
                 }
             }
             setSaveBroken(!probe.ok);
@@ -4189,9 +4242,26 @@ function Atlas() {
         setUnlocked(false);
         setSelected(null);
     };
+    const loaded = useRef(false);
     const save = useCallback(async (next) => {
         setVisits(next);
-        const ok = await store.set(K_DATA, { visits: next, at: Date.now() });
+        if (!loaded.current)
+            return; // данные ещё читаются — не затираем
+        const payload = { visits: next, at: Date.now() };
+        const ok = await store.set(K_DATA, payload);
+        // запасная копия во всех доступных хранилищах
+        try {
+            await idb.set(K_BACKUP, payload);
+        }
+        catch {
+            /* базы может не быть */
+        }
+        try {
+            window.localStorage.setItem(K_BACKUP, JSON.stringify(payload));
+        }
+        catch {
+            /* места может не хватить */
+        }
         setSaveBroken(!ok);
     }, []);
     const addTrip = (a3, trip) => {
@@ -4330,6 +4400,26 @@ function Atlas() {
             /* файл не подошёл — данные не трогаем */
         }
     }, [profile]);
+    const [restoreMsg, setRestoreMsg] = useState("");
+    const restoreData = useCallback(async () => {
+        setRestoreMsg("Ищем…");
+        const found = await findAllData();
+        if (!found.length) {
+            setRestoreMsg("Ничего не нашлось. Загрузите копию из файла.");
+            return;
+        }
+        const best = found[0];
+        const count = Object.keys(best.v.visits).length;
+        const now = Object.keys(visits).length;
+        if (count <= now) {
+            setRestoreMsg(`Всё на месте: ${now} стран, это самая полная копия.`);
+            return;
+        }
+        loaded.current = true;
+        setVisits(best.v.visits);
+        await store.set(K_DATA, best.v);
+        setRestoreMsg(`Восстановлено ${count} стран · ${best.where}`);
+    }, [visits]);
     const saveAvatar = useCallback(async (dataUrl) => {
         const prof = { ...(profile || {}), avatar: dataUrl };
         setProfile(prof);
@@ -4459,7 +4549,7 @@ function Atlas() {
                 const prof = { ...profile, name: v };
                 setProfile(prof);
                 await store.set(K_PROFILE, prof);
-            }, onPickAvatar: (src) => setAvatarDraft(src), onExport: exportData, onImport: importData, visits: visits }),
+            }, onPickAvatar: (src) => setAvatarDraft(src), onExport: exportData, onImport: importData, onRestore: restoreData, restoreMsg: restoreMsg, visits: visits }),
         React.createElement(SettingsSheet, { open: sheet === "settings", onClose: () => setSheet(null), box: box, visits: visits, theme: theme, onTheme: setTheme, quality: photoQuality, onQuality: (v) => {
                 setPhotoQuality(v);
                 setSheet("photomode");
