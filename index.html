@@ -481,12 +481,40 @@ const flag = (a2) => {
         return "🏳";
     }
 };
+const MONTHS_GEN = [
+    "января", "февраля", "марта", "апреля", "мая", "июня",
+    "июля", "августа", "сентября", "октября", "ноября", "декабря",
+];
+const dParts = (iso) => {
+    const [y, m, d] = String(iso || "").split("-").map(Number);
+    return y && m && d ? { y, m, d } : null;
+};
 const tripLabel = (t) => {
+    const a = dParts(t.from);
+    const b = dParts(t.to);
+    if (a && b) {
+        if (a.y === b.y && a.m === b.m)
+            return `${a.d}–${b.d} ${MONTHS_GEN[a.m - 1]} ${a.y}`;
+        if (a.y === b.y)
+            return `${a.d} ${MONTHS_GEN[a.m - 1]} – ${b.d} ${MONTHS_GEN[b.m - 1]} ${a.y}`;
+        return `${a.d} ${MONTHS_GEN[a.m - 1]} ${a.y} – ${b.d} ${MONTHS_GEN[b.m - 1]} ${b.y}`;
+    }
+    if (a)
+        return `${a.d} ${MONTHS_GEN[a.m - 1]} ${a.y}`;
     if (t.y2 && t.y2 !== t.y)
         return `${t.y}–${t.y2}`;
     if (t.approx)
         return `около ${t.y}`;
     return t.m ? `${MONTHS[t.m - 1]} ${t.y}` : `${t.y}`;
+};
+const tripDays = (t) => {
+    const a = dParts(t.from);
+    const b = dParts(t.to);
+    if (!a || !b)
+        return 0;
+    const d1 = new Date(a.y, a.m - 1, a.d);
+    const d2 = new Date(b.y, b.m - 1, b.d);
+    return Math.max(1, Math.round((d2 - d1) / 86400000) + 1);
 };
 const tripFull = (t) => {
     var _a;
@@ -755,9 +783,19 @@ const K_PROFILE = "atlas:profile";
 const K_DATA = "atlas:data:main";
 const K_SETTINGS = "atlas:settings";
 const K_BACKUP = "atlas:data:backup";
+/* кто ездит вместе с вами */
+const ROLES = [
+    "Супруг",
+    "Супруга",
+    "Дочь",
+    "Сын",
+    "Друг",
+    "Семья",
+    "Прочее",
+];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "8.9";
+const APP_VERSION = "9.1";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData() {
@@ -1242,9 +1280,9 @@ function fillStyleFor(ctx, a3, bounds) {
 }
 /* популярные отели по городам — подсказки при выборе жилья */
 const HOTELS_RAW = `
-Токио|Park Hyatt Tokyo;Aman Tokyo;Mandarin Oriental;The Peninsula;Hoshinoya Tokyo;Shibuya Excel Hotel
-Киото|The Ritz-Carlton Kyoto;Hoshinoya Kyoto;Four Seasons Kyoto;Hyatt Regency;Kyoto Hotel Okura
-Осака|Conrad Osaka;The St. Regis;Hotel Granvia;Swissôtel Nankai;Imperial Hotel Osaka
+Токио|Park Hyatt Tokyo;Aman Tokyo;Mandarin Oriental;The Peninsula;Hoshinoya Tokyo;Shibuya Excel Hotel;Imperial Hotel Tokyo;Hotel Okura Tokyo;Grand Hyatt Tokyo;Conrad Tokyo;Andaz Tokyo;Palace Hotel Tokyo;Four Seasons Otemachi;Keio Plaza
+Киото|The Ritz-Carlton Kyoto;Hoshinoya Kyoto;Four Seasons Kyoto;Hyatt Regency;Kyoto Hotel Okura;Park Hyatt Kyoto;Aman Kyoto;Suiran Luxury;The Thousand Kyoto;Sowaka
+Осака|Conrad Osaka;The St. Regis;Hotel Granvia;Swissôtel Nankai;Imperial Hotel Osaka;W Osaka;Four Seasons Osaka;Hotel Hankyu;Ritz-Carlton Osaka;Zentis Osaka
 Бангкок|Mandarin Oriental;The Siam;Shangri-La Bangkok;Lebua at State Tower;Banyan Tree;Chatrium Riverside
 Пхукет|Amanpuri;Trisara;The Slate;Katathani Beach;Banyan Tree Phuket;Rosewood Phuket
 Паттайя|Hilton Pattaya;Royal Cliff Beach;Dusit Thani;Centara Grand Mirage;Amari Pattaya
@@ -1253,23 +1291,23 @@ const HOTELS_RAW = `
 Сингапур|Marina Bay Sands;Raffles Singapore;The Fullerton;Shangri-La Singapore;Capella Sentosa
 Гонконг|The Peninsula;Mandarin Oriental;Four Seasons;The Upper House;Island Shangri-La
 Макао|The Venetian Macao;Wynn Palace;Grand Lisboa;MGM Cotai;Banyan Tree Macau
-Дубай|Burj Al Arab;Atlantis The Palm;Jumeirah Beach Hotel;Address Downtown;One&Only Royal Mirage;Rixos Premium
+Дубай|Burj Al Arab;Atlantis The Palm;Jumeirah Beach Hotel;Address Downtown;One&Only Royal Mirage;Rixos Premium;Bulgari Resort Dubai;Armani Hotel;Palazzo Versace;Jumeirah Al Qasr;FIVE Palm;Waldorf Astoria Palm
 Абу-Даби|Emirates Palace;The St. Regis Saadiyat;Rosewood Abu Dhabi;Jumeirah Saadiyat
 Доха|Four Seasons Doha;The St. Regis;Mandarin Oriental;Banana Island Anantara
-Стамбул|Four Seasons Sultanahmet;Çırağan Palace Kempinski;Pera Palace;Raffles Istanbul;Swissôtel The Bosphorus
+Стамбул|Four Seasons Sultanahmet;Çırağan Palace Kempinski;Pera Palace;Raffles Istanbul;Swissôtel The Bosphorus;Shangri-La Bosphorus;Six Senses Kocatas;Four Seasons Bosphorus;The Ritz-Carlton Istanbul
 Анталья|Rixos Downtown;Titanic Beach Lara;Delphin Imperial;Akra Hotel;Mardan Palace
 Кемер|Rixos Sungate;Amara Premier Palace;Club Med Palmiye;Maxx Royal Kemer
 Бодрум|Mandarin Oriental Bodrum;Amanruya;The Bodrum EDITION;Titanic Deluxe
-Париж|Le Bristol;Ritz Paris;Four Seasons George V;Le Meurice;Hôtel Plaza Athénée;Citadines Saint-Germain
-Лондон|The Savoy;Claridge's;The Ritz London;The Langham;Shangri-La The Shard;Premier Inn County Hall
-Рим|Hotel de Russie;Hassler Roma;St. Regis Rome;Hotel Eden;Palazzo Manfredi
+Париж|Le Bristol;Ritz Paris;Four Seasons George V;Le Meurice;Hôtel Plaza Athénée;Citadines Saint-Germain;Hôtel de Crillon;Shangri-La Paris;Mandarin Oriental Paris;Hôtel Lutetia;Cheval Blanc Paris
+Лондон|The Savoy;Claridge's;The Ritz London;The Langham;Shangri-La The Shard;Premier Inn County Hall;The Connaught;The Berkeley;Bulgari London;The Dorchester;Rosewood London
+Рим|Hotel de Russie;Hassler Roma;St. Regis Rome;Hotel Eden;Palazzo Manfredi;Six Senses Rome;Bulgari Hotel Roma;The Rome EDITION;Villa Agrippina
 Милан|Bulgari Hotel;Four Seasons Milano;Park Hyatt Milan;Hotel Principe di Savoia
 Венеция|The Gritti Palace;Hotel Danieli;Belmond Cipriani;Aman Venice
 Флоренция|Four Seasons Firenze;Portrait Firenze;The St. Regis;Hotel Savoy
 Барселона|Hotel Arts;W Barcelona;Mandarin Oriental;Majestic Hotel;El Palace
 Мадрид|Mandarin Oriental Ritz;Four Seasons Madrid;Rosewood Villa Magna;Hotel Urso
 Лиссабон|Four Seasons Ritz;Bairro Alto Hotel;Tivoli Avenida;Pestana Palace
-Прага|Four Seasons Prague;Augustine;Aria Hotel;Hotel Paris;Alchymist Grand
+Прага|Four Seasons Prague;Augustine;Aria Hotel;Hotel Paris;Alchymist Grand;Mandarin Oriental Prague;Grandium;Golden Well;Art Nouveau Palace
 Вена|Hotel Sacher;Park Hyatt Vienna;The Ritz-Carlton;Hotel Imperial
 Будапешт|Four Seasons Gresham;Aria Hotel;Corinthia Budapest;Kempinski Corvinus
 Берлин|Hotel Adlon Kempinski;Regent Berlin;Das Stue;25hours Bikini
@@ -1283,11 +1321,11 @@ const HOTELS_RAW = `
 Афины|Hotel Grande Bretagne;King George;Electra Metropolis;Athens Was
 Санторини|Grace Hotel;Katikies;Canaves Oia;Mystique;Andronis Luxury
 Дубровник|Villa Dubrovnik;Hotel Excelsior;Hotel Bellevue;Rixos Premium
-Москва|Метрополь;Националь;Four Seasons Москва;Ararat Park Hyatt;Radisson Collection;Азимут Олимпик
-Санкт-Петербург|Гранд Отель Европа;Астория;Кемпински Мойка 22;Four Seasons Лион Палас;Индиго
+Москва|Метрополь;Националь;Four Seasons Москва;Ararat Park Hyatt;Radisson Collection;Азимут Олимпик;Балчуг Кемпински;Swissôtel Красные Холмы;Lotte Hotel Moscow;Хаятт Ридженси Петровский;StandArt
+Санкт-Петербург|Гранд Отель Европа;Астория;Кемпински Мойка 22;Four Seasons Лион Палас;Индиго;Belmond Гранд Отель Европа;W St. Petersburg;Домина;Коринтия;Рэдиссон Соня
 Сочи|Rodina Grand Hotel;Swissôtel Камелия;Radisson Роза Хутор;Pullman Сочи;Богатырь
 Казань|Корстон;Гранд Отель Казань;Ramada Kazan;Кортъярд Марриотт
-Калининград|Кайзерхоф;Радиссон Блю;Мёркурэ;Холидей Инн
+Калининград|Кайзерхоф;Радиссон Блю;Мёркурэ;Холидей Инн;Шкиперская;Скандинавия;Меркюр Калининград
 Тбилиси|Rooms Hotel;Stamba Hotel;Radisson Blu Iveria;Vinotel;Tbilisi Marriott
 Батуми|Le Méridien Batumi;Hilton Batumi;Radisson Blu;Sheraton Batumi
 Ереван|The Alexander;Grand Hotel Yerevan;Marriott Armenia;Radisson Blu
@@ -1297,7 +1335,7 @@ const HOTELS_RAW = `
 Ташкент|Hyatt Regency Tashkent;Hilton Tashkent City;Inspira-S;Lotte City
 Самарканд|Silk Road by Minyoun;Savitsky Plaza;Hilton Garden Inn;Registon Plaza
 Минск|Президент-отель;DoubleTree by Hilton;Renaissance Minsk;Европа
-Нью-Йорк|The Plaza;The Ritz-Carlton Central Park;The Standard High Line;Park Hyatt NY;Pod 51
+Нью-Йорк|The Plaza;The Ritz-Carlton Central Park;The Standard High Line;Park Hyatt NY;Pod 51;The Mark;Aman New York;Baccarat Hotel;The Carlyle;Crosby Street Hotel
 Лос-Анджелес|Beverly Hills Hotel;Chateau Marmont;The Beverly Wilshire;Shutters on the Beach
 Лас-Вегас|Bellagio;The Venetian;Wynn Las Vegas;Caesars Palace;ARIA
 Майами|Fontainebleau;The Setai;Faena Hotel;1 Hotel South Beach
@@ -1320,25 +1358,167 @@ const HOTELS_RAW = `
 Сидней|Park Hyatt Sydney;Four Seasons Sydney;The Langham;Shangri-La Sydney
 Мельбурн|Crown Towers;Park Hyatt Melbourne;The Langham;QT Melbourne
 Окленд|The Hotel Britomart;Cordis Auckland;Sofitel Viaduct;Park Hyatt Auckland
-Бали|Four Seasons Sayan;Amankila;The Mulia;Ayana Resort;Bulgari Resort;Padma Legian
+Бали|Four Seasons Sayan;Amankila;The Mulia;Ayana Resort;Bulgari Resort;Padma Legian;COMO Shambhala;Alila Villas Uluwatu;Six Senses Uluwatu;The Legian Seminyak;Viceroy Bali
 Куала-Лумпур|Mandarin Oriental KL;The Ritz-Carlton;Four Seasons KL;Banyan Tree KL
 Ханой|Sofitel Legend Metropole;Capella Hanoi;JW Marriott Hanoi;Apricot Hotel
 Хошимин|Park Hyatt Saigon;The Reverie Saigon;Hotel Majestic;Caravelle Saigon
 Нячанг|InterContinental Nha Trang;Vinpearl Resort;Amiana Resort;Sheraton Nha Trang
 Дананг|InterContinental Danang;Furama Resort;TIA Wellness;Hyatt Regency Danang
-Сеул|Signiel Seoul;Four Seasons Seoul;The Shilla;Park Hyatt Seoul;Lotte Hotel
+Сеул|Signiel Seoul;Four Seasons Seoul;The Shilla;Park Hyatt Seoul;Lotte Hotel;Josun Palace;Grand Hyatt Seoul;Conrad Seoul;Fairmont Ambassador
 Пекин|The Peninsula Beijing;Waldorf Astoria;Rosewood Beijing;Park Hyatt Beijing
 Шанхай|The Peninsula Shanghai;Waldorf Astoria on the Bund;Fairmont Peace Hotel;Bulgari Shanghai
 Санья|Atlantis Sanya;The Ritz-Carlton Sanya;Mandarin Oriental;Banyan Tree Sanya
-Мале|Soneva Fushi;Baros Maldives;Conrad Rangali;One&Only Reethi Rah;Gili Lankanfushi;Anantara Dhigu
+Мале|Soneva Fushi;Baros Maldives;Conrad Rangali;One&Only Reethi Rah;Gili Lankanfushi;Anantara Dhigu;Cheval Blanc Randheli;Velaa Private Island;Joali Maldives;Patina Maldives;Six Senses Laamu
 Коломбо|Shangri-La Colombo;Galle Face Hotel;Cinnamon Grand;Taj Samudra
 Дели|The Oberoi New Delhi;The Leela Palace;Taj Mahal Hotel;ITC Maurya
-Гоа|Taj Exotica;W Goa;The Leela Goa;Alila Diwa
+Гоа|Taj Exotica;W Goa;The Leela Goa;Alila Diwa;Park Hyatt Goa;Grand Hyatt Goa;ITC Grand Goa;Planet Hollywood Goa
 Катманду|Dwarika's Hotel;Hyatt Regency Kathmandu;Hotel Yak & Yeti;Kathmandu Marriott
 Тель-Авив|The Norman;Hotel Montefiore;Dan Tel Aviv;Setai Tel Aviv
 Иерусалим|King David;Waldorf Astoria Jerusalem;Mamilla Hotel;American Colony
 Амман|Four Seasons Amman;Fairmont Amman;W Amman;InterContinental Jordan
-Маскат|The Chedi Muscat;Al Bustan Palace;Shangri-La Al Husn;W Muscat
+Маскат|The Chedi Muscat;Al Bustan Palace;Shangri-La Al Husn;W Muscat;Kempinski Muscat;Anantara Al Jabal;Alila Jabal Akhdar
+Окинава|Halekulani Okinawa;The Busena Terrace;Hoshinoya Okinawa;Ritz-Carlton Okinawa;Hyatt Regency Seragaki;ANA InterContinental Manza
+Саппоро|JR Tower Hotel Nikko;Sapporo Grand Hotel;Cross Hotel Sapporo;The Royal Park Canvas
+Хаконе|Gora Kadan;Hyatt Regency Hakone;Hakone Ginyu;Fujiya Hotel
+Фукуока|Grand Hyatt Fukuoka;The Ritz-Carlton Fukuoka;Hotel Nikko Fukuoka
+Нагоя|Nagoya Marriott;The Tower Hotel;Hilton Nagoya
+Хиросима|Sheraton Grand Hiroshima;Rihga Royal;Hotel Granvia Hiroshima
+Пусан|Park Hyatt Busan;Paradise Hotel;Signiel Busan;Lotte Hotel Busan
+Тайбэй|Mandarin Oriental Taipei;W Taipei;Grand Hyatt Taipei;The Okura Prestige
+Манила|The Peninsula Manila;Shangri-La at the Fort;Raffles Makati;Solaire Resort
+Себу|Shangri-La Mactan;Crimson Resort;Dusit Thani Mactan;Nustar Resort
+Боракай|Shangri-La Boracay;Discovery Shores;Henann Regency;Crimson Boracay
+Джакарта|Mandarin Oriental Jakarta;Four Seasons Jakarta;The Hermitage;Raffles Jakarta
+Пенанг|Eastern & Oriental;Shangri-La Rasa Sayang;The Prestige;Angsana Teluk Bahang
+Лангкави|The Datai;Four Seasons Langkawi;The St. Regis Langkawi;The Andaman
+Чиангмай|Four Seasons Chiang Mai;137 Pillars House;Anantara Chiang Mai;Dhara Dhevi
+Хуахин|Anantara Hua Hin;InterContinental Hua Hin;Centara Grand Beach;So Sofitel Hua Hin
+Сием Реап|Raffles Grand Hotel d'Angkor;Park Hyatt Siem Reap;Belmond La Résidence;Anantara Angkor
+Пномпень|Raffles Le Royal;Rosewood Phnom Penh;Sofitel Phokeethra
+Луангпрабанг|Amantaka;Belmond La Résidence Phou Vao;Rosewood Luang Prabang;Sofitel Luang Prabang
+Янгон|The Strand Yangon;Belmond Governor's Residence;Chatrium Hotel;Pan Pacific Yangon
+Галле|Amangalla;Le Grand Galle;Jetwing Lighthouse;Cape Weligama
+Бентота|Taj Bentota;Club Villa;Vivanta Bentota;Avani Bentota
+Мумбаи|The Taj Mahal Palace;The Oberoi Mumbai;Four Seasons Mumbai;St. Regis Mumbai
+Джайпур|Rambagh Palace;Oberoi Rajvilas;Taj Jai Mahal;Samode Haveli
+Агра|The Oberoi Amarvilas;ITC Mughal;Taj Hotel & Convention
+Рас-эль-Хайма|Waldorf Astoria RAK;Rixos Bab Al Bahr;Ritz-Carlton Al Wadi;Hilton Al Hamra
+Фуджейра|InterContinental Fujairah;Fairmont Fujairah;Address Beach Resort
+Салала|Al Baleed Anantara;Hilton Salalah;Rotana Salalah
+Манама|Four Seasons Bahrain Bay;The Ritz-Carlton Bahrain;Sofitel Zallaq
+Эр-Рияд|Four Seasons Riyadh;The Ritz-Carlton Riyadh;Hyatt Regency Riyadh
+Джидда|Rosewood Jeddah;Park Hyatt Jeddah;Waldorf Astoria Jeddah
+Акаба|Kempinski Aqaba;InterContinental Aqaba;Hyatt Regency Ayla;Movenpick Tala Bay
+Петра|Mövenpick Petra;Petra Marriott;Old Village Resort
+Мёртвое море|Kempinski Ishtar;Mövenpick Dead Sea;Hilton Dead Sea
+Эйлат|Dan Eilat;Herods Palace;Royal Beach Eilat;Isrotel Agamim
+Владивосток|Лотте Отель;Азимут;Приморье;Vladivostok Grand Hotel
+Иркутск|Courtyard Marriott Иркутск;Звезда;Империя;Байкал Бизнес Центр
+Екатеринбург|Хаятт Ридженси;Рамада;Онегин;Высоцкий
+Нижний Новгород|Sheraton Kremlin;Азимут;Marins Park;Волна
+Мурманск|Азимут Мурманск;Парк Инн Полярные Зори;Меридиан
+Красная Поляна|Rixos Красная Поляна;Marriott Красная Поляна;Novotel Резиденция;Солис Сочи
+Анапа|Golden Resort;Довиль;Аквамарин;Ривьера
+Геленджик|Кемпински Гранд Отель;Приморье Grand Resort;Александрия
+Ялта|Мрия Резорт;Villa Elena;Ореанда;Palmira Palace
+Киев|Hyatt Regency Kyiv;InterContinental Kyiv;Fairmont Grand;Premier Palace
+Одесса|Bristol Hotel;Nemo Resort;Londonskaya;Grand Marine
+Львов|Leopolis Hotel;Citadel Inn;Nobilis Hotel;Astoria
+Рига|Grand Hotel Kempinski;Pullman Riga;Radisson Blu Latvija;Neiburgs
+Вильнюс|Kempinski Cathedral Square;Grotthuss;Pacai Hotel;Radisson Blu Lietuva
+Таллин|Hotel Telegraaf;Swissôtel Tallinn;Schlössle;Hilton Tallinn Park
+Берген|Bergen Børs;Hotel Norge;Opus XVI;Clarion Admiral
+Тромсё|Clarion The Edge;Radisson Blu Tromsø;Scandic Ishavshotel
+Цюрих|Baur au Lac;The Dolder Grand;Widder Hotel;Park Hyatt Zurich
+Женева|Beau-Rivage;Four Seasons des Bergues;Mandarin Oriental Geneva;La Réserve
+Люцерн|Bürgenstock Resort;Hotel Schweizerhof;Palace Luzern
+Зальцбург|Hotel Sacher Salzburg;Schloss Mönchstein;Sheraton Grand Salzburg
+Инсбрук|Grand Hotel Europa;Hotel Schwarzer Adler;aDLERS Hotel
+Краков|Hotel Copernicus;Sheraton Grand Krakow;Stary Hotel;Bonerowski Palace
+Гданьск|Hotel Podewils;Radisson Blu Gdansk;Grano Hotel;Hilton Gdansk
+Варшава|Hotel Bristol;Raffles Europejski;InterContinental Warszawa;Polonia Palace
+Братислава|Grand Hotel River Park;Radisson Blu Carlton;Roset Hotel
+Любляна|InterContinental Ljubljana;Grand Hotel Union;Vander Urbani
+Загреб|Esplanade Zagreb;Hotel Dubrovnik;Amadria Park;The Westin Zagreb
+Сплит|Le Méridien Lav;Hotel Park Split;Radisson Blu Resort;Cornaro Hotel
+Будва|Dukley Hotel;Avala Resort;Splendid Conference;Blue Star
+Котор|Hyatt Regency Kotor;Regent Porto Montenegro;Palazzo Radomiri
+Тирана|Plaza Tirana;Rogner Hotel;Maritim Plaza
+София|Sofia Hotel Balkan;InterContinental Sofia;Grand Hotel Millennium;Hyatt Regency Sofia
+Бухарест|Athenee Palace Hilton;InterContinental Athénée;JW Marriott Bucharest;Grand Hotel Continental
+Белград|Square Nine;Hyatt Regency Belgrade;Metropol Palace;Saint Ten
+Салоники|Electra Palace;Makedonia Palace;The Met Hotel;Hyatt Regency Thessaloniki
+Крит|Blue Palace Elounda;Amirandes Grecotel;Daios Cove;Elounda Mare;Domes of Elounda
+Родос|Rodos Palace;Sheraton Rhodes;Atrium Prestige;Lindos Blu
+Корфу|Angsana Corfu;Ikos Dassia;Corfu Imperial;MarBella Corfu
+Миконос|Cavo Tagoo;Santa Marina;Mykonos Blu;Bill & Coo
+Мальта|The Phoenicia;Corinthia St George's Bay;Hilton Malta;Iniala Harbour House
+Лимасол|Four Seasons Limassol;Parklane Resort;Amara Hotel;Amathus Beach
+Айя-Напа|Nissi Beach Resort;Grecian Park;Adams Beach;Olympic Lagoon
+Пафос|Annabelle;Almyra;Anassa;Elysium Beach
+Ницца|Hotel Negresco;Anantara Plaza Nice;Hyatt Regency Palais;Boscolo Exedra
+Канны|InterContinental Carlton;Hôtel Martinez;Majestic Barrière;Five Seas
+Марсель|InterContinental Marseille;Sofitel Vieux Port;Les Bords de Mer
+Лион|Villa Florentine;InterContinental Lyon;Sofitel Lyon Bellecour
+Бордо|InterContinental Bordeaux;Les Sources de Caudalie;Yndo Hotel
+Страсбург|Sofitel Strasbourg;Régent Petite France;Hotel Les Haras
+Севилья|Hotel Alfonso XIII;Mercer Sevilla;Gran Meliá Colón
+Валенсия|The Westin Valencia;Caro Hotel;Las Arenas Balneario
+Малага|Gran Hotel Miramar;Room Mate Valeria;Vincci Selección Posada
+Марбелья|Puente Romano;Marbella Club;Villa Padierna;Nobu Marbella
+Ибица|Six Senses Ibiza;Nobu Ibiza Bay;Hotel Torre del Mar;Ushuaïa
+Пальма|Cap Rocat;Belmond La Residencia;Castillo Hotel Son Vida;Nakar Hotel
+Тенерифе|The Ritz-Carlton Abama;Bahia del Duque;Royal Hideaway Corales;Iberostar Grand El Mirador
+Гран-Канария|Seaside Grand Residencia;Lopesan Costa Meloneras;Santa Catalina Royal
+Порту|The Yeatman;Torel Avantgarde;Pestana Vintage;InterContinental Palacio
+Мадейра|Belmond Reid's Palace;Savoy Palace;Les Suites at The Cliff Bay
+Дублин|The Merrion;The Shelbourne;The Westbury;Conrad Dublin
+Эдинбург|The Balmoral;Gleneagles Townhouse;The Witchery;Waldorf Astoria Caledonian
+Гамбург|Fairmont Vier Jahreszeiten;The Fontenay;Park Hyatt Hamburg
+Франкфурт|Villa Kennedy;Jumeirah Frankfurt;Steigenberger Frankfurter Hof
+Кёльн|Excelsior Hotel Ernst;Hyatt Regency Köln;The Qvest
+Дрезден|Hotel Taschenbergpalais;Bülow Palais;Swissôtel Dresden
+Брюгге|Dukes' Palace;Hotel Heritage;Grand Hotel Casselbergh
+Брюссель|Hotel Amigo;Steigenberger Wiltcher's;The Hotel Brussels
+Роттердам|Mainport Hotel;nhow Rotterdam;Hilton Rotterdam
+Бостон|Four Seasons Boston;The Langham Boston;XV Beacon;Boston Harbor Hotel
+Вашингтон|The Hay-Adams;Four Seasons Washington;Willard InterContinental;Riggs Washington
+Сиэтл|Four Seasons Seattle;Fairmont Olympic;The Edgewater;Thompson Seattle
+Сан-Диего|Hotel del Coronado;Fairmont Grand Del Mar;Pendry San Diego
+Новый Орлеан|The Roosevelt;Hotel Monteleone;Windsor Court;Ace Hotel NOLA
+Гонолулу|Halekulani;The Royal Hawaiian;Moana Surfrider;Four Seasons Ko Olina
+Монреаль|Ritz-Carlton Montreal;Four Seasons Montreal;Hotel Le St-James
+Квебек|Fairmont Le Château Frontenac;Auberge Saint-Antoine;Hotel Le Germain
+Ванкувер|Fairmont Pacific Rim;Rosewood Hotel Georgia;Shangri-La Vancouver
+Богота|Four Seasons Casa Medina;Sofitel Victoria Regia;W Bogota
+Картахена|Sofitel Santa Clara;Casa San Agustin;Hotel Charleston
+Сан-Паулу|Palácio Tangará;Fasano São Paulo;Rosewood São Paulo;Emiliano
+Монтевидео|Sofitel Carrasco;Hyatt Centric Montevideo;Alma Histórica
+Кито|Casa Gangotena;JW Marriott Quito;Illa Experience
+Панама|The Santa Maria;American Trade Hotel;Waldorf Astoria Panama
+Пунта-Кана|Tortuga Bay;Eden Roc Cap Cana;Excellence Punta Cana;Hard Rock Punta Cana
+Нассау|Baha Mar Rosewood;Atlantis Paradise Island;The Ocean Club
+Аруба|Ritz-Carlton Aruba;Bucuti & Tara;Hyatt Regency Aruba
+Йоханнесбург|Saxon Hotel;Four Seasons The Westcliff;The Michelangelo
+Дурбан|The Oyster Box;Beverly Hills Hotel;Southern Sun Elangeni
+Виктория-Фолс|Victoria Falls Hotel;Royal Livingstone;Matetsi River Lodge
+Момбаса|Serena Beach Resort;Swahili Beach;Diani Reef Beach
+Аруша|Gran Meliá Arusha;Arusha Coffee Lodge;Four Points Arusha
+Тунис|Four Seasons Tunis;La Badira;Movenpick Gammarth
+Хаммамет|La Badira;Movenpick Hammamet;Hasdrubal Thalassa
+Агадир|Sofitel Agadir Royal Bay;Hyatt Place Taghazout;Riu Palace Tikida
+Фес|Riad Fes;Palais Faraj;Sahrai Hotel
+Танжер|Hilton Tanger;Movenpick Malabata;El Minzah
+Луксор|Sofitel Winter Palace;Hilton Luxor;Al Moudira
+Асуан|Sofitel Old Cataract;Movenpick Elephantine
+Перт|COMO The Treasury;Crown Towers Perth;The Ritz-Carlton Perth
+Брисбен|The Calile;W Brisbane;Emporium Hotel
+Голд-Кост|The Langham Gold Coast;JW Marriott Surfers;Palazzo Versace
+Кэрнс|Crystalbrook Riley;Shangri-La The Marina;Pullman Reef
+Квинстаун|Eichardt's Private Hotel;Matakauri Lodge;Sofitel Queenstown
+Крайстчерч|The George;Mayfair Christchurch;Distinction Christchurch
+Веллингтон|QT Wellington;InterContinental Wellington;Sofitel Wellington
+Нанди|Sofitel Fiji;Sheraton Fiji;InterContinental Fiji;Six Senses Fiji
 `;
 const HOTELS_BY_CITY = {};
 HOTELS_RAW.trim()
@@ -3384,11 +3564,16 @@ function PhotoBlock({ country, trip, onChange, quality, totalPhotos }) {
         setBusy(null);
         setRev((r) => ({ ...r, [id]: (r[id] || 0) + 1 }));
     };
-    const remove = async (id) => {
-        const rest = photos.filter((p) => p.id !== id);
-        onChange({ photos: rest });
-        setView(rest.length ? 0 : null);
-    };
+    const [ask, setAsk] = useState(null);
+    const remove = (id) => setAsk({
+        title: "Удалить снимок?",
+        text: "Восстановить его будет нельзя.",
+        onYes: () => {
+            const rest = photos.filter((p) => p.id !== id);
+            onChange({ photos: rest });
+            setView(rest.length ? 0 : null);
+        },
+    });
     return (React.createElement("div", { className: "step" },
         React.createElement("p", { className: "step-title" }, "\u0424\u043E\u0442\u043E\u0433\u0440\u0430\u0444\u0438\u0438"),
         photos.length > 0 && (React.createElement("div", { className: "photo-list" }, photos.map((p) => (React.createElement("div", { key: p.id, className: "photo-cell" },
@@ -3404,6 +3589,7 @@ function PhotoBlock({ country, trip, onChange, quality, totalPhotos }) {
                     add(e.target.files);
                     e.target.value = "";
                 } })),
+        React.createElement(Ask, { ask: ask, onClose: () => setAsk(null) }),
         view !== null && photos[view] && (React.createElement(PhotoView, { photos: photos, index: view, onClose: () => setView(null), onRemove: remove, onRotate: rotate, rev: rev })),
         busy && React.createElement(Loading, { ...busy })));
 }
@@ -3512,7 +3698,8 @@ function Done({ label, value, onEdit }) {
         React.createElement("span", { className: "step-value" }, value),
         React.createElement("span", { className: "step-pen" }, "\u270E")));
 }
-function WhenPicker({ y, m, noMonth, y2, approx, since, onChange }) {
+function WhenPicker({ y, m, noMonth, y2, approx, since, from, to, onChange }) {
+    const exact = !!from;
     const row = {
         position: "relative",
         display: "flex",
@@ -3552,6 +3739,42 @@ function WhenPicker({ y, m, noMonth, y2, approx, since, onChange }) {
         React.createElement("span", { style: value }, text),
         React.createElement("span", { style: chev }, "\u25BE"),
         React.createElement("select", { style: hidden, value: val, onChange: onPick }, options)));
+    const DateRow = ({ title, val, onPick }) => (React.createElement("div", { style: row },
+        React.createElement("span", { style: label }, title),
+        React.createElement("span", { style: value }, (() => {
+            const p = dParts(val);
+            return p ? `${p.d} ${MONTHS_GEN[p.m - 1]} ${p.y}` : "выбрать";
+        })()),
+        React.createElement("span", { style: chev }, "\u25BE"),
+        React.createElement("input", { type: "date", style: hidden, value: val || "", onChange: onPick })));
+    if (exact)
+        return (React.createElement("div", null,
+            React.createElement(DateRow, { title: "\u0421", val: from, onPick: (e) => {
+                    const v = e.target.value;
+                    const p = dParts(v);
+                    onChange({
+                        from: v,
+                        to: to && to < v ? v : to,
+                        y: p ? p.y : y,
+                        m: p ? p.m : m,
+                        noMonth: false,
+                        approx: false,
+                        y2: null,
+                    });
+                } }),
+            React.createElement(DateRow, { title: "\u041F\u043E", val: to, onPick: (e) => {
+                    const v = e.target.value;
+                    onChange({ to: v < (from || v) ? from : v });
+                } }),
+            from && to && (React.createElement("p", { className: "hint small days" },
+                "\u0412\u0441\u0435\u0433\u043E \u0434\u043D\u0435\u0439: ",
+                tripDays({ from, to }))),
+            React.createElement("button", { className: "approx-row", onClick: () => onChange({ from: "", to: "" }) },
+                React.createElement("span", null,
+                    "\u0422\u043E\u0447\u043D\u044B\u0435 \u0434\u0430\u0442\u044B",
+                    React.createElement("em", null, "\u0412\u044B\u043A\u043B\u044E\u0447\u0438\u0442\u0435, \u0447\u0442\u043E\u0431\u044B \u0443\u043A\u0430\u0437\u0430\u0442\u044C \u0442\u043E\u043B\u044C\u043A\u043E \u0433\u043E\u0434 \u0438 \u043C\u0435\u0441\u044F\u0446")),
+                React.createElement("span", { className: "switch on" },
+                    React.createElement("i", null)))));
     return (React.createElement("div", null,
         React.createElement(Picker, { title: approx ? "С" : "Год", val: y || "", text: y || "не выбран", onPick: (e) => {
                 const v = +e.target.value;
@@ -3565,15 +3788,26 @@ function WhenPicker({ y, m, noMonth, y2, approx, since, onChange }) {
             }, options: React.createElement(React.Fragment, null,
                 React.createElement("option", { value: 0 }, "\u043D\u0435 \u043F\u043E\u043C\u043D\u044E"),
                 MONTHS.map((name, i) => (React.createElement("option", { key: name, value: i + 1 }, name)))) })),
+        !approx && (React.createElement("button", { className: "approx-row", onClick: () => {
+                const d = new Date(y || NOW.getFullYear(), (m || 1) - 1, 1);
+                const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-01`;
+                onChange({ from: iso, to: iso, approx: false, y2: null });
+            } },
+            React.createElement("span", null,
+                "\u0422\u043E\u0447\u043D\u044B\u0435 \u0434\u0430\u0442\u044B",
+                React.createElement("em", null, "\u0423\u043A\u0430\u0436\u0443 \u0434\u0435\u043D\u044C \u043F\u0440\u0438\u0435\u0437\u0434\u0430 \u0438 \u043E\u0442\u044A\u0435\u0437\u0434\u0430")),
+            React.createElement("span", { className: "switch" },
+                React.createElement("i", null)))),
         React.createElement("button", { className: "approx-row", onClick: () => onChange(approx
                 ? { approx: false, y2: null }
                 : {
                     approx: true,
                     m: null,
                     noMonth: true,
-                    // по умолчанию — весь срок путешествий
                     y: since || y,
                     y2: NOW.getFullYear(),
+                    from: "",
+                    to: "",
                 }) },
             React.createElement("span", null,
                 "\u0422\u043E\u0447\u043D\u0443\u044E \u0434\u0430\u0442\u0443 \u043D\u0435 \u043F\u043E\u043C\u043D\u044E",
@@ -3611,7 +3845,7 @@ function Stars({ value, onPick }) {
             onPick(n === value ? 0 : n);
         }, "aria-label": `${n} звёзд` }, "\u2605")))));
 }
-function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality, since }) {
+function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality, since, people = [] }) {
     const totalPhotos = useMemo(() => {
         let k = 0;
         Object.values(visits).forEach((arr) => arr.forEach((t) => (k += (t.photos || []).length)));
@@ -3622,6 +3856,7 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality,
     const [editWhen, setEditWhen] = useState(false);
     const [addCity, setAddCity] = useState(false);
     const [addHotel, setAddHotel] = useState(false);
+    const [ask, setAsk] = useState(null);
     useEffect(() => {
         if (!open)
             return;
@@ -3637,6 +3872,9 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality,
                 noMonth: !initial.trip.m,
                 y2: initial.trip.y2 || null,
                 approx: !!initial.trip.approx,
+                from: initial.trip.from || "",
+                to: initial.trip.to || "",
+                who: initial.trip.who || [],
                 cities: initial.trip.cities || [],
                 hotels: initial.trip.hotels || [],
                 photos: initial.trip.photos || [],
@@ -3705,6 +3943,9 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality,
                         noMonth: true,
                         y2: null,
                         approx: false,
+                        from: "",
+                        to: "",
+                        who: [],
                         cities: via ? [via] : [],
                         hotels: [],
                         photos: [],
@@ -3720,7 +3961,7 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality,
         country &&
             (editWhen ? (React.createElement("div", { className: "step" },
                 React.createElement("p", { className: "step-title" }, "\u041A\u043E\u0433\u0434\u0430 \u044D\u0442\u043E \u0431\u044B\u043B\u043E"),
-                React.createElement(WhenPicker, { y: draft.y, m: draft.m, noMonth: draft.noMonth, y2: draft.y2, approx: draft.approx, since: since, onChange: (p) => patch(p) }),
+                React.createElement(WhenPicker, { y: draft.y, m: draft.m, noMonth: draft.noMonth, y2: draft.y2, approx: draft.approx, from: draft.from, to: draft.to, since: since, onChange: (p) => patch(p) }),
                 React.createElement("button", { className: "cta slim", onClick: () => draft.y && setEditWhen(false) }, "\u0413\u043E\u0442\u043E\u0432\u043E"))) : (React.createElement(Done, { label: "\u041A\u043E\u0433\u0434\u0430", value: whenText, onEdit: () => setEditWhen(true) }))),
         country && whenReady && !editWhen && (React.createElement("div", { className: "step" },
             React.createElement("p", { className: "step-title" }, "\u0413\u043E\u0440\u043E\u0434\u0430"),
@@ -3731,6 +3972,18 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality,
                     patch({ cities: [...draft.cities, c] });
                     setAddCity(false);
                 } })) : (React.createElement("button", { className: "link-btn", onClick: () => setAddCity(true) }, "\uFF0B \u0435\u0449\u0451 \u0433\u043E\u0440\u043E\u0434")))),
+        country && whenReady && !editWhen && people.length > 0 && (React.createElement("div", { className: "step" },
+            React.createElement("p", { className: "step-title" }, "\u0421 \u043A\u0435\u043C \u0435\u0437\u0434\u0438\u043B\u0438"),
+            React.createElement("div", { className: "who-chips" }, people.map((p) => {
+                const on = (draft.who || []).includes(p.name);
+                return (React.createElement("button", { key: p.id || p.name, className: "who-chip" + (on ? " on" : ""), onClick: () => patch({
+                        who: on
+                            ? (draft.who || []).filter((n) => n !== p.name)
+                            : [...(draft.who || []), p.name],
+                    }) },
+                    p.name,
+                    React.createElement("em", null, p.role)));
+            })))),
         country && whenReady && !editWhen && (React.createElement("div", { className: "step" },
             React.createElement("p", { className: "step-title" }, "\u0413\u0434\u0435 \u0436\u0438\u043B\u0438"),
             draft.hotels.length > 0 && (React.createElement("div", { className: "hotel-rows" }, draft.hotels.map((h, i) => (React.createElement("div", { key: i, className: "hotel-card" },
@@ -3739,8 +3992,15 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality,
                     React.createElement(Stars, { value: h.stars || 0, onPick: (stars) => patch({
                             hotels: draft.hotels.map((x, n) => n === i ? { ...x, stars } : x),
                         }) }),
-                    React.createElement("button", { className: "icon-btn small", onClick: () => patch({
-                            hotels: draft.hotels.filter((_, n) => n !== i),
+                    React.createElement("button", { className: "icon-btn small", onClick: () => setAsk({
+                            title: "Убрать отель?",
+                            text: h.note
+                                ? `${h.name}. Заметка тоже удалится.`
+                                : h.name,
+                            yes: "Убрать",
+                            onYes: () => patch({
+                                hotels: draft.hotels.filter((_, n) => n !== i),
+                            }),
                         }), "aria-label": "\u0423\u0431\u0440\u0430\u0442\u044C" }, "\u2715")),
                 React.createElement("input", { className: "hotel-note", value: h.note || "", placeholder: "\u0417\u0430\u043C\u0435\u0442\u043A\u0430: \u0447\u0442\u043E \u043F\u043E\u043D\u0440\u0430\u0432\u0438\u043B\u043E\u0441\u044C, \u043D\u043E\u043C\u0435\u0440, \u0432\u0438\u0434", onChange: (e) => patch({
                         hotels: draft.hotels.map((x, n) => n === i ? { ...x, note: e.target.value } : x),
@@ -3752,6 +4012,7 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality,
                     setAddHotel(false);
                 } })) : (React.createElement("button", { className: "link-btn", onClick: () => setAddHotel(true) }, "\uFF0B \u0435\u0449\u0451 \u043E\u0442\u0435\u043B\u044C")))),
         country && whenReady && !editWhen && (React.createElement(PhotoBlock, { country: country, trip: draft, onChange: (p) => patch(p), quality: quality, totalPhotos: totalPhotos })),
+        React.createElement(Ask, { ask: ask, onClose: () => setAsk(null), box: box }),
         country && whenReady && !editWhen && (React.createElement("div", { className: "edit-actions" },
             React.createElement("button", { className: "act ok", onClick: () => {
                     onSave(draft.a3, {
@@ -3759,6 +4020,9 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality,
                         m: draft.m || null,
                         y2: draft.approx ? draft.y2 || draft.y : null,
                         approx: !!draft.approx,
+                        from: draft.from || "",
+                        to: draft.to || "",
+                        who: draft.who || [],
                         cities: draft.cities,
                         hotels: draft.hotels,
                         photos: draft.photos || [],
@@ -3769,7 +4033,10 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality,
                     React.createElement("path", { d: "M5 12.5l4.5 4.5L19 7.5", fill: "none", stroke: "currentColor", strokeWidth: "2.2", strokeLinecap: "round", strokeLinejoin: "round" })))))))));
 }
 /* шторка: профиль — вы и ваши данные */
-function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, since, onSince, onExport, onImport, onRestore, restoreMsg, visits, }) {
+function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, since, onSince, people, onPeople, onExport, onImport, onRestore, restoreMsg, visits, }) {
+    const [newName, setNewName] = useState("");
+    const [newRole, setNewRole] = useState(ROLES[0]);
+    const [ask, setAsk] = useState(null);
     return (React.createElement(Sheet, { open: open, onClose: onClose, title: "\u041F\u0440\u043E\u0444\u0438\u043B\u044C", box: box }, () => (React.createElement("div", { className: "sheet-body" },
         React.createElement("div", { className: "avatar-row" },
             React.createElement("label", { className: "avatar" },
@@ -3795,6 +4062,33 @@ function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, 
                 React.createElement("select", { value: since || "", onChange: (e) => onSince(+e.target.value || null) },
                     React.createElement("option", { value: "" }, "\u043D\u0435 \u0443\u043A\u0430\u0437\u0430\u043D"),
                     YEARS.map((y) => (React.createElement("option", { key: y, value: y }, y)))))),
+        React.createElement("p", { className: "step-title" }, "\u041F\u0443\u0442\u0435\u0448\u0435\u0441\u0442\u0432\u0435\u043D\u043D\u0438\u043A\u0438"),
+        people.length > 0 && (React.createElement("div", { className: "people" }, people.map((pr) => (React.createElement("div", { key: pr.id, className: "person" },
+            React.createElement("span", { className: "person-name" }, pr.name),
+            React.createElement("span", { className: "person-role" },
+                pr.role,
+                React.createElement("select", { value: pr.role, onChange: (e) => onPeople(people.map((x) => x.id === pr.id ? { ...x, role: e.target.value } : x)) }, ROLES.map((r) => (React.createElement("option", { key: r, value: r }, r))))),
+            React.createElement("button", { className: "icon-btn small", "aria-label": "\u0423\u0431\u0440\u0430\u0442\u044C", onClick: () => setAsk({
+                    title: "Убрать из списка?",
+                    text: `${pr.name}. В уже сохранённых поездках запись останется.`,
+                    yes: "Убрать",
+                    onYes: () => onPeople(people.filter((x) => x.id !== pr.id)),
+                }) }, "\u2715")))))),
+        React.createElement("div", { className: "person-add" },
+            React.createElement("input", { className: "name-input", value: newName, placeholder: "\u0418\u043C\u044F", onChange: (e) => setNewName(e.target.value), autoComplete: "off", autoCorrect: "off", "data-lpignore": "true" }),
+            React.createElement("span", { className: "person-role wide" },
+                newRole,
+                React.createElement("select", { value: newRole, onChange: (e) => setNewRole(e.target.value) }, ROLES.map((r) => (React.createElement("option", { key: r, value: r }, r))))),
+            React.createElement("button", { className: "btn-main small", disabled: !newName.trim(), onClick: () => {
+                    const name = newName.trim();
+                    if (!name)
+                        return;
+                    onPeople([
+                        ...people,
+                        { id: `p${Date.now()}`, name, role: newRole },
+                    ]);
+                    setNewName("");
+                } }, "\uFF0B")),
         React.createElement("p", { className: "step-title" }, "\u041C\u043E\u0438 \u0434\u0430\u043D\u043D\u044B\u0435"),
         React.createElement("button", { className: "switch-row", onClick: onRestore },
             React.createElement("span", { className: "switch-text" },
@@ -3817,7 +4111,8 @@ function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, 
                     e.target.value = "";
                     if (f)
                         onImport(f);
-                } }))))));
+                } })),
+        React.createElement(Ask, { ask: ask, onClose: () => setAsk(null), box: box })))));
 }
 /* шторка: настройки — поведение приложения */
 function SettingsSheet({ open, onClose, box, visits, theme, onTheme, quality, onQuality, cityPins, onToggleCityPins, spinStart, onToggleSpin, mapView, onMapView, geoCount, onReloadGeo, hasPin, faceAvailable, faceOn, onSetPin, onDropPin, onLock, onFace, }) {
@@ -4113,6 +4408,21 @@ function PhotoModeSheet({ open, onClose, box, quality, usage }) {
             BATCH_MAX,
             " \u0441\u043D\u0438\u043C\u043A\u043E\u0432. \u041D\u0430 \u044D\u043A\u0440\u0430\u043D\u0435 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430 \u0440\u0430\u0437\u043D\u0438\u0446\u044B \u043C\u0435\u0436\u0434\u0443 \u0440\u0435\u0436\u0438\u043C\u0430\u043C\u0438 \u043F\u043E\u0447\u0442\u0438 \u043D\u0435 \u0432\u0438\u0434\u043D\u043E \u2014 \u00AB\u041C\u0430\u043A\u0441\u0438\u043C\u0443\u043C\u00BB \u043F\u0440\u0438\u0433\u043E\u0434\u0438\u0442\u0441\u044F, \u0435\u0441\u043B\u0438 \u0441\u043C\u043E\u0442\u0440\u0438\u0442\u0435 \u0444\u043E\u0442\u043E \u043D\u0430 \u0431\u043E\u043B\u044C\u0448\u043E\u043C \u044D\u043A\u0440\u0430\u043D\u0435. \u0423\u0436\u0435 \u0434\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u043D\u044B\u0435 \u0441\u043D\u0438\u043C\u043A\u0438 \u043D\u0435 \u043F\u0435\u0440\u0435\u0441\u043E\u0445\u0440\u0430\u043D\u044F\u044E\u0442\u0441\u044F: \u0440\u0435\u0436\u0438\u043C \u0432\u043B\u0438\u044F\u0435\u0442 \u043D\u0430 \u043D\u043E\u0432\u044B\u0435.")))));
 }
+/* подтверждение перед удалением — чтобы не снести лишнее случайно */
+function Ask({ ask, onClose, box }) {
+    if (!ask)
+        return null;
+    return (React.createElement("div", { className: "ask-layer", style: box ? { left: box.left, width: box.width } : undefined, onClick: onClose },
+        React.createElement("div", { className: "ask", onClick: (e) => e.stopPropagation() },
+            React.createElement("b", null, ask.title),
+            ask.text && React.createElement("span", null, ask.text),
+            React.createElement("div", { className: "ask-btns" },
+                React.createElement("button", { className: "ask-no", onClick: onClose }, "\u041E\u0442\u043C\u0435\u043D\u0430"),
+                React.createElement("button", { className: "ask-yes", onClick: () => {
+                        ask.onYes();
+                        onClose();
+                    } }, ask.yes || "Удалить")))));
+}
 /* шторка: фильтры — для глобуса и для списка поездок */
 function FiltersSheet({ open, onClose, box, target, years, yearFilter, onYear, mode, onMode, }) {
     return (React.createElement(Sheet, { open: open, onClose: onClose, title: "\u0424\u0438\u043B\u044C\u0442\u0440\u044B", box: box }, () => (React.createElement("div", { className: "sheet-body" }, target === "list" ? (React.createElement(React.Fragment, null,
@@ -4139,6 +4449,7 @@ function FiltersSheet({ open, onClose, box, target, years, yearFilter, onYear, m
 }
 /* шторка: все поездки — свёртка групп, поиск */
 function ListSheet({ visits, stats, open, onClose, onPick, onRemove, box, mode }) {
+    const [ask, setAsk] = useState(null);
     const [q, setQ] = useState("");
     const [closed, setClosed] = useState({});
     const [flipped, setFlipped] = useState(false);
@@ -4239,13 +4550,17 @@ function ListSheet({ visits, stats, open, onClose, onPick, onRemove, box, mode }
     }, [visits]);
     const yearHint = "";
     const sub = (t) => {
-        var _a, _b;
+        var _a, _b, _c;
         const parts = [];
         if (t.m)
             parts.push(MONTHS[t.m - 1]);
-        if ((_a = t.cities) === null || _a === void 0 ? void 0 : _a.length)
+        if (tripDays(t))
+            parts.push(`${tripDays(t)} дн.`);
+        if ((_a = t.who) === null || _a === void 0 ? void 0 : _a.length)
+            parts.push(`с ${t.who.join(", ")}`);
+        if ((_b = t.cities) === null || _b === void 0 ? void 0 : _b.length)
             parts.push(t.cities.join(", "));
-        if ((_b = t.hotels) === null || _b === void 0 ? void 0 : _b.length)
+        if ((_c = t.hotels) === null || _c === void 0 ? void 0 : _c.length)
             parts.push(t.hotels
                 .map((h) => (h.note ? `${h.name} (${h.note})` : h.name))
                 .join(", "));
@@ -4351,7 +4666,13 @@ function ListSheet({ visits, stats, open, onClose, onPick, onRemove, box, mode }
                             mode !== "country" && (React.createElement("span", { className: "trip-year" }, row.t.y2 && row.t.y2 !== row.t.y
                                 ? `${row.t.y}–${row.t.y2}`
                                 : row.t.y))),
-                        React.createElement("button", { className: "trip-del", onClick: () => onRemove(row.a3, row.idx), "aria-label": "\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u043F\u043E\u0435\u0437\u0434\u043A\u0443" },
+                        React.createElement("button", { className: "trip-del", onClick: () => setAsk({
+                                title: "Удалить поездку?",
+                                text: `${row.c.name}, ${tripLabel(row.t)}${(row.t.photos || []).length
+                                    ? ` · снимков: ${row.t.photos.length}`
+                                    : ""}. Отменить будет нельзя.`,
+                                onYes: () => onRemove(row.a3, row.idx),
+                            }), "aria-label": "\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u043F\u043E\u0435\u0437\u0434\u043A\u0443" },
                             React.createElement("svg", { viewBox: "0 0 24 24", width: "15", height: "15" },
                                 React.createElement("path", { d: "M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12", fill: "none", stroke: "currentColor", strokeWidth: "1.7", strokeLinecap: "round", strokeLinejoin: "round" }))))))));
         })))));
@@ -4814,6 +5135,9 @@ function Atlas() {
             m: (trip === null || trip === void 0 ? void 0 : trip.m) || null,
             y2: (trip === null || trip === void 0 ? void 0 : trip.y2) || null,
             approx: !!(trip === null || trip === void 0 ? void 0 : trip.approx),
+            from: (trip === null || trip === void 0 ? void 0 : trip.from) || "",
+            to: (trip === null || trip === void 0 ? void 0 : trip.to) || "",
+            who: (trip === null || trip === void 0 ? void 0 : trip.who) || [],
             cities: (trip === null || trip === void 0 ? void 0 : trip.cities) || [],
             hotel: (trip === null || trip === void 0 ? void 0 : trip.hotel) || "",
         };
@@ -4895,6 +5219,7 @@ function Atlas() {
             settings: { cityPins, theme, photoQuality, spinStart, mapView },
             avatar: (profile === null || profile === void 0 ? void 0 : profile.avatar) || null,
             since: (profile === null || profile === void 0 ? void 0 : profile.since) || null,
+            people: (profile === null || profile === void 0 ? void 0 : profile.people) || [],
             photos,
         };
         const blob = new Blob([JSON.stringify(dump)], { type: "application/json" });
@@ -4944,11 +5269,12 @@ function Atlas() {
                 if (typeof d.settings.spinStart === "boolean")
                     setSpinStartState(d.settings.spinStart);
             }
-            if (d.avatar || d.since) {
+            if (d.avatar || d.since || d.people) {
                 const prof = {
                     ...(profile || {}),
                     ...(d.avatar ? { avatar: d.avatar } : {}),
                     ...(d.since ? { since: d.since } : {}),
+                    ...(d.people ? { people: d.people } : {}),
                 };
                 setProfile(prof);
                 await store.set(K_PROFILE, prof);
@@ -4964,7 +5290,16 @@ function Atlas() {
         setGeo(null);
         window.location.reload();
     }, []);
+    const [ask, setAsk] = useState(null);
     const [restoreMsg, setRestoreMsg] = useState("");
+    const importAsk = useCallback((file) => setAsk({
+        title: "Загрузить копию?",
+        text: "Поездки и настройки в приложении будут заменены данными из файла.",
+        yes: "Загрузить",
+        onYes: () => importData(file),
+    }), 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []);
     const restoreData = useCallback(async () => {
         setRestoreMsg("Ищем…");
         const found = await findAllData();
@@ -5118,31 +5453,48 @@ function Atlas() {
                         React.createElement("p", { className: "focus-empty" }, mapView === "map"
                             ? "Нажмите страну на карте, чтобы посмотреть её."
                             : "Поверните глобус и нажмите страну, чтобы посмотреть её.")))),
-                    React.createElement(TripSheet, { open: sheet === "add", onClose: () => setSheet(null), box: box, initial: null, visits: visits, onSave: (a3, trip) => addTrip(a3, trip), mode: "add", quality: photoQuality, since: profile.since }),
+                    React.createElement(TripSheet, { open: sheet === "add", onClose: () => setSheet(null), box: box, initial: null, visits: visits, onSave: (a3, trip) => addTrip(a3, trip), mode: "add", quality: photoQuality, since: profile.since, people: profile.people || [], onPeople: async (list) => {
+                            const prof = { ...profile, people: list };
+                            setProfile(prof);
+                            await store.set(K_PROFILE, prof);
+                        } }),
                     React.createElement(TripSheet, { open: sheet === "edit" && !!sel && !!selTrips.length, onClose: () => setSheet(null), box: box, initial: sel && selTrips.length
                             ? { a3: sel.a3, idx: editIdx, trip: selTrips[editIdx] || selTrips[0] }
-                            : null, visits: visits, onSave: (a3, trip) => editTrip(a3, editIdx, trip), mode: "edit", quality: photoQuality, since: profile.since }),
+                            : null, visits: visits, onSave: (a3, trip) => editTrip(a3, editIdx, trip), mode: "edit", quality: photoQuality, since: profile.since, people: profile.people || [], onPeople: async (list) => {
+                            const prof = { ...profile, people: list };
+                            setProfile(prof);
+                            await store.set(K_PROFILE, prof);
+                        } }),
                     React.createElement(ProfileSheet, { open: sheet === "profile", onClose: () => setSheet(null), box: box, avatar: profile.avatar, name: profile.name, onName: async (v) => {
                             const prof = { ...profile, name: v };
                             setProfile(prof);
                             await store.set(K_PROFILE, prof);
-                        }, onPickAvatar: (src) => setAvatarDraft(src), since: profile.since, onSince: async (v) => {
+                        }, onPickAvatar: (src) => setAvatarDraft(src), since: profile.since, people: profile.people || [], onPeople: async (list) => {
+                            const prof = { ...profile, people: list };
+                            setProfile(prof);
+                            await store.set(K_PROFILE, prof);
+                        }, onSince: async (v) => {
                             const prof = { ...profile, since: v };
                             setProfile(prof);
                             await store.set(K_PROFILE, prof);
-                        }, onExport: exportData, onImport: importData, onRestore: restoreData, restoreMsg: restoreMsg, visits: visits }),
+                        }, onExport: exportData, onImport: importAsk, onRestore: restoreData, restoreMsg: restoreMsg, visits: visits }),
                     React.createElement(SettingsSheet, { open: sheet === "settings", onClose: () => setSheet(null), box: box, visits: visits, theme: theme, onTheme: setTheme, quality: photoQuality, onQuality: (v) => {
                             setPhotoQuality(v);
                             setSheet("photomode");
                         }, cityPins: cityPins, onToggleCityPins: setCityPins, spinStart: spinStart, onToggleSpin: setSpinStart, mapView: mapView, onMapView: setMapView, geoCount: ((_a = geo === null || geo === void 0 ? void 0 : geo.features) === null || _a === void 0 ? void 0 : _a.length) || 0, onReloadGeo: reloadGeo, hasPin: !!profile.pinHash, faceAvailable: faceAvailable, faceOn: !!profile.credId, onSetPin: () => {
                             setSheet(null);
                             setProfile(null);
-                        }, onDropPin: async () => {
-                            const prof = { ...profile, pinHash: "", salt: "", credId: "" };
-                            setProfile(prof);
-                            await store.set(K_PROFILE, prof);
-                            setSheet(null);
-                        }, onLock: lock, onFace: async () => {
+                        }, onDropPin: () => setAsk({
+                            title: "Убрать код при входе?",
+                            text: "Приложение будет открываться сразу, без проверки.",
+                            yes: "Убрать",
+                            onYes: async () => {
+                                const prof = { ...profile, pinHash: "", salt: "", credId: "" };
+                                setProfile(prof);
+                                await store.set(K_PROFILE, prof);
+                                setSheet(null);
+                            },
+                        }), onLock: lock, onFace: async () => {
                             if (profile.credId) {
                                 const prof = { ...profile, credId: "" };
                                 setProfile(prof);
@@ -5162,6 +5514,7 @@ function Atlas() {
                             setSheet(sheetBack);
                         } }),
                     React.createElement(ListSheet, { visits: visits, stats: stats, open: sheet === "list", onClose: () => setSheet(null), onPick: (a3) => setSelected(a3), onRemove: removeTrip, box: box, mode: listMode }),
+                    React.createElement(Ask, { ask: ask, onClose: () => setAsk(null), box: box }),
                     React.createElement("nav", { className: "tabbar" },
                         React.createElement("button", { className: "tab" + (sheet === "profile" ? " on" : ""), onClick: () => setSheet((v) => (v === "profile" ? null : "profile")) },
                             profile.avatar ? (React.createElement("img", { className: "tab-ava", src: profile.avatar, alt: "" })) : (React.createElement("svg", { viewBox: "0 0 24 24", width: "22", height: "22" },
@@ -5498,6 +5851,14 @@ body > div{max-width:100%;}
 .sheet .switch-row{display:flex; align-items:center; gap:12px; width:100%; margin-bottom:8px; padding:13px 14px; background:var(--el); border:1px solid var(--line); border-radius:12px; color:var(--ink); font-size:0.875rem; text-align:left; cursor:pointer; min-width:0;}
 .sheet .switch-text{flex:1 1 auto; min-width:0;}
 .sheet .switch-text em{display:block; margin-top:3px; font-style:normal; font-size:0.719rem; color:var(--dim); line-height:1.35;}
+.ask-layer{position:fixed; top:0; left:50%; transform:translateX(-50%); width:100%; height:100%; z-index:200; display:flex; align-items:center; justify-content:center; padding:22px; background:rgba(4,10,17,.6); -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);}
+.ask{width:100%; max-width:330px; padding:18px; border-radius:16px; background:var(--sheet); border:1px solid var(--line); text-align:center;}
+.ask b{display:block; font-size:1rem; font-weight:600;}
+.ask span{display:block; margin-top:7px; font-size:0.78rem; line-height:1.45; color:var(--dim);}
+.ask-btns{display:flex; gap:9px; margin-top:16px;}
+.ask-btns button{flex:1 1 0; min-height:44px; border-radius:11px; font-size:0.85rem; cursor:pointer;}
+.ask-no{border:1px solid var(--line); background:none; color:var(--ink);}
+.ask-yes{border:0; background:#c9564a; color:#fff; font-weight:600;}
 .sheet .danger-row{color:#d97a6a;}
 .sheet .switch-row.picked{border-color:var(--gold);}
 .sheet .switch-row.picked .step-pen{color:var(--gold); font-size:0.9rem;}
@@ -5560,7 +5921,22 @@ body > div{max-width:100%;}
 .sheet .suggest{position:relative;}
 .sheet .inline-list{max-height:46vh; overflow-y:auto; margin-top:10px;}
 .sheet .hotel-rows{display:flex; flex-direction:column; gap:7px; margin-bottom:8px;}
-.sheet .hotel-card{margin-bottom:9px; padding:10px 11px; background:var(--el); border:1px solid var(--line); border-radius:12px;}
+.sheet .people{display:flex; flex-direction:column; gap:7px; margin-bottom:9px;}
+.person{display:flex; align-items:center; gap:9px; padding:9px 11px; background:var(--el); border:1px solid var(--line); border-radius:11px; min-width:0;}
+.person-name{flex:1 1 auto; min-width:0; font-size:0.88rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.person-role{position:relative; flex:none; padding:6px 11px; background:var(--field); border:1px solid var(--line); border-radius:9px; font-size:0.72rem; color:var(--gold);}
+.person-role.wide{flex:0 0 108px; text-align:center;}
+.person-role select{position:absolute; inset:0; width:100%; height:100%; opacity:0; appearance:none; -webkit-appearance:none; border:0; background:transparent;}
+.person-add{display:flex; align-items:center; gap:8px; margin-bottom:6px; min-width:0;}
+.person-add .name-input{flex:1 1 auto; min-width:0; margin:0;}
+.btn-main.small{flex:none; min-width:48px; min-height:44px; padding:0; font-size:1.2rem;}
+.who-chips{display:flex; flex-wrap:wrap; gap:7px;}
+.who-chip{display:flex; flex-direction:column; align-items:flex-start; gap:1px; padding:8px 12px; border-radius:11px; border:1px solid var(--line); background:var(--el); color:var(--ink); font-size:0.84rem; cursor:pointer;}
+.who-chip em{font-style:normal; font-size:0.62rem; color:var(--dim);}
+.who-chip.on{border-color:var(--gold); background:rgba(232,184,75,.12);}
+.who-chip.on em{color:var(--gold);}
+.hint.small.days{margin:2px 2px 10px; color:var(--gold);}
+.hotel-card{margin-bottom:9px; padding:10px 11px; background:var(--el); border:1px solid var(--line); border-radius:12px;}
 .hotel-note{width:100%; min-height:38px; margin-top:8px; padding:8px 10px; background:var(--field); border:1px solid var(--line); border-radius:9px; color:var(--ink); font-size:0.82rem; font-family:inherit; outline:none; appearance:none; -webkit-appearance:none;}
 .hotel-note:focus{border-color:var(--gold);}
 .hotel-card .hotel-row{margin:0; padding:0; background:none; border:0;}
