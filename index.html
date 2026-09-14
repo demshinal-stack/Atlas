@@ -795,7 +795,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "10.1";
+const APP_VERSION = "10.2";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData() {
@@ -3846,7 +3846,7 @@ function Stars({ value, onPick }) {
             onPick(n === value ? 0 : n);
         }, "aria-label": `${n} звёзд` }, "\u2605")))));
 }
-function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality, since, people = [], onPeople }) {
+function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality, since, people = [] }) {
     const totalPhotos = useMemo(() => {
         let k = 0;
         Object.values(visits).forEach((arr) => arr.forEach((t) => (k += (t.photos || []).length)));
@@ -3858,8 +3858,6 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality,
     const [addCity, setAddCity] = useState(false);
     const [addHotel, setAddHotel] = useState(false);
     const [addWho, setAddWho] = useState(false);
-    const [whoName, setWhoName] = useState("");
-    const [whoRole, setWhoRole] = useState(ROLES[0]);
     const [ask, setAsk] = useState(null);
     const buildDraft = (src) => src
         ? {
@@ -4001,40 +3999,17 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality,
                         }) }, "\u2715")));
             }))),
             people.length === 0 && !(draft.who || []).length && !addWho && (React.createElement("p", { className: "hint small" }, "\u041F\u043E\u043A\u0430 \u043D\u0438\u043A\u043E\u0433\u043E \u043D\u0435\u0442. \u0414\u043E\u0431\u0430\u0432\u044C\u0442\u0435 \u0443\u0447\u0430\u0441\u0442\u043D\u0438\u043A\u0430 \u2014 \u043E\u043D \u0441\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u0441\u044F \u0432 \u043F\u0440\u043E\u0444\u0438\u043B\u0435 \u0438 \u0432 \u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0438\u0439 \u0440\u0430\u0437 \u0431\u0443\u0434\u0435\u0442 \u0432\u044B\u0431\u0438\u0440\u0430\u0442\u044C\u0441\u044F \u043D\u0430\u0436\u0430\u0442\u0438\u0435\u043C.")),
-            addWho &&
-                people.filter((p) => !(draft.who || []).includes(p.name))
-                    .length > 0 && (React.createElement("div", { className: "city-chips" }, people
-                .filter((p) => !(draft.who || []).includes(p.name))
-                .map((p) => (React.createElement("span", { key: p.id || p.name, className: "city-chip who-off" },
-                p.name,
-                React.createElement("i", null, p.role),
-                React.createElement("button", { onClick: () => {
+            addWho ? ((() => {
+                const free = people.filter((p) => !(draft.who || []).includes(p.name));
+                return free.length ? (React.createElement("div", { className: "sheet-list inline-list" }, free.map((p) => (React.createElement("button", { key: p.id || p.name, className: "opt", onClick: () => {
                         patch({ who: [...(draft.who || []), p.name] });
                         setAddWho(false);
-                    } }, "\uFF0B")))))),
-            addWho ? (React.createElement("div", { className: "person-add" },
-                React.createElement("input", { className: "name-input", value: whoName, placeholder: "\u0418\u043C\u044F", autoFocus: true, onChange: (e) => setWhoName(e.target.value), autoComplete: "off", autoCorrect: "off", "data-lpignore": "true" }),
-                React.createElement("span", { className: "person-role wide" },
-                    whoRole,
-                    React.createElement("select", { value: whoRole, onChange: (e) => setWhoRole(e.target.value) }, ROLES.map((r) => (React.createElement("option", { key: r, value: r }, r))))),
-                React.createElement("button", { className: "btn-main small", disabled: !whoName.trim(), onClick: () => {
-                        const name = whoName.trim();
-                        if (!name)
-                            return;
-                        if (!people.some((p) => p.name === name))
-                            onPeople === null || onPeople === void 0 ? void 0 : onPeople([
-                                ...people,
-                                {
-                                    id: `p${Date.now()}`,
-                                    name,
-                                    role: whoRole,
-                                    always: false,
-                                },
-                            ]);
-                        patch({ who: [...(draft.who || []), name] });
-                        setWhoName("");
-                        setAddWho(false);
-                    } }, "\uFF0B"))) : (React.createElement("button", { className: "link-btn", onClick: () => setAddWho(true) }, "\uFF0B \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0443\u0447\u0430\u0441\u0442\u043D\u0438\u043A\u0430")))),
+                    } },
+                    p.name,
+                    React.createElement("em", { className: "opt-role" }, p.role)))))) : (React.createElement("p", { className: "hint small" }, people.length
+                    ? "Все участники уже добавлены."
+                    : "Список пуст. Участники добавляются в профиле."));
+            })()) : (React.createElement("button", { className: "link-btn", onClick: () => setAddWho(true) }, "\uFF0B \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0443\u0447\u0430\u0441\u0442\u043D\u0438\u043A\u0430")))),
         country && whenReady && !editWhen && (React.createElement("div", { className: "step" },
             React.createElement("p", { className: "step-title" }, "\u0413\u0434\u0435 \u0436\u0438\u043B\u0438"),
             draft.hotels.length > 0 && (React.createElement("div", { className: "hotel-rows" }, draft.hotels.map((h, i) => (React.createElement("div", { key: i, className: "hotel-card" },
@@ -5506,18 +5481,10 @@ function Atlas() {
                         React.createElement("p", { className: "focus-empty" }, mapView === "map"
                             ? "Нажмите страну на карте, чтобы посмотреть её."
                             : "Поверните глобус и нажмите страну, чтобы посмотреть её.")))),
-                    React.createElement(TripSheet, { open: sheet === "add", onClose: () => setSheet(null), box: box, initial: null, visits: visits, onSave: (a3, trip) => addTrip(a3, trip), mode: "add", quality: photoQuality, since: profile.since, people: profile.people || [], onPeople: async (list) => {
-                            const prof = { ...profile, people: list };
-                            setProfile(prof);
-                            await store.set(K_PROFILE, prof);
-                        } }),
+                    React.createElement(TripSheet, { open: sheet === "add", onClose: () => setSheet(null), box: box, initial: null, visits: visits, onSave: (a3, trip) => addTrip(a3, trip), mode: "add", quality: photoQuality, since: profile.since, people: profile.people || [] }),
                     React.createElement(TripSheet, { open: sheet === "edit" && !!sel && !!selTrips.length, onClose: () => setSheet(null), box: box, initial: sel && selTrips.length
                             ? { a3: sel.a3, idx: editIdx, trip: selTrips[editIdx] || selTrips[0] }
-                            : null, visits: visits, onSave: (a3, trip) => editTrip(a3, editIdx, trip), mode: "edit", quality: photoQuality, since: profile.since, people: profile.people || [], onPeople: async (list) => {
-                            const prof = { ...profile, people: list };
-                            setProfile(prof);
-                            await store.set(K_PROFILE, prof);
-                        } }),
+                            : null, visits: visits, onSave: (a3, trip) => editTrip(a3, editIdx, trip), mode: "edit", quality: photoQuality, since: profile.since, people: profile.people || [] }),
                     React.createElement(ProfileSheet, { open: sheet === "profile", onClose: () => setSheet(null), box: box, avatar: profile.avatar, name: profile.name, onName: async (v) => {
                             const prof = { ...profile, name: v };
                             setProfile(prof);
@@ -5990,7 +5957,7 @@ body > div{max-width:100%;}
 .city-chip i{font-style:normal; font-size:0.66rem; color:var(--dim);}
 .city-chip.who-on{border-color:var(--gold);}
 .city-chip.who-on i,.city-chip.who-on button{color:var(--gold);}
-.city-chip.who-off{border-style:dashed;}
+.opt-role{float:right; font-style:normal; font-size:0.7rem; color:var(--dim);}
 .hint.small.days{margin:2px 2px 10px; color:var(--gold);}
 .hotel-card{margin-bottom:9px; padding:10px 11px; background:var(--el); border:1px solid var(--line); border-radius:12px;}
 .hotel-note{width:100%; min-height:38px; margin-top:8px; padding:8px 10px; background:var(--field); border:1px solid var(--line); border-radius:9px; color:var(--ink); font-size:0.82rem; font-family:inherit; outline:none; appearance:none; -webkit-appearance:none;}
