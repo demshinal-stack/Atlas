@@ -80,6 +80,7 @@
 "use strict";
 "use strict";
 "use strict";
+"use strict";
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
 /* ================================================================== */
 /*  Справочник стран: A2 | A3 | название | континент | шир. | долг.    */
@@ -844,7 +845,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "10.5";
+const APP_VERSION = "10.6";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData() {
@@ -4118,6 +4119,7 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality,
 }
 /* шторка: профиль — вы и ваши данные */
 function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, since, onSince, people, onPeople, onExport, onImport, onRestore, restoreMsg, visits, }) {
+    const [showAll, setShowAll] = useState(false);
     const [newName, setNewName] = useState("");
     const [newRole, setNewRole] = useState(ROLES[0]);
     const [ask, setAsk] = useState(null);
@@ -4146,6 +4148,43 @@ function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, 
                 React.createElement("select", { value: since || "", onChange: (e) => onSince(+e.target.value || null) },
                     React.createElement("option", { value: "" }, "\u043D\u0435 \u0443\u043A\u0430\u0437\u0430\u043D"),
                     YEARS.map((y) => (React.createElement("option", { key: y, value: y }, y)))))),
+        React.createElement("p", { className: "step-title" }, "\u041D\u0430\u0433\u0440\u0430\u0434\u044B"),
+        (() => {
+            const st = awardStats(visits);
+            const rows = [];
+            let got = 0;
+            let all = 0;
+            AWARDS.forEach((a) => {
+                const value = st[a.id] || 0;
+                a.steps.forEach(([need, title, tier]) => {
+                    all += 1;
+                    const done = value >= need;
+                    if (done)
+                        got += 1;
+                    rows.push({ key: a.id + need, title, tier, done, need, value, unit: a.unit });
+                });
+            });
+            const shown = showAll ? rows : rows.filter((r) => r.done).concat(rows.filter((r) => !r.done).slice(0, 3));
+            return (React.createElement(React.Fragment, null,
+                React.createElement("div", { className: "awards-top" },
+                    React.createElement("b", null,
+                        got,
+                        " \u0438\u0437 ",
+                        all),
+                    React.createElement("span", null, "\u043D\u0430\u0433\u0440\u0430\u0434 \u043F\u043E\u043B\u0443\u0447\u0435\u043D\u043E")),
+                React.createElement("div", { className: "awards" }, shown.map((r) => (React.createElement("div", { key: r.key, className: "award" + (r.done ? " on" : "") },
+                    React.createElement("span", { className: "cup", style: r.done ? { color: TIER_COLOR[r.tier] } : undefined },
+                        React.createElement("svg", { viewBox: "0 0 24 24", width: "26", height: "26" },
+                            React.createElement("path", { d: "M7 4h10v4a5 5 0 0 1-10 0z", fill: "currentColor", opacity: r.done ? 1 : 0.35 }),
+                            React.createElement("path", { d: "M7 5H4.5a2.5 2.5 0 0 0 2.5 4M17 5h2.5a2.5 2.5 0 0 1-2.5 4", fill: "none", stroke: "currentColor", strokeWidth: "1.5", opacity: r.done ? 1 : 0.35 }),
+                            React.createElement("path", { d: "M10 13h4v3h3v2H7v-2h3z", fill: "currentColor", opacity: r.done ? 1 : 0.35 }))),
+                    React.createElement("span", { className: "award-text" },
+                        React.createElement("b", null, r.title),
+                        React.createElement("em", null, r.done
+                            ? TIER_NAME[r.tier]
+                            : `ещё ${r.need - r.value} ${r.unit}`)))))),
+                React.createElement("button", { className: "link-btn", onClick: () => setShowAll((v) => !v) }, showAll ? "свернуть" : "показать все награды")));
+        })(),
         React.createElement("p", { className: "step-title" }, "\u041F\u0443\u0442\u0435\u0448\u0435\u0441\u0442\u0432\u0435\u043D\u043D\u0438\u043A\u0438"),
         people.length > 0 && (React.createElement("div", { className: "people" }, people.map((pr) => (React.createElement("div", { key: pr.id, className: "person" },
             React.createElement("span", { className: "person-name" }, pr.name),
@@ -4493,6 +4532,194 @@ function PhotoModeSheet({ open, onClose, box, quality, usage }) {
             "\u0417\u0430 \u043E\u0434\u0438\u043D \u0440\u0430\u0437 \u0434\u043E\u0431\u0430\u0432\u043B\u044F\u0435\u0442\u0441\u044F \u0434\u043E ",
             BATCH_MAX,
             " \u0441\u043D\u0438\u043C\u043A\u043E\u0432. \u041D\u0430 \u044D\u043A\u0440\u0430\u043D\u0435 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430 \u0440\u0430\u0437\u043D\u0438\u0446\u044B \u043C\u0435\u0436\u0434\u0443 \u0440\u0435\u0436\u0438\u043C\u0430\u043C\u0438 \u043F\u043E\u0447\u0442\u0438 \u043D\u0435 \u0432\u0438\u0434\u043D\u043E \u2014 \u00AB\u041C\u0430\u043A\u0441\u0438\u043C\u0443\u043C\u00BB \u043F\u0440\u0438\u0433\u043E\u0434\u0438\u0442\u0441\u044F, \u0435\u0441\u043B\u0438 \u0441\u043C\u043E\u0442\u0440\u0438\u0442\u0435 \u0444\u043E\u0442\u043E \u043D\u0430 \u0431\u043E\u043B\u044C\u0448\u043E\u043C \u044D\u043A\u0440\u0430\u043D\u0435. \u0423\u0436\u0435 \u0434\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u043D\u044B\u0435 \u0441\u043D\u0438\u043C\u043A\u0438 \u043D\u0435 \u043F\u0435\u0440\u0435\u0441\u043E\u0445\u0440\u0430\u043D\u044F\u044E\u0442\u0441\u044F: \u0440\u0435\u0436\u0438\u043C \u0432\u043B\u0438\u044F\u0435\u0442 \u043D\u0430 \u043D\u043E\u0432\u044B\u0435.")))));
+}
+/* ------------------------------------------------------------------ */
+/*  Награды: считаются сами по отметкам в атласе                      */
+/* ------------------------------------------------------------------ */
+const TIER_COLOR = {
+    1: "#b07a4a", // бронза
+    2: "#b9c3cd", // серебро
+    3: "#e2b551", // золото
+    4: "#9fe3e0", // платина
+};
+const TIER_NAME = { 1: "бронза", 2: "серебро", 3: "золото", 4: "платина" };
+const AWARDS = [
+    {
+        id: "countries",
+        group: "Страны",
+        unit: "стран",
+        steps: [
+            [1, "Первый штамп", 1],
+            [10, "Десятка", 1],
+            [25, "Опытный", 2],
+            [50, "Полсотни", 3],
+            [100, "Сотня", 4],
+            [150, "Клуб 150", 4],
+        ],
+    },
+    {
+        id: "conts",
+        group: "Части света",
+        unit: "частей света",
+        steps: [
+            [2, "Два континента", 1],
+            [4, "Четыре континента", 2],
+            [6, "Весь мир", 4],
+        ],
+    },
+    {
+        id: "cities",
+        group: "Города",
+        unit: "городов",
+        steps: [
+            [10, "Десять городов", 1],
+            [50, "Полсотни городов", 2],
+            [100, "Сто городов", 3],
+            [250, "Городской атлас", 4],
+        ],
+    },
+    {
+        id: "years",
+        group: "Годы в пути",
+        unit: "лет",
+        steps: [
+            [3, "Три года в пути", 1],
+            [5, "Пять лет", 2],
+            [10, "Десять лет", 3],
+            [20, "Двадцать лет", 4],
+        ],
+    },
+    {
+        id: "trips",
+        group: "Поездки",
+        unit: "поездок",
+        steps: [
+            [10, "Десять поездок", 1],
+            [25, "Двадцать пять", 2],
+            [50, "Полсотни поездок", 3],
+            [100, "Сто поездок", 4],
+        ],
+    },
+    {
+        id: "quarters",
+        group: "Кругосветка",
+        unit: "четвертей света",
+        steps: [
+            [2, "Два полушария", 1],
+            [3, "Три четверти", 2],
+            [4, "Кругосветка", 4],
+        ],
+    },
+    {
+        id: "polar",
+        group: "За полярным кругом",
+        unit: "стран",
+        steps: [[1, "За полярным кругом", 3]],
+    },
+    {
+        id: "south",
+        group: "Южное полушарие",
+        unit: "стран",
+        steps: [
+            [1, "Ниже экватора", 1],
+            [5, "Юг освоен", 3],
+        ],
+    },
+    {
+        id: "islands",
+        group: "Острова",
+        unit: "островных стран",
+        steps: [
+            [3, "Три острова", 1],
+            [5, "Островитянин", 2],
+            [10, "Архипелаг", 3],
+        ],
+    },
+    {
+        id: "family",
+        group: "Вместе",
+        unit: "поездок с близкими",
+        steps: [
+            [5, "Не один", 1],
+            [10, "Семейный маршрут", 2],
+            [25, "Всегда вместе", 3],
+        ],
+    },
+    {
+        id: "photos",
+        group: "Снимки",
+        unit: "фотографий",
+        steps: [
+            [25, "Первый альбом", 1],
+            [100, "Летописец", 2],
+            [250, "Архив", 3],
+        ],
+    },
+    {
+        id: "hotels",
+        group: "Отели",
+        unit: "отелей",
+        steps: [
+            [5, "Пять адресов", 1],
+            [20, "Постоялец", 2],
+            [50, "Знаток отелей", 3],
+        ],
+    },
+];
+/* островные государства — для награды «Островитянин» */
+const ISLAND_A3 = new Set(("JPN PHL IDN LKA MDV MLT CYP ISL IRL NZL FJI MUS SYC CUB JAM DOM HTI BHS BRB TTO " +
+    "SGP TWN HKG MAC COM CPV STP KIR TON WSM VUT SLB PLW FSM MHL NRU TUV ATG DMA GRD " +
+    "KNA LCA VCT BHR MDG BRN TLS").split(" "));
+function awardStats(visits) {
+    const countries = Object.keys(visits).filter((a) => { var _a; return (_a = visits[a]) === null || _a === void 0 ? void 0 : _a.length; });
+    const conts = new Set();
+    const cities = new Set();
+    const years = new Set();
+    const hotels = new Set();
+    const quarters = new Set();
+    let trips = 0;
+    let photos = 0;
+    let family = 0;
+    let polar = 0;
+    let south = 0;
+    let islands = 0;
+    countries.forEach((a3) => {
+        const c = BY_A3[a3];
+        if (c) {
+            conts.add(c.cont);
+            if (c.lat > 66)
+                polar += 1;
+            if (c.lat < 0)
+                south += 1;
+            if (ISLAND_A3.has(a3))
+                islands += 1;
+            quarters.add(`${c.lon >= 0 ? "E" : "W"}${c.lat >= 0 ? "N" : "S"}`);
+        }
+        (visits[a3] || []).forEach((t) => {
+            trips += 1;
+            photos += (t.photos || []).length;
+            if ((t.who || []).length)
+                family += 1;
+            (t.cities || []).forEach((x) => cities.add(x));
+            (t.hotels || []).forEach((h) => hotels.add(h.name));
+            if (!t.approx)
+                years.add(t.y);
+        });
+    });
+    return {
+        countries: countries.length,
+        conts: conts.size,
+        cities: cities.size,
+        years: years.size,
+        trips,
+        quarters: quarters.size,
+        polar,
+        south,
+        islands,
+        family,
+        photos,
+        hotels: hotels.size,
+    };
 }
 /* подтверждение перед удалением — чтобы не снести лишнее случайно */
 function Ask({ ask, onClose, box }) {
@@ -6037,7 +6264,17 @@ body > div{max-width:100%;}
 .sheet .suggest{position:relative;}
 .sheet .inline-list{max-height:46vh; overflow-y:auto; margin-top:10px;}
 .sheet .hotel-rows{display:flex; flex-direction:column; gap:7px; margin-bottom:8px;}
-.sheet .people{display:flex; flex-direction:column; gap:7px; margin-bottom:9px;}
+.sheet .awards-top{display:flex; align-items:baseline; gap:8px; margin-bottom:10px;}
+.awards-top b{font-family:Georgia,serif; font-size:1.15rem; font-weight:400; color:var(--gold);}
+.awards-top span{font-size:0.72rem; color:var(--dim);}
+.awards{display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:8px; margin-bottom:8px;}
+.award{display:flex; align-items:center; gap:9px; padding:10px; border-radius:12px; border:1px solid var(--line); background:var(--el); min-width:0;}
+.award:not(.on){opacity:.55;}
+.cup{flex:none; color:var(--dim); display:flex;}
+.award-text{flex:1 1 auto; min-width:0;}
+.award-text b{display:block; font-size:0.76rem; font-weight:500; line-height:1.25; overflow:hidden; text-overflow:ellipsis;}
+.award-text em{display:block; margin-top:2px; font-style:normal; font-size:0.64rem; color:var(--dim);}
+.people{display:flex; flex-direction:column; gap:7px; margin-bottom:9px;}
 .person{display:flex; align-items:center; gap:9px; padding:9px 11px; background:var(--el); border:1px solid var(--line); border-radius:11px; min-width:0;}
 .person-name{flex:1 1 auto; min-width:0; font-size:0.88rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .person-role{position:relative; flex:none; padding:6px 11px; background:var(--field); border:1px solid var(--line); border-radius:9px; font-size:0.72rem; color:var(--gold);}
