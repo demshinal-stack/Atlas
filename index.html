@@ -757,7 +757,7 @@ const K_SETTINGS = "atlas:settings";
 const K_BACKUP = "atlas:data:backup";
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "8.7";
+const APP_VERSION = "8.8";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData() {
@@ -5471,44 +5471,6 @@ body > div{max-width:100%;}
 .focus .cta{margin-top:12px;}
 
 
-/* горизонтальное положение: меню уходит в боковой рельс, контент — в две колонки */
-@media (orientation:landscape) and (max-height:600px){
-  :root{--tabh:0px; --rail:66px;}
-
-  .root{padding:calc(8px + env(safe-area-inset-top)) 12px 10px
-        calc(var(--rail) + max(10px, env(safe-area-inset-left)));}
-
-  .tabbar{flex-direction:column; justify-content:center; gap:2px;
-    width:calc(var(--rail) + env(safe-area-inset-left)); height:100%;
-    top:0; bottom:0; left:0; padding:8px 4px 8px env(safe-area-inset-left);
-    border-top:0; border-right:1px solid var(--line);}
-  .tab{flex:0 0 auto; padding:8px 2px; gap:2px;}
-  .tab em{font-size:0.55rem;}
-  .tab svg{width:20px; height:20px;}
-  .tab-plus{width:40px; height:27px;}
-  .tab-ava{width:20px; height:20px;}
-
-  .top{margin-bottom:6px;}
-  .brand{font-size:1.3rem;}
-
-  .cols{display:flex; align-items:flex-start; gap:14px;}
-  .col-map{flex:0 0 54%; min-width:0;}
-  .col-side{flex:1 1 auto; min-width:0;}
-  .foot{display:none;}
-
-  .sheet{left:auto; right:0; bottom:0; top:0; width:min(440px, 62%);
-    max-height:100%; border-radius:18px 0 0 18px; padding-bottom:0;}
-  .sheet-grab{display:none;}
-  .sheet-head{padding-top:calc(10px + env(safe-area-inset-top));}
-  .sheet-dim{height:100%;}
-
-  .lock{padding:8px 6px; max-width:270px;}
-  .pad{max-width:210px; gap:7px;}
-  .key{max-height:48px; border-radius:12px; font-size:1.05rem;}
-  .flip-in{height:190px;}
-  .globe-controls{padding:2px 0 6px;}
-}
-
 .tabbar{position:fixed; left:0; bottom:0; width:100%; z-index:120; display:flex;
   padding:6px 4px calc(6px + env(safe-area-inset-bottom));
   background:var(--panel); border-top:1px solid var(--line);
@@ -5568,6 +5530,45 @@ body > div{max-width:100%;}
   .when{flex-direction:column;}
   .brand{font-size:1.250rem;}
 }
+
+/* горизонтальное положение: меню уходит в боковой рельс, контент — в две колонки */
+@media (orientation:landscape) and (max-height:600px){
+  :root{--tabh:0px; --rail:66px;}
+
+  .root{padding:calc(8px + env(safe-area-inset-top)) 12px 10px
+        calc(var(--rail) + max(10px, env(safe-area-inset-left)));}
+
+  .tabbar{flex-direction:column; justify-content:center; gap:2px;
+    width:calc(var(--rail) + env(safe-area-inset-left)); height:100%;
+    top:0; bottom:0; left:0; padding:8px 4px 8px env(safe-area-inset-left);
+    border-top:0; border-right:1px solid var(--line);}
+  .tab{flex:0 0 auto; padding:8px 2px; gap:2px;}
+  .tab em{font-size:0.55rem;}
+  .tab svg{width:20px; height:20px;}
+  .tab-plus{width:40px; height:27px;}
+  .tab-ava{width:20px; height:20px;}
+
+  .top{margin-bottom:6px;}
+  .brand{font-size:1.3rem;}
+
+  .cols{display:flex; align-items:flex-start; gap:14px;}
+  .col-map{flex:0 0 54%; min-width:0;}
+  .col-side{flex:1 1 auto; min-width:0;}
+  .foot{display:none;}
+
+  .sheet{left:auto; right:0; bottom:0; top:0; width:min(440px, 62%);
+    max-height:100%; border-radius:18px 0 0 18px; padding-bottom:0;}
+  .sheet-grab{display:none;}
+  .sheet-head{padding-top:calc(10px + env(safe-area-inset-top));}
+  .sheet-dim{height:100%;}
+
+  .lock{padding:8px 6px; max-width:270px;}
+  .pad{max-width:210px; gap:7px;}
+  .key{max-height:48px; border-radius:12px; font-size:1.05rem;}
+  .flip-in{height:190px;}
+  .globe-controls{padding:2px 0 6px;}
+}
+
 `;
 const __b = document.getElementById('boot');
 if (__b)
