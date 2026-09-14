@@ -757,7 +757,7 @@ const K_SETTINGS = "atlas:settings";
 const K_BACKUP = "atlas:data:backup";
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "8.6";
+const APP_VERSION = "8.7";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData() {
@@ -4231,7 +4231,7 @@ function ListSheet({ visits, stats, open, onClose, onPick, onRemove, box, mode }
 /*  Приложение                                                        */
 /* ================================================================== */
 function Atlas() {
-    var _a, _b;
+    var _a;
     const [booting, setBooting] = useState(true);
     const [profile, setProfile] = useState(null);
     const [unlocked, setUnlocked] = useState(false);
@@ -4331,12 +4331,12 @@ function Atlas() {
     useEffect(() => {
         var _a;
         const measure = () => {
-            var _a, _b, _c;
+            var _a, _b;
             const vvp = ((_a = window.visualViewport) === null || _a === void 0 ? void 0 : _a.width) || Infinity;
             const inner = window.innerWidth || Infinity;
             const client = ((_b = document.documentElement) === null || _b === void 0 ? void 0 : _b.clientWidth) || Infinity;
-            const scr = ((_c = window.screen) === null || _c === void 0 ? void 0 : _c.width) || Infinity;
-            const w = Math.min(vvp, inner, client, scr);
+            // ширину экрана не учитываем: при повороте iOS её не обновляет
+            const w = Math.min(vvp, inner, client);
             if (w > 100)
                 setVw(Math.floor(w));
             const de = document.documentElement;
@@ -4359,6 +4359,8 @@ function Atlas() {
         const reset = () => {
             minSeen.current = Infinity;
             measure();
+            setTimeout(measure, 120);
+            setTimeout(measure, 400);
         };
         window.addEventListener("resize", measure);
         window.addEventListener("orientationchange", reset);
@@ -4375,8 +4377,20 @@ function Atlas() {
     const shell = colW
         ? { width: colW, maxWidth: colW, left: 0, marginLeft: 0 }
         : undefined;
-    const land = typeof window !== "undefined" &&
-        ((_a = window.matchMedia) === null || _a === void 0 ? void 0 : _a.call(window, "(orientation:landscape) and (max-height:600px)").matches);
+    const [land, setLand] = useState(false);
+    useEffect(() => {
+        var _a;
+        const mq = window.matchMedia("(orientation:landscape) and (max-height:600px)");
+        const on = () => setLand(mq.matches);
+        on();
+        (_a = mq.addEventListener) === null || _a === void 0 ? void 0 : _a.call(mq, "change", on);
+        window.addEventListener("resize", on);
+        return () => {
+            var _a;
+            (_a = mq.removeEventListener) === null || _a === void 0 ? void 0 : _a.call(mq, "change", on);
+            window.removeEventListener("resize", on);
+        };
+    }, []);
     const globeBox = colW
         ? Math.max(200, Math.round((colW - 22 - (land ? 80 : 0)) * (land ? 0.54 : 1)))
         : 320;
@@ -4991,7 +5005,7 @@ function Atlas() {
                     React.createElement(SettingsSheet, { open: sheet === "settings", onClose: () => setSheet(null), box: box, visits: visits, theme: theme, onTheme: setTheme, quality: photoQuality, onQuality: (v) => {
                             setPhotoQuality(v);
                             setSheet("photomode");
-                        }, cityPins: cityPins, onToggleCityPins: setCityPins, spinStart: spinStart, onToggleSpin: setSpinStart, mapView: mapView, onMapView: setMapView, geoCount: ((_b = geo === null || geo === void 0 ? void 0 : geo.features) === null || _b === void 0 ? void 0 : _b.length) || 0, onReloadGeo: reloadGeo, hasPin: !!profile.pinHash, faceAvailable: faceAvailable, faceOn: !!profile.credId, onSetPin: () => {
+                        }, cityPins: cityPins, onToggleCityPins: setCityPins, spinStart: spinStart, onToggleSpin: setSpinStart, mapView: mapView, onMapView: setMapView, geoCount: ((_a = geo === null || geo === void 0 ? void 0 : geo.features) === null || _a === void 0 ? void 0 : _a.length) || 0, onReloadGeo: reloadGeo, hasPin: !!profile.pinHash, faceAvailable: faceAvailable, faceOn: !!profile.credId, onSetPin: () => {
                             setSheet(null);
                             setProfile(null);
                         }, onDropPin: async () => {
