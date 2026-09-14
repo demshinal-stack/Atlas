@@ -795,7 +795,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "9.5";
+const APP_VERSION = "9.6";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData() {
@@ -3270,7 +3270,8 @@ function Sheet({ open, onClose, title, children, box }) {
                 } },
                 React.createElement("span", null)),
             React.createElement("div", { className: "sheet-head" },
-                React.createElement("h2", null, title)),
+                React.createElement("h2", null, title),
+                React.createElement("button", { className: "sheet-x", onClick: close, "aria-label": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C" }, "\u2715")),
             children(close))));
 }
 function WhenRow({ year, setYear, month, setMonth }) {
@@ -3857,32 +3858,43 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality,
     const [addCity, setAddCity] = useState(false);
     const [addHotel, setAddHotel] = useState(false);
     const [ask, setAsk] = useState(null);
+    const buildDraft = (src) => src
+        ? {
+            a3: src.a3,
+            y: src.trip.y,
+            m: src.trip.m || null,
+            noMonth: !src.trip.m,
+            y2: src.trip.y2 || null,
+            approx: !!src.trip.approx,
+            from: src.trip.from || "",
+            to: src.trip.to || "",
+            who: src.trip.who || [],
+            cities: src.trip.cities || [],
+            hotels: src.trip.hotels || [],
+            photos: src.trip.photos || [],
+        }
+        : null;
+    const srcKey = initial ? `${initial.a3}:${initial.idx}` : "";
     useEffect(() => {
-        if (!open)
+        if (!open) {
+            setDraft(null);
             return;
+        }
         setQ("");
         setEditWhen(false);
         setAddCity(false);
         setAddHotel(false);
-        setDraft(initial
-            ? {
-                a3: initial.a3,
-                y: initial.trip.y,
-                m: initial.trip.m || null,
-                noMonth: !initial.trip.m,
-                y2: initial.trip.y2 || null,
-                approx: !!initial.trip.approx,
-                from: initial.trip.from || "",
-                to: initial.trip.to || "",
-                who: initial.trip.who || [],
-                cities: initial.trip.cities || [],
-                hotels: initial.trip.hotels || [],
-                photos: initial.trip.photos || [],
-            }
-            : null);
-        // важно: только при открытии и смене поездки, иначе правки затираются
+        setAddWho(false);
+        setDraft(buildDraft(initial));
+        // строим один раз: иначе правки затираются при каждой перерисовке
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [open, initial === null || initial === void 0 ? void 0 : initial.a3, initial === null || initial === void 0 ? void 0 : initial.idx]);
+    }, [open, srcKey]);
+    /* страховка: карточка открыта, данные есть, а черновика нет */
+    useEffect(() => {
+        if (open && initial && !draft)
+            setDraft(buildDraft(initial));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open, srcKey, draft]);
     const knownHotels = useMemo(() => {
         const out = [];
         const seen = new Set();
@@ -5742,7 +5754,9 @@ body > div{max-width:100%;}
   box-shadow:0 -14px 40px var(--shadow); transform:translate(-50%, 100%); transition:transform .22s cubic-bezier(.22,.7,.3,1);}
 .sheet-grab{padding:10px 0 6px; display:flex; justify-content:center; touch-action:none; cursor:grab;}
 .sheet-grab span{width:40px; height:4px; border-radius:2px; background:var(--track); display:block;}
-.sheet-head{display:flex; align-items:center; padding:4px 16px 12px;}
+.sheet-head{display:flex; align-items:center; gap:10px; padding:4px 16px 12px;}
+.sheet-head h2{flex:1 1 auto; min-width:0;}
+.sheet-x{flex:none; width:34px; height:34px; border-radius:50%; border:1px solid var(--line); background:var(--el); color:var(--dim); font-size:0.9rem; cursor:pointer;}
 .sheet-head h2{margin:0; font-size:1.062rem; font-weight:500;}
 .sheet .when{margin:0 16px; padding:0 0 10px; background:none; border:0;}
 .sheet .search{margin:0; border-top:1px solid var(--line);}
