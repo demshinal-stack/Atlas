@@ -79,6 +79,7 @@
 <script>
 "use strict";
 "use strict";
+"use strict";
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
 /* ================================================================== */
 /*  Справочник стран: A2 | A3 | название | континент | шир. | долг.    */
@@ -843,7 +844,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "10.4";
+const APP_VERSION = "10.5";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData() {
@@ -4737,7 +4738,7 @@ function ListSheet({ visits, stats, open, onClose, onPick, onRemove, box, mode }
                 !hidden &&
                     rows.map((row) => (React.createElement("div", { key: key + row.a3 + row.idx, className: "trip-item" },
                         React.createElement("button", { className: "trip-main", onClick: () => {
-                                onPick(row.a3);
+                                onPick(row.a3, row.idx);
                                 close();
                             } },
                             React.createElement("span", { className: "fl" }, flag(row.c.a2)),
@@ -5499,8 +5500,14 @@ function Atlas() {
                 React.createElement("div", { className: "brand" }, "\u0410\u0442\u043B\u0430\u0441")),
             React.createElement("div", { className: "cols" },
                 React.createElement("div", { className: "col-map" },
-                    React.createElement(Globe, { geo: geo, isOn: isOn, onPick: (a3) => setSelected(BY_A3[a3] ? a3 : null), selected: selected, full: false, onToggleFull: () => setFull(true), visitKey: visitKey, home: lastTrip, boxWidth: globeBox, marks: marks, light: light, playing: spinning, setPlaying: setSpinning, view: mapView, page: mapPage, setPage: setMapPage }),
-                    full && (React.createElement(Globe, { geo: geo, isOn: isOn, onPick: (a3) => setSelected(BY_A3[a3] ? a3 : null), selected: selected, full: true, onToggleFull: () => setFull(false), visitKey: visitKey, home: lastTrip, boxWidth: globeBox, marks: marks, light: light, playing: spinning, setPlaying: setSpinning, view: mapView, page: mapPage, setPage: setMapPage }))),
+                    React.createElement(Globe, { geo: geo, isOn: isOn, onPick: (a3) => {
+                            setSelected(BY_A3[a3] ? a3 : null);
+                            setEditIdx(0);
+                        }, selected: selected, full: false, onToggleFull: () => setFull(true), visitKey: visitKey, home: lastTrip, boxWidth: globeBox, marks: marks, light: light, playing: spinning, setPlaying: setSpinning, view: mapView, page: mapPage, setPage: setMapPage }),
+                    full && (React.createElement(Globe, { geo: geo, isOn: isOn, onPick: (a3) => {
+                            setSelected(BY_A3[a3] ? a3 : null);
+                            setEditIdx(0);
+                        }, selected: selected, full: true, onToggleFull: () => setFull(false), visitKey: visitKey, home: lastTrip, boxWidth: globeBox, marks: marks, light: light, playing: spinning, setPlaying: setSpinning, view: mapView, page: mapPage, setPage: setMapPage }))),
                 React.createElement("div", { className: "col-side" },
                     React.createElement("section", { className: "focus" }, sel ? (React.createElement(React.Fragment, null,
                         React.createElement("div", { className: "focus-head" },
@@ -5511,8 +5518,31 @@ function Atlas() {
                                     CONTINENTS[sel.cont],
                                     " · ",
                                     selTrips.length
-                                        ? selTrips.map(tripLabel).join(", ")
-                                        : "ещё не были")),
+                                        ? tripLabel(selTrips[Math.min(editIdx, selTrips.length - 1)])
+                                        : "ещё не были"),
+                                selTrips.length > 0 && (React.createElement("div", { className: "sel-sub" }, (() => {
+                                    var _a, _b;
+                                    const t = selTrips[Math.min(editIdx, selTrips.length - 1)];
+                                    const bits = [];
+                                    if (tripDays(t))
+                                        bits.push(`${tripDays(t)} дн.`);
+                                    if ((_a = t.cities) === null || _a === void 0 ? void 0 : _a.length)
+                                        bits.push(t.cities.join(", "));
+                                    if ((_b = t.who) === null || _b === void 0 ? void 0 : _b.length)
+                                        bits.push(`с ${t.who.join(", ")}`);
+                                    if ((t.photos || []).length)
+                                        bits.push(`${t.photos.length} фото`);
+                                    return bits.join(" · ") || "без подробностей";
+                                })())),
+                                selTrips.length > 1 && (React.createElement("div", { className: "trip-nav" },
+                                    React.createElement("button", { onClick: () => setEditIdx((i) => i > 0 ? i - 1 : selTrips.length - 1), "aria-label": "\u041F\u0440\u0435\u0434\u044B\u0434\u0443\u0449\u0430\u044F \u043F\u043E\u0435\u0437\u0434\u043A\u0430" }, "\u2039"),
+                                    React.createElement("span", null,
+                                        "\u043F\u043E\u0435\u0437\u0434\u043A\u0430 ",
+                                        Math.min(editIdx, selTrips.length - 1) + 1,
+                                        " \u0438\u0437",
+                                        " ",
+                                        selTrips.length),
+                                    React.createElement("button", { onClick: () => setEditIdx((i) => i < selTrips.length - 1 ? i + 1 : 0), "aria-label": "\u0421\u043B\u0435\u0434\u0443\u044E\u0449\u0430\u044F \u043F\u043E\u0435\u0437\u0434\u043A\u0430" }, "\u203A")))),
                             React.createElement("button", { className: "icon-btn", onClick: () => {
                                     setEditIdx(0);
                                     setSheet(selTrips.length ? "edit" : "add");
@@ -5590,7 +5620,10 @@ function Atlas() {
                             setListMode(v);
                             setSheet(sheetBack);
                         } }),
-                    React.createElement(ListSheet, { visits: visits, stats: stats, open: sheet === "list", onClose: () => setSheet(null), onPick: (a3) => setSelected(a3), onRemove: removeTrip, box: box, mode: listMode }),
+                    React.createElement(ListSheet, { visits: visits, stats: stats, open: sheet === "list", onClose: () => setSheet(null), onPick: (a3, idx) => {
+                            setSelected(a3);
+                            setEditIdx(idx || 0);
+                        }, onRemove: removeTrip, box: box, mode: listMode }),
                     React.createElement(Ask, { ask: ask, onClose: () => setAsk(null), box: box }),
                     React.createElement("nav", { className: "tabbar" },
                         React.createElement("button", { className: "tab" + (sheet === "profile" ? " on" : ""), onClick: () => setSheet((v) => (v === "profile" ? null : "profile")) },
@@ -5764,6 +5797,10 @@ body > div{max-width:100%;}
 .sel-head{display:flex; align-items:center; gap:10px;}
 .big-fl{font-size:1.625rem;}
 .sel-name{font-size:1.000rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.sel-sub{margin-top:4px; font-size:0.72rem; line-height:1.4; color:var(--dim);}
+.trip-nav{display:flex; align-items:center; gap:10px; margin-top:8px;}
+.trip-nav button{width:30px; height:30px; border-radius:9px; border:1px solid var(--line); background:var(--el); color:var(--gold); font-size:1rem; cursor:pointer;}
+.trip-nav span{font-size:0.7rem; color:var(--dim);}
 .sel-cont{font-size:0.750rem; color:var(--dim); line-height:1.45;}
 .x{margin-left:auto; background:none; border:0; color:var(--dim); font-size:0.938rem; cursor:pointer;}
 .trips{display:flex; flex-wrap:wrap; gap:6px; margin:11px 0 4px;}
@@ -6054,7 +6091,11 @@ body > div{max-width:100%;}
 .focus-empty{font-size:0.812rem; color:var(--dim); line-height:1.5; margin:10px 0 0;}
 .icon-btn{flex:none; width:34px; height:34px; display:flex; align-items:center; justify-content:center; border-radius:50%; border:1px solid var(--line); background:var(--sheet); color:var(--dim); font-size:0.812rem; cursor:pointer;}
 .icon-btn:active{background:var(--el2);}
-.focus-head .sel-cont{margin-top:3px;}
+.focus-head .sel-sub{margin-top:4px; font-size:0.72rem; line-height:1.4; color:var(--dim);}
+.trip-nav{display:flex; align-items:center; gap:10px; margin-top:8px;}
+.trip-nav button{width:30px; height:30px; border-radius:9px; border:1px solid var(--line); background:var(--el); color:var(--gold); font-size:1rem; cursor:pointer;}
+.trip-nav span{font-size:0.7rem; color:var(--dim);}
+.sel-cont{margin-top:3px;}
 .focus .num{font-family:Georgia,serif; font-size:2.250rem; line-height:1; color:var(--gold);}
 .focus .trips{margin:12px 0 0;}
 .focus .cta{margin-top:12px;}
