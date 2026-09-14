@@ -795,7 +795,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "9.2";
+const APP_VERSION = "9.5";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData() {
@@ -3845,7 +3845,7 @@ function Stars({ value, onPick }) {
             onPick(n === value ? 0 : n);
         }, "aria-label": `${n} звёзд` }, "\u2605")))));
 }
-function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality, since, people = [] }) {
+function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality, since, people = [], onPeople }) {
     const totalPhotos = useMemo(() => {
         let k = 0;
         Object.values(visits).forEach((arr) => arr.forEach((t) => (k += (t.photos || []).length)));
@@ -3880,7 +3880,9 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality,
                 photos: initial.trip.photos || [],
             }
             : null);
-    }, [open, initial]);
+        // важно: только при открытии и смене поездки, иначе правки затираются
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open, initial === null || initial === void 0 ? void 0 : initial.a3, initial === null || initial === void 0 ? void 0 : initial.idx]);
     const knownHotels = useMemo(() => {
         const out = [];
         const seen = new Set();
@@ -3972,18 +3974,51 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality,
                     patch({ cities: [...draft.cities, c] });
                     setAddCity(false);
                 } })) : (React.createElement("button", { className: "link-btn", onClick: () => setAddCity(true) }, "\uFF0B \u0435\u0449\u0451 \u0433\u043E\u0440\u043E\u0434")))),
-        country && whenReady && !editWhen && people.length > 0 && (React.createElement("div", { className: "step" },
+        country && whenReady && !editWhen && (React.createElement("div", { className: "step" },
             React.createElement("p", { className: "step-title" }, "\u0421 \u043A\u0435\u043C \u0435\u0437\u0434\u0438\u043B\u0438"),
-            React.createElement("div", { className: "who-chips" }, people.map((p) => {
+            people.length > 0 && (React.createElement("div", { className: "who-chips" }, people.map((p) => {
                 const on = (draft.who || []).includes(p.name);
                 return (React.createElement("button", { key: p.id || p.name, className: "who-chip" + (on ? " on" : ""), onClick: () => patch({
                         who: on
                             ? (draft.who || []).filter((n) => n !== p.name)
                             : [...(draft.who || []), p.name],
                     }) },
-                    p.name,
+                    React.createElement("span", { className: "who-top" },
+                        p.name,
+                        React.createElement("i", null, on ? "✕" : "＋")),
                     React.createElement("em", null, p.role)));
-            })))),
+            }))),
+            (draft.who || [])
+                .filter((n) => !people.some((p) => p.name === n))
+                .map((n) => (React.createElement("button", { key: n, className: "who-chip on lone", onClick: () => patch({ who: draft.who.filter((x) => x !== n) }) },
+                React.createElement("span", { className: "who-top" },
+                    n,
+                    React.createElement("i", null, "\u2715")),
+                React.createElement("em", null, "\u043D\u0435\u0442 \u0432 \u0441\u043F\u0438\u0441\u043A\u0435")))),
+            people.length === 0 && !(draft.who || []).length && !addWho && (React.createElement("p", { className: "hint small" }, "\u041F\u043E\u043A\u0430 \u043D\u0438\u043A\u043E\u0433\u043E \u043D\u0435\u0442. \u0414\u043E\u0431\u0430\u0432\u044C\u0442\u0435 \u0443\u0447\u0430\u0441\u0442\u043D\u0438\u043A\u0430 \u2014 \u043E\u043D \u0441\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u0441\u044F \u0432 \u043F\u0440\u043E\u0444\u0438\u043B\u0435 \u0438 \u0432 \u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0438\u0439 \u0440\u0430\u0437 \u0431\u0443\u0434\u0435\u0442 \u0432\u044B\u0431\u0438\u0440\u0430\u0442\u044C\u0441\u044F \u043D\u0430\u0436\u0430\u0442\u0438\u0435\u043C.")),
+            addWho ? (React.createElement("div", { className: "person-add" },
+                React.createElement("input", { className: "name-input", value: whoName, placeholder: "\u0418\u043C\u044F", autoFocus: true, onChange: (e) => setWhoName(e.target.value), autoComplete: "off", autoCorrect: "off", "data-lpignore": "true" }),
+                React.createElement("span", { className: "person-role wide" },
+                    whoRole,
+                    React.createElement("select", { value: whoRole, onChange: (e) => setWhoRole(e.target.value) }, ROLES.map((r) => (React.createElement("option", { key: r, value: r }, r))))),
+                React.createElement("button", { className: "btn-main small", disabled: !whoName.trim(), onClick: () => {
+                        const name = whoName.trim();
+                        if (!name)
+                            return;
+                        if (!people.some((p) => p.name === name))
+                            onPeople === null || onPeople === void 0 ? void 0 : onPeople([
+                                ...people,
+                                {
+                                    id: `p${Date.now()}`,
+                                    name,
+                                    role: whoRole,
+                                    always: false,
+                                },
+                            ]);
+                        patch({ who: [...(draft.who || []), name] });
+                        setWhoName("");
+                        setAddWho(false);
+                    } }, "\uFF0B"))) : (React.createElement("button", { className: "link-btn", onClick: () => setAddWho(true) }, "\uFF0B \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0447\u0435\u043B\u043E\u0432\u0435\u043A\u0430")))),
         country && whenReady && !editWhen && (React.createElement("div", { className: "step" },
             React.createElement("p", { className: "step-title" }, "\u0413\u0434\u0435 \u0436\u0438\u043B\u0438"),
             draft.hotels.length > 0 && (React.createElement("div", { className: "hotel-rows" }, draft.hotels.map((h, i) => (React.createElement("div", { key: i, className: "hotel-card" },
@@ -5937,8 +5972,12 @@ body > div{max-width:100%;}
 .who-chips{display:flex; flex-wrap:wrap; gap:7px;}
 .who-chip{display:flex; flex-direction:column; align-items:flex-start; gap:1px; padding:8px 12px; border-radius:11px; border:1px solid var(--line); background:var(--el); color:var(--ink); font-size:0.84rem; cursor:pointer;}
 .who-chip em{font-style:normal; font-size:0.62rem; color:var(--dim);}
+.who-top{display:flex; align-items:center; gap:8px;}
+.who-top i{font-style:normal; font-size:0.78rem; color:var(--dim);}
+.who-chip.on .who-top i{color:var(--gold);}
 .who-chip.on{border-color:var(--gold); background:rgba(232,184,75,.12);}
 .who-chip.on em{color:var(--gold);}
+.who-chip.lone{margin-top:7px;}
 .hint.small.days{margin:2px 2px 10px; color:var(--gold);}
 .hotel-card{margin-bottom:9px; padding:10px 11px; background:var(--el); border:1px solid var(--line); border-radius:12px;}
 .hotel-note{width:100%; min-height:38px; margin-top:8px; padding:8px 10px; background:var(--field); border:1px solid var(--line); border-radius:9px; color:var(--ink); font-size:0.82rem; font-family:inherit; outline:none; appearance:none; -webkit-appearance:none;}
