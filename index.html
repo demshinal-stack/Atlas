@@ -795,7 +795,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "9.8";
+const APP_VERSION = "9.9";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData() {
@@ -3991,28 +3991,24 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality,
                 } })) : (React.createElement("button", { className: "link-btn", onClick: () => setAddCity(true) }, "\uFF0B \u0435\u0449\u0451 \u0433\u043E\u0440\u043E\u0434")))),
         country && whenReady && !editWhen && (React.createElement("div", { className: "step" },
             React.createElement("p", { className: "step-title" }, "\u0421 \u043A\u0435\u043C \u0435\u0437\u0434\u0438\u043B\u0438"),
-            people.length > 0 && (React.createElement("div", { className: "who-chips" }, people.map((p) => {
-                const on = (draft.who || []).includes(p.name);
-                const toggle = () => patch({
-                    who: on
-                        ? (draft.who || []).filter((n) => n !== p.name)
-                        : [...(draft.who || []), p.name],
-                });
-                return (React.createElement("div", { key: p.id || p.name, className: "who-chip" + (on ? " on" : "") },
-                    React.createElement("button", { className: "who-pick", onClick: toggle },
-                        React.createElement("span", { className: "who-name" }, p.name),
-                        React.createElement("em", null, p.role)),
-                    React.createElement("button", { className: "who-x", onClick: toggle, "aria-label": on ? "Убрать" : "Добавить" }, on ? "✕" : "＋")));
+            (draft.who || []).length > 0 && (React.createElement("div", { className: "who-chips" }, (draft.who || []).map((n) => {
+                const p = people.find((x) => x.name === n);
+                return (React.createElement("div", { key: n, className: "who-chip on" },
+                    React.createElement("span", { className: "who-pick" },
+                        React.createElement("span", { className: "who-name" }, n),
+                        React.createElement("em", null, p ? p.role : "нет в списке")),
+                    React.createElement("button", { className: "who-x", "aria-label": "\u0423\u0431\u0440\u0430\u0442\u044C", onClick: () => patch({
+                            who: (draft.who || []).filter((x) => x !== n),
+                        }) }, "\u2715")));
             }))),
-            (draft.who || [])
-                .filter((n) => !people.some((p) => p.name === n))
-                .map((n) => (React.createElement("div", { key: n, className: "who-chip on lone" },
+            people.filter((p) => !(draft.who || []).includes(p.name))
+                .length > 0 && (React.createElement("div", { className: "who-chips free" }, people
+                .filter((p) => !(draft.who || []).includes(p.name))
+                .map((p) => (React.createElement("button", { key: p.id || p.name, className: "who-chip add", onClick: () => patch({ who: [...(draft.who || []), p.name] }) },
                 React.createElement("span", { className: "who-pick" },
-                    React.createElement("span", { className: "who-name" }, n),
-                    React.createElement("em", null, "\u043D\u0435\u0442 \u0432 \u0441\u043F\u0438\u0441\u043A\u0435")),
-                React.createElement("button", { className: "who-x", "aria-label": "\u0423\u0431\u0440\u0430\u0442\u044C", onClick: () => patch({
-                        who: (draft.who || []).filter((x) => x !== n),
-                    }) }, "\u2715")))),
+                    React.createElement("span", { className: "who-name" }, p.name),
+                    React.createElement("em", null, p.role)),
+                React.createElement("span", { className: "who-x" }, "\uFF0B")))))),
             people.length === 0 && !(draft.who || []).length && !addWho && (React.createElement("p", { className: "hint small" }, "\u041F\u043E\u043A\u0430 \u043D\u0438\u043A\u043E\u0433\u043E \u043D\u0435\u0442. \u0414\u043E\u0431\u0430\u0432\u044C\u0442\u0435 \u0443\u0447\u0430\u0441\u0442\u043D\u0438\u043A\u0430 \u2014 \u043E\u043D \u0441\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u0441\u044F \u0432 \u043F\u0440\u043E\u0444\u0438\u043B\u0435 \u0438 \u0432 \u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0438\u0439 \u0440\u0430\u0437 \u0431\u0443\u0434\u0435\u0442 \u0432\u044B\u0431\u0438\u0440\u0430\u0442\u044C\u0441\u044F \u043D\u0430\u0436\u0430\u0442\u0438\u0435\u043C.")),
             addWho ? (React.createElement("div", { className: "person-add" },
                 React.createElement("input", { className: "name-input", value: whoName, placeholder: "\u0418\u043C\u044F", autoFocus: true, onChange: (e) => setWhoName(e.target.value), autoComplete: "off", autoCorrect: "off", "data-lpignore": "true" }),
@@ -5997,6 +5993,9 @@ body > div{max-width:100%;}
 .who-x{flex:none; width:38px; border:0; background:none; color:var(--dim); font-size:0.9rem; cursor:pointer;}
 .who-chip.on{border-color:var(--gold); background:rgba(232,184,75,.12);}
 .who-chip.on em,.who-chip.on .who-x{color:var(--gold);}
+.who-chips.free{margin-top:9px;}
+.who-chip.add{cursor:pointer; border-style:dashed;}
+.who-chip.add .who-x{display:flex; align-items:center; justify-content:center; color:var(--gold);}
 .who-chip.lone{margin-top:7px;}
 .hint.small.days{margin:2px 2px 10px; color:var(--gold);}
 .hotel-card{margin-bottom:9px; padding:10px 11px; background:var(--el); border:1px solid var(--line); border-radius:12px;}
