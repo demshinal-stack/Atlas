@@ -81,6 +81,8 @@
 "use strict";
 "use strict";
 "use strict";
+"use strict";
+"use strict";
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
 /* ================================================================== */
 /*  Справочник стран: A2 | A3 | название | континент | шир. | долг.    */
@@ -557,6 +559,24 @@ const tripLabel = (t) => {
         return `около ${t.y}`;
     return t.m ? `${MONTHS[t.m - 1]} ${t.y}` : `${t.y}`;
 };
+/* годы, которые поездка добавляет в стаж:
+   приблизительный период не доказывает ни одного года,
+   точные даты через Новый год дают оба */
+const tripYears = (t) => {
+    if (!t || t.approx)
+        return [];
+    const a = dParts(t.from);
+    const b = dParts(t.to);
+    if (a && b) {
+        const out = [];
+        for (let y = a.y; y <= b.y; y++)
+            out.push(y);
+        return out;
+    }
+    if (a)
+        return [a.y];
+    return t.y ? [t.y] : [];
+};
 const tripDays = (t) => {
     const a = dParts(t.from);
     const b = dParts(t.to);
@@ -845,7 +865,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "10.6";
+const APP_VERSION = "10.8";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData() {
@@ -4152,38 +4172,63 @@ function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, 
         (() => {
             const st = awardStats(visits);
             const rows = [];
-            let got = 0;
-            let all = 0;
             AWARDS.forEach((a) => {
                 const value = st[a.id] || 0;
                 a.steps.forEach(([need, title, tier]) => {
-                    all += 1;
-                    const done = value >= need;
-                    if (done)
-                        got += 1;
-                    rows.push({ key: a.id + need, title, tier, done, need, value, unit: a.unit });
+                    rows.push({
+                        key: a.id + need,
+                        title,
+                        tier,
+                        need,
+                        value,
+                        unit: a.unit,
+                        group: a.group,
+                        done: value >= need,
+                    });
                 });
             });
-            const shown = showAll ? rows : rows.filter((r) => r.done).concat(rows.filter((r) => !r.done).slice(0, 3));
+            const done = rows.filter((r) => r.done);
+            const left = rows.filter((r) => !r.done);
+            // самая ценная: выше достоинство, при равном — выше порог
+            const best = done
+                .slice()
+                .sort((a, b) => b.tier - a.tier || b.need - a.need)[0];
+            const next = left
+                .slice()
+                .sort((a, b) => (a.need - a.value) / a.need - (b.need - b.value) / b.need)[0];
             return (React.createElement(React.Fragment, null,
-                React.createElement("div", { className: "awards-top" },
-                    React.createElement("b", null,
-                        got,
-                        " \u0438\u0437 ",
-                        all),
-                    React.createElement("span", null, "\u043D\u0430\u0433\u0440\u0430\u0434 \u043F\u043E\u043B\u0443\u0447\u0435\u043D\u043E")),
-                React.createElement("div", { className: "awards" }, shown.map((r) => (React.createElement("div", { key: r.key, className: "award" + (r.done ? " on" : "") },
+                best ? (React.createElement("div", { className: "trophy tier-" + best.tier },
+                    React.createElement("span", { className: "trophy-cup" },
+                        React.createElement("svg", { viewBox: "0 0 24 24", width: "52", height: "52" },
+                            React.createElement("path", { d: "M7 4h10v4.2a5 5 0 0 1-10 0z", fill: "currentColor" }),
+                            React.createElement("path", { d: "M7 5H4.4a2.6 2.6 0 0 0 2.6 4.2M17 5h2.6a2.6 2.6 0 0 1-2.6 4.2", fill: "none", stroke: "currentColor", strokeWidth: "1.4" }),
+                            React.createElement("path", { d: "M10.2 13.4h3.6v3.1H17V19H7v-2.5h3.2z", fill: "currentColor" })),
+                        React.createElement("i", { className: "shine" })),
+                    React.createElement("span", { className: "trophy-text" },
+                        React.createElement("b", null, best.title),
+                        React.createElement("em", null,
+                            best.group,
+                            " \u00B7 ",
+                            TIER_NAME[best.tier])))) : (React.createElement("p", { className: "hint small" }, "\u041D\u0430\u0433\u0440\u0430\u0434 \u043F\u043E\u043A\u0430 \u043D\u0435\u0442. \u041F\u0435\u0440\u0432\u0430\u044F \u043F\u043E\u044F\u0432\u0438\u0442\u0441\u044F \u0441\u0440\u0430\u0437\u0443 \u043F\u043E\u0441\u043B\u0435 \u043F\u0435\u0440\u0432\u043E\u0439 \u043E\u0442\u043C\u0435\u0442\u043A\u0438.")),
+                React.createElement("button", { className: "switch-row", onClick: () => setShowAll((v) => !v) },
+                    React.createElement("span", { className: "switch-text" },
+                        "\u0412\u0441\u0435 \u043D\u0430\u0433\u0440\u0430\u0434\u044B",
+                        React.createElement("em", null,
+                            done.length,
+                            " \u0438\u0437 ",
+                            rows.length,
+                            next ? ` · ближайшая: ${next.title}` : "")),
+                    React.createElement("span", { className: "step-pen" }, showAll ? "▲" : "▼")),
+                showAll && (React.createElement("div", { className: "awards" }, rows.map((r) => (React.createElement("div", { key: r.key, className: "award" + (r.done ? " on" : "") },
                     React.createElement("span", { className: "cup", style: r.done ? { color: TIER_COLOR[r.tier] } : undefined },
-                        React.createElement("svg", { viewBox: "0 0 24 24", width: "26", height: "26" },
-                            React.createElement("path", { d: "M7 4h10v4a5 5 0 0 1-10 0z", fill: "currentColor", opacity: r.done ? 1 : 0.35 }),
-                            React.createElement("path", { d: "M7 5H4.5a2.5 2.5 0 0 0 2.5 4M17 5h2.5a2.5 2.5 0 0 1-2.5 4", fill: "none", stroke: "currentColor", strokeWidth: "1.5", opacity: r.done ? 1 : 0.35 }),
-                            React.createElement("path", { d: "M10 13h4v3h3v2H7v-2h3z", fill: "currentColor", opacity: r.done ? 1 : 0.35 }))),
+                        React.createElement("svg", { viewBox: "0 0 24 24", width: "24", height: "24" },
+                            React.createElement("path", { d: "M7 4h10v4.2a5 5 0 0 1-10 0z", fill: "currentColor" }),
+                            React.createElement("path", { d: "M10.2 13.4h3.6v3.1H17V19H7v-2.5h3.2z", fill: "currentColor" }))),
                     React.createElement("span", { className: "award-text" },
                         React.createElement("b", null, r.title),
                         React.createElement("em", null, r.done
                             ? TIER_NAME[r.tier]
-                            : `ещё ${r.need - r.value} ${r.unit}`)))))),
-                React.createElement("button", { className: "link-btn", onClick: () => setShowAll((v) => !v) }, showAll ? "свернуть" : "показать все награды")));
+                            : `ещё ${r.need - r.value} ${r.unit}`)))))))));
         })(),
         React.createElement("p", { className: "step-title" }, "\u041F\u0443\u0442\u0435\u0448\u0435\u0441\u0442\u0432\u0435\u043D\u043D\u0438\u043A\u0438"),
         people.length > 0 && (React.createElement("div", { className: "people" }, people.map((pr) => (React.createElement("div", { key: pr.id, className: "person" },
@@ -4581,7 +4626,7 @@ const AWARDS = [
     {
         id: "years",
         group: "Годы в пути",
-        unit: "лет",
+        unit: "лет с поездками",
         steps: [
             [3, "Три года в пути", 1],
             [5, "Пять лет", 2],
@@ -4702,8 +4747,7 @@ function awardStats(visits) {
                 family += 1;
             (t.cities || []).forEach((x) => cities.add(x));
             (t.hotels || []).forEach((h) => hotels.add(h.name));
-            if (!t.approx)
-                years.add(t.y);
+            tripYears(t).forEach((y) => years.add(y));
         });
     });
     return {
@@ -4850,8 +4894,7 @@ function ListSheet({ visits, stats, open, onClose, onPick, onRemove, box, mode }
         Object.values(visits).forEach((arr) => arr.forEach((t) => {
             (t.cities || []).forEach((c) => cities.add(c));
             (t.hotels || []).forEach((h) => hotels.add(h.name));
-            if (!t.approx)
-                years.add(t.y);
+            tripYears(t).forEach((y) => years.add(y));
             photos += (t.photos || []).length;
         }));
         return {
@@ -4936,7 +4979,7 @@ function ListSheet({ visits, stats, open, onClose, onPick, onRemove, box, mode }
                                 React.createElement("span", null, "\u0433\u043E\u0440\u043E\u0434\u043E\u0432")),
                             React.createElement("div", null,
                                 React.createElement("b", null, totals.years),
-                                React.createElement("span", null, "\u043B\u0435\u0442 \u0432 \u043F\u0443\u0442\u0438")),
+                                React.createElement("span", null, "\u043B\u0435\u0442 \u0441 \u043F\u043E\u0435\u0437\u0434\u043A\u0430\u043C\u0438")),
                             React.createElement("div", null,
                                 React.createElement("b", null, totals.photos),
                                 React.createElement("span", null, "\u0441\u043D\u0438\u043C\u043A\u043E\u0432")),
@@ -6264,9 +6307,22 @@ body > div{max-width:100%;}
 .sheet .suggest{position:relative;}
 .sheet .inline-list{max-height:46vh; overflow-y:auto; margin-top:10px;}
 .sheet .hotel-rows{display:flex; flex-direction:column; gap:7px; margin-bottom:8px;}
-.sheet .awards-top{display:flex; align-items:baseline; gap:8px; margin-bottom:10px;}
-.awards-top b{font-family:Georgia,serif; font-size:1.15rem; font-weight:400; color:var(--gold);}
-.awards-top span{font-size:0.72rem; color:var(--dim);}
+.sheet .trophy{position:relative; display:flex; align-items:center; gap:16px; padding:18px 16px; margin-bottom:9px; border-radius:16px; overflow:hidden;
+  border:1px solid rgba(190,215,230,.35);
+  background:linear-gradient(135deg,#1a2c3e 0%,#24384b 40%,#16283a 100%);}
+.trophy-cup{position:relative; flex:none; display:flex; color:#dfe9f2;
+  filter:drop-shadow(0 0 10px rgba(200,230,245,.45));}
+.trophy.tier-1 .trophy-cup{color:#d19a67;}
+.trophy.tier-2 .trophy-cup{color:#cfd8e2;}
+.trophy.tier-3 .trophy-cup{color:#f0c95f;}
+.trophy.tier-4 .trophy-cup{color:#c9f2ee;}
+.trophy-text{flex:1 1 auto; min-width:0;}
+.trophy-text b{display:block; font-family:Georgia,serif; font-size:1.15rem; font-weight:400; line-height:1.2;}
+.trophy-text em{display:block; margin-top:4px; font-style:normal; font-size:0.72rem; color:var(--dim);}
+.shine{position:absolute; inset:-40% -140%; pointer-events:none;
+  background:linear-gradient(105deg, transparent 38%, rgba(255,255,255,.55) 48%, rgba(255,255,255,.9) 52%, transparent 62%);
+  transform:translateX(-60%); animation:sweep 3.6s ease-in-out infinite;}
+@keyframes sweep{0%,62%{transform:translateX(-60%);}100%{transform:translateX(60%);}}
 .awards{display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:8px; margin-bottom:8px;}
 .award{display:flex; align-items:center; gap:9px; padding:10px; border-radius:12px; border:1px solid var(--line); background:var(--el); min-width:0;}
 .award:not(.on){opacity:.55;}
