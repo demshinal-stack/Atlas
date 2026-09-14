@@ -795,7 +795,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "9.6";
+const APP_VERSION = "9.7";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData() {
@@ -3857,6 +3857,9 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality,
     const [editWhen, setEditWhen] = useState(false);
     const [addCity, setAddCity] = useState(false);
     const [addHotel, setAddHotel] = useState(false);
+    const [addWho, setAddWho] = useState(false);
+    const [whoName, setWhoName] = useState("");
+    const [whoRole, setWhoRole] = useState(ROLES[0]);
     const [ask, setAsk] = useState(null);
     const buildDraft = (src) => src
         ? {
