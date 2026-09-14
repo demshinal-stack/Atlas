@@ -87,6 +87,7 @@
 "use strict";
 "use strict";
 "use strict";
+"use strict";
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
 /* ================================================================== */
 /*  Справочник стран: A2 | A3 | название | континент | шир. | долг.    */
@@ -537,6 +538,35 @@ const flag = (a2) => {
         return "🏳";
     }
 };
+/* склонение по числу: plural(5, "страна", "страны", "стран") → "стран" */
+function plural(n, one, few, many) {
+    const a = Math.abs(n) % 100;
+    const b = a % 10;
+    if (a > 10 && a < 20)
+        return many;
+    if (b > 1 && b < 5)
+        return few;
+    if (b === 1)
+        return one;
+    return many;
+}
+const nPlural = (n, one, few, many) => `${n} ${plural(n, one, few, many)}`;
+const WORD = {
+    country: ["страна", "страны", "стран"],
+    trip: ["поездка", "поездки", "поездок"],
+    city: ["город", "города", "городов"],
+    year: ["год", "года", "лет"],
+    photo: ["снимок", "снимка", "снимков"],
+    hotel: ["отель", "отеля", "отелей"],
+    day: ["день", "дня", "дней"],
+    award: ["награда", "награды", "наград"],
+    person: ["человек", "человека", "человек"],
+    cont: ["часть света", "части света", "частей света"],
+    island: ["островная страна", "островные страны", "островных стран"],
+    quarter: ["четверть света", "четверти света", "четвертей света"],
+};
+const pw = (n, key) => plural(n, ...WORD[key]);
+const np = (n, key) => `${n} ${pw(n, key)}`;
 const MONTHS_GEN = [
     "января", "февраля", "марта", "апреля", "мая", "июня",
     "июля", "августа", "сентября", "октября", "ноября", "декабря",
@@ -899,7 +929,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "11.2";
+const APP_VERSION = "11.3";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData() {
@@ -3611,7 +3641,7 @@ function PhotoBlock({ country, trip, onChange, quality, totalPhotos }) {
         const allowed = Math.min(BATCH_MAX, left);
         const list = picked.slice(0, allowed);
         if (!list.length) {
-            setWarn(`Достигнут предел в ${limit} снимк. Удалите лишние или переключите качество на «Экономно».`);
+            setWarn(`Достигнут предел в ${np(limit, "photo")}. Удалите лишние или переключите качество на «Экономно».`);
             return;
         }
         const cut = picked.length - list.length;
@@ -3656,7 +3686,7 @@ function PhotoBlock({ country, trip, onChange, quality, totalPhotos }) {
         setWarn(failed
             ? `Не удалось сохранить ${failed} снимк. Попробуйте добавить их по одному или переключите качество на «Экономно» в профиле.`
             : cut > 0
-                ? `Добавили ${list.length}. Остальные ${cut} не вошли: за один раз можно до ${BATCH_MAX} снимков, всего — до ${limit}.`
+                ? `Добавили ${list.length}. Остальные ${cut} не вошли: за один раз можно до ${np(BATCH_MAX, "photo")}, всего — до ${limit}.`
                 : "");
         if (added.length)
             onChange({ photos: [...photos, ...added] });
@@ -3888,8 +3918,8 @@ function WhenPicker({ y, m, noMonth, y2, approx, since, from, to, onChange }) {
                     onChange({ to: v < (from || v) ? from : v });
                 } }),
             from && to && (React.createElement("p", { className: "hint small days" },
-                "\u0412\u0441\u0435\u0433\u043E \u0434\u043D\u0435\u0439: ",
-                tripDays({ from, to }))),
+                "\u0412\u0441\u0435\u0433\u043E ",
+                np(tripDays({ from, to }), "day"))),
             React.createElement("button", { className: "approx-row", onClick: () => onChange({ from: "", to: "" }) },
                 React.createElement("span", null,
                     "\u0422\u043E\u0447\u043D\u044B\u0435 \u0434\u0430\u0442\u044B",
@@ -4242,7 +4272,8 @@ function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, 
                         tier,
                         need,
                         value,
-                        unit: a.unit,
+                        unitKey: a.unitKey,
+                        suffix: a.suffix || "",
                         group: a.group,
                         done: value >= need,
                     });
@@ -4277,7 +4308,7 @@ function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, 
                         React.createElement("em", null,
                             done.length,
                             " \u0438\u0437 ",
-                            rows.length,
+                            np(rows.length, "award"),
                             next ? ` · ближайшая: ${next.title}` : "")),
                     React.createElement("span", { className: "step-pen" }, showAll ? "▲" : "▼")),
                 showAll && (React.createElement("div", { className: "awards" }, rows.map((r) => (React.createElement("div", { key: r.key, className: "award" + (r.done ? " on" : "") },
@@ -4289,7 +4320,7 @@ function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, 
                         React.createElement("b", null, r.title),
                         React.createElement("em", null, r.done
                             ? TIER_NAME[r.tier]
-                            : `ещё ${r.need - r.value} ${r.unit}`)))))))));
+                            : `ещё ${np(r.need - r.value, r.unitKey)}${r.suffix ? " " + r.suffix : ""}`)))))))));
         })(),
         React.createElement("button", { className: "switch-row", onClick: onReports },
             React.createElement("span", { className: "switch-text" },
@@ -4629,20 +4660,18 @@ function PhotoModeSheet({ open, onClose, box, quality, usage }) {
                 React.createElement("span", { className: "fact-ico" }, "\uD83D\uDD22"),
                 React.createElement("span", { className: "fact-body" },
                     React.createElement("em", null, "\u041F\u0440\u0435\u0434\u0435\u043B"),
-                    React.createElement("b", null,
-                        full ? TOTAL_MAX.full : TOTAL_MAX.light,
-                        " \u0441\u043D\u0438\u043C\u043A\u043E\u0432"))),
+                    React.createElement("b", null, np(full ? TOTAL_MAX.full : TOTAL_MAX.light, "photo")))),
             React.createElement("div", { className: "fact" },
                 React.createElement("span", { className: "fact-ico" }, "\uD83D\uDCBE"),
                 React.createElement("span", { className: "fact-body" },
                     React.createElement("em", null, "\u0417\u0430\u043D\u044F\u0442\u043E \u0441\u0435\u0439\u0447\u0430\u0441"),
                     React.createElement("b", null, usage
-                        ? `${usage.mb.toFixed(1)} МБ · ${usage.count} шт.`
+                        ? `${usage.mb.toFixed(1)} МБ · ${np(usage.count, "photo")}`
                         : "считаем…")))),
         React.createElement("p", { className: "hint small" },
             "\u0417\u0430 \u043E\u0434\u0438\u043D \u0440\u0430\u0437 \u0434\u043E\u0431\u0430\u0432\u043B\u044F\u0435\u0442\u0441\u044F \u0434\u043E ",
-            BATCH_MAX,
-            " \u0441\u043D\u0438\u043C\u043A\u043E\u0432. \u041D\u0430 \u044D\u043A\u0440\u0430\u043D\u0435 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430 \u0440\u0430\u0437\u043D\u0438\u0446\u044B \u043C\u0435\u0436\u0434\u0443 \u0440\u0435\u0436\u0438\u043C\u0430\u043C\u0438 \u043F\u043E\u0447\u0442\u0438 \u043D\u0435 \u0432\u0438\u0434\u043D\u043E \u2014 \u00AB\u041C\u0430\u043A\u0441\u0438\u043C\u0443\u043C\u00BB \u043F\u0440\u0438\u0433\u043E\u0434\u0438\u0442\u0441\u044F, \u0435\u0441\u043B\u0438 \u0441\u043C\u043E\u0442\u0440\u0438\u0442\u0435 \u0444\u043E\u0442\u043E \u043D\u0430 \u0431\u043E\u043B\u044C\u0448\u043E\u043C \u044D\u043A\u0440\u0430\u043D\u0435. \u0423\u0436\u0435 \u0434\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u043D\u044B\u0435 \u0441\u043D\u0438\u043C\u043A\u0438 \u043D\u0435 \u043F\u0435\u0440\u0435\u0441\u043E\u0445\u0440\u0430\u043D\u044F\u044E\u0442\u0441\u044F: \u0440\u0435\u0436\u0438\u043C \u0432\u043B\u0438\u044F\u0435\u0442 \u043D\u0430 \u043D\u043E\u0432\u044B\u0435.")))));
+            np(BATCH_MAX, "photo"),
+            ". \u041D\u0430 \u044D\u043A\u0440\u0430\u043D\u0435 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430 \u0440\u0430\u0437\u043D\u0438\u0446\u044B \u043C\u0435\u0436\u0434\u0443 \u0440\u0435\u0436\u0438\u043C\u0430\u043C\u0438 \u043F\u043E\u0447\u0442\u0438 \u043D\u0435 \u0432\u0438\u0434\u043D\u043E \u2014 \u00AB\u041C\u0430\u043A\u0441\u0438\u043C\u0443\u043C\u00BB \u043F\u0440\u0438\u0433\u043E\u0434\u0438\u0442\u0441\u044F, \u0435\u0441\u043B\u0438 \u0441\u043C\u043E\u0442\u0440\u0438\u0442\u0435 \u0444\u043E\u0442\u043E \u043D\u0430 \u0431\u043E\u043B\u044C\u0448\u043E\u043C \u044D\u043A\u0440\u0430\u043D\u0435. \u0423\u0436\u0435 \u0434\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u043D\u044B\u0435 \u0441\u043D\u0438\u043C\u043A\u0438 \u043D\u0435 \u043F\u0435\u0440\u0435\u0441\u043E\u0445\u0440\u0430\u043D\u044F\u044E\u0442\u0441\u044F: \u0440\u0435\u0436\u0438\u043C \u0432\u043B\u0438\u044F\u0435\u0442 \u043D\u0430 \u043D\u043E\u0432\u044B\u0435.")))));
 }
 /* ------------------------------------------------------------------ */
 /*  Награды: считаются сами по отметкам в атласе                      */
@@ -4658,7 +4687,7 @@ const AWARDS = [
     {
         id: "countries",
         group: "Страны",
-        unit: "стран",
+        unitKey: "country",
         steps: [
             [1, "Первый штамп", 1],
             [10, "Десятка", 1],
@@ -4671,7 +4700,7 @@ const AWARDS = [
     {
         id: "conts",
         group: "Части света",
-        unit: "частей света",
+        unitKey: "cont",
         steps: [
             [2, "Два континента", 1],
             [4, "Четыре континента", 2],
@@ -4681,7 +4710,7 @@ const AWARDS = [
     {
         id: "cities",
         group: "Города",
-        unit: "городов",
+        unitKey: "city",
         steps: [
             [10, "Десять городов", 1],
             [50, "Полсотни городов", 2],
@@ -4692,7 +4721,7 @@ const AWARDS = [
     {
         id: "years",
         group: "Годы в пути",
-        unit: "лет в пути",
+        unitKey: "year",
         steps: [
             [3, "Три года в пути", 1],
             [5, "Пять лет", 2],
@@ -4703,7 +4732,7 @@ const AWARDS = [
     {
         id: "trips",
         group: "Поездки",
-        unit: "поездок",
+        unitKey: "trip",
         steps: [
             [10, "Десять поездок", 1],
             [25, "Двадцать пять", 2],
@@ -4714,7 +4743,7 @@ const AWARDS = [
     {
         id: "quarters",
         group: "Кругосветка",
-        unit: "четвертей света",
+        unitKey: "quarter",
         steps: [
             [2, "Два полушария", 1],
             [3, "Три четверти", 2],
@@ -4724,13 +4753,13 @@ const AWARDS = [
     {
         id: "polar",
         group: "За полярным кругом",
-        unit: "стран",
+        unitKey: "country",
         steps: [[1, "За полярным кругом", 3]],
     },
     {
         id: "south",
         group: "Южное полушарие",
-        unit: "стран",
+        unitKey: "country",
         steps: [
             [1, "Ниже экватора", 1],
             [5, "Юг освоен", 3],
@@ -4739,7 +4768,7 @@ const AWARDS = [
     {
         id: "islands",
         group: "Острова",
-        unit: "островных стран",
+        unitKey: "island",
         steps: [
             [3, "Три острова", 1],
             [5, "Островитянин", 2],
@@ -4749,7 +4778,8 @@ const AWARDS = [
     {
         id: "family",
         group: "Вместе",
-        unit: "поездок с близкими",
+        unitKey: "trip",
+        suffix: "с близкими",
         steps: [
             [5, "Не один", 1],
             [10, "Семейный маршрут", 2],
@@ -4759,7 +4789,7 @@ const AWARDS = [
     {
         id: "photos",
         group: "Снимки",
-        unit: "фотографий",
+        unitKey: "photo",
         steps: [
             [25, "Первый альбом", 1],
             [100, "Летописец", 2],
@@ -4769,7 +4799,7 @@ const AWARDS = [
     {
         id: "hotels",
         group: "Отели",
-        unit: "отелей",
+        unitKey: "hotel",
         steps: [
             [5, "Пять адресов", 1],
             [20, "Постоялец", 2],
@@ -5232,7 +5262,7 @@ function ListSheet({ visits, stats, open, onClose, onPick, onRemove, box, mode, 
         if (t.m)
             parts.push(MONTHS[t.m - 1]);
         if (tripDays(t))
-            parts.push(`${tripDays(t)} дн.`);
+            parts.push(np(tripDays(t), "day"));
         if ((_a = t.who) === null || _a === void 0 ? void 0 : _a.length)
             parts.push(`с ${t.who.join(", ")}`);
         if ((_b = t.cities) === null || _b === void 0 ? void 0 : _b.length)
@@ -5268,9 +5298,9 @@ function ListSheet({ visits, stats, open, onClose, onPick, onRemove, box, mode, 
                     " \u0438\u0437 ",
                     TOTAL),
                 React.createElement("span", null,
-                    "\u0441\u0442\u0440\u0430\u043D \u00B7 ",
-                    all.length,
-                    " \u043F\u043E\u0435\u0437\u0434\u043E\u043A"),
+                    pw(TOTAL, "country"),
+                    " \u00B7 ",
+                    np(all.length, "trip")),
                 React.createElement("em", null, "\u25BE"))) : (React.createElement("div", { className: "flip" + (flipped ? " on" : ""), onClick: () => setFlipped((v) => !v) },
                 React.createElement("div", { className: "flip-in" },
                     React.createElement("div", { className: "flip-side" },
@@ -5279,7 +5309,8 @@ function ListSheet({ visits, stats, open, onClose, onPick, onRemove, box, mode, 
                                 stats.countries,
                                 " \u0438\u0437 ",
                                 TOTAL,
-                                " \u0441\u0442\u0440\u0430\u043D"),
+                                " ",
+                                pw(TOTAL, "country")),
                             React.createElement("span", null, "\u043F\u043E \u0447\u0430\u0441\u0442\u044F\u043C \u0441\u0432\u0435\u0442\u0430")),
                         React.createElement("div", { className: "bars" }, CONT_ORDER.map((k) => (React.createElement("div", { key: k, className: "bar-row" },
                             React.createElement("span", { className: "bar-name" }, CONTINENTS[k]),
@@ -5294,20 +5325,20 @@ function ListSheet({ visits, stats, open, onClose, onPick, onRemove, box, mode, 
                         React.createElement("span", { className: "flip-hint" }, "\u041D\u0430\u0436\u043C\u0438\u0442\u0435, \u0447\u0442\u043E\u0431\u044B \u043F\u0435\u0440\u0435\u0432\u0435\u0440\u043D\u0443\u0442\u044C")),
                     React.createElement("div", { className: "flip-side back" },
                         React.createElement("div", { className: "flip-top" },
-                            React.createElement("b", null,
-                                all.length,
-                                " \u043F\u043E\u0435\u0437\u0434\u043E\u043A"),
+                            React.createElement("b", null, np(all.length, "trip")),
                             React.createElement("span", null, "\u0432\u0441\u0435\u0433\u043E")),
                         React.createElement("div", { className: "cubes" },
                             React.createElement("div", null,
                                 React.createElement("b", null, totals.cities),
-                                React.createElement("span", null, "\u0433\u043E\u0440\u043E\u0434\u043E\u0432")),
+                                React.createElement("span", null, pw(totals.cities, "city"))),
                             React.createElement("div", null,
                                 React.createElement("b", null, totals.years),
-                                React.createElement("span", null, "\u043B\u0435\u0442 \u0432 \u043F\u0443\u0442\u0438")),
+                                React.createElement("span", null,
+                                    pw(totals.years, "year"),
+                                    " \u0432 \u043F\u0443\u0442\u0438")),
                             React.createElement("div", null,
                                 React.createElement("b", null, totals.photos),
-                                React.createElement("span", null, "\u0441\u043D\u0438\u043C\u043A\u043E\u0432")),
+                                React.createElement("span", null, pw(totals.photos, "photo"))),
                             React.createElement("div", null,
                                 React.createElement("b", null,
                                     Math.round((stats.countries / TOTAL) * 100),
@@ -5315,10 +5346,10 @@ function ListSheet({ visits, stats, open, onClose, onPick, onRemove, box, mode, 
                                 React.createElement("span", null, "\u043C\u0438\u0440\u0430")),
                             React.createElement("div", null,
                                 React.createElement("b", null, totals.hotels),
-                                React.createElement("span", null, "\u043E\u0442\u0435\u043B\u0435\u0439")),
+                                React.createElement("span", null, pw(totals.hotels, "hotel"))),
                             React.createElement("div", null,
                                 React.createElement("b", null, stats.countries),
-                                React.createElement("span", null, "\u0441\u0442\u0440\u0430\u043D")),
+                                React.createElement("span", null, pw(stats.countries, "country"))),
                             React.createElement("div", null,
                                 React.createElement("b", null, totals.plans),
                                 React.createElement("span", null, "\u0432 \u043F\u043B\u0430\u043D\u0430\u0445")),
@@ -6144,13 +6175,13 @@ function Atlas() {
                                     const t = selTrips[Math.min(editIdx, selTrips.length - 1)];
                                     const bits = [];
                                     if (tripDays(t))
-                                        bits.push(`${tripDays(t)} дн.`);
+                                        bits.push(np(tripDays(t), "day"));
                                     if ((_a = t.cities) === null || _a === void 0 ? void 0 : _a.length)
                                         bits.push(t.cities.join(", "));
                                     if ((_b = t.who) === null || _b === void 0 ? void 0 : _b.length)
                                         bits.push(`с ${t.who.join(", ")}`);
                                     if ((t.photos || []).length)
-                                        bits.push(`${t.photos.length} фото`);
+                                        bits.push(np(t.photos.length, "photo"));
                                     return bits.join(" · ") || "без подробностей";
                                 })())),
                                 selTrips.length > 1 && (React.createElement("div", { className: "trip-nav" },
