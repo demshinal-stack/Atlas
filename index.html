@@ -83,6 +83,8 @@
 "use strict";
 "use strict";
 "use strict";
+"use strict";
+"use strict";
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
 /* ================================================================== */
 /*  Справочник стран: A2 | A3 | название | континент | шир. | долг.    */
@@ -865,7 +867,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "10.8";
+const APP_VERSION = "11.0";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData() {
@@ -1321,10 +1323,23 @@ const FLAG_BANDS = {
     VUT: { dir: "h", colors: ["#D21034", "#009543"] },
 };
 /* посещённые страны: Россия — серебро, остальные — золото */
+const WISH_FILL = "#4a7fb5";
+const WISH_LINE = "rgba(120,170,220,.85)";
 const SILVER = "#c3ced9";
 const SILVER_LINE = "rgba(198,210,222,.72)";
 const GOLD_FILL = "#e2b551";
-function fillStyleFor(ctx, a3, bounds) {
+function fillStyleFor(ctx, a3, bounds, wish) {
+    if (wish) {
+        if (!bounds)
+            return WISH_FILL;
+        const [[x0, y0], [x1, y1]] = bounds;
+        if (!isFinite(x0) || !isFinite(y1))
+            return WISH_FILL;
+        const g = ctx.createLinearGradient(x0, y0, x1, y1);
+        g.addColorStop(0, "#5e93c9");
+        g.addColorStop(1, "#33608f");
+        return g;
+    }
     if (a3 === "RUS") {
         if (!bounds)
             return SILVER;
@@ -2440,7 +2455,7 @@ function sunPoint(now) {
 /* ================================================================== */
 /*  Карта                                                             */
 /* ================================================================== */
-function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home, boxWidth, marks, light, playing, setPlaying, view, page: pageProp, setPage }) {
+function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home, boxWidth, marks, light, playing, setPlaying, view, page: pageProp, setPage, isWish }) {
     const wrapRef = useRef(null);
     const canvasRef = useRef(null);
     const [size, setSize] = useState(320);
@@ -2460,8 +2475,8 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
     page.current = pageProp || 0;
     const pageUi = pageProp || 0;
     const isMap = view === "map";
-    const state = useRef({ isOn, selected, geo, marks, light, full, isMap });
-    state.current = { isOn, selected, geo, marks, light, full, isMap };
+    const state = useRef({ isOn, selected, geo, marks, light, full, isMap, isWish });
+    state.current = { isOn, selected, geo, marks, light, full, isMap, isWish };
     /* размер: по фактической ширине плитки, с повторами до готовности разметки */
     useEffect(() => {
         var _a;
@@ -2570,6 +2585,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         }
         const path = d3.geoPath(proj, ctx);
         const { isOn: on, selected: sel, geo: g, marks: mk, light: lt, full: fs, } = state.current;
+        const wish = state.current.isWish || (() => false);
         const visibleAt = (lon, lat) => state.current.isMap
             ? true
             : d3.geoDistance([lon, lat], center) < Math.PI / 2 - 0.03;
@@ -2660,9 +2676,10 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                 const visited = on(f.id);
                 ctx.beginPath();
                 path(f);
+                const wished = !visited && wish(f.id);
                 if (state.current.isMap) {
-                    if (visited) {
-                        ctx.fillStyle = fillStyleFor(ctx, f.id, path.bounds(f));
+                    if (visited || wished) {
+                        ctx.fillStyle = fillStyleFor(ctx, f.id, path.bounds(f), wished);
                         ctx.globalAlpha = sel === f.id ? 1 : 0.9;
                         ctx.fill();
                         ctx.globalAlpha = 1;
@@ -2673,12 +2690,13 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                     }
                 }
                 else {
-                    ctx.fillStyle = visited
-                        ? fillStyleFor(ctx, f.id, path.bounds(f))
-                        : lt
-                            ? "#e8eef3"
-                            : "#2f5e7e";
-                    ctx.globalAlpha = visited ? (sel === f.id ? 1 : 0.88) : 1;
+                    ctx.fillStyle =
+                        visited || wished
+                            ? fillStyleFor(ctx, f.id, path.bounds(f), wished)
+                            : lt
+                                ? "#e8eef3"
+                                : "#2f5e7e";
+                    ctx.globalAlpha = visited || wished ? (sel === f.id ? 1 : 0.88) : 1;
                     ctx.fill();
                     ctx.globalAlpha = 1;
                 }
@@ -3955,6 +3973,7 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality,
             from: src.trip.from || "",
             to: src.trip.to || "",
             who: src.trip.who || [],
+            plan: !!src.trip.plan,
             cities: src.trip.cities || [],
             hotels: src.trip.hotels || [],
             photos: src.trip.photos || [],
@@ -4045,6 +4064,7 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality,
                         approx: false,
                         from: "",
                         to: "",
+                        plan: false,
                         who: people.filter((p) => p.always).map((p) => p.name),
                         cities: via ? [via] : [],
                         hotels: [],
@@ -4072,6 +4092,14 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality,
                     patch({ cities: [...draft.cities, c] });
                     setAddCity(false);
                 } })) : (React.createElement("button", { className: "link-btn", onClick: () => setAddCity(true) }, "\uFF0B \u0435\u0449\u0451 \u0433\u043E\u0440\u043E\u0434")))),
+        country && whenReady && !editWhen && (React.createElement("button", { className: "approx-row plan-row", onClick: () => patch({ plan: !draft.plan }) },
+            React.createElement("span", null,
+                "\u042D\u0442\u043E \u043F\u043B\u0430\u043D\u044B",
+                React.createElement("em", null, draft.plan
+                    ? "Поездка ещё впереди — в статистику не попадёт"
+                    : "Отметьте, если только собираетесь")),
+            React.createElement("span", { className: "switch" + (draft.plan ? " on" : "") },
+                React.createElement("i", null)))),
         country && whenReady && !editWhen && (React.createElement("div", { className: "step" },
             React.createElement("p", { className: "step-title" }, "\u0421 \u043A\u0435\u043C \u0435\u0437\u0434\u0438\u043B\u0438"),
             (draft.who || []).length > 0 && (React.createElement("div", { className: "city-chips" }, (draft.who || []).map((n) => {
@@ -4128,6 +4156,7 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality,
                         from: draft.from || "",
                         to: draft.to || "",
                         who: draft.who || [],
+                        plan: !!draft.plan,
                         cities: draft.cities,
                         hotels: draft.hotels,
                         photos: draft.photos || [],
@@ -4170,7 +4199,7 @@ function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, 
                     YEARS.map((y) => (React.createElement("option", { key: y, value: y }, y)))))),
         React.createElement("p", { className: "step-title" }, "\u041D\u0430\u0433\u0440\u0430\u0434\u044B"),
         (() => {
-            const st = awardStats(visits);
+            const st = awardStats(visits, since);
             const rows = [];
             AWARDS.forEach((a) => {
                 const value = st[a.id] || 0;
@@ -4715,7 +4744,7 @@ const AWARDS = [
 const ISLAND_A3 = new Set(("JPN PHL IDN LKA MDV MLT CYP ISL IRL NZL FJI MUS SYC CUB JAM DOM HTI BHS BRB TTO " +
     "SGP TWN HKG MAC COM CPV STP KIR TON WSM VUT SLB PLW FSM MHL NRU TUV ATG DMA GRD " +
     "KNA LCA VCT BHR MDG BRN TLS").split(" "));
-function awardStats(visits) {
+function awardStats(visits, since) {
     const countries = Object.keys(visits).filter((a) => { var _a; return (_a = visits[a]) === null || _a === void 0 ? void 0 : _a.length; });
     const conts = new Set();
     const cities = new Set();
@@ -4728,7 +4757,8 @@ function awardStats(visits) {
     let polar = 0;
     let south = 0;
     let islands = 0;
-    countries.forEach((a3) => {
+    const real = countries.filter((a3) => (visits[a3] || []).some((t) => !t.plan));
+    real.forEach((a3) => {
         const c = BY_A3[a3];
         if (c) {
             conts.add(c.cont);
@@ -4741,6 +4771,8 @@ function awardStats(visits) {
             quarters.add(`${c.lon >= 0 ? "E" : "W"}${c.lat >= 0 ? "N" : "S"}`);
         }
         (visits[a3] || []).forEach((t) => {
+            if (t.plan)
+                return;
             trips += 1;
             photos += (t.photos || []).length;
             if ((t.who || []).length)
@@ -4750,11 +4782,15 @@ function awardStats(visits) {
             tripYears(t).forEach((y) => years.add(y));
         });
     });
+    const span = since
+        ? Math.max(1, NOW.getFullYear() - since + 1)
+        : years.size;
     return {
-        countries: countries.length,
+        countries: real.length,
         conts: conts.size,
         cities: cities.size,
-        years: years.size,
+        years: span,
+        activeYears: years.size,
         trips,
         quarters: quarters.size,
         polar,
@@ -4805,7 +4841,7 @@ function FiltersSheet({ open, onClose, box, target, years, yearFilter, onYear, m
         years.length === 0 && (React.createElement("p", { className: "focus-empty" }, "\u0424\u0438\u043B\u044C\u0442\u0440 \u043F\u043E\u044F\u0432\u0438\u0442\u0441\u044F, \u043A\u043E\u0433\u0434\u0430 \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u0435 \u043F\u0435\u0440\u0432\u0443\u044E \u043F\u043E\u0435\u0437\u0434\u043A\u0443."))))))));
 }
 /* шторка: все поездки — свёртка групп, поиск */
-function ListSheet({ visits, stats, open, onClose, onPick, onRemove, box, mode }) {
+function ListSheet({ visits, stats, open, onClose, onPick, onRemove, box, mode, since, wishCount = 0 }) {
     const [ask, setAsk] = useState(null);
     const [q, setQ] = useState("");
     const [closed, setClosed] = useState({});
@@ -4835,7 +4871,9 @@ function ListSheet({ visits, stats, open, onClose, onPick, onRemove, box, mode }
                 return;
             arr.forEach((t, idx) => out.push({ a3, c, t, idx }));
         });
-        out.sort((x, y) => y.t.y - x.t.y || (y.t.m || 0) - (x.t.m || 0));
+        out.sort((x, y) => (y.t.plan ? 1 : 0) - (x.t.plan ? 1 : 0) ||
+            y.t.y - x.t.y ||
+            (y.t.m || 0) - (x.t.m || 0));
         return out;
     }, [visits]);
     const found = useMemo(() => {
@@ -4865,9 +4903,11 @@ function ListSheet({ visits, stats, open, onClose, onPick, onRemove, box, mode }
         };
         found.forEach((row) => {
             if (mode === "year") {
-                push(row.t.approx && row.t.y2 && row.t.y2 !== row.t.y
-                    ? `${row.t.y}–${row.t.y2}`
-                    : String(row.t.y), row);
+                push(row.t.plan
+                    ? "Планы"
+                    : row.t.approx && row.t.y2 && row.t.y2 !== row.t.y
+                        ? `${row.t.y}–${row.t.y2}`
+                        : String(row.t.y), row);
             }
             else if (mode === "country") {
                 push(row.c.name, row);
@@ -4878,7 +4918,7 @@ function ListSheet({ visits, stats, open, onClose, onPick, onRemove, box, mode }
         });
         const list = [...map.entries()];
         if (mode === "year")
-            list.sort((a, b) => parseInt(b[0], 10) - parseInt(a[0], 10));
+            list.sort((a, b) => a[0] === "Планы" ? -1 : b[0] === "Планы" ? 1 : parseInt(b[0], 10) - parseInt(a[0], 10));
         else if (mode === "country")
             list.sort((a, b) => a[0].localeCompare(b[0], "ru"));
         else
@@ -4891,7 +4931,10 @@ function ListSheet({ visits, stats, open, onClose, onPick, onRemove, box, mode }
         const years = new Set();
         const hotels = new Set();
         let photos = 0;
+        let plans = 0;
         Object.values(visits).forEach((arr) => arr.forEach((t) => {
+            if (t.plan)
+                plans += 1;
             (t.cities || []).forEach((c) => cities.add(c));
             (t.hotels || []).forEach((h) => hotels.add(h.name));
             tripYears(t).forEach((y) => years.add(y));
@@ -4908,6 +4951,8 @@ function ListSheet({ visits, stats, open, onClose, onPick, onRemove, box, mode }
     const sub = (t) => {
         var _a, _b, _c;
         const parts = [];
+        if (t.plan)
+            parts.push("план");
         if (t.m)
             parts.push(MONTHS[t.m - 1]);
         if (tripDays(t))
@@ -4979,7 +5024,7 @@ function ListSheet({ visits, stats, open, onClose, onPick, onRemove, box, mode }
                                 React.createElement("span", null, "\u0433\u043E\u0440\u043E\u0434\u043E\u0432")),
                             React.createElement("div", null,
                                 React.createElement("b", null, totals.years),
-                                React.createElement("span", null, "\u043B\u0435\u0442 \u0441 \u043F\u043E\u0435\u0437\u0434\u043A\u0430\u043C\u0438")),
+                                React.createElement("span", null, since ? "лет в пути" : "лет с поездками")),
                             React.createElement("div", null,
                                 React.createElement("b", null, totals.photos),
                                 React.createElement("span", null, "\u0441\u043D\u0438\u043C\u043A\u043E\u0432")),
@@ -4993,7 +5038,13 @@ function ListSheet({ visits, stats, open, onClose, onPick, onRemove, box, mode }
                                 React.createElement("span", null, "\u043E\u0442\u0435\u043B\u0435\u0439")),
                             React.createElement("div", null,
                                 React.createElement("b", null, stats.countries),
-                                React.createElement("span", null, "\u0441\u0442\u0440\u0430\u043D"))),
+                                React.createElement("span", null, "\u0441\u0442\u0440\u0430\u043D")),
+                            React.createElement("div", null,
+                                React.createElement("b", null, totals.plans),
+                                React.createElement("span", null, "\u0432 \u043F\u043B\u0430\u043D\u0430\u0445")),
+                            React.createElement("div", null,
+                                React.createElement("b", null, wishCount),
+                                React.createElement("span", null, "\u0445\u043E\u0447\u0443 \u043F\u043E\u0441\u0435\u0442\u0438\u0442\u044C"))),
                         React.createElement("span", { className: "flip-hint" }, "\u041D\u0430\u0436\u043C\u0438\u0442\u0435, \u0447\u0442\u043E\u0431\u044B \u043F\u0435\u0440\u0435\u0432\u0435\u0440\u043D\u0443\u0442\u044C")))))),
         found.length === 0 && (React.createElement("p", { className: "focus-empty pad16" }, all.length
             ? "Ничего не нашлось."
@@ -5006,7 +5057,7 @@ function ListSheet({ visits, stats, open, onClose, onPick, onRemove, box, mode }
                     React.createElement("span", { className: "grp-count" }, rows.length),
                     React.createElement("span", { className: "grp-chev" }, hidden ? "▾" : "▴")),
                 !hidden &&
-                    rows.map((row) => (React.createElement("div", { key: key + row.a3 + row.idx, className: "trip-item" },
+                    rows.map((row) => (React.createElement("div", { key: key + row.a3 + row.idx, className: "trip-item" + (row.t.plan ? " is-plan" : "") },
                         React.createElement("button", { className: "trip-main", onClick: () => {
                                 onPick(row.a3, row.idx);
                                 close();
@@ -5081,6 +5132,16 @@ function Atlas() {
     }, [cityPins, theme, photoQuality, spinStart]);
     const [spinning, setSpinning] = useState(false);
     const [mapPage, setMapPage] = useState(0);
+    const wish = (profile === null || profile === void 0 ? void 0 : profile.wish) || [];
+    const isWish = useCallback((a3) => wish.includes(a3), [wish]);
+    const toggleWish = useCallback(async (a3) => {
+        const next = wish.includes(a3)
+            ? wish.filter((x) => x !== a3)
+            : [...wish, a3];
+        const prof = { ...profile, wish: next };
+        setProfile(prof);
+        await store.set(K_PROFILE, prof);
+    }, [wish, profile]);
     const setSpinStart = useCallback(async (v) => {
         setSpinStartState(v);
         await store.set(K_SETTINGS, {
@@ -5494,6 +5555,7 @@ function Atlas() {
             from: (trip === null || trip === void 0 ? void 0 : trip.from) || "",
             to: (trip === null || trip === void 0 ? void 0 : trip.to) || "",
             who: (trip === null || trip === void 0 ? void 0 : trip.who) || [],
+            plan: !!(trip === null || trip === void 0 ? void 0 : trip.plan),
             cities: (trip === null || trip === void 0 ? void 0 : trip.cities) || [],
             hotel: (trip === null || trip === void 0 ? void 0 : trip.hotel) || "",
         };
@@ -5534,6 +5596,8 @@ function Atlas() {
         const s = new Set();
         Object.entries(visits).forEach(([a3, arr]) => {
             const hit = arr.some((t) => {
+                if (t.plan)
+                    return false; // планы на глобусе не закрашиваем
                 if (yearFilter === "all")
                     return true;
                 if (t.approx)
@@ -5576,6 +5640,7 @@ function Atlas() {
             avatar: (profile === null || profile === void 0 ? void 0 : profile.avatar) || null,
             since: (profile === null || profile === void 0 ? void 0 : profile.since) || null,
             people: (profile === null || profile === void 0 ? void 0 : profile.people) || [],
+            wish: (profile === null || profile === void 0 ? void 0 : profile.wish) || [],
             photos,
         };
         const blob = new Blob([JSON.stringify(dump)], { type: "application/json" });
@@ -5625,12 +5690,13 @@ function Atlas() {
                 if (typeof d.settings.spinStart === "boolean")
                     setSpinStartState(d.settings.spinStart);
             }
-            if (d.avatar || d.since || d.people) {
+            if (d.avatar || d.since || d.people || d.wish) {
                 const prof = {
                     ...(profile || {}),
                     ...(d.avatar ? { avatar: d.avatar } : {}),
                     ...(d.since ? { since: d.since } : {}),
                     ...(d.people ? { people: d.people } : {}),
+                    ...(d.wish ? { wish: d.wish } : {}),
                 };
                 setProfile(prof);
                 await store.set(K_PROFILE, prof);
@@ -5712,6 +5778,8 @@ function Atlas() {
         const out = [];
         Object.entries(visits).forEach(([a3, arr]) => {
             const trips = arr.filter((t) => {
+                if (t.plan)
+                    return false;
                 if (yearFilter === "all")
                     return true;
                 if (t.approx)
@@ -5747,7 +5815,8 @@ function Atlas() {
                 per[c.cont]++;
         });
         Object.entries(visits).forEach(([, arr]) => arr.forEach((t) => {
-            const hit = yearFilter === "all" || (!t.approx && t.y === +yearFilter);
+            const hit = !t.plan &&
+                (yearFilter === "all" || (!t.approx && t.y === +yearFilter));
             if (hit)
                 trips++;
         }));
@@ -5773,11 +5842,11 @@ function Atlas() {
                     React.createElement(Globe, { geo: geo, isOn: isOn, onPick: (a3) => {
                             setSelected(BY_A3[a3] ? a3 : null);
                             setEditIdx(0);
-                        }, selected: selected, full: false, onToggleFull: () => setFull(true), visitKey: visitKey, home: lastTrip, boxWidth: globeBox, marks: marks, light: light, playing: spinning, setPlaying: setSpinning, view: mapView, page: mapPage, setPage: setMapPage }),
+                        }, selected: selected, full: false, onToggleFull: () => setFull(true), visitKey: visitKey, home: lastTrip, boxWidth: globeBox, marks: marks, light: light, playing: spinning, setPlaying: setSpinning, view: mapView, page: mapPage, setPage: setMapPage, isWish: isWish }),
                     full && (React.createElement(Globe, { geo: geo, isOn: isOn, onPick: (a3) => {
                             setSelected(BY_A3[a3] ? a3 : null);
                             setEditIdx(0);
-                        }, selected: selected, full: true, onToggleFull: () => setFull(false), visitKey: visitKey, home: lastTrip, boxWidth: globeBox, marks: marks, light: light, playing: spinning, setPlaying: setSpinning, view: mapView, page: mapPage, setPage: setMapPage }))),
+                        }, selected: selected, full: true, onToggleFull: () => setFull(false), visitKey: visitKey, home: lastTrip, boxWidth: globeBox, marks: marks, light: light, playing: spinning, setPlaying: setSpinning, view: mapView, page: mapPage, setPage: setMapPage, isWish: isWish }))),
                 React.createElement("div", { className: "col-side" },
                     React.createElement("section", { className: "focus" }, sel ? (React.createElement(React.Fragment, null,
                         React.createElement("div", { className: "focus-head" },
@@ -5820,6 +5889,7 @@ function Atlas() {
                                 React.createElement("svg", { viewBox: "0 0 24 24", width: "17", height: "17" },
                                     React.createElement("path", { d: "M4 20h4L19 9l-4-4L4 16v4z", fill: "none", stroke: "currentColor", strokeWidth: "1.7", strokeLinejoin: "round" }),
                                     React.createElement("path", { d: "M14 6l4 4", fill: "none", stroke: "currentColor", strokeWidth: "1.7" }))),
+                            React.createElement("button", { className: "icon-btn" + (isWish(sel.a3) ? " wish-on" : ""), onClick: () => toggleWish(sel.a3), "aria-label": isWish(sel.a3) ? "Убрать из желаний" : "Хочу поехать" }, isWish(sel.a3) ? "★" : "☆"),
                             React.createElement("button", { className: "icon-btn", onClick: () => setSheet("country"), "aria-label": "\u041F\u0440\u043E \u0441\u0442\u0440\u0430\u043D\u0443" },
                                 React.createElement("svg", { viewBox: "0 0 24 24", width: "17", height: "17" },
                                     React.createElement("circle", { cx: "12", cy: "12", r: "8.5", fill: "none", stroke: "currentColor", strokeWidth: "1.6" }),
@@ -5893,7 +5963,7 @@ function Atlas() {
                     React.createElement(ListSheet, { visits: visits, stats: stats, open: sheet === "list", onClose: () => setSheet(null), onPick: (a3, idx) => {
                             setSelected(a3);
                             setEditIdx(idx || 0);
-                        }, onRemove: removeTrip, box: box, mode: listMode }),
+                        }, onRemove: removeTrip, box: box, mode: listMode, since: profile.since, wishCount: wish.length }),
                     React.createElement(Ask, { ask: ask, onClose: () => setAsk(null), box: box }),
                     React.createElement("nav", { className: "tabbar" },
                         React.createElement("button", { className: "tab" + (sheet === "profile" ? " on" : ""), onClick: () => setSheet((v) => (v === "profile" ? null : "profile")) },
@@ -6104,6 +6174,7 @@ body > div{max-width:100%;}
 .hotel{margin-top:9px;}
 .country-head{display:flex; align-items:center; gap:9px; width:100%; padding:8px 0; background:none; border:0; color:var(--ink); font-size:0.938rem; text-align:left; cursor:pointer;}
 .trip-place{flex:1 1 auto; min-width:0; font-size:0.750rem; color:var(--dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.icon-btn.wish-on{color:#7fb2e6; border-color:#3f6b96;}
 .icon-btn.small{width:30px; height:30px;}
 .tf{display:flex; align-items:center; gap:8px; min-height:44px; padding:0 12px;
   background:var(--field); border:1px solid var(--line); border-radius:11px; min-width:0;}
@@ -6156,6 +6227,8 @@ body > div{max-width:100%;}
 .grp-count{flex:none; padding:2px 8px; border-radius:999px; background:var(--el2); font-size:0.68rem;}
 .grp-chev{flex:none; font-size:0.6rem; color:var(--gold);}
 
+.trip-item.is-plan .trip-title{color:#8fc0f0;}
+.trip-item.is-plan .trip-year{color:#8fc0f0;}
 .trip-item{display:flex; align-items:stretch; gap:0; border-bottom:1px solid rgba(34,56,77,.5);}
 .trip-main{flex:1 1 auto; min-width:0; display:flex; align-items:center; gap:10px; padding:10px 6px 10px 14px; background:none; border:0; color:var(--ink); text-align:left; cursor:pointer;}
 .trip-body{flex:1 1 auto; min-width:0;}
@@ -6295,6 +6368,7 @@ body > div{max-width:100%;}
 .sheet .theme-row{display:flex; gap:7px; margin-bottom:8px;}
 .sheet .theme-cell{flex:1 1 0; min-width:0; padding:12px 4px; border-radius:11px; border:1px solid var(--line); background:var(--el); color:var(--dim); font-size:0.8rem; cursor:pointer;}
 .sheet .theme-cell.on{background:var(--gold); border-color:var(--gold); color:#1a1206; font-weight:600;}
+.approx-row.plan-row{border-style:solid;}
 .approx-row{display:flex; align-items:center; gap:12px; width:100%; margin-top:2px; padding:11px 14px; background:none; border:1px dashed var(--line); border-radius:11px; color:var(--ink); font-size:0.85rem; text-align:left; cursor:pointer; min-width:0;}
 .approx-row > span:first-child{flex:1 1 auto; min-width:0;}
 .approx-row em{display:block; margin-top:2px; font-style:normal; font-size:0.7rem; color:var(--dim);}
