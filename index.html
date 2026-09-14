@@ -85,6 +85,8 @@
 "use strict";
 "use strict";
 "use strict";
+"use strict";
+"use strict";
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
 /* ================================================================== */
 /*  Справочник стран: A2 | A3 | название | континент | шир. | долг.    */
@@ -579,6 +581,36 @@ const tripYears = (t) => {
         return [a.y];
     return t.y ? [t.y] : [];
 };
+/* стаж путешествий: от самого раннего известного года до текущего.
+   учитываются год начала из профиля, точные даты и приблизительные периоды */
+const yearsSpan = (visits, since) => {
+    let min = since || Infinity;
+    let max = NOW.getFullYear();
+    Object.values(visits || {}).forEach((arr) => (arr || []).forEach((t) => {
+        if (t.plan)
+            return; // планы — ещё не пройденный путь
+        const ys = [];
+        const a = dParts(t.from);
+        const b = dParts(t.to);
+        if (a)
+            ys.push(a.y);
+        if (b)
+            ys.push(b.y);
+        if (t.y)
+            ys.push(t.y);
+        if (t.y2)
+            ys.push(t.y2);
+        ys.forEach((y) => {
+            if (y < min)
+                min = y;
+            if (y > max)
+                max = y;
+        });
+    }));
+    if (!isFinite(min))
+        return 0;
+    return Math.max(1, max - min + 1);
+};
 const tripDays = (t) => {
     const a = dParts(t.from);
     const b = dParts(t.to);
@@ -867,7 +899,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "11.0";
+const APP_VERSION = "11.2";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData() {
@@ -4167,7 +4199,7 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality,
                     React.createElement("path", { d: "M5 12.5l4.5 4.5L19 7.5", fill: "none", stroke: "currentColor", strokeWidth: "2.2", strokeLinecap: "round", strokeLinejoin: "round" })))))))));
 }
 /* шторка: профиль — вы и ваши данные */
-function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, since, onSince, people, onPeople, onExport, onImport, onRestore, restoreMsg, visits, }) {
+function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, since, onSince, people, onPeople, onReports, onExport, onImport, onRestore, restoreMsg, visits, }) {
     const [showAll, setShowAll] = useState(false);
     const [newName, setNewName] = useState("");
     const [newRole, setNewRole] = useState(ROLES[0]);
@@ -4259,6 +4291,11 @@ function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, 
                             ? TIER_NAME[r.tier]
                             : `ещё ${r.need - r.value} ${r.unit}`)))))))));
         })(),
+        React.createElement("button", { className: "switch-row", onClick: onReports },
+            React.createElement("span", { className: "switch-text" },
+                "\u041E\u0442\u0447\u0451\u0442\u044B \u0438 \u0433\u0440\u0430\u0444\u0438\u043A\u0438",
+                React.createElement("em", null, "\u0422\u0440\u0435\u043D\u0434\u044B, \u0441\u0435\u0437\u043E\u043D\u043D\u043E\u0441\u0442\u044C, \u043A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u044C \u043F\u043E\u0435\u0437\u0434\u043E\u043A")),
+            React.createElement("span", { className: "step-pen" }, "\u2192")),
         React.createElement("p", { className: "step-title" }, "\u041F\u0443\u0442\u0435\u0448\u0435\u0441\u0442\u0432\u0435\u043D\u043D\u0438\u043A\u0438"),
         people.length > 0 && (React.createElement("div", { className: "people" }, people.map((pr) => (React.createElement("div", { key: pr.id, className: "person" },
             React.createElement("span", { className: "person-name" }, pr.name),
@@ -4655,7 +4692,7 @@ const AWARDS = [
     {
         id: "years",
         group: "Годы в пути",
-        unit: "лет с поездками",
+        unit: "лет в пути",
         steps: [
             [3, "Три года в пути", 1],
             [5, "Пять лет", 2],
@@ -4782,9 +4819,7 @@ function awardStats(visits, since) {
             tripYears(t).forEach((y) => years.add(y));
         });
     });
-    const span = since
-        ? Math.max(1, NOW.getFullYear() - since + 1)
-        : years.size;
+    const span = yearsSpan(visits, since);
     return {
         countries: real.length,
         conts: conts.size,
@@ -4816,6 +4851,245 @@ function Ask({ ask, onClose, box }) {
                         onClose();
                     } }, ask.yes || "Удалить")))));
 }
+/* ------------------------------------------------------------------ */
+/*  Отчёты: графики на SVG в палитре приложения                       */
+/* ------------------------------------------------------------------ */
+const C_GOLD = "#e2b551";
+const C_SILVER = "#c3ced9";
+const C_BLUE = "#4a7fb5";
+const C_DIM = "#8fa4b8";
+const C_LINE = "#22384d";
+const C_FILL = "#1c344a";
+function reportData(visits, since) {
+    const trips = [];
+    Object.entries(visits || {}).forEach(([a3, arr]) => (arr || []).forEach((t) => {
+        if (!t.plan)
+            trips.push({ a3, t });
+    }));
+    const yearFrom = (t) => {
+        const a = dParts(t.from);
+        return a ? a.y : t.y;
+    };
+    const years = {};
+    const firstSeen = {};
+    const months = new Array(12).fill(0);
+    const days = {};
+    const cities = {};
+    const hotels = {};
+    const people = {};
+    const grid = {};
+    trips.forEach(({ a3, t }) => {
+        const y = yearFrom(t);
+        if (!y)
+            return;
+        years[y] = (years[y] || 0) + 1;
+        if (!firstSeen[a3] || y < firstSeen[a3])
+            firstSeen[a3] = y;
+        if (t.m) {
+            months[t.m - 1] += 1;
+            grid[`${y}:${t.m}`] = Math.max(grid[`${y}:${t.m}`] || 0, tripDays(t) || 1);
+        }
+        days[y] = (days[y] || 0) + tripDays(t);
+        (t.cities || []).forEach((c) => (cities[c] = (cities[c] || 0) + 1));
+        (t.hotels || []).forEach((h) => (hotels[h.name] = (hotels[h.name] || 0) + 1));
+        (t.who || []).forEach((w) => (people[w] = (people[w] || 0) + 1));
+    });
+    const allYears = Object.keys(years).map(Number).sort((a, b) => a - b);
+    const start = since || allYears[0] || NOW.getFullYear();
+    const line = [];
+    let acc = 0;
+    for (let y = start; y <= NOW.getFullYear(); y++) {
+        acc += Object.keys(firstSeen).filter((a) => firstSeen[a] === y).length;
+        line.push({ y, v: acc });
+    }
+    const conts = {};
+    Object.keys(visits || {}).forEach((a3) => {
+        if (!(visits[a3] || []).some((t) => !t.plan))
+            return;
+        const c = BY_A3[a3];
+        if (c)
+            conts[c.cont] = (conts[c.cont] || 0) + 1;
+    });
+    const top = (obj, n = 5) => Object.entries(obj)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, n);
+    return {
+        trips,
+        years,
+        allYears,
+        line,
+        months,
+        days,
+        conts,
+        grid,
+        topCities: top(cities),
+        topHotels: top(hotels),
+        topPeople: top(people, 4),
+    };
+}
+/* столбики с линией тренда */
+function BarsChart({ data, labels }) {
+    const w = 320;
+    const h = 150;
+    const max = Math.max(1, ...data);
+    const bw = data.length ? (w / data.length) * 0.58 : 0;
+    return (React.createElement("svg", { viewBox: `0 0 ${w} ${h + 22}`, className: "chart" },
+        data.map((v, i) => {
+            const x = (i * w) / data.length + (w / data.length - bw) / 2;
+            const bh = (v / max) * (h - 16);
+            return (React.createElement("g", { key: i },
+                React.createElement("rect", { x: x, y: h - bh, width: bw, height: bh, rx: "3", fill: C_GOLD, opacity: 0.9 }),
+                React.createElement("text", { x: x + bw / 2, y: h + 15, fill: C_DIM, fontSize: "9", textAnchor: "middle" }, String(labels[i]).slice(2))));
+        }),
+        React.createElement("polyline", { fill: "none", stroke: C_SILVER, strokeWidth: "1.6", points: data
+                .map((v, i) => `${(i * w) / data.length + w / data.length / 2},${h - (v / max) * (h - 16) - 5}`)
+                .join(" ") })));
+}
+/* накопительная кривая с заливкой */
+function AreaChart({ points }) {
+    const w = 320;
+    const h = 150;
+    if (points.length < 2)
+        return null;
+    const max = Math.max(1, ...points.map((p) => p.v));
+    const xy = points.map((p, i) => [
+        (i * w) / (points.length - 1),
+        h - (p.v / max) * (h - 18),
+    ]);
+    return (React.createElement("svg", { viewBox: `0 0 ${w} ${h + 22}`, className: "chart" },
+        React.createElement("polygon", { points: [...xy.map((p) => p.join(",")), `${w},${h}`, `0,${h}`].join(" "), fill: C_FILL }),
+        React.createElement("polyline", { fill: "none", stroke: C_GOLD, strokeWidth: "2.2", points: xy.map((p) => p.join(",")).join(" ") }),
+        xy.map((p, i) => i % Math.ceil(xy.length / 6) === 0 ? (React.createElement("circle", { key: i, cx: p[0], cy: p[1], r: "2.6", fill: C_GOLD })) : null),
+        React.createElement("text", { x: "2", y: h + 15, fill: C_DIM, fontSize: "9" }, points[0].y),
+        React.createElement("text", { x: w - 2, y: h + 15, fill: C_DIM, fontSize: "9", textAnchor: "end" },
+            points[points.length - 1].y,
+            " \u00B7 ",
+            points[points.length - 1].v,
+            " \u0441\u0442\u0440\u0430\u043D")));
+}
+/* кольцо по частям света */
+function DonutChart({ parts, total }) {
+    const size = 150;
+    const r = 58;
+    const cx = size / 2;
+    const cy = size / 2;
+    let acc = 0;
+    const sum = parts.reduce((s, p) => s + p.v, 0) || 1;
+    const colors = [C_GOLD, C_SILVER, C_BLUE, "#9a7b45", "#5d7d92", "#7a6b8f"];
+    return (React.createElement("div", { className: "donut-row" },
+        React.createElement("svg", { viewBox: `0 0 ${size} ${size}`, className: "donut" },
+            parts.map((p, i) => {
+                const a0 = (acc / sum) * Math.PI * 2 - Math.PI / 2;
+                acc += p.v;
+                const a1 = (acc / sum) * Math.PI * 2 - Math.PI / 2 - 0.03;
+                const big = a1 - a0 > Math.PI ? 1 : 0;
+                return (React.createElement("path", { key: p.k, d: `M ${cx + Math.cos(a0) * r} ${cy + Math.sin(a0) * r} A ${r} ${r} 0 ${big} 1 ${cx + Math.cos(a1) * r} ${cy + Math.sin(a1) * r}`, stroke: colors[i % colors.length], strokeWidth: "20", fill: "none" }));
+            }),
+            React.createElement("text", { x: cx, y: cy - 2, fill: C_GOLD, fontSize: "20", textAnchor: "middle" }, total),
+            React.createElement("text", { x: cx, y: cy + 14, fill: C_DIM, fontSize: "9", textAnchor: "middle" }, "\u0441\u0442\u0440\u0430\u043D")),
+        React.createElement("div", { className: "donut-legend" }, parts.map((p, i) => (React.createElement("div", { key: p.k },
+            React.createElement("i", { style: { background: colors[i % colors.length] } }),
+            CONTINENTS[p.k],
+            React.createElement("b", null, p.v)))))));
+}
+/* сезонность — лучи по кругу */
+function SeasonChart({ months }) {
+    const size = 190;
+    const cx = size / 2;
+    const cy = size / 2;
+    const max = Math.max(1, ...months);
+    const names = ["Я", "Ф", "М", "А", "М", "И", "И", "А", "С", "О", "Н", "Д"];
+    return (React.createElement("svg", { viewBox: `0 0 ${size} ${size}`, className: "season" },
+        React.createElement("circle", { cx: cx, cy: cy, r: "26", fill: "none", stroke: C_LINE }),
+        months.map((v, i) => {
+            const a = ((i * 30 - 90) * Math.PI) / 180;
+            const rr = 28 + (v / max) * 52;
+            const strong = v >= max * 0.66 && v > 0;
+            return (React.createElement("g", { key: i },
+                React.createElement("line", { x1: cx + Math.cos(a) * 28, y1: cy + Math.sin(a) * 28, x2: cx + Math.cos(a) * rr, y2: cy + Math.sin(a) * rr, stroke: v ? (strong ? C_GOLD : C_SILVER) : C_LINE, strokeWidth: "9", strokeLinecap: "round" }),
+                React.createElement("text", { x: cx + Math.cos(a) * 86, y: cy + Math.sin(a) * 86 + 3, fill: C_DIM, fontSize: "9", textAnchor: "middle" }, names[i])));
+        })));
+}
+/* горизонтальные полосы */
+function RowsChart({ rows, unit }) {
+    const max = Math.max(1, ...rows.map((r) => r[1]));
+    return (React.createElement("div", { className: "rows-chart" }, rows.map(([k, v], i) => (React.createElement("div", { key: k, className: "row-line" },
+        React.createElement("span", { className: "row-k" }, k),
+        React.createElement("span", { className: "row-bar" },
+            React.createElement("i", { style: {
+                    width: `${(v / max) * 100}%`,
+                    background: i === 0 ? C_GOLD : C_SILVER,
+                } })),
+        React.createElement("span", { className: "row-v" },
+            v,
+            unit ? ` ${unit}` : ""))))));
+}
+/* календарь: год × месяц */
+function GridChart({ grid, years }) {
+    const mn = ["я", "ф", "м", "а", "м", "и", "и", "а", "с", "о", "н", "д"];
+    const max = Math.max(1, ...Object.values(grid));
+    return (React.createElement("div", { className: "grid-chart" },
+        React.createElement("div", { className: "grid-head" },
+            React.createElement("span", null),
+            mn.map((m, i) => (React.createElement("span", { key: i }, m)))),
+        years.map((y) => (React.createElement("div", { key: y, className: "grid-row" },
+            React.createElement("span", { className: "grid-y" }, y),
+            mn.map((_, i) => {
+                const v = grid[`${y}:${i + 1}`] || 0;
+                const k = v ? 0.25 + (v / max) * 0.75 : 0;
+                return (React.createElement("span", { key: i, className: "grid-cell", style: v
+                        ? { background: C_GOLD, opacity: k }
+                        : undefined }));
+            }))))));
+}
+/* шторка отчётов */
+function ReportsSheet({ open, onClose, box, visits, since, stats }) {
+    const r = useMemo(() => reportData(visits, since), [visits, since]);
+    const years = r.allYears.length ? r.allYears : [NOW.getFullYear()];
+    return (React.createElement(Sheet, { open: open, onClose: onClose, title: "\u041E\u0442\u0447\u0451\u0442\u044B", box: box }, () => (React.createElement("div", { className: "sheet-body" }, r.trips.length === 0 ? (React.createElement("p", { className: "hint small" }, "\u041E\u0442\u0447\u0451\u0442\u044B \u043F\u043E\u044F\u0432\u044F\u0442\u0441\u044F, \u043A\u043E\u0433\u0434\u0430 \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u0435 \u043F\u0435\u0440\u0432\u0443\u044E \u043F\u043E\u0435\u0437\u0434\u043A\u0443.")) : (React.createElement(React.Fragment, null,
+        React.createElement("div", { className: "rep" },
+            React.createElement("b", null, "\u041F\u043E\u0435\u0437\u0434\u043A\u0438 \u043F\u043E \u0433\u043E\u0434\u0430\u043C"),
+            React.createElement("em", null, "\u0441\u0442\u043E\u043B\u0431\u0438\u043A\u0438 \u0438 \u043B\u0438\u043D\u0438\u044F \u0442\u0440\u0435\u043D\u0434\u0430"),
+            React.createElement(BarsChart, { data: years.map((y) => r.years[y] || 0), labels: years })),
+        React.createElement("div", { className: "rep" },
+            React.createElement("b", null, "\u0421\u0442\u0440\u0430\u043D\u044B \u043D\u0430\u0440\u0430\u0441\u0442\u0430\u044E\u0449\u0438\u043C \u0438\u0442\u043E\u0433\u043E\u043C"),
+            React.createElement("em", null, "\u043A\u0430\u043A \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u043B\u0441\u044F \u043C\u0438\u0440"),
+            React.createElement(AreaChart, { points: r.line })),
+        React.createElement("div", { className: "rep" },
+            React.createElement("b", null, "\u0427\u0430\u0441\u0442\u0438 \u0441\u0432\u0435\u0442\u0430"),
+            React.createElement("em", null, "\u0441\u043A\u043E\u043B\u044C\u043A\u043E \u0441\u0442\u0440\u0430\u043D \u0432 \u043A\u0430\u0436\u0434\u043E\u0439"),
+            React.createElement(DonutChart, { parts: CONT_ORDER.filter((k) => r.conts[k]).map((k) => ({
+                    k,
+                    v: r.conts[k],
+                })), total: stats.countries })),
+        React.createElement("div", { className: "rep" },
+            React.createElement("b", null, "\u0421\u0435\u0437\u043E\u043D\u043D\u043E\u0441\u0442\u044C"),
+            React.createElement("em", null, "\u0432 \u043A\u0430\u043A\u0438\u0435 \u043C\u0435\u0441\u044F\u0446\u044B \u0432\u044B \u0432 \u043F\u0443\u0442\u0438"),
+            React.createElement("div", { className: "center" },
+                React.createElement(SeasonChart, { months: r.months }))),
+        React.createElement("div", { className: "rep" },
+            React.createElement("b", null, "\u0414\u043D\u0438 \u0432 \u043F\u0443\u0442\u0438"),
+            React.createElement("em", null, "\u043F\u043E \u0433\u043E\u0434\u0430\u043C, \u0433\u0434\u0435 \u0443\u043A\u0430\u0437\u0430\u043D\u044B \u0442\u043E\u0447\u043D\u044B\u0435 \u0434\u0430\u0442\u044B"),
+            Object.keys(r.days).length ? (React.createElement(RowsChart, { rows: years
+                    .filter((y) => r.days[y])
+                    .map((y) => [String(y), r.days[y]]), unit: "\u0434\u043D." })) : (React.createElement("p", { className: "hint small" }, "\u0423\u043A\u0430\u0436\u0438\u0442\u0435 \u0442\u043E\u0447\u043D\u044B\u0435 \u0434\u0430\u0442\u044B \u0445\u043E\u0442\u044F \u0431\u044B \u0432 \u043E\u0434\u043D\u043E\u0439 \u043F\u043E\u0435\u0437\u0434\u043A\u0435."))),
+        React.createElement("div", { className: "rep" },
+            React.createElement("b", null, "\u0427\u0430\u0449\u0435 \u0432\u0441\u0435\u0433\u043E"),
+            React.createElement("em", null, "\u0433\u043E\u0440\u043E\u0434\u0430, \u043A\u0443\u0434\u0430 \u0432\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u0435\u0442\u0435\u0441\u044C"),
+            r.topCities.length ? (React.createElement(RowsChart, { rows: r.topCities })) : (React.createElement("p", { className: "hint small" }, "\u0413\u043E\u0440\u043E\u0434\u0430 \u043F\u043E\u043A\u0430 \u043D\u0435 \u043E\u0442\u043C\u0435\u0447\u0435\u043D\u044B."))),
+        r.topHotels.length > 0 && (React.createElement("div", { className: "rep" },
+            React.createElement("b", null, "\u041B\u044E\u0431\u0438\u043C\u044B\u0435 \u043E\u0442\u0435\u043B\u0438"),
+            React.createElement("em", null, "\u0433\u0434\u0435 \u043E\u0441\u0442\u0430\u043D\u0430\u0432\u043B\u0438\u0432\u0430\u043B\u0438\u0441\u044C \u043D\u0435 \u0440\u0430\u0437"),
+            React.createElement(RowsChart, { rows: r.topHotels }))),
+        r.topPeople.length > 0 && (React.createElement("div", { className: "rep" },
+            React.createElement("b", null, "\u0421 \u043A\u0435\u043C \u0435\u0437\u0434\u0438\u0442\u0435"),
+            React.createElement("em", null, "\u0447\u0438\u0441\u043B\u043E \u043F\u043E\u0435\u0437\u0434\u043E\u043A \u0432\u043C\u0435\u0441\u0442\u0435"),
+            React.createElement(RowsChart, { rows: r.topPeople }))),
+        React.createElement("div", { className: "rep" },
+            React.createElement("b", null, "\u041A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u044C \u043F\u043E\u0435\u0437\u0434\u043E\u043A"),
+            React.createElement("em", null, "\u0433\u043E\u0434 \u0438 \u043C\u0435\u0441\u044F\u0446, \u044F\u0440\u0447\u0435 \u2014 \u0434\u043E\u043B\u044C\u0448\u0435"),
+            React.createElement(GridChart, { grid: r.grid, years: years.slice(-8) }))))))));
+}
 /* шторка: фильтры — для глобуса и для списка поездок */
 function FiltersSheet({ open, onClose, box, target, years, yearFilter, onYear, mode, onMode, }) {
     return (React.createElement(Sheet, { open: open, onClose: onClose, title: "\u0424\u0438\u043B\u044C\u0442\u0440\u044B", box: box }, () => (React.createElement("div", { className: "sheet-body" }, target === "list" ? (React.createElement(React.Fragment, null,
@@ -4841,7 +5115,7 @@ function FiltersSheet({ open, onClose, box, target, years, yearFilter, onYear, m
         years.length === 0 && (React.createElement("p", { className: "focus-empty" }, "\u0424\u0438\u043B\u044C\u0442\u0440 \u043F\u043E\u044F\u0432\u0438\u0442\u0441\u044F, \u043A\u043E\u0433\u0434\u0430 \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u0435 \u043F\u0435\u0440\u0432\u0443\u044E \u043F\u043E\u0435\u0437\u0434\u043A\u0443."))))))));
 }
 /* шторка: все поездки — свёртка групп, поиск */
-function ListSheet({ visits, stats, open, onClose, onPick, onRemove, box, mode, since, wishCount = 0 }) {
+function ListSheet({ visits, stats, open, onClose, onPick, onRemove, box, mode, since, wishCount = 0, onReports }) {
     const [ask, setAsk] = useState(null);
     const [q, setQ] = useState("");
     const [closed, setClosed] = useState({});
@@ -4942,11 +5216,13 @@ function ListSheet({ visits, stats, open, onClose, onPick, onRemove, box, mode, 
         }));
         return {
             cities: cities.size,
-            years: years.size,
+            // стаж: от года начала путешествий, иначе — годы с поездками
+            years: yearsSpan(visits, since),
             photos,
             hotels: hotels.size,
+            plans,
         };
-    }, [visits]);
+    }, [visits, since]);
     const yearHint = "";
     const sub = (t) => {
         var _a, _b, _c;
@@ -4969,6 +5245,10 @@ function ListSheet({ visits, stats, open, onClose, onPick, onRemove, box, mode, 
     };
     return (React.createElement(Sheet, { open: open, onClose: onClose, title: "\u041C\u043E\u0438 \u043F\u043E\u0435\u0437\u0434\u043A\u0438", box: box }, (close) => (React.createElement("div", { className: "sheet-list", ref: listRef, onScroll: onListScroll },
         React.createElement("div", { className: "list-head" },
+            React.createElement("button", { className: "reports-btn", onClick: (e) => {
+                    e.stopPropagation();
+                    onReports();
+                } }, "\u041E\u0442\u0447\u0451\u0442\u044B \u0438 \u0433\u0440\u0430\u0444\u0438\u043A\u0438 \u2192"),
             React.createElement("div", { className: "mode-hint" },
                 mode === "year"
                     ? "По годам"
@@ -5024,7 +5304,7 @@ function ListSheet({ visits, stats, open, onClose, onPick, onRemove, box, mode, 
                                 React.createElement("span", null, "\u0433\u043E\u0440\u043E\u0434\u043E\u0432")),
                             React.createElement("div", null,
                                 React.createElement("b", null, totals.years),
-                                React.createElement("span", null, since ? "лет в пути" : "лет с поездками")),
+                                React.createElement("span", null, "\u043B\u0435\u0442 \u0432 \u043F\u0443\u0442\u0438")),
                             React.createElement("div", null,
                                 React.createElement("b", null, totals.photos),
                                 React.createElement("span", null, "\u0441\u043D\u0438\u043C\u043A\u043E\u0432")),
@@ -5920,7 +6200,7 @@ function Atlas() {
                             const prof = { ...profile, people: list };
                             setProfile(prof);
                             await store.set(K_PROFILE, prof);
-                        }, onSince: async (v) => {
+                        }, onReports: () => setSheet("reports"), onSince: async (v) => {
                             const prof = { ...profile, since: v };
                             setProfile(prof);
                             await store.set(K_PROFILE, prof);
@@ -5953,6 +6233,7 @@ function Atlas() {
                         } }),
                     React.createElement(CountrySheet, { country: sel, open: sheet === "country" && !!sel, onClose: () => setSheet(null), box: box }),
                     React.createElement(PhotoModeSheet, { open: sheet === "photomode", onClose: () => setSheet(null), box: box, quality: photoQuality, usage: photoUsage }),
+                    React.createElement(ReportsSheet, { open: sheet === "reports", onClose: () => setSheet(null), box: box, visits: visits, since: profile.since, stats: stats }),
                     React.createElement(FiltersSheet, { open: sheet === "filters", onClose: () => setSheet(null), box: box, target: sheetBack === "list" ? "list" : "globe", years: allYears, yearFilter: yearFilter, onYear: (v) => {
                             setYearFilter(v);
                             setSheet(sheetBack);
@@ -5963,7 +6244,7 @@ function Atlas() {
                     React.createElement(ListSheet, { visits: visits, stats: stats, open: sheet === "list", onClose: () => setSheet(null), onPick: (a3, idx) => {
                             setSelected(a3);
                             setEditIdx(idx || 0);
-                        }, onRemove: removeTrip, box: box, mode: listMode, since: profile.since, wishCount: wish.length }),
+                        }, onRemove: removeTrip, box: box, mode: listMode, since: profile.since, wishCount: wish.length, onReports: () => setSheet("reports") }),
                     React.createElement(Ask, { ask: ask, onClose: () => setAsk(null), box: box }),
                     React.createElement("nav", { className: "tabbar" },
                         React.createElement("button", { className: "tab" + (sheet === "profile" ? " on" : ""), onClick: () => setSheet((v) => (v === "profile" ? null : "profile")) },
@@ -6194,6 +6475,32 @@ body > div{max-width:100%;}
 .stats-min b{flex:none; font-family:Georgia,serif; font-size:1rem; font-weight:400; color:var(--gold);}
 .stats-min span{flex:1 1 auto; min-width:0; font-size:0.72rem; color:var(--dim); text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .stats-min em{flex:none; font-style:normal; font-size:0.6rem; color:var(--gold);}
+.reports-btn{display:block; width:100%; margin-top:9px; padding:11px 14px; border-radius:12px; border:1px solid var(--gold); background:rgba(232,184,75,.1); color:var(--gold); font-size:0.8rem; font-family:inherit; cursor:pointer;}
+
+.rep{margin-bottom:16px; padding:14px; border-radius:14px; border:1px solid var(--line); background:var(--el);}
+.rep > b{display:block; font-size:0.9rem; font-weight:600;}
+.rep > em{display:block; margin:3px 0 10px; font-style:normal; font-size:0.7rem; color:var(--dim);}
+.chart{display:block; width:100%; height:auto;}
+.center{display:flex; justify-content:center;}
+.season{width:200px; height:200px;}
+.donut-row{display:flex; align-items:center; gap:14px; min-width:0;}
+.donut{flex:none; width:150px; height:150px;}
+.donut-legend{flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:6px; font-size:0.74rem; color:var(--dim);}
+.donut-legend div{display:flex; align-items:center; gap:8px; min-width:0;}
+.donut-legend i{flex:none; width:11px; height:11px; border-radius:3px;}
+.donut-legend b{margin-left:auto; color:var(--ink); font-weight:500;}
+.rows-chart{display:flex; flex-direction:column; gap:8px;}
+.row-line{display:flex; align-items:center; gap:9px; min-width:0;}
+.row-k{flex:0 0 32%; min-width:0; font-size:0.76rem; color:var(--dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.row-bar{flex:1 1 auto; min-width:0; height:12px; border-radius:6px; background:var(--field); overflow:hidden;}
+.row-bar i{display:block; height:100%; border-radius:6px;}
+.row-v{flex:none; font-size:0.72rem; color:var(--ink);}
+.grid-chart{font-size:0.62rem; color:var(--dim);}
+.grid-head,.grid-row{display:flex; align-items:center; gap:3px; margin-bottom:3px;}
+.grid-head span,.grid-row .grid-cell{flex:1 1 0;}
+.grid-head span:first-child,.grid-y{flex:0 0 30px;}
+.grid-head span{text-align:center;}
+.grid-cell{height:16px; border-radius:4px; background:var(--field);}
 .flip{margin-top:10px; perspective:1200px; cursor:pointer;}
 .flip-in{position:relative; height:238px; transform-style:preserve-3d;
   transition:transform .55s cubic-bezier(.3,.8,.3,1);}
