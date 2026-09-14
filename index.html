@@ -755,7 +755,7 @@ const K_SETTINGS = "atlas:settings";
 const K_BACKUP = "atlas:data:backup";
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "8.3";
+const APP_VERSION = "8.5";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData() {
@@ -4221,7 +4221,7 @@ function ListSheet({ visits, stats, open, onClose, onPick, onRemove, box, mode }
 /*  Приложение                                                        */
 /* ================================================================== */
 function Atlas() {
-    var _a;
+    var _a, _b;
     const [booting, setBooting] = useState(true);
     const [profile, setProfile] = useState(null);
     const [unlocked, setUnlocked] = useState(false);
@@ -4365,7 +4365,11 @@ function Atlas() {
     const shell = colW
         ? { width: colW, maxWidth: colW, left: 0, marginLeft: 0 }
         : undefined;
-    const globeBox = colW ? Math.max(240, colW - 22) : 320;
+    const land = typeof window !== "undefined" &&
+        ((_a = window.matchMedia) === null || _a === void 0 ? void 0 : _a.call(window, "(orientation:landscape) and (max-height:600px)").matches);
+    const globeBox = colW
+        ? Math.max(200, Math.round((colW - 22 - (land ? 80 : 0)) * (land ? 0.54 : 1)))
+        : 320;
     const rootRef = useRef(null);
     useEffect(() => {
         const measure = () => {
@@ -4977,7 +4981,7 @@ function Atlas() {
                     React.createElement(SettingsSheet, { open: sheet === "settings", onClose: () => setSheet(null), box: box, visits: visits, theme: theme, onTheme: setTheme, quality: photoQuality, onQuality: (v) => {
                             setPhotoQuality(v);
                             setSheet("photomode");
-                        }, cityPins: cityPins, onToggleCityPins: setCityPins, spinStart: spinStart, onToggleSpin: setSpinStart, mapView: mapView, onMapView: setMapView, geoCount: ((_a = geo === null || geo === void 0 ? void 0 : geo.features) === null || _a === void 0 ? void 0 : _a.length) || 0, onReloadGeo: reloadGeo, hasPin: !!profile.pinHash, faceAvailable: faceAvailable, faceOn: !!profile.credId, onSetPin: () => {
+                        }, cityPins: cityPins, onToggleCityPins: setCityPins, spinStart: spinStart, onToggleSpin: setSpinStart, mapView: mapView, onMapView: setMapView, geoCount: ((_b = geo === null || geo === void 0 ? void 0 : geo.features) === null || _b === void 0 ? void 0 : _b.length) || 0, onReloadGeo: reloadGeo, hasPin: !!profile.pinHash, faceAvailable: faceAvailable, faceOn: !!profile.credId, onSetPin: () => {
                             setSheet(null);
                             setProfile(null);
                         }, onDropPin: async () => {
@@ -5463,11 +5467,9 @@ body > div{max-width:100%;}
   .top{margin-bottom:6px;}
   .brand{font-size:1.3rem;}
 
-  .cols{display:flex; align-items:flex-start; gap:14px; min-width:0;}
-  .col-map{flex:1 1 56%; min-width:0;}
-  .col-side{flex:1 1 44%; min-width:0; max-width:430px;
-    max-height:calc(100dvh - 74px); overflow-y:auto;
-    -webkit-overflow-scrolling:touch;}
+  .cols{display:flex; align-items:flex-start; gap:14px;}
+  .col-map{flex:0 0 54%; min-width:0;}
+  .col-side{flex:1 1 auto; min-width:0;}
   .foot{display:none;}
 
   .sheet{left:auto; right:0; bottom:0; top:0; width:min(440px, 62%);
