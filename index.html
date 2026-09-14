@@ -755,7 +755,7 @@ const K_SETTINGS = "atlas:settings";
 const K_BACKUP = "atlas:data:backup";
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "7.9";
+const APP_VERSION = "8.1";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData() {
@@ -1210,22 +1210,33 @@ const FLAG_BANDS = {
     SLB: { dir: "h", colors: ["#0051BA", "#215B33"] },
     VUT: { dir: "h", colors: ["#D21034", "#009543"] },
 };
+/* посещённые страны: Россия — серебро, остальные — золото */
+const SILVER = "#c3ced9";
+const SILVER_LINE = "rgba(198,210,222,.72)";
+const GOLD_FILL = "#e2b551";
 function fillStyleFor(ctx, a3, bounds) {
-    const b = FLAG_BANDS[a3];
-    if (!b || !bounds)
-        return flagColor(a3);
+    if (a3 === "RUS") {
+        if (!bounds)
+            return SILVER;
+        const [[x0, y0], [x1, y1]] = bounds;
+        if (!isFinite(x0) || !isFinite(y1))
+            return SILVER;
+        const g = ctx.createLinearGradient(x0, y0, x1, y1);
+        g.addColorStop(0, "#d7e1ea");
+        g.addColorStop(0.5, SILVER);
+        g.addColorStop(1, "#a8b6c4");
+        return g;
+    }
+    if (!bounds)
+        return GOLD_FILL;
     const [[x0, y0], [x1, y1]] = bounds;
     if (!isFinite(x0) || !isFinite(y1))
-        return flagColor(a3);
-    const grad = b.dir === "v"
-        ? ctx.createLinearGradient(x0, 0, x1, 0)
-        : ctx.createLinearGradient(0, y0, 0, y1);
-    const n = b.colors.length;
-    b.colors.forEach((col, i) => {
-        grad.addColorStop(i / n, col);
-        grad.addColorStop((i + 1) / n - 0.0001, col);
-    });
-    return grad;
+        return GOLD_FILL;
+    const g = ctx.createLinearGradient(x0, y0, x1, y1);
+    g.addColorStop(0, "#f0cc72");
+    g.addColorStop(0.5, GOLD_FILL);
+    g.addColorStop(1, "#c9982f");
+    return g;
 }
 /* координаты популярных городов; остальные привязываются к центру страны */
 const CITY_XY_RAW = `
@@ -2061,7 +2072,7 @@ function sunPoint(now) {
 /* ================================================================== */
 /*  Карта                                                             */
 /* ================================================================== */
-function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home, boxWidth, marks, light, playing, setPlaying, view }) {
+function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home, boxWidth, marks, light, playing, setPlaying, view, page: pageProp, setPage }) {
     const wrapRef = useRef(null);
     const canvasRef = useRef(null);
     const [size, setSize] = useState(320);
@@ -2077,8 +2088,9 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
     const belt = useRef(0);
     const panY = useRef(0);
     const panX = useRef(0);
-    const page = useRef(0);
-    const [pageUi, setPageUi] = useState(0);
+    const page = useRef(pageProp || 0);
+    page.current = pageProp || 0;
+    const pageUi = pageProp || 0;
     const isMap = view === "map";
     const state = useRef({ isOn, selected, geo, marks, light, full, isMap });
     state.current = { isOn, selected, geo, marks, light, full, isMap };
@@ -2298,15 +2310,15 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                 }
                 ctx.strokeStyle = state.current.isMap
                     ? lt
-                        ? "rgba(30,60,90,.55)"
-                        : "rgba(255,255,255,.62)"
+                        ? "rgba(90,110,130,.6)"
+                        : SILVER_LINE
                     : visited
-                        ? "rgba(255,255,255,.45)"
-                        : "rgba(10,25,38,.75)";
+                        ? SILVER_LINE
+                        : "rgba(150,168,186,.42)";
                 ctx.lineWidth =
                     sel === f.id ? 1.6 : state.current.isMap ? 0.55 : 0.4;
                 if (sel === f.id)
-                    ctx.strokeStyle = "#ffffff";
+                    ctx.strokeStyle = "#eef3f8";
                 ctx.stroke();
             });
             // мелкие страны и территории, которых нет в наборе границ,
@@ -2349,7 +2361,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                 ctx.globalAlpha = sel === c.a3 ? 1 : 0.92;
                 ctx.fill();
                 ctx.globalAlpha = 1;
-                ctx.strokeStyle = sel === c.a3 ? "#ffffff" : "rgba(255,255,255,.7)";
+                ctx.strokeStyle = sel === c.a3 ? "#eef3f8" : SILVER_LINE;
                 ctx.lineWidth = sel === c.a3 ? 1.5 : 0.9;
                 ctx.stroke();
             });
@@ -2373,11 +2385,11 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
             ctx.fill();
             ctx.strokeStyle = state.current.isMap
                 ? lt
-                    ? "rgba(30,60,90,.55)"
-                    : "rgba(255,255,255,.62)"
+                    ? "rgba(90,110,130,.6)"
+                    : SILVER_LINE
                 : lt
-                    ? "rgba(60,100,130,.4)"
-                    : "rgba(120,175,205,.45)";
+                    ? "rgba(90,110,130,.45)"
+                    : SILVER_LINE;
             ctx.lineWidth = 0.6;
             ctx.stroke();
             if (state.current.isMap)
@@ -2589,9 +2601,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
             return;
         mapHomed.current = true;
         const best = score[1] >= score[0] ? 1 : 0;
-        page.current = best;
-        setPageUi(best);
-        requestDraw();
+        setPage(best);
     }, [isMap, visitKey, isOn, requestDraw]);
     /* стартовый вид: последняя поездка — только один раз при запуске */
     const homed = useRef(false);
@@ -2691,9 +2701,9 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
             const limit = size * 0.22;
             if (Math.abs(shift) > limit) {
                 const next = Math.max(0, Math.min(MAP_PAGES.length - 1, page.current + (shift < 0 ? 1 : -1)));
-                page.current = next;
+                if (next !== page.current)
+                    setPage(next);
             }
-            setPageUi(page.current);
             panX.current = 0;
             panY.current = 0;
             requestDraw();
@@ -4231,6 +4241,7 @@ function Atlas() {
         });
     }, [cityPins, theme, photoQuality, spinStart]);
     const [spinning, setSpinning] = useState(false);
+    const [mapPage, setMapPage] = useState(0);
     const setSpinStart = useCallback(async (v) => {
         setSpinStartState(v);
         await store.set(K_SETTINGS, {
@@ -4885,8 +4896,8 @@ function Atlas() {
         React.createElement("style", null, CSS),
         React.createElement("header", { className: "top" },
             React.createElement("div", { className: "brand" }, "\u0410\u0442\u043B\u0430\u0441")),
-        React.createElement(Globe, { geo: geo, isOn: isOn, onPick: (a3) => setSelected(BY_A3[a3] ? a3 : null), selected: selected, full: false, onToggleFull: () => setFull(true), visitKey: visitKey, home: lastTrip, boxWidth: globeBox, marks: marks, light: light, playing: spinning, setPlaying: setSpinning, view: mapView }),
-        full && (React.createElement(Globe, { geo: geo, isOn: isOn, onPick: (a3) => setSelected(BY_A3[a3] ? a3 : null), selected: selected, full: true, onToggleFull: () => setFull(false), visitKey: visitKey, home: lastTrip, boxWidth: globeBox, marks: marks, light: light, playing: spinning, setPlaying: setSpinning, view: mapView })),
+        React.createElement(Globe, { geo: geo, isOn: isOn, onPick: (a3) => setSelected(BY_A3[a3] ? a3 : null), selected: selected, full: false, onToggleFull: () => setFull(true), visitKey: visitKey, home: lastTrip, boxWidth: globeBox, marks: marks, light: light, playing: spinning, setPlaying: setSpinning, view: mapView, page: mapPage, setPage: setMapPage }),
+        full && (React.createElement(Globe, { geo: geo, isOn: isOn, onPick: (a3) => setSelected(BY_A3[a3] ? a3 : null), selected: selected, full: true, onToggleFull: () => setFull(false), visitKey: visitKey, home: lastTrip, boxWidth: globeBox, marks: marks, light: light, playing: spinning, setPlaying: setSpinning, view: mapView, page: mapPage, setPage: setMapPage })),
         React.createElement("section", { className: "focus" }, sel ? (React.createElement(React.Fragment, null,
             React.createElement("div", { className: "focus-head" },
                 React.createElement("span", { className: "big-fl" }, flag(sel.a2)),
