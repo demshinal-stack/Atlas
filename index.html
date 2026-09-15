@@ -89,6 +89,7 @@
 "use strict";
 "use strict";
 "use strict";
+"use strict";
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
 /* ================================================================== */
 /*  Справочник стран: A2 | A3 | название | континент | шир. | долг.    */
@@ -930,7 +931,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "11.4";
+const APP_VERSION = "11.5";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData() {
@@ -4252,7 +4253,7 @@ function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, 
             return;
         const outside = (e) => {
             var _a, _b;
-            const box = (_b = (_a = e.target).closest) === null || _b === void 0 ? void 0 : _b.call(_a, ".person-add");
+            const box = (_b = (_a = e.target).closest) === null || _b === void 0 ? void 0 : _b.call(_a, ".person-new");
             if (!box)
                 setAddPerson(false);
         };
@@ -4369,15 +4370,22 @@ function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, 
                     onYes: () => onPeople(people.filter((x) => x.id !== pr.id)),
                 }) }, "\u2715")))))),
         people.length > 0 && (React.createElement("p", { className: "hint small" }, "\u0417\u0432\u0451\u0437\u0434\u043E\u0447\u043A\u0430 \u2014 \u043F\u043E\u0441\u0442\u043E\u044F\u043D\u043D\u044B\u0439 \u0443\u0447\u0430\u0441\u0442\u043D\u0438\u043A: \u0435\u0433\u043E \u0434\u043E\u0431\u0430\u0432\u0438\u043C \u0432 \u043D\u043E\u0432\u0443\u044E \u043F\u043E\u0435\u0437\u0434\u043A\u0443 \u0441\u0440\u0430\u0437\u0443, \u0441\u043E\u0441\u0442\u0430\u0432 \u0432\u0441\u0435\u0433\u0434\u0430 \u043C\u043E\u0436\u043D\u043E \u043F\u043E\u043F\u0440\u0430\u0432\u0438\u0442\u044C.")),
-        addPerson ? (React.createElement("div", { className: "person-add" },
-            React.createElement("input", { className: "name-input", value: newName, placeholder: "\u0418\u043C\u044F", autoFocus: true, onChange: (e) => setNewName(e.target.value), onKeyDown: (e) => {
-                    if (e.key === "Enter")
-                        addNow();
-                }, autoComplete: "off", autoCorrect: "off", spellCheck: "false", "data-lpignore": "true" }),
-            React.createElement("span", { className: "person-role wide" },
-                newRole,
-                React.createElement("select", { value: newRole, onChange: (e) => setNewRole(e.target.value) }, ROLES.map((r) => (React.createElement("option", { key: r, value: r }, r))))),
-            React.createElement("button", { className: "btn-main small", disabled: !newName.trim(), onClick: addNow }, "\uFF0B"))) : (React.createElement("button", { className: "link-btn", onClick: () => setAddPerson(true) }, "\uFF0B \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u043F\u0443\u0442\u0435\u0448\u0435\u0441\u0442\u0432\u0435\u043D\u043D\u0438\u043A\u0430")),
+        addPerson ? (React.createElement("div", { className: "person-new" },
+            React.createElement("div", { className: "person-add" },
+                React.createElement("input", { className: "name-input", value: newName, placeholder: "\u0418\u043C\u044F", autoFocus: true, onChange: (e) => setNewName(e.target.value), onKeyDown: (e) => {
+                        if (e.key === "Enter")
+                            addNow();
+                    }, autoComplete: "off", autoCorrect: "off", spellCheck: "false", "data-lpignore": "true" }),
+                React.createElement("span", { className: "person-role wide" },
+                    newRole,
+                    React.createElement("select", { value: newRole, onChange: (e) => setNewRole(e.target.value) }, ROLES.map((r) => (React.createElement("option", { key: r, value: r }, r)))))),
+            newName.trim().length > 1 &&
+                !people.some((p) => p.name.toLowerCase() === newName.trim().toLowerCase()) && (React.createElement("div", { className: "sheet-list inline-list" },
+                React.createElement("button", { className: "opt", onClick: addNow },
+                    "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u00AB",
+                    newName.trim(),
+                    "\u00BB",
+                    React.createElement("em", { className: "opt-role" }, newRole)))))) : (React.createElement("button", { className: "link-btn", onClick: () => setAddPerson(true) }, "\uFF0B \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u043F\u0443\u0442\u0435\u0448\u0435\u0441\u0442\u0432\u0435\u043D\u043D\u0438\u043A\u0430")),
         React.createElement("p", { className: "step-title" }, "\u041C\u043E\u0438 \u0434\u0430\u043D\u043D\u044B\u0435"),
         React.createElement("button", { className: "switch-row", onClick: onRestore },
             React.createElement("span", { className: "switch-text" },
@@ -6772,9 +6780,9 @@ body > div{max-width:100%;}
 .person-role select{position:absolute; inset:0; width:100%; height:100%; opacity:0; appearance:none; -webkit-appearance:none; border:0; background:transparent;}
 .person-pin{flex:none; width:34px; height:34px; padding:0; border:0; background:none; color:var(--dim); font-size:1.1rem; cursor:pointer;}
 .person-pin.on{color:var(--gold);}
+.person-new{margin-bottom:6px;}
 .person-add{display:flex; align-items:center; gap:8px; margin-bottom:6px; min-width:0;}
 .person-add .name-input{flex:1 1 auto; min-width:0; margin:0;}
-.btn-main.small{flex:none; min-width:48px; min-height:44px; padding:0; font-size:1.2rem;}
 .city-chip i{font-style:normal; font-size:0.66rem; color:var(--dim);}
 .city-chip.who-on{border-color:var(--gold);}
 .city-chip.who-on i,.city-chip.who-on button{color:var(--gold);}
