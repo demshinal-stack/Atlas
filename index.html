@@ -90,6 +90,7 @@
 "use strict";
 "use strict";
 "use strict";
+"use strict";
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
 /* ================================================================== */
 /*  Справочник стран: A2 | A3 | название | континент | шир. | долг.    */
@@ -931,7 +932,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "11.5";
+const APP_VERSION = "11.6";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData() {
@@ -6293,7 +6294,7 @@ function Atlas() {
                             }
                         } }),
                     React.createElement(CountrySheet, { country: sel, open: sheet === "country" && !!sel, onClose: () => setSheet(null), box: box }),
-                    React.createElement(PhotoModeSheet, { open: sheet === "photomode", onClose: () => setSheet(null), box: box, quality: photoQuality, usage: photoUsage }),
+                    React.createElement(PhotoModeSheet, { open: sheet === "photomode", onClose: () => setSheet("settings"), box: box, quality: photoQuality, usage: photoUsage }),
                     React.createElement(ReportsSheet, { open: sheet === "reports", onClose: () => setSheet(null), box: box, visits: visits, since: profile.since, stats: stats }),
                     React.createElement(FiltersSheet, { open: sheet === "filters", onClose: () => setSheet(null), box: box, target: sheetBack === "list" ? "list" : "globe", years: allYears, yearFilter: yearFilter, onYear: (v) => {
                             setYearFilter(v);
