@@ -92,6 +92,9 @@
 "use strict";
 "use strict";
 "use strict";
+"use strict";
+"use strict";
+"use strict";
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
 /* ================================================================== */
 /*  Справочник стран: A2 | A3 | название | континент | шир. | долг.    */
@@ -645,6 +648,18 @@ const yearsSpan = (visits, since) => {
         return 0;
     return Math.max(1, max - min + 1);
 };
+/* план, дата которого уже прошла */
+const planOverdue = (t) => {
+    if (!(t === null || t === void 0 ? void 0 : t.plan))
+        return false;
+    const b = dParts(t.to) || dParts(t.from);
+    if (b)
+        return new Date(b.y, b.m - 1, b.d) < NOW;
+    const y = t.y || 0;
+    const m = t.m || 12;
+    return (y < NOW.getFullYear() ||
+        (y === NOW.getFullYear() && m < NOW.getMonth() + 1));
+};
 const tripDays = (t) => {
     const a = dParts(t.from);
     const b = dParts(t.to);
@@ -933,7 +948,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "11.7";
+const APP_VERSION = "12.0";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData() {
@@ -3345,7 +3360,9 @@ function PinScreen({ mode, onDone, onSkip, faceAvailable, onFace, shell, name, l
 /*  Выпадающий список стран с поиском по городам                      */
 /* ================================================================== */
 const NOW = new Date();
-const YEARS = Array.from({ length: 60 }, (_, i) => NOW.getFullYear() - i);
+/* годы для выбора: пять лет вперёд для планов и шестьдесят назад */
+const YEARS_AHEAD = 5;
+const YEARS = Array.from({ length: 60 + YEARS_AHEAD }, (_, i) => NOW.getFullYear() + YEARS_AHEAD - i);
 function Sheet({ open, onClose, title, children, box }) {
     const [shown, setShown] = useState(false);
     const [shift, setShift] = useState(0);
@@ -4028,6 +4045,7 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality,
         };
     }, [addWho]);
     const [ask, setAsk] = useState(null);
+    const planTouched = useRef(false);
     const buildDraft = (src) => src
         ? {
             a3: src.a3,
@@ -4056,6 +4074,7 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality,
         setAddCity(false);
         setAddHotel(false);
         setAddWho(false);
+        planTouched.current = !!initial;
         setDraft(buildDraft(initial));
         // строим один раз: иначе правки затираются при каждой перерисовке
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -4111,7 +4130,21 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality,
         return [...byCountry, ...byCity].sort((a, b) => a.c.name.localeCompare(b.c.name, "ru"));
     }, [q]);
     const country = draft ? BY_A3[draft.a3] : null;
-    const patch = (p) => setDraft((d) => ({ ...d, ...p }));
+    const patch = (p) => setDraft((d) => {
+        const next = { ...d, ...p };
+        // дату сменили, а статус вручную не трогали — определим сами
+        if (!planTouched.current && ("y" in p || "m" in p || "from" in p)) {
+            const y = next.y || 0;
+            const m = next.m || 12;
+            const a = dParts(next.from);
+            const future = a
+                ? new Date(a.y, a.m - 1, a.d) > NOW
+                : y > NOW.getFullYear() ||
+                    (y === NOW.getFullYear() && m > NOW.getMonth() + 1);
+            next.plan = future;
+        }
+        return next;
+    });
     const cityPool = useMemo(() => (country ? CITIES.filter((c) => c.a3 === country.a3).map((c) => c.city) : []), [country]);
     const whenReady = !!(draft && draft.y && (!draft.approx || draft.y2));
     const whenText = (draft === null || draft === void 0 ? void 0 : draft.y) ? tripLabel(draft) : "";
@@ -4149,6 +4182,17 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality,
                 React.createElement("p", { className: "step-title" }, "\u041A\u043E\u0433\u0434\u0430 \u044D\u0442\u043E \u0431\u044B\u043B\u043E"),
                 React.createElement(WhenPicker, { y: draft.y, m: draft.m, noMonth: draft.noMonth, y2: draft.y2, approx: draft.approx, from: draft.from, to: draft.to, since: since, onChange: (p) => patch(p) }),
                 React.createElement("button", { className: "cta slim", onClick: () => draft.y && setEditWhen(false) }, "\u0413\u043E\u0442\u043E\u0432\u043E"))) : (React.createElement(Done, { label: "\u041A\u043E\u0433\u0434\u0430", value: whenText, onEdit: () => setEditWhen(true) }))),
+        country && whenReady && !editWhen && (React.createElement("button", { className: "approx-row plan-row", onClick: () => {
+                planTouched.current = true;
+                patch({ plan: !draft.plan });
+            } },
+            React.createElement("span", null,
+                "\u042D\u0442\u043E \u043F\u043B\u0430\u043D\u044B",
+                React.createElement("em", null, draft.plan
+                    ? "Поездка впереди — в статистику не попадёт"
+                    : "Включится само, если выбрать будущую дату")),
+            React.createElement("span", { className: "switch" + (draft.plan ? " on" : "") },
+                React.createElement("i", null)))),
         country && whenReady && !editWhen && (React.createElement("div", { className: "step" },
             React.createElement("p", { className: "step-title" }, "\u0413\u043E\u0440\u043E\u0434\u0430"),
             draft.cities.length > 0 && (React.createElement("div", { className: "city-chips" }, draft.cities.map((c) => (React.createElement("span", { key: c, className: "city-chip" },
@@ -4158,14 +4202,6 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality,
                     patch({ cities: [...draft.cities, c] });
                     setAddCity(false);
                 } })) : (React.createElement("button", { className: "link-btn", onClick: () => setAddCity(true) }, "\uFF0B \u0435\u0449\u0451 \u0433\u043E\u0440\u043E\u0434")))),
-        country && whenReady && !editWhen && (React.createElement("button", { className: "approx-row plan-row", onClick: () => patch({ plan: !draft.plan }) },
-            React.createElement("span", null,
-                "\u042D\u0442\u043E \u043F\u043B\u0430\u043D\u044B",
-                React.createElement("em", null, draft.plan
-                    ? "Поездка ещё впереди — в статистику не попадёт"
-                    : "Отметьте, если только собираетесь")),
-            React.createElement("span", { className: "switch" + (draft.plan ? " on" : "") },
-                React.createElement("i", null)))),
         country && whenReady && !editWhen && (React.createElement("div", { className: "step" },
             React.createElement("p", { className: "step-title" }, "\u0421 \u043A\u0435\u043C \u0435\u0437\u0434\u0438\u043B\u0438"),
             (draft.who || []).length > 0 && (React.createElement("div", { className: "city-chips" }, (draft.who || []).map((n) => {
@@ -4289,7 +4325,7 @@ function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, 
                 React.createElement("span", null, "\u25BE"),
                 React.createElement("select", { value: since || "", onChange: (e) => onSince(+e.target.value || null) },
                     React.createElement("option", { value: "" }, "\u043D\u0435 \u0443\u043A\u0430\u0437\u0430\u043D"),
-                    YEARS.map((y) => (React.createElement("option", { key: y, value: y }, y)))))),
+                    YEARS.filter((y) => y <= NOW.getFullYear()).map((y) => (React.createElement("option", { key: y, value: y }, y)))))),
         React.createElement("p", { className: "step-title" }, "\u041D\u0430\u0433\u0440\u0430\u0434\u044B"),
         (() => {
             const st = awardStats(visits, since);
@@ -4929,23 +4965,38 @@ const C_LINE = "#22384d";
 const C_FILL = "#1c344a";
 function reportData(visits, since) {
     const trips = [];
-    Object.entries(visits || {}).forEach(([a3, arr]) => (arr || []).forEach((t) => {
-        if (!t.plan)
-            trips.push({ a3, t });
-    }));
+    const plans = [];
+    Object.entries(visits || {}).forEach(([a3, arr]) => (arr || []).forEach((t) => (t.plan ? plans : trips).push({ a3, t })));
     const yearFrom = (t) => {
         const a = dParts(t.from);
         return a ? a.y : t.y;
     };
-    const years = {};
+    const years = {}; // поездок в году (дробно для неточных периодов)
     const firstSeen = {};
     const months = new Array(12).fill(0);
     const days = {};
     const cities = {};
     const hotels = {};
     const people = {};
-    const grid = {};
+    const grid = {}; // год:месяц → дни (состоявшиеся)
+    const planGrid = {}; // год:месяц → дни (планы)
+    const vague = {}; // год → доля неточных поездок
     trips.forEach(({ a3, t }) => {
+        (t.cities || []).forEach((c) => (cities[c] = (cities[c] || 0) + 1));
+        (t.hotels || []).forEach((h) => (hotels[h.name] = (hotels[h.name] || 0) + 1));
+        (t.who || []).forEach((w) => (people[w] = (people[w] || 0) + 1));
+        // неточный период: одну поездку размазываем поровну по его годам
+        if (t.approx && t.y) {
+            const to = t.y2 && t.y2 > t.y ? t.y2 : t.y;
+            const span = to - t.y + 1;
+            for (let y = t.y; y <= to; y++) {
+                years[y] = (years[y] || 0) + 1 / span;
+                vague[y] = (vague[y] || 0) + 1 / span;
+            }
+            if (!firstSeen[a3] || t.y < firstSeen[a3])
+                firstSeen[a3] = t.y;
+            return;
+        }
         const y = yearFrom(t);
         if (!y)
             return;
@@ -4957,11 +5008,17 @@ function reportData(visits, since) {
             grid[`${y}:${t.m}`] = Math.max(grid[`${y}:${t.m}`] || 0, tripDays(t) || 1);
         }
         days[y] = (days[y] || 0) + tripDays(t);
-        (t.cities || []).forEach((c) => (cities[c] = (cities[c] || 0) + 1));
-        (t.hotels || []).forEach((h) => (hotels[h.name] = (hotels[h.name] || 0) + 1));
-        (t.who || []).forEach((w) => (people[w] = (people[w] || 0) + 1));
     });
-    const allYears = Object.keys(years).map(Number).sort((a, b) => a - b);
+    // планы — отдельной подсветкой
+    plans.forEach(({ t }) => {
+        const y = yearFrom(t);
+        if (!y || !t.m)
+            return;
+        planGrid[`${y}:${t.m}`] = Math.max(planGrid[`${y}:${t.m}`] || 0, tripDays(t) || 1);
+    });
+    const known = Object.keys(years).map(Number);
+    const planYears = plans.map(({ t }) => yearFrom(t)).filter(Boolean);
+    const allYears = [...new Set([...known, ...planYears])].sort((a, b) => a - b);
     const start = since || allYears[0] || NOW.getFullYear();
     const line = [];
     let acc = 0;
@@ -4982,57 +5039,90 @@ function reportData(visits, since) {
         .slice(0, n);
     return {
         trips,
+        plans,
         years,
+        vague,
         allYears,
         line,
         months,
         days,
         conts,
         grid,
+        planGrid,
         topCities: top(cities),
         topHotels: top(hotels),
         topPeople: top(people, 4),
     };
 }
-/* столбики с линией тренда */
-function BarsChart({ data, labels }) {
+/* столбики с линией тренда; неточные периоды — полупрозрачной частью */
+function BarsChart({ data, vague, labels }) {
     const w = 320;
     const h = 150;
     const max = Math.max(1, ...data);
     const bw = data.length ? (w / data.length) * 0.58 : 0;
+    const fmt = (v) => (v % 1 ? v.toFixed(1).replace(".", ",") : String(v));
     return (React.createElement("svg", { viewBox: `0 0 ${w} ${h + 22}`, className: "chart" },
         data.map((v, i) => {
             const x = (i * w) / data.length + (w / data.length - bw) / 2;
             const bh = (v / max) * (h - 16);
+            const vg = vague ? Math.min(v, vague[i] || 0) : 0;
+            const vh = (vg / max) * (h - 16);
             return (React.createElement("g", { key: i },
-                React.createElement("rect", { x: x, y: h - bh, width: bw, height: bh, rx: "3", fill: C_GOLD, opacity: 0.9 }),
+                React.createElement("rect", { x: x, y: h - bh, width: bw, height: bh - vh, rx: "3", fill: C_GOLD, opacity: "0.92" }),
+                vh > 0 && (React.createElement("rect", { x: x, y: h - vh, width: bw, height: vh, rx: "3", fill: C_GOLD, opacity: "0.3" })),
                 React.createElement("text", { x: x + bw / 2, y: h + 15, fill: C_DIM, fontSize: "9", textAnchor: "middle" }, String(labels[i]).slice(2))));
         }),
         React.createElement("polyline", { fill: "none", stroke: C_SILVER, strokeWidth: "1.6", points: data
                 .map((v, i) => `${(i * w) / data.length + w / data.length / 2},${h - (v / max) * (h - 16) - 5}`)
-                .join(" ") })));
+                .join(" ") }),
+        React.createElement("text", { x: "2", y: "11", fill: C_DIM, fontSize: "9" },
+            "\u0432\u0441\u0435\u0433\u043E ",
+            fmt(Math.round(data.reduce((a, b) => a + b, 0) * 10) / 10))));
 }
-/* накопительная кривая с заливкой */
+/* накопительная кривая: палец ведёт вертикальную линию и показывает год */
 function AreaChart({ points }) {
     const w = 320;
     const h = 150;
+    const box = useRef(null);
+    const [pick, setPick] = useState(null);
     if (points.length < 2)
         return null;
     const max = Math.max(1, ...points.map((p) => p.v));
     const xy = points.map((p, i) => [
         (i * w) / (points.length - 1),
-        h - (p.v / max) * (h - 18),
+        h - (p.v / max) * (h - 26),
     ]);
-    return (React.createElement("svg", { viewBox: `0 0 ${w} ${h + 22}`, className: "chart" },
-        React.createElement("polygon", { points: [...xy.map((p) => p.join(",")), `${w},${h}`, `0,${h}`].join(" "), fill: C_FILL }),
-        React.createElement("polyline", { fill: "none", stroke: C_GOLD, strokeWidth: "2.2", points: xy.map((p) => p.join(",")).join(" ") }),
-        xy.map((p, i) => i % Math.ceil(xy.length / 6) === 0 ? (React.createElement("circle", { key: i, cx: p[0], cy: p[1], r: "2.6", fill: C_GOLD })) : null),
-        React.createElement("text", { x: "2", y: h + 15, fill: C_DIM, fontSize: "9" }, points[0].y),
-        React.createElement("text", { x: w - 2, y: h + 15, fill: C_DIM, fontSize: "9", textAnchor: "end" },
-            points[points.length - 1].y,
-            " \u00B7 ",
-            points[points.length - 1].v,
-            " \u0441\u0442\u0440\u0430\u043D")));
+    const at = (clientX) => {
+        const el = box.current;
+        if (!el)
+            return;
+        const r = el.getBoundingClientRect();
+        const rel = ((clientX - r.left) / r.width) * w;
+        const i = Math.max(0, Math.min(points.length - 1, Math.round((rel / w) * (points.length - 1))));
+        setPick(i);
+    };
+    const cur = pick === null ? points.length - 1 : pick;
+    return (React.createElement("div", { ref: box, className: "chart-touch", onPointerDown: (e) => {
+            var _a, _b;
+            (_b = (_a = e.currentTarget).setPointerCapture) === null || _b === void 0 ? void 0 : _b.call(_a, e.pointerId);
+            at(e.clientX);
+        }, onPointerMove: (e) => {
+            if (e.buttons || e.pressure > 0)
+                at(e.clientX);
+        }, onPointerUp: () => { } },
+        React.createElement("svg", { viewBox: `0 0 ${w} ${h + 22}`, className: "chart" },
+            React.createElement("polygon", { points: [...xy.map((p) => p.join(",")), `${w},${h}`, `0,${h}`].join(" "), fill: C_FILL }),
+            React.createElement("polyline", { fill: "none", stroke: C_GOLD, strokeWidth: "2.2", points: xy.map((p) => p.join(",")).join(" ") }),
+            React.createElement("line", { x1: xy[cur][0], y1: "14", x2: xy[cur][0], y2: h, stroke: C_SILVER, strokeWidth: "1", opacity: "0.75", strokeDasharray: "3 3" }),
+            React.createElement("circle", { cx: xy[cur][0], cy: xy[cur][1], r: "4.5", fill: C_GOLD }),
+            React.createElement("g", { transform: `translate(${Math.min(Math.max(xy[cur][0] - 34, 0), w - 68)}, 0)` },
+                React.createElement("rect", { width: "68", height: "20", rx: "6", fill: "#16283a", stroke: C_LINE }),
+                React.createElement("text", { x: "34", y: "14", fill: C_GOLD, fontSize: "10", textAnchor: "middle" },
+                    points[cur].y,
+                    " \u00B7 ",
+                    points[cur].v)),
+            React.createElement("text", { x: "2", y: h + 15, fill: C_DIM, fontSize: "9" }, points[0].y),
+            React.createElement("text", { x: w - 2, y: h + 15, fill: C_DIM, fontSize: "9", textAnchor: "end" }, points[points.length - 1].y))));
 }
 /* кольцо по частям света */
 function DonutChart({ parts, total }) {
@@ -5091,23 +5181,37 @@ function RowsChart({ rows, unit }) {
             v,
             unit ? ` ${unit}` : ""))))));
 }
-/* календарь: год × месяц */
-function GridChart({ grid, years }) {
+/* календарь: год × месяц; планы — синим, неточные периоды — полосой года */
+function GridChart({ grid, planGrid, vague, years }) {
     const mn = ["я", "ф", "м", "а", "м", "и", "и", "а", "с", "о", "н", "д"];
-    const max = Math.max(1, ...Object.values(grid));
+    const vals = [...Object.values(grid), ...Object.values(planGrid || {})];
+    const max = Math.max(1, ...vals);
     return (React.createElement("div", { className: "grid-chart" },
         React.createElement("div", { className: "grid-head" },
             React.createElement("span", null),
             mn.map((m, i) => (React.createElement("span", { key: i }, m)))),
-        years.map((y) => (React.createElement("div", { key: y, className: "grid-row" },
-            React.createElement("span", { className: "grid-y" }, y),
-            mn.map((_, i) => {
-                const v = grid[`${y}:${i + 1}`] || 0;
-                const k = v ? 0.25 + (v / max) * 0.75 : 0;
-                return (React.createElement("span", { key: i, className: "grid-cell", style: v
-                        ? { background: C_GOLD, opacity: k }
-                        : undefined }));
-            }))))));
+        years.map((y) => {
+            const vg = (vague === null || vague === void 0 ? void 0 : vague[y]) || 0;
+            return (React.createElement("div", { key: y, className: "grid-row" + (vg ? " vague" : "") },
+                React.createElement("span", { className: "grid-y" }, y),
+                mn.map((_, i) => {
+                    const v = grid[`${y}:${i + 1}`] || 0;
+                    const p = (planGrid === null || planGrid === void 0 ? void 0 : planGrid[`${y}:${i + 1}`]) || 0;
+                    const style = v
+                        ? { background: C_GOLD, opacity: 0.3 + (v / max) * 0.7 }
+                        : p
+                            ? { background: C_BLUE, opacity: 0.35 + (p / max) * 0.65 }
+                            : undefined;
+                    return React.createElement("span", { key: i, className: "grid-cell", style: style });
+                })));
+        }),
+        React.createElement("div", { className: "grid-legend" },
+            React.createElement("i", { style: { background: C_GOLD } }),
+            " \u0441\u043E\u0441\u0442\u043E\u044F\u043B\u043E\u0441\u044C",
+            React.createElement("i", { style: { background: C_BLUE } }),
+            " \u043F\u043B\u0430\u043D",
+            React.createElement("i", { className: "vg" }),
+            " \u043D\u0435\u0442\u043E\u0447\u043D\u0430\u044F \u0434\u0430\u0442\u0430")));
 }
 /* шторка отчётов */
 function ReportsSheet({ open, onClose, box, visits, since, stats }) {
@@ -5117,7 +5221,8 @@ function ReportsSheet({ open, onClose, box, visits, since, stats }) {
         React.createElement("div", { className: "rep" },
             React.createElement("b", null, "\u041F\u043E\u0435\u0437\u0434\u043A\u0438 \u043F\u043E \u0433\u043E\u0434\u0430\u043C"),
             React.createElement("em", null, "\u0441\u0442\u043E\u043B\u0431\u0438\u043A\u0438 \u0438 \u043B\u0438\u043D\u0438\u044F \u0442\u0440\u0435\u043D\u0434\u0430"),
-            React.createElement(BarsChart, { data: years.map((y) => r.years[y] || 0), labels: years })),
+            React.createElement(BarsChart, { data: years.map((y) => Math.round((r.years[y] || 0) * 10) / 10), vague: years.map((y) => r.vague[y] || 0), labels: years }),
+            Object.keys(r.vague).length > 0 && (React.createElement("p", { className: "hint small" }, "\u0411\u043B\u0435\u0434\u043D\u0430\u044F \u0447\u0430\u0441\u0442\u044C \u0441\u0442\u043E\u043B\u0431\u0438\u043A\u0430 \u2014 \u043F\u043E\u0435\u0437\u0434\u043A\u0438 \u0441 \u043D\u0435\u0442\u043E\u0447\u043D\u043E\u0439 \u0434\u0430\u0442\u043E\u0439, \u0440\u0430\u0437\u043B\u043E\u0436\u0435\u043D\u043D\u044B\u0435 \u043F\u043E\u0440\u043E\u0432\u043D\u0443 \u043F\u043E \u0433\u043E\u0434\u0430\u043C \u043F\u0435\u0440\u0438\u043E\u0434\u0430."))),
         React.createElement("div", { className: "rep" },
             React.createElement("b", null, "\u0421\u0442\u0440\u0430\u043D\u044B \u043D\u0430\u0440\u0430\u0441\u0442\u0430\u044E\u0449\u0438\u043C \u0438\u0442\u043E\u0433\u043E\u043C"),
             React.createElement("em", null, "\u043A\u0430\u043A \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u043B\u0441\u044F \u043C\u0438\u0440"),
@@ -5155,7 +5260,7 @@ function ReportsSheet({ open, onClose, box, visits, since, stats }) {
         React.createElement("div", { className: "rep" },
             React.createElement("b", null, "\u041A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u044C \u043F\u043E\u0435\u0437\u0434\u043E\u043A"),
             React.createElement("em", null, "\u0433\u043E\u0434 \u0438 \u043C\u0435\u0441\u044F\u0446, \u044F\u0440\u0447\u0435 \u2014 \u0434\u043E\u043B\u044C\u0448\u0435"),
-            React.createElement(GridChart, { grid: r.grid, years: years.slice(-8) }))))))));
+            React.createElement(GridChart, { grid: r.grid, planGrid: r.planGrid, vague: r.vague, years: years.slice(-8) }))))))));
 }
 /* шторка: фильтры — для глобуса и для списка поездок */
 function FiltersSheet({ open, onClose, box, target, years, yearFilter, onYear, mode, onMode, }) {
@@ -5182,7 +5287,7 @@ function FiltersSheet({ open, onClose, box, target, years, yearFilter, onYear, m
         years.length === 0 && (React.createElement("p", { className: "focus-empty" }, "\u0424\u0438\u043B\u044C\u0442\u0440 \u043F\u043E\u044F\u0432\u0438\u0442\u0441\u044F, \u043A\u043E\u0433\u0434\u0430 \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u0435 \u043F\u0435\u0440\u0432\u0443\u044E \u043F\u043E\u0435\u0437\u0434\u043A\u0443."))))))));
 }
 /* шторка: все поездки — свёртка групп, поиск */
-function ListSheet({ visits, stats, open, onClose, onPick, onRemove, box, mode, since, wishCount = 0, onReports, onFilters }) {
+function ListSheet({ visits, stats, open, onClose, onPick, onRemove, onDone, box, mode, since, wishCount = 0, onReports, onFilters }) {
     const [ask, setAsk] = useState(null);
     const [q, setQ] = useState("");
     const [closed, setClosed] = useState({});
@@ -5295,7 +5400,7 @@ function ListSheet({ visits, stats, open, onClose, onPick, onRemove, box, mode, 
         var _a, _b, _c;
         const parts = [];
         if (t.plan)
-            parts.push("план");
+            parts.push(planOverdue(t) ? "план · срок прошёл" : "план");
         if (t.m)
             parts.push(MONTHS[t.m - 1]);
         if (tripDays(t))
@@ -5429,6 +5534,7 @@ function ListSheet({ visits, stats, open, onClose, onPick, onRemove, box, mode, 
                             mode !== "country" && (React.createElement("span", { className: "trip-year" }, row.t.y2 && row.t.y2 !== row.t.y
                                 ? `${row.t.y}–${row.t.y2}`
                                 : row.t.y))),
+                        planOverdue(row.t) && (React.createElement("button", { className: "trip-done", onClick: () => onDone(row.a3, row.idx), "aria-label": "\u041E\u0442\u043C\u0435\u0442\u0438\u0442\u044C \u0441\u043E\u0441\u0442\u043E\u044F\u0432\u0448\u0435\u0439\u0441\u044F" }, "\u2713")),
                         React.createElement("button", { className: "trip-del", onClick: () => setAsk({
                                 title: "Удалить поездку?",
                                 text: `${row.c.name}, ${tripLabel(row.t)}${(row.t.photos || []).length
@@ -6130,6 +6236,14 @@ function Atlas() {
             dead = true;
         };
     }, [sheet, visits]);
+    const overdue = useMemo(() => {
+        const out = [];
+        Object.entries(visits).forEach(([a3, arr]) => (arr || []).forEach((t, idx) => {
+            if (planOverdue(t))
+                out.push({ a3, idx });
+        }));
+        return out;
+    }, [visits]);
     const marks = useMemo(() => {
         const out = [];
         Object.entries(visits).forEach(([a3, arr]) => {
@@ -6327,7 +6441,7 @@ function Atlas() {
                     React.createElement(ListSheet, { visits: visits, stats: stats, open: sheet === "list", onClose: () => setSheet(null), onPick: (a3, idx) => {
                             setSelected(a3);
                             setEditIdx(idx || 0);
-                        }, onRemove: removeTrip, box: box, mode: listMode, since: profile.since, wishCount: wish.length, onReports: () => {
+                        }, onRemove: removeTrip, onDone: (a3, idx) => editTrip(a3, idx, { plan: false }), box: box, mode: listMode, since: profile.since, wishCount: wish.length, onReports: () => {
                             setSheetBack("list");
                             setSheet("reports");
                         }, onFilters: openFilters }),
@@ -6360,6 +6474,25 @@ function Atlas() {
                             React.createElement("em", null, "\u041F\u0440\u043E\u0444\u0438\u043B\u044C"))),
                     avatarDraft && (React.createElement("div", { className: "modal", style: box ? { left: box.left, width: box.width } : undefined },
                         React.createElement(AvatarEditor, { src: avatarDraft, onDone: saveAvatar, onCancel: () => setAvatarDraft(null) }))),
+                    overdue.length > 0 && (React.createElement("div", { className: "banner" },
+                        React.createElement("span", { className: "banner-dot" }),
+                        React.createElement("span", { className: "banner-text" },
+                            React.createElement("b", null,
+                                np(overdue.length, "trip"),
+                                " \u0438\u0437 \u043F\u043B\u0430\u043D\u043E\u0432 \u0443\u0436\u0435",
+                                " ",
+                                overdue.length === 1 ? "прошла" : "прошли"),
+                            React.createElement("em", null,
+                                overdue
+                                    .slice(0, 2)
+                                    .map((o) => { var _a; return (_a = BY_A3[o.a3]) === null || _a === void 0 ? void 0 : _a.name; })
+                                    .filter(Boolean)
+                                    .join(", "),
+                                overdue.length > 2 ? " и другие" : "",
+                                " \u2014 \u0441\u043E\u0441\u0442\u043E\u044F\u043B\u0438\u0441\u044C?")),
+                        React.createElement("button", { className: "banner-btn", onClick: () => {
+                                overdue.forEach((o) => editTrip(o.a3, o.idx, { plan: false }));
+                            } }, "\u0414\u0430"))),
                     updateReady && (React.createElement("div", { className: "banner" },
                         React.createElement("span", { className: "banner-dot" }),
                         React.createElement("span", { className: "banner-text" },
@@ -6581,6 +6714,14 @@ body > div{max-width:100%;}
 .grid-head span:first-child,.grid-y{flex:0 0 30px;}
 .grid-head span{text-align:center;}
 .grid-cell{height:16px; border-radius:4px; background:var(--field);}
+.grid-row.vague{position:relative;}
+.grid-row.vague::after{content:""; position:absolute; left:33px; right:0; top:0; bottom:0; border-radius:4px; pointer-events:none;
+  background:repeating-linear-gradient(135deg, rgba(232,184,75,.16) 0 5px, transparent 5px 10px);}
+.grid-legend{display:flex; align-items:center; gap:6px; margin-top:8px; font-size:0.62rem; color:var(--dim); flex-wrap:wrap;}
+.grid-legend i{width:11px; height:11px; border-radius:3px; margin-left:8px;}
+.grid-legend i:first-child{margin-left:0;}
+.grid-legend i.vg{background:repeating-linear-gradient(135deg, rgba(232,184,75,.5) 0 3px, transparent 3px 6px);}
+.chart-touch{touch-action:pan-y; cursor:pointer;}
 .flip{margin-top:10px; perspective:1200px; cursor:pointer;}
 .flip-in{position:relative; height:238px; transform-style:preserve-3d;
   transition:transform .55s cubic-bezier(.3,.8,.3,1);}
@@ -6622,6 +6763,7 @@ body > div{max-width:100%;}
 .trip-title{display:block; font-size:0.88rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .trip-sub{display:block; margin-top:2px; font-size:0.7rem; color:var(--dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .trip-year{flex:none; font-size:0.72rem; color:var(--dim); font-variant-numeric:tabular-nums;}
+.trip-done{flex:none; width:40px; display:flex; align-items:center; justify-content:center; background:none; border:0; color:var(--gold); font-size:1rem; cursor:pointer;}
 .trip-del{flex:none; width:44px; display:flex; align-items:center; justify-content:center; background:none; border:0; color:#8a6a62; cursor:pointer;}
 .trip-del:active{color:#d97a6a;}
 .pad16{padding:0 14px;}
