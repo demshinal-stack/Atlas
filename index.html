@@ -99,6 +99,11 @@
 "use strict";
 "use strict";
 "use strict";
+"use strict";
+"use strict";
+"use strict";
+"use strict";
+"use strict";
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
 /* ================================================================== */
 /*  Справочник стран: A2 | A3 | название | континент | шир. | долг.    */
@@ -941,6 +946,251 @@ const K_DATA = "atlas:data:main";
 const K_SETTINGS = "atlas:settings";
 const K_BACKUP = "atlas:data:backup";
 const K_PROF_BAK = "atlas:profile:backup";
+/* ------------------------------------------------------------------ */
+/*  Опора для семейного обмена: устойчивые ключи и время правки        */
+/* ------------------------------------------------------------------ */
+const uid = (p = "t") => `${p}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
+/* «я» — такой же участник, только отмечен как владелец атласа */
+const ME = "me";
+/* состав без того, кто сейчас смотрит */
+const othersOf = (t) => ((t === null || t === void 0 ? void 0 : t.who) || []).filter((w) => w !== ME);
+/* имена участников для подписи */
+const whoNames = (t, people) => othersOf(t).map((id) => {
+    const p = (people || []).find((x) => x.id === id || x.name === id);
+    return p ? p.name : id;
+});
+/* приводим старую запись к новому виду: id, время правки, автор в составе */
+const normTrip = (t) => {
+    if (!t)
+        return t;
+    const out = { ...t };
+    if (!out.id)
+        out.id = uid();
+    if (!out.at)
+        out.at = Date.now();
+    if (!Array.isArray(out.who))
+        out.who = [];
+    if (!out.who.includes(ME))
+        out.who = [ME, ...out.who];
+    return out;
+};
+const normVisits = (visits) => {
+    const out = {};
+    Object.entries(visits || {}).forEach(([a3, arr]) => {
+        out[a3] = (arr || []).map(normTrip);
+    });
+    return out;
+};
+/* кто-то вышел из состава — метку надо донести до остальных */
+const leftMark = (t, who) => ({
+    ...t,
+    who: (t.who || []).filter((x) => x !== who),
+    left: [...new Set([...(t.left || []), who])],
+    at: Date.now(),
+});
+/* удалённые записи помним, иначе они вернутся с другого телефона */
+const addTomb = (tombs, id) => ({ ...(tombs || {}), [id]: Date.now() });
+/* объединение двух атласов: по ключу побеждает более свежая запись */
+function mergeVisits(mine, theirs, tombsA, tombsB) {
+    const tombs = { ...(tombsA || {}) };
+    Object.entries(tombsB || {}).forEach(([id, at]) => {
+        if (!tombs[id] || at > tombs[id])
+            tombs[id] = at;
+    });
+    const byId = new Map();
+    const add = (a3, t) => {
+        const n = normTrip(t);
+        const dead = tombs[n.id];
+        if (dead && dead >= (n.at || 0))
+            return; // запись удалена позже правки
+        const was = byId.get(n.id);
+        if (!was || (n.at || 0) > (was.t.at || 0))
+            byId.set(n.id, { a3, t: n });
+        else if (was) {
+            // вышедших из состава помним из обеих версий
+            const left = [...new Set([...(was.t.left || []), ...(n.left || [])])];
+            if (left.length) {
+                was.t.left = left;
+                was.t.who = (was.t.who || []).filter((w) => !left.includes(w));
+            }
+        }
+    };
+    Object.entries(mine || {}).forEach(([a3, arr]) => (arr || []).forEach((t) => add(a3, t)));
+    Object.entries(theirs || {}).forEach(([a3, arr]) => (arr || []).forEach((t) => add(a3, t)));
+    const out = {};
+    byId.forEach(({ a3, t }) => {
+        if (!out[a3])
+            out[a3] = [];
+        out[a3].push(t);
+    });
+    Object.values(out).forEach((arr) => arr.sort((x, y) => y.y - x.y || (y.m || 0) - (x.m || 0)));
+    return { visits: out, tombs };
+}
+/* похожие поездки: одна страна и пересекающиеся даты */
+function findDoubles(visits) {
+    const pairs = [];
+    const range = (t) => {
+        const a = dParts(t.from);
+        const b = dParts(t.to) || a;
+        if (a)
+            return [+new Date(a.y, a.m - 1, a.d), +new Date(b.y, b.m - 1, b.d)];
+        if (!t.y || t.approx)
+            return null;
+        const m = t.m || 0;
+        return m
+            ? [+new Date(t.y, m - 1, 1), +new Date(t.y, m, 0)]
+            : [+new Date(t.y, 0, 1), +new Date(t.y, 11, 31)];
+    };
+    Object.entries(visits || {}).forEach(([a3, arr]) => {
+        (arr || []).forEach((t, i) => {
+            const r1 = range(t);
+            if (!r1)
+                return;
+            (arr || []).slice(i + 1).forEach((u, j) => {
+                const r2 = range(u);
+                if (!r2)
+                    return;
+                if (r1[0] <= r2[1] && r2[0] <= r1[1])
+                    pairs.push({ a3, i, j: i + 1 + j, a: t, b: u });
+            });
+        });
+    });
+    return pairs;
+}
+/* склейка двух поездок в одну: берём всё лучшее */
+function joinTrips(a, b) {
+    const uniq = (x = [], y = []) => [...new Set([...x, ...y])];
+    const newer = (a.at || 0) >= (b.at || 0) ? a : b;
+    const older = newer === a ? b : a;
+    return {
+        ...older,
+        ...newer,
+        id: newer.id,
+        at: Date.now(),
+        cities: uniq(a.cities, b.cities),
+        who: uniq(a.who, b.who),
+        photos: uniq(a.photos, b.photos),
+        hotels: [
+            ...(a.hotels || []),
+            ...(b.hotels || []).filter((h) => !(a.hotels || []).some((x) => x.name === h.name)),
+        ],
+        from: newer.from || older.from,
+        to: newer.to || older.to,
+        m: newer.m || older.m,
+        plan: newer.plan && older.plan,
+    };
+}
+/* ------------------------------------------------------------------ */
+/*  Семейная группа: ключ на устройстве, обмен файлом или через сервер */
+/* ------------------------------------------------------------------ */
+const K_FAMILY = "atlas:family";
+/* словарь для ключа: слова — первичны, из них и получается ключ,
+   поэтому у всех в группе он выходит одинаковым */
+const WORDS = ("азот берег ветер гора дождь ель жемчуг заря икра ключ лето море " +
+    "небо озеро парус река снег туман утро флаг холм цапля чайка шторм " +
+    "эхо юг якорь август берёза восток гавань дюна залив иней камень " +
+    "лавина маяк норд остров пламя роса север тайга ураган фьорд хребет " +
+    "цикада шхуна юла ясень апрель бухта волна гряда долина ёлка жара " +
+    "закат искра колос лиман мыс нива опал прибой рассвет сопка тундра")
+    .split(" ")
+    .filter(Boolean);
+/* ключ выводим из слов: одни и те же слова → один и тот же ключ */
+async function keyFromWords(words) {
+    const phrase = words.join(" ").trim().toLowerCase();
+    const salt = new TextEncoder().encode("atlas-family-v1");
+    const base = await crypto.subtle.importKey("raw", new TextEncoder().encode(phrase), "PBKDF2", false, ["deriveBits"]);
+    const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", salt, iterations: 120000, hash: "SHA-256" }, base, 256);
+    return Array.from(new Uint8Array(bits));
+}
+/* новая группа: берём двенадцать случайных слов */
+async function makeFamilyKey() {
+    const pick = crypto.getRandomValues(new Uint32Array(12));
+    const words = Array.from(pick).map((n) => WORDS[n % WORDS.length]);
+    const raw = await keyFromWords(words);
+    return { raw, words, id: await keyFingerprint(raw) };
+}
+/* отпечаток ключа — по нему сервер отличает группы, но ключ не восстановить */
+async function keyFingerprint(raw) {
+    const buf = await crypto.subtle.digest("SHA-256", new Uint8Array(raw));
+    return Array.from(new Uint8Array(buf))
+        .slice(0, 8)
+        .map((b) => b.toString(16).padStart(2, "0"))
+        .join("");
+}
+async function cryptoKeyOf(raw) {
+    return crypto.subtle.importKey("raw", new Uint8Array(raw), { name: "AES-GCM" }, false, ["encrypt", "decrypt"]);
+}
+const b64 = (bytes) => btoa(String.fromCharCode(...new Uint8Array(bytes)));
+const unb64 = (str) => Uint8Array.from(atob(str), (c) => c.charCodeAt(0));
+/* шифруем пакет: наружу уходит только шум */
+async function sealPacket(raw, data) {
+    const key = await cryptoKeyOf(raw);
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const enc = new TextEncoder().encode(JSON.stringify(data));
+    const out = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, enc);
+    return { v: 1, iv: b64(iv), data: b64(out) };
+}
+async function openPacket(raw, packet) {
+    const key = await cryptoKeyOf(raw);
+    const out = await crypto.subtle.decrypt({ name: "AES-GCM", iv: unb64(packet.iv) }, key, unb64(packet.data));
+    return JSON.parse(new TextDecoder().decode(out));
+}
+/* что уходит семье: только поездки, где отмечен кто-то из группы */
+function familyPayload(visits, tombs, people, meName) {
+    const shared = {};
+    Object.entries(visits || {}).forEach(([a3, arr]) => {
+        const list = (arr || []).filter((t) => othersOf(t).length > 0);
+        if (list.length)
+            shared[a3] = list;
+    });
+    return {
+        kind: "atlas-family",
+        from: meName || "",
+        at: Date.now(),
+        visits: shared,
+        tombs: tombs || {},
+        people: (people || []).map(({ id, name, role }) => ({ id, name, role })),
+    };
+}
+/* отправка и приём одним вызовом — для фонового обмена */
+async function familySync(family, payload) {
+    const base = family.server.replace(/\/+$/, "");
+    await fetch(base + "/put/" + family.id, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            who: family.me || "me",
+            ...(await sealPacket(family.raw, payload)),
+        }),
+    });
+    const r = await fetch(base + "/get/" + family.id, { cache: "no-store" });
+    const list = await r.json();
+    const out = [];
+    for (const packet of list || []) {
+        try {
+            out.push(await openPacket(family.raw, packet));
+        }
+        catch {
+            /* чужой ключ */
+        }
+    }
+    return out;
+}
+/* проверка сервера: отвечает ли и умеет ли принимать */
+async function pingServer(url) {
+    if (!url)
+        return false;
+    try {
+        const r = await fetch(url.replace(/\/+$/, "") + "/ping", {
+            method: "GET",
+            cache: "no-store",
+        });
+        return r.ok;
+    }
+    catch {
+        return false;
+    }
+}
 /* кто ездит вместе с вами */
 const ROLES = [
     "Супруг",
@@ -953,7 +1203,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "12.4";
+const APP_VERSION = "13.0";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -4021,7 +4271,7 @@ function Stars({ value, onPick }) {
             onPick(n === value ? 0 : n);
         }, "aria-label": `${n} звёзд` }, "\u2605")))));
 }
-function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality, since, people = [] }) {
+function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality, since, people = [], meId = ME }) {
     const totalPhotos = useMemo(() => {
         let k = 0;
         Object.values(visits).forEach((arr) => arr.forEach((t) => (k += (t.photos || []).length)));
@@ -4062,6 +4312,9 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality,
             to: src.trip.to || "",
             who: src.trip.who || [],
             plan: !!src.trip.plan,
+            id: src.trip.id,
+            by: src.trip.by || "",
+            left: src.trip.left || [],
             cities: src.trip.cities || [],
             hotels: src.trip.hotels || [],
             photos: src.trip.photos || [],
@@ -4168,7 +4421,7 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality,
                         from: "",
                         to: "",
                         plan: false,
-                        who: people.filter((p) => p.always).map((p) => p.name),
+                        who: [ME, ...people.filter((p) => p.always).map((p) => p.id)],
                         cities: via ? [via] : [],
                         hotels: [],
                         photos: [],
@@ -4207,11 +4460,26 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality,
                     setAddCity(false);
                 } })) : (React.createElement("button", { className: "link-btn", onClick: () => setAddCity(true) }, "\uFF0B \u0435\u0449\u0451 \u0433\u043E\u0440\u043E\u0434")))),
         country && whenReady && !editWhen && (React.createElement("div", { className: "step" },
-            React.createElement("p", { className: "step-title" }, "\u0421 \u043A\u0435\u043C \u0435\u0437\u0434\u0438\u043B\u0438"),
-            (draft.who || []).length > 0 && (React.createElement("div", { className: "city-chips" }, (draft.who || []).map((n) => {
-                const p = people.find((x) => x.name === n);
+            React.createElement("p", { className: "step-title" }, "\u041A\u0442\u043E \u0435\u0437\u0434\u0438\u043B"),
+            React.createElement("div", { className: "city-chips" },
+                React.createElement("span", { className: "city-chip me-chip" +
+                        ((draft.who || []).includes(ME) ? " who-on" : " who-off") },
+                    "\u042F",
+                    React.createElement("button", { onClick: () => patch((draft.who || []).includes(ME)
+                            ? {
+                                who: (draft.who || []).filter((x) => x !== ME),
+                                left: [
+                                    ...new Set([...(draft.left || []), meId]),
+                                ],
+                            }
+                            : {
+                                who: [ME, ...(draft.who || [])],
+                                left: (draft.left || []).filter((x) => x !== meId),
+                            }) }, (draft.who || []).includes(ME) ? "✕" : "＋"))),
+            othersOf(draft).length > 0 && (React.createElement("div", { className: "city-chips" }, othersOf(draft).map((n) => {
+                const p = people.find((x) => x.id === n || x.name === n);
                 return (React.createElement("span", { key: n, className: "city-chip who-on" },
-                    n,
+                    p ? p.name : n,
                     p && React.createElement("i", null, p.role),
                     React.createElement("button", { onClick: () => patch({
                             who: (draft.who || []).filter((x) => x !== n),
@@ -4219,8 +4487,13 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality,
             }))),
             people.length === 0 && !(draft.who || []).length && !addWho && (React.createElement("p", { className: "hint small" }, "\u041F\u043E\u043A\u0430 \u043D\u0438\u043A\u043E\u0433\u043E \u043D\u0435\u0442. \u0414\u043E\u0431\u0430\u0432\u044C\u0442\u0435 \u0443\u0447\u0430\u0441\u0442\u043D\u0438\u043A\u0430 \u2014 \u043E\u043D \u0441\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u0441\u044F \u0432 \u043F\u0440\u043E\u0444\u0438\u043B\u0435 \u0438 \u0432 \u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0438\u0439 \u0440\u0430\u0437 \u0431\u0443\u0434\u0435\u0442 \u0432\u044B\u0431\u0438\u0440\u0430\u0442\u044C\u0441\u044F \u043D\u0430\u0436\u0430\u0442\u0438\u0435\u043C.")),
             addWho ? (React.createElement("div", { ref: whoBox },
-                React.createElement(Suggest, { placeholder: "\u041D\u0430\u0447\u043D\u0438\u0442\u0435 \u0432\u0432\u043E\u0434\u0438\u0442\u044C \u0438\u043C\u044F", pool: people.map((p) => p.name), exclude: draft.who || [], allowCustom: false, onAdd: (name) => {
-                        patch({ who: [...(draft.who || []), name] });
+                React.createElement(Suggest, { placeholder: "\u041D\u0430\u0447\u043D\u0438\u0442\u0435 \u0432\u0432\u043E\u0434\u0438\u0442\u044C \u0438\u043C\u044F", pool: people
+                        .filter((p) => !(draft.who || []).includes(p.id))
+                        .map((p) => p.name), exclude: [], allowCustom: false, onAdd: (name) => {
+                        const p = people.find((x) => x.name === name);
+                        patch({
+                            who: [...(draft.who || []), p ? p.id : name],
+                        });
                         setAddWho(false);
                     } }))) : (React.createElement("button", { className: "link-btn", onClick: () => setAddWho(true) }, "\uFF0B \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0443\u0447\u0430\u0441\u0442\u043D\u0438\u043A\u0430")))),
         country && whenReady && !editWhen && (React.createElement("div", { className: "step" },
@@ -4263,6 +4536,9 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality,
                         to: draft.to || "",
                         who: draft.who || [],
                         plan: !!draft.plan,
+                        id: draft.id || uid(),
+                        at: Date.now(),
+                        by: draft.by || meId,
                         cities: draft.cities,
                         hotels: draft.hotels,
                         photos: draft.photos || [],
@@ -4273,7 +4549,7 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality,
                     React.createElement("path", { d: "M5 12.5l4.5 4.5L19 7.5", fill: "none", stroke: "currentColor", strokeWidth: "2.2", strokeLinecap: "round", strokeLinejoin: "round" })))))))));
 }
 /* шторка: профиль — вы и ваши данные */
-function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, since, onSince, people, onPeople, onReports, onSettings, onExport, onImport, onRestore, restoreMsg, visits, }) {
+function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, since, onSince, people, onPeople, onReports, onSettings, onFamily, familyOn, onExport, onImport, onRestore, restoreMsg, doubles, onDoubles, visits, }) {
     const [showAll, setShowAll] = useState(false);
     const [addPerson, setAddPerson] = useState(false);
     const [newName, setNewName] = useState("");
@@ -4438,6 +4714,14 @@ function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, 
                     "\u00BB",
                     React.createElement("em", { className: "opt-role" }, newRole)))))) : (React.createElement("button", { className: "link-btn", onClick: () => setAddPerson(true) }, "\uFF0B \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u043F\u0443\u0442\u0435\u0448\u0435\u0441\u0442\u0432\u0435\u043D\u043D\u0438\u043A\u0430")),
         React.createElement("p", { className: "step-title" }, "\u041C\u043E\u0438 \u0434\u0430\u043D\u043D\u044B\u0435"),
+        doubles > 0 && (React.createElement("button", { className: "switch-row", onClick: onDoubles },
+            React.createElement("span", { className: "switch-text" },
+                "\u041F\u043E\u0445\u043E\u0436\u0438\u0435 \u043F\u043E\u0435\u0437\u0434\u043A\u0438",
+                React.createElement("em", null,
+                    "\u041D\u0430\u0448\u043B\u043E\u0441\u044C ",
+                    np(doubles, "trip"),
+                    " \u0441 \u043F\u0435\u0440\u0435\u0441\u0435\u043A\u0430\u044E\u0449\u0438\u043C\u0438\u0441\u044F \u0434\u0430\u0442\u0430\u043C\u0438 \u2014 \u043F\u043E\u0441\u043C\u043E\u0442\u0440\u0435\u0442\u044C \u0438 \u043E\u0431\u044A\u0435\u0434\u0438\u043D\u0438\u0442\u044C")),
+            React.createElement("span", { className: "step-pen" }, "\u2192"))),
         React.createElement("button", { className: "switch-row", onClick: onRestore },
             React.createElement("span", { className: "switch-text" },
                 "\u041D\u0430\u0439\u0442\u0438 \u043C\u043E\u0438 \u043F\u043E\u0435\u0437\u0434\u043A\u0438",
@@ -4957,6 +5241,10 @@ function Ask({ ask, onClose, box }) {
             ask.text && React.createElement("span", null, ask.text),
             React.createElement("div", { className: "ask-btns" },
                 React.createElement("button", { className: "ask-no", onClick: onClose }, "\u041E\u0442\u043C\u0435\u043D\u0430"),
+                ask.alt && (React.createElement("button", { className: "ask-no", onClick: () => {
+                        ask.onAlt();
+                        onClose();
+                    } }, ask.alt)),
                 React.createElement("button", { className: "ask-yes", onClick: () => {
                         ask.onYes();
                         onClose();
@@ -4971,7 +5259,7 @@ const C_BLUE = "#4a7fb5";
 const C_DIM = "#8fa4b8";
 const C_LINE = "#22384d";
 const C_FILL = "#1c344a";
-function reportData(visits, since) {
+function reportData(visits, since, people) {
     const trips = [];
     const plans = [];
     Object.entries(visits || {}).forEach(([a3, arr]) => (arr || []).forEach((t) => (t.plan ? plans : trips).push({ a3, t })));
@@ -4985,14 +5273,14 @@ function reportData(visits, since) {
     const days = {};
     const cities = {};
     const hotels = {};
-    const people = {};
+    const who = {};
     const grid = {}; // год:месяц → дни (состоявшиеся)
     const planGrid = {}; // год:месяц → дни (планы)
     const vague = {}; // год → доля неточных поездок
     trips.forEach(({ a3, t }) => {
         (t.cities || []).forEach((c) => (cities[c] = (cities[c] || 0) + 1));
         (t.hotels || []).forEach((h) => (hotels[h.name] = (hotels[h.name] || 0) + 1));
-        (t.who || []).forEach((w) => (people[w] = (people[w] || 0) + 1));
+        whoNames(t, people).forEach((w) => (who[w] = (who[w] || 0) + 1));
         // неточный период: одну поездку размазываем поровну по его годам
         if (t.approx && t.y) {
             const to = t.y2 && t.y2 > t.y ? t.y2 : t.y;
@@ -5059,7 +5347,7 @@ function reportData(visits, since) {
         planGrid,
         topCities: top(cities),
         topHotels: top(hotels),
-        topPeople: top(people, 4),
+        topPeople: top(who, 4),
     };
 }
 /* столбики с линией тренда; неточные периоды — полупрозрачной частью */
@@ -5222,8 +5510,8 @@ function GridChart({ grid, planGrid, vague, years }) {
             " \u043D\u0435\u0442\u043E\u0447\u043D\u0430\u044F \u0434\u0430\u0442\u0430")));
 }
 /* шторка отчётов */
-function ReportsSheet({ open, onClose, box, visits, since, stats }) {
-    const r = useMemo(() => reportData(visits, since), [visits, since]);
+function ReportsSheet({ open, onClose, box, visits, since, stats, people = [] }) {
+    const r = useMemo(() => reportData(visits, since, people), [visits, since, people]);
     const years = r.allYears.length ? r.allYears : [NOW.getFullYear()];
     return (React.createElement(Sheet, { open: open, onClose: onClose, title: "\u041E\u0442\u0447\u0451\u0442\u044B", box: box }, () => (React.createElement("div", { className: "sheet-body" }, r.trips.length === 0 ? (React.createElement("p", { className: "hint small" }, "\u041E\u0442\u0447\u0451\u0442\u044B \u043F\u043E\u044F\u0432\u044F\u0442\u0441\u044F, \u043A\u043E\u0433\u0434\u0430 \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u0435 \u043F\u0435\u0440\u0432\u0443\u044E \u043F\u043E\u0435\u0437\u0434\u043A\u0443.")) : (React.createElement(React.Fragment, null,
         React.createElement("div", { className: "rep" },
@@ -5270,6 +5558,228 @@ function ReportsSheet({ open, onClose, box, visits, since, stats }) {
             React.createElement("em", null, "\u0433\u043E\u0434 \u0438 \u043C\u0435\u0441\u044F\u0446, \u044F\u0440\u0447\u0435 \u2014 \u0434\u043E\u043B\u044C\u0448\u0435"),
             React.createElement(GridChart, { grid: r.grid, planGrid: r.planGrid, vague: r.vague, years: years.slice(-8) }))))))));
 }
+/* шторка: семья — ключ, способ обмена, отправка и приём */
+function FamilySheet({ open, onClose, box, family, onFamily, visits, tombs, people, meName, onReceive, }) {
+    const [words, setWords] = useState("");
+    const [busy, setBusy] = useState("");
+    const [serverOk, setServerOk] = useState(null);
+    const [addr, setAddr] = useState((family === null || family === void 0 ? void 0 : family.server) || "");
+    /* проверяем сервер при открытии и после смены адреса */
+    useEffect(() => {
+        if (!open)
+            return;
+        let dead = false;
+        setServerOk(null);
+        pingServer(family === null || family === void 0 ? void 0 : family.server).then((ok) => !dead && setServerOk(ok));
+        return () => {
+            dead = true;
+        };
+    }, [open, family === null || family === void 0 ? void 0 : family.server]);
+    const viaServer = (family === null || family === void 0 ? void 0 : family.via) === "server" && serverOk;
+    const create = async () => {
+        const key = await makeFamilyKey();
+        onFamily({ ...key, via: "file", server: (family === null || family === void 0 ? void 0 : family.server) || "" });
+    };
+    const join = async () => {
+        const list = words.trim().toLowerCase().split(/[\s,]+/).filter(Boolean);
+        if (list.length < 12) {
+            setBusy("Нужно двенадцать слов");
+            return;
+        }
+        const bad = list.slice(0, 12).find((w) => !WORDS.includes(w));
+        if (bad) {
+            setBusy(`Слова «${bad}» нет в списке — проверьте написание`);
+            return;
+        }
+        const words = list.slice(0, 12);
+        const raw = await keyFromWords(words);
+        onFamily({
+            raw,
+            words,
+            id: await keyFingerprint(raw),
+            via: "file",
+            server: (family === null || family === void 0 ? void 0 : family.server) || "",
+        });
+        setWords("");
+        setBusy("Группа подключена");
+    };
+    /* отправка файлом — работает всегда */
+    const sendFile = async () => {
+        const payload = familyPayload(visits, tombs, people, meName);
+        const packet = (family === null || family === void 0 ? void 0 : family.raw)
+            ? await sealPacket(family.raw, payload)
+            : payload;
+        const body = JSON.stringify((family === null || family === void 0 ? void 0 : family.raw) ? { family: family.id, ...packet } : payload);
+        const blob = new Blob([body], { type: "application/json" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = `atlas-family-${new Date().toISOString().slice(0, 10)}.json`;
+        a.click();
+        a.remove();
+    };
+    /* отправка через сервер */
+    const sendServer = async () => {
+        setBusy("Отправляем…");
+        try {
+            const payload = familyPayload(visits, tombs, people, meName);
+            const packet = await sealPacket(family.raw, payload);
+            const r = await fetch(family.server.replace(/\/+$/, "") + "/put/" + family.id, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ who: meName || "me", ...packet }),
+            });
+            setBusy(r.ok ? "Отправлено" : "Сервер не принял");
+        }
+        catch {
+            setBusy("Не получилось — попробуйте через файл");
+        }
+    };
+    const fetchServer = async () => {
+        setBusy("Забираем…");
+        try {
+            const r = await fetch(family.server.replace(/\/+$/, "") + "/get/" + family.id, { cache: "no-store" });
+            const list = await r.json();
+            let got = 0;
+            for (const packet of list || []) {
+                try {
+                    const data = await openPacket(family.raw, packet);
+                    onReceive(data);
+                    got += 1;
+                }
+                catch {
+                    /* чужой ключ — пропускаем */
+                }
+            }
+            setBusy(got ? `Получено пакетов: ${got}` : "Нового ничего нет");
+        }
+        catch {
+            setBusy("Сервер не ответил");
+        }
+    };
+    return (React.createElement(Sheet, { open: open, onClose: onClose, title: "\u0421\u0435\u043C\u044C\u044F", box: box }, () => (React.createElement("div", { className: "sheet-body" }, !(family === null || family === void 0 ? void 0 : family.raw) ? (React.createElement(React.Fragment, null,
+        React.createElement("p", { className: "hint small" }, "\u0421\u0435\u043C\u0435\u0439\u043D\u0430\u044F \u0433\u0440\u0443\u043F\u043F\u0430 \u043F\u043E\u0437\u0432\u043E\u043B\u044F\u0435\u0442 \u043E\u0431\u043C\u0435\u043D\u0438\u0432\u0430\u0442\u044C\u0441\u044F \u043F\u043E\u0435\u0437\u0434\u043A\u0430\u043C\u0438, \u0432 \u043A\u043E\u0442\u043E\u0440\u044B\u0445 \u043E\u0442\u043C\u0435\u0447\u0435\u043D\u044B \u0435\u0451 \u0443\u0447\u0430\u0441\u0442\u043D\u0438\u043A\u0438. \u041A\u043B\u044E\u0447 \u0441\u043E\u0437\u0434\u0430\u0451\u0442\u0441\u044F \u043D\u0430 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0435 \u0438 \u043D\u0438\u043A\u0443\u0434\u0430 \u043D\u0435 \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u044F\u0435\u0442\u0441\u044F \u2014 \u0431\u0435\u0437 \u043D\u0435\u0433\u043E \u0434\u0430\u043D\u043D\u044B\u0435 \u043F\u0440\u043E\u0447\u0438\u0442\u0430\u0442\u044C \u043D\u0435\u043B\u044C\u0437\u044F."),
+        React.createElement("button", { className: "btn-main wide", onClick: create }, "\u0421\u043E\u0437\u0434\u0430\u0442\u044C \u0433\u0440\u0443\u043F\u043F\u0443"),
+        React.createElement("p", { className: "step-title" }, "\u041F\u0440\u0438\u0441\u043E\u0435\u0434\u0438\u043D\u0438\u0442\u044C\u0441\u044F"),
+        React.createElement("input", { className: "field", value: words, placeholder: "\u0414\u0432\u0435\u043D\u0430\u0434\u0446\u0430\u0442\u044C \u0441\u043B\u043E\u0432 \u0447\u0435\u0440\u0435\u0437 \u043F\u0440\u043E\u0431\u0435\u043B", onChange: (e) => setWords(e.target.value), autoComplete: "off", autoCorrect: "off", spellCheck: "false" }),
+        React.createElement("button", { className: "switch-row", onClick: join },
+            React.createElement("span", { className: "switch-text" },
+                "\u041F\u043E\u0434\u043A\u043B\u044E\u0447\u0438\u0442\u044C\u0441\u044F \u043A \u0433\u0440\u0443\u043F\u043F\u0435",
+                React.createElement("em", null, busy || "Слова даст тот, кто создал группу")),
+            React.createElement("span", { className: "step-pen" }, "\u2192")))) : (React.createElement(React.Fragment, null,
+        React.createElement("div", { className: "fam-key" },
+            React.createElement("b", null, "\u041A\u043B\u044E\u0447 \u0433\u0440\u0443\u043F\u043F\u044B"),
+            React.createElement("div", { className: "fam-words" }, family.words.map((w, i) => (React.createElement("span", { key: i },
+                React.createElement("i", null, i + 1),
+                w)))),
+            React.createElement("em", null, "\u041F\u0435\u0440\u0435\u0434\u0430\u0439\u0442\u0435 \u044D\u0442\u0438 \u0441\u043B\u043E\u0432\u0430 \u0431\u043B\u0438\u0437\u043A\u0438\u043C \u043B\u0438\u0447\u043D\u043E. \u041A\u0442\u043E \u0438\u0445 \u0437\u043D\u0430\u0435\u0442 \u2014 \u0442\u043E\u0442 \u0432\u0445\u043E\u0434\u0438\u0442 \u0432 \u0433\u0440\u0443\u043F\u043F\u0443."),
+            React.createElement("div", { className: "fam-share" },
+                React.createElement("button", { onClick: async () => {
+                        const text = family.words.join(" ");
+                        try {
+                            await navigator.clipboard.writeText(text);
+                            setBusy("Слова скопированы");
+                        }
+                        catch {
+                            setBusy(text);
+                        }
+                    } }, "\u0421\u043A\u043E\u043F\u0438\u0440\u043E\u0432\u0430\u0442\u044C"),
+                navigator.share && (React.createElement("button", { onClick: () => navigator
+                        .share({
+                        title: "Ключ семейной группы «Атлас»",
+                        text: family.words.join(" "),
+                    })
+                        .catch(() => { }) }, "\u041E\u0442\u043F\u0440\u0430\u0432\u0438\u0442\u044C")))),
+        React.createElement("p", { className: "step-title" }, "\u041A\u0430\u043A \u043E\u0431\u043C\u0435\u043D\u0438\u0432\u0430\u0442\u044C\u0441\u044F"),
+        React.createElement("div", { className: "theme-row" },
+            React.createElement("button", { className: "theme-cell" + (family.via === "file" ? " on" : ""), onClick: () => onFamily({ ...family, via: "file" }) }, "\u0424\u0430\u0439\u043B\u043E\u043C"),
+            React.createElement("button", { className: "theme-cell" +
+                    (family.via === "server" ? " on" : "") +
+                    (serverOk ? "" : " off"), disabled: !serverOk, onClick: () => onFamily({ ...family, via: "server" }) }, "\u0427\u0435\u0440\u0435\u0437 \u0441\u0435\u0440\u0432\u0435\u0440")),
+        React.createElement("p", { className: "hint small" }, serverOk === null
+            ? "Проверяем сервер…"
+            : serverOk
+                ? "Сервер на связи. Обмен идёт сам, данные шифруются ключом группы."
+                : "Сервер не настроен или не отвечает — работает обмен файлом. Файл тоже зашифрован."),
+        React.createElement("p", { className: "step-title" }, "\u041E\u0442\u043F\u0440\u0430\u0432\u0438\u0442\u044C \u0441\u0432\u043E\u0438\u043C"),
+        React.createElement("button", { className: "switch-row", onClick: sendFile },
+            React.createElement("span", { className: "switch-text" },
+                "\u0412\u044B\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u0444\u0430\u0439\u043B \u0434\u043B\u044F \u0441\u0435\u043C\u044C\u0438",
+                React.createElement("em", null, "\u041E\u0442\u043F\u0440\u0430\u0432\u044C\u0442\u0435 \u0435\u0433\u043E \u0432 \u043C\u0435\u0441\u0441\u0435\u043D\u0434\u0436\u0435\u0440\u0435 \u2014 \u0440\u0430\u0431\u043E\u0442\u0430\u0435\u0442 \u0431\u0435\u0437 \u0441\u0435\u0440\u0432\u0435\u0440\u0430")),
+            React.createElement("span", { className: "step-pen" }, "\u2193")),
+        viaServer && (React.createElement("button", { className: "switch-row", onClick: sendServer },
+            React.createElement("span", { className: "switch-text" },
+                "\u041E\u0442\u043F\u0440\u0430\u0432\u0438\u0442\u044C \u0447\u0435\u0440\u0435\u0437 \u0441\u0435\u0440\u0432\u0435\u0440",
+                React.createElement("em", null, busy || "Зашифрованный пакет уйдёт в группу")),
+            React.createElement("span", { className: "step-pen" }, "\u2191"))),
+        React.createElement("p", { className: "step-title" }, "\u041F\u0440\u0438\u043D\u044F\u0442\u044C \u043E\u0442 \u0441\u0432\u043E\u0438\u0445"),
+        React.createElement("label", { className: "switch-row" },
+            React.createElement("span", { className: "switch-text" },
+                "\u0417\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u0444\u0430\u0439\u043B \u043E\u0442 \u0440\u043E\u0434\u043D\u044B\u0445",
+                React.createElement("em", null, "\u041F\u043E\u0435\u0437\u0434\u043A\u0438 \u0434\u043E\u0431\u0430\u0432\u044F\u0442\u0441\u044F \u043A \u0432\u0430\u0448\u0438\u043C, \u043D\u0438\u0447\u0435\u0433\u043E \u043D\u0435 \u0437\u0430\u0442\u0440\u0451\u0442\u0441\u044F")),
+            React.createElement("span", { className: "step-pen" }, "\u2191"),
+            React.createElement("input", { type: "file", accept: "application/json", style: { display: "none" }, onChange: async (e) => {
+                    var _a;
+                    const f = (_a = e.target.files) === null || _a === void 0 ? void 0 : _a[0];
+                    e.target.value = "";
+                    if (!f)
+                        return;
+                    try {
+                        const raw = JSON.parse(await f.text());
+                        const data = raw.data
+                            ? await openPacket(family.raw, raw)
+                            : raw;
+                        onReceive(data);
+                        setBusy("Данные приняты");
+                    }
+                    catch {
+                        setBusy("Не удалось прочитать: другой ключ или файл");
+                    }
+                } })),
+        viaServer && (React.createElement("button", { className: "switch-row", onClick: fetchServer },
+            React.createElement("span", { className: "switch-text" },
+                "\u0417\u0430\u0431\u0440\u0430\u0442\u044C \u0441 \u0441\u0435\u0440\u0432\u0435\u0440\u0430",
+                React.createElement("em", null, busy || "Проверить, что прислали родные")),
+            React.createElement("span", { className: "step-pen" }, "\u2193"))),
+        React.createElement("p", { className: "step-title" }, "\u0421\u0435\u0440\u0432\u0435\u0440"),
+        React.createElement("input", { className: "field", value: addr, placeholder: "https://\u0430\u0434\u0440\u0435\u0441-\u0441\u0435\u0440\u0432\u0435\u0440\u0430", onChange: (e) => setAddr(e.target.value), autoComplete: "off", autoCorrect: "off", spellCheck: "false" }),
+        React.createElement("button", { className: "switch-row", onClick: () => onFamily({ ...family, server: addr.trim() }) },
+            React.createElement("span", { className: "switch-text" },
+                "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C \u0430\u0434\u0440\u0435\u0441",
+                React.createElement("em", null, "\u041E\u0441\u0442\u0430\u0432\u044C\u0442\u0435 \u043F\u0443\u0441\u0442\u044B\u043C, \u0435\u0441\u043B\u0438 \u0441\u0435\u0440\u0432\u0435\u0440\u0430 \u043D\u0435\u0442")),
+            React.createElement("span", { className: "step-pen" }, "\u2713")),
+        React.createElement("button", { className: "switch-row danger-row", onClick: () => onFamily(null) },
+            React.createElement("span", { className: "switch-text" },
+                "\u0412\u044B\u0439\u0442\u0438 \u0438\u0437 \u0433\u0440\u0443\u043F\u043F\u044B",
+                React.createElement("em", null, "\u041A\u043B\u044E\u0447 \u0443\u0434\u0430\u043B\u0438\u0442\u0441\u044F \u0441 \u044D\u0442\u043E\u0433\u043E \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430")),
+            React.createElement("span", { className: "step-pen" }, "\u2192"))))))));
+}
+/* шторка: похожие поездки — предлагаем объединить */
+function DoublesSheet({ open, onClose, box, pairs, people, onJoin }) {
+    return (React.createElement(Sheet, { open: open, onClose: onClose, title: "\u041F\u043E\u0445\u043E\u0436\u0438\u0435 \u043F\u043E\u0435\u0437\u0434\u043A\u0438", box: box }, () => (React.createElement("div", { className: "sheet-body" }, pairs.length === 0 ? (React.createElement("p", { className: "hint small" }, "\u0421\u043E\u0432\u043F\u0430\u0434\u0435\u043D\u0438\u0439 \u043D\u0435\u0442.")) : (React.createElement(React.Fragment, null,
+        React.createElement("p", { className: "hint small" }, "\u0414\u0430\u0442\u044B \u044D\u0442\u0438\u0445 \u043F\u043E\u0435\u0437\u0434\u043E\u043A \u043F\u0435\u0440\u0435\u0441\u0435\u043A\u0430\u044E\u0442\u0441\u044F \u2014 \u0432\u043E\u0437\u043C\u043E\u0436\u043D\u043E, \u043E\u0434\u043D\u0430 \u0438 \u0442\u0430 \u0436\u0435 \u0437\u0430\u043F\u0438\u0441\u0430\u043D\u0430 \u0434\u0432\u0430\u0436\u0434\u044B. \u041E\u0431\u044A\u0435\u0434\u0438\u043D\u0435\u043D\u0438\u0435 \u0441\u043E\u0445\u0440\u0430\u043D\u0438\u0442 \u0433\u043E\u0440\u043E\u0434\u0430, \u043E\u0442\u0435\u043B\u0438, \u0443\u0447\u0430\u0441\u0442\u043D\u0438\u043A\u043E\u0432 \u0438 \u0441\u043D\u0438\u043C\u043A\u0438 \u043E\u0431\u0435\u0438\u0445."),
+        pairs.map((pr, i) => {
+            var _a;
+            return (React.createElement("div", { key: i, className: "double" },
+                React.createElement("b", null, (_a = BY_A3[pr.a3]) === null || _a === void 0 ? void 0 : _a.name),
+                React.createElement("div", { className: "double-row" },
+                    React.createElement("span", null, tripLabel(pr.a)),
+                    React.createElement("em", null, [
+                        (pr.a.cities || []).join(", "),
+                        whoNames(pr.a, people).join(", "),
+                    ]
+                        .filter(Boolean)
+                        .join(" · ") || "без подробностей")),
+                React.createElement("div", { className: "double-row" },
+                    React.createElement("span", null, tripLabel(pr.b)),
+                    React.createElement("em", null, [
+                        (pr.b.cities || []).join(", "),
+                        whoNames(pr.b, people).join(", "),
+                    ]
+                        .filter(Boolean)
+                        .join(" · ") || "без подробностей")),
+                React.createElement("button", { className: "btn-main wide", onClick: () => onJoin(pr) }, "\u041E\u0431\u044A\u0435\u0434\u0438\u043D\u0438\u0442\u044C")));
+        })))))));
+}
 /* шторка: фильтры — для глобуса и для списка поездок */
 function FiltersSheet({ open, onClose, box, target, years, yearFilter, onYear, mode, onMode, }) {
     return (React.createElement(Sheet, { open: open, onClose: onClose, title: "\u0424\u0438\u043B\u044C\u0442\u0440\u044B", box: box }, () => (React.createElement("div", { className: "sheet-body" }, target === "list" ? (React.createElement(React.Fragment, null,
@@ -5295,7 +5805,7 @@ function FiltersSheet({ open, onClose, box, target, years, yearFilter, onYear, m
         years.length === 0 && (React.createElement("p", { className: "focus-empty" }, "\u0424\u0438\u043B\u044C\u0442\u0440 \u043F\u043E\u044F\u0432\u0438\u0442\u0441\u044F, \u043A\u043E\u0433\u0434\u0430 \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u0435 \u043F\u0435\u0440\u0432\u0443\u044E \u043F\u043E\u0435\u0437\u0434\u043A\u0443."))))))));
 }
 /* шторка: все поездки — свёртка групп, поиск */
-function ListSheet({ visits, stats, open, onClose, onPick, onRemove, onDone, box, mode, since, wishCount = 0, onReports, onFilters }) {
+function ListSheet({ visits, stats, open, onClose, onPick, onRemove, onDone, box, mode, since, wishCount = 0, onReports, onFilters, people = [], meId = ME }) {
     const [ask, setAsk] = useState(null);
     const [q, setQ] = useState("");
     const [closed, setClosed] = useState({});
@@ -5405,19 +5915,26 @@ function ListSheet({ visits, stats, open, onClose, onPick, onRemove, onDone, box
     }, [visits, since]);
     const yearHint = "";
     const sub = (t) => {
-        var _a, _b, _c;
+        var _a, _b;
         const parts = [];
         if (t.plan)
             parts.push(planOverdue(t) ? "план · срок прошёл" : "план");
+        if (t.by && t.by !== meId) {
+            const who = (people || []).find((p) => p.id === t.by);
+            parts.push(`добавил${who ? " " + who.name : "а семья"}`);
+        }
         if (t.m)
             parts.push(MONTHS[t.m - 1]);
         if (tripDays(t))
             parts.push(np(tripDays(t), "day"));
-        if ((_a = t.who) === null || _a === void 0 ? void 0 : _a.length)
-            parts.push(`с ${t.who.join(", ")}`);
-        if ((_b = t.cities) === null || _b === void 0 ? void 0 : _b.length)
+        {
+            const names = whoNames(t, people);
+            if (names.length)
+                parts.push(`с ${names.join(", ")}`);
+        }
+        if ((_a = t.cities) === null || _a === void 0 ? void 0 : _a.length)
             parts.push(t.cities.join(", "));
-        if ((_c = t.hotels) === null || _c === void 0 ? void 0 : _c.length)
+        if ((_b = t.hotels) === null || _b === void 0 ? void 0 : _b.length)
             parts.push(t.hotels
                 .map((h) => (h.note ? `${h.name} (${h.note})` : h.name))
                 .join(", "));
@@ -5557,6 +6074,11 @@ function Atlas() {
     const [booting, setBooting] = useState(true);
     const [profile, setProfile] = useState(null);
     const loaded = useRef(false);
+    const tombsRef = useRef({});
+    const visitsRef = useRef({});
+    const profileRef = useRef(null);
+    const familyRef = useRef(null);
+    const receiveRef = useRef(() => { });
     const saveProfile = useCallback(async (prof) => {
         setProfile(prof);
         if (!loaded.current)
@@ -5662,6 +6184,7 @@ function Atlas() {
     }, [theme, photoQuality, spinStart, mapView]);
     const [geo, setGeo] = useState(null);
     const [visits, setVisits] = useState({});
+    const [tombs, setTombs] = useState({});
     const [selected, setSelected] = useState(null);
     const [full, setFull] = useState(false);
     const [sheet, setSheet] = useState(null);
@@ -5897,7 +6420,9 @@ function Atlas() {
                     store.set(K_DATA, data);
                 }
             }
-            setVisits((data === null || data === void 0 ? void 0 : data.visits) || {});
+            setVisits(normVisits((data === null || data === void 0 ? void 0 : data.visits) || {}));
+            tombsRef.current = (data === null || data === void 0 ? void 0 : data.tombs) || {};
+            setTombs(tombsRef.current);
             loaded.current = true;
             const st = await store.get(K_SETTINGS);
             if (st && typeof st.cityPins === "boolean")
@@ -5908,6 +6433,15 @@ function Atlas() {
                 setPhotoQualityState(st.photoQuality);
             if (st === null || st === void 0 ? void 0 : st.mapView)
                 setMapViewState(st.mapView);
+            const fam = await store.get(K_FAMILY);
+            if (fam === null || fam === void 0 ? void 0 : fam.raw)
+                setFamilyState(fam);
+            // свой идентификатор в группе — чтобы было видно, кто добавил запись
+            if (prof0 && !prof0.deviceId) {
+                const withId = { ...prof0, deviceId: uid("u") };
+                setProfile(withId);
+                store.set(K_PROFILE, withId);
+            }
             if (typeof (st === null || st === void 0 ? void 0 : st.spinStart) === "boolean") {
                 setSpinStartState(st.spinStart);
                 setSpinning(st.spinStart);
@@ -6024,7 +6558,7 @@ function Atlas() {
         setVisits(next);
         if (!loaded.current)
             return; // данные ещё читаются — не затираем
-        const payload = { visits: next, at: Date.now() };
+        const payload = { visits: next, tombs: tombsRef.current, at: Date.now() };
         const ok = await store.set(K_DATA, payload);
         // запасная копия во всех доступных хранилищах
         try {
@@ -6054,6 +6588,8 @@ function Atlas() {
             to: (trip === null || trip === void 0 ? void 0 : trip.to) || "",
             who: (trip === null || trip === void 0 ? void 0 : trip.who) || [],
             plan: !!(trip === null || trip === void 0 ? void 0 : trip.plan),
+            id: (trip === null || trip === void 0 ? void 0 : trip.id) || uid(),
+            at: Date.now(),
             cities: (trip === null || trip === void 0 ? void 0 : trip.cities) || [],
             hotel: (trip === null || trip === void 0 ? void 0 : trip.hotel) || "",
         };
@@ -6074,6 +6610,11 @@ function Atlas() {
     const removeTrip = (a3, idx) => {
         const gone = (visits[a3] || [])[idx];
         ((gone === null || gone === void 0 ? void 0 : gone.photos) || []).forEach((p) => store.set(photoKey(p.id), { full: "", thumb: "" }));
+        // помним, что запись удалена, иначе она вернётся при обмене
+        if (gone === null || gone === void 0 ? void 0 : gone.id) {
+            tombsRef.current = addTomb(tombsRef.current, gone.id);
+            setTombs(tombsRef.current);
+        }
         const cur = (visits[a3] || []).filter((_, i) => i !== idx);
         const next = { ...visits };
         if (cur.length)
@@ -6134,6 +6675,7 @@ function Atlas() {
             version: 1,
             savedAt: new Date().toISOString(),
             visits,
+            tombs: tombsRef.current,
             settings: { cityPins, theme, photoQuality, spinStart, mapView },
             avatar: (profile === null || profile === void 0 ? void 0 : profile.avatar) || null,
             since: (profile === null || profile === void 0 ? void 0 : profile.since) || null,
@@ -6151,7 +6693,7 @@ function Atlas() {
         a.remove();
         setTimeout(() => URL.revokeObjectURL(url), 3000);
     }, [visits, cityPins, theme, photoQuality, spinStart, mapView, profile]);
-    const importData = useCallback(async (file) => {
+    const importData = useCallback(async (file, mode = "replace") => {
         try {
             const text = await file.text();
             const d = JSON.parse(text);
@@ -6169,8 +6711,28 @@ function Atlas() {
                     await store.set(photoKey(id), { full: data, thumb: data });
                 }
             }
-            await store.set(K_DATA, { visits: d.visits, at: Date.now() });
-            setVisits(d.visits);
+            if (mode === "merge") {
+                const res = mergeVisits(visits, d.visits, tombsRef.current, d.tombs);
+                tombsRef.current = res.tombs;
+                setTombs(res.tombs);
+                setVisits(res.visits);
+                await store.set(K_DATA, {
+                    visits: res.visits,
+                    tombs: res.tombs,
+                    at: Date.now(),
+                });
+            }
+            else {
+                const v = normVisits(d.visits);
+                tombsRef.current = d.tombs || {};
+                setTombs(tombsRef.current);
+                setVisits(v);
+                await store.set(K_DATA, {
+                    visits: v,
+                    tombs: tombsRef.current,
+                    at: Date.now(),
+                });
+            }
             if (d.settings) {
                 if (typeof d.settings.cityPins === "boolean")
                     setCityPinsState(d.settings.cityPins);
@@ -6210,12 +6772,93 @@ function Atlas() {
         window.location.reload();
     }, []);
     const [ask, setAsk] = useState(null);
+    visitsRef.current = visits;
+    profileRef.current = profile;
+    const doubles = useMemo(() => findDoubles(visits), [visits]);
+    const joinDouble = useCallback((pr) => {
+        const arr = visits[pr.a3] || [];
+        const merged = joinTrips(pr.a, pr.b);
+        const rest = arr.filter((t) => t.id !== pr.a.id && t.id !== pr.b.id);
+        const gone = pr.a.id === merged.id ? pr.b.id : pr.a.id;
+        tombsRef.current = addTomb(tombsRef.current, gone);
+        setTombs(tombsRef.current);
+        save({ ...visits, [pr.a3]: [merged, ...rest] });
+    }, 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [visits]);
+    const [family, setFamilyState] = useState(null);
+    familyRef.current = family;
+    const setFamily = useCallback(async (f) => {
+        setFamilyState(f);
+        await store.set(K_FAMILY, f || {});
+    }, []);
+    /* приём данных от родных: объединяем, ничего не затирая */
+    const receiveFamily = useCallback((data) => {
+        var _a;
+        if (!(data === null || data === void 0 ? void 0 : data.visits))
+            return;
+        const res = mergeVisits(visits, data.visits, tombsRef.current, data.tombs);
+        tombsRef.current = res.tombs;
+        setTombs(res.tombs);
+        save(res.visits);
+        // участников из группы добавляем, если таких ещё нет
+        if ((_a = data.people) === null || _a === void 0 ? void 0 : _a.length) {
+            const cur = (profile === null || profile === void 0 ? void 0 : profile.people) || [];
+            const add = data.people.filter((p) => !cur.some((x) => x.id === p.id || x.name === p.name));
+            receiveRef.current = receiveFamily;
+            if (add.length)
+                saveProfile({
+                    ...(profile || {}),
+                    people: [...cur, ...add.map((p) => ({ ...p, always: false }))],
+                });
+        }
+    }, 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [visits, profile]);
+    /* сам обменивается с роднёй, когда сервер настроен */
+    const syncing = useRef(false);
+    const autoSync = useCallback(async () => {
+        var _a, _b;
+        const f = familyRef.current;
+        if (!(f === null || f === void 0 ? void 0 : f.raw) || f.via !== "server" || !f.server || syncing.current)
+            return;
+        if (!navigator.onLine)
+            return;
+        syncing.current = true;
+        try {
+            const payload = familyPayload(visitsRef.current, tombsRef.current, (_a = profileRef.current) === null || _a === void 0 ? void 0 : _a.people, (_b = profileRef.current) === null || _b === void 0 ? void 0 : _b.name);
+            const list = await familySync(f, payload);
+            list.forEach((d) => receiveRef.current(d));
+        }
+        catch {
+            /* нет связи — обменяемся в другой раз */
+        }
+        syncing.current = false;
+    }, []);
+    useEffect(() => {
+        if (!(family === null || family === void 0 ? void 0 : family.raw))
+            return;
+        const t = setTimeout(autoSync, 1500);
+        const onShow = () => {
+            if (!document.hidden)
+                autoSync();
+        };
+        document.addEventListener("visibilitychange", onShow);
+        const id = setInterval(autoSync, 15 * 60 * 1000);
+        return () => {
+            clearTimeout(t);
+            clearInterval(id);
+            document.removeEventListener("visibilitychange", onShow);
+        };
+    }, [family === null || family === void 0 ? void 0 : family.raw, family === null || family === void 0 ? void 0 : family.via, family === null || family === void 0 ? void 0 : family.server, autoSync]);
     const [restoreMsg, setRestoreMsg] = useState("");
     const importAsk = useCallback((file) => setAsk({
-        title: "Загрузить копию?",
-        text: "Поездки и настройки в приложении будут заменены данными из файла.",
-        yes: "Загрузить",
-        onYes: () => importData(file),
+        title: "Что сделать с файлом?",
+        text: "Объединить — добавить поездки из файла к вашим, сохранив обе стороны. Заменить — оставить только то, что в файле.",
+        yes: "Объединить",
+        onYes: () => importData(file, "merge"),
+        alt: "Заменить",
+        onAlt: () => importData(file, "replace"),
     }), 
     // eslint-disable-next-line react-hooks/exhaustive-deps
     []);
@@ -6368,15 +7011,18 @@ function Atlas() {
                                         ? tripLabel(selTrips[Math.min(editIdx, selTrips.length - 1)])
                                         : "ещё не были"),
                                 selTrips.length > 0 && (React.createElement("div", { className: "sel-sub" }, (() => {
-                                    var _a, _b;
+                                    var _a;
                                     const t = selTrips[Math.min(editIdx, selTrips.length - 1)];
                                     const bits = [];
                                     if (tripDays(t))
                                         bits.push(np(tripDays(t), "day"));
                                     if ((_a = t.cities) === null || _a === void 0 ? void 0 : _a.length)
                                         bits.push(t.cities.join(", "));
-                                    if ((_b = t.who) === null || _b === void 0 ? void 0 : _b.length)
-                                        bits.push(`с ${t.who.join(", ")}`);
+                                    {
+                                        const names = whoNames(t, profile.people || []);
+                                        if (names.length)
+                                            bits.push(`с ${names.join(", ")}`);
+                                    }
                                     if ((t.photos || []).length)
                                         bits.push(np(t.photos.length, "photo"));
                                     return bits.join(" · ") || "без подробностей";
@@ -6416,10 +7062,10 @@ function Atlas() {
                         React.createElement("p", { className: "focus-empty" }, mapView === "map"
                             ? "Нажмите страну на карте, чтобы посмотреть её."
                             : "Поверните глобус и нажмите страну, чтобы посмотреть её.")))),
-                    React.createElement(TripSheet, { open: sheet === "add", onClose: () => setSheet(null), box: box, initial: null, visits: visits, onSave: (a3, trip) => addTrip(a3, trip), mode: "add", quality: photoQuality, since: profile.since, people: profile.people || [] }),
+                    React.createElement(TripSheet, { open: sheet === "add", onClose: () => setSheet(null), box: box, initial: null, visits: visits, onSave: (a3, trip) => addTrip(a3, trip), mode: "add", quality: photoQuality, since: profile.since, people: profile.people || [], meId: profile.deviceId || ME }),
                     React.createElement(TripSheet, { open: sheet === "edit" && !!sel && !!selTrips.length, onClose: () => setSheet(null), box: box, initial: sel && selTrips.length
                             ? { a3: sel.a3, idx: editIdx, trip: selTrips[editIdx] || selTrips[0] }
-                            : null, visits: visits, onSave: (a3, trip) => editTrip(a3, editIdx, trip), mode: "edit", quality: photoQuality, since: profile.since, people: profile.people || [] }),
+                            : null, visits: visits, onSave: (a3, trip) => editTrip(a3, editIdx, trip), mode: "edit", quality: photoQuality, since: profile.since, people: profile.people || [], meId: profile.deviceId || ME }),
                     React.createElement(ProfileSheet, { open: sheet === "profile", onClose: () => setSheet(null), box: box, avatar: profile.avatar, name: profile.name, onName: async (v) => {
                             const prof = { ...profile, name: v };
                             await saveProfile(prof);
@@ -6429,10 +7075,10 @@ function Atlas() {
                         }, onReports: () => {
                             setSheetBack("profile");
                             setSheet("reports");
-                        }, onSettings: () => setSheet("settings"), onSince: async (v) => {
+                        }, onSettings: () => setSheet("settings"), onFamily: () => setSheet("family"), familyOn: !!(family === null || family === void 0 ? void 0 : family.raw), onSince: async (v) => {
                             const prof = { ...profile, since: v };
                             await saveProfile(prof);
-                        }, onExport: exportData, onImport: importAsk, onRestore: restoreData, restoreMsg: restoreMsg, visits: visits }),
+                        }, onExport: exportData, onImport: importAsk, onRestore: restoreData, restoreMsg: restoreMsg, doubles: doubles.length, onDoubles: () => setSheet("doubles"), visits: visits }),
                     React.createElement(SettingsSheet, { open: sheet === "settings", onClose: () => setSheet("profile"), box: box, visits: visits, theme: theme, onTheme: setTheme, quality: photoQuality, onQuality: (v) => {
                             setPhotoQuality(v);
                             setSheet("photomode");
@@ -6459,7 +7105,9 @@ function Atlas() {
                         } }),
                     React.createElement(CountrySheet, { country: sel, open: sheet === "country" && !!sel, onClose: () => setSheet(null), box: box }),
                     React.createElement(PhotoModeSheet, { open: sheet === "photomode", onClose: () => setSheet("settings"), box: box, quality: photoQuality, usage: photoUsage }),
-                    React.createElement(ReportsSheet, { open: sheet === "reports", onClose: () => setSheet(sheetBack === "list" ? "list" : "profile"), box: box, visits: visits, since: profile.since, stats: stats }),
+                    React.createElement(FamilySheet, { open: sheet === "family", onClose: () => setSheet("profile"), box: box, family: family, onFamily: setFamily, visits: visits, tombs: tombs, people: profile.people || [], meName: profile.name || "", onReceive: receiveFamily }),
+                    React.createElement(DoublesSheet, { open: sheet === "doubles", onClose: () => setSheet("profile"), box: box, pairs: doubles, people: profile.people || [], onJoin: joinDouble }),
+                    React.createElement(ReportsSheet, { open: sheet === "reports", onClose: () => setSheet(sheetBack === "list" ? "list" : "profile"), box: box, visits: visits, since: profile.since, stats: stats, people: profile.people || [] }),
                     React.createElement(FiltersSheet, { open: sheet === "filters", onClose: () => setSheet(null), box: box, target: sheetBack === "list" ? "list" : "globe", years: allYears, yearFilter: yearFilter, onYear: (v) => {
                             setYearFilter(v);
                             setSheet(sheetBack);
@@ -6470,7 +7118,7 @@ function Atlas() {
                     React.createElement(ListSheet, { visits: visits, stats: stats, open: sheet === "list", onClose: () => setSheet(null), onPick: (a3, idx) => {
                             setSelected(a3);
                             setEditIdx(idx || 0);
-                        }, onRemove: removeTrip, onDone: (a3, idx) => editTrip(a3, idx, { plan: false }), box: box, mode: listMode, since: profile.since, wishCount: wish.length, onReports: () => {
+                        }, onRemove: removeTrip, onDone: (a3, idx) => editTrip(a3, idx, { plan: false }), box: box, mode: listMode, since: profile.since, people: profile.people || [], meId: profile.deviceId || ME, wishCount: wish.length, onReports: () => {
                             setSheetBack("list");
                             setSheet("reports");
                         }, onFilters: openFilters }),
@@ -6875,6 +7523,21 @@ body > div{max-width:100%;}
 .sheet .switch-row{display:flex; align-items:center; gap:12px; width:100%; margin-bottom:8px; padding:13px 14px; background:var(--el); border:1px solid var(--line); border-radius:12px; color:var(--ink); font-size:0.875rem; text-align:left; cursor:pointer; min-width:0;}
 .sheet .switch-text{flex:1 1 auto; min-width:0;}
 .sheet .switch-text em{display:block; margin-top:3px; font-style:normal; font-size:0.719rem; color:var(--dim); line-height:1.35;}
+.fam-key{padding:14px; margin-bottom:12px; border-radius:14px; border:1px solid var(--line); background:var(--el);}
+.fam-key > b{display:block; font-size:0.85rem; margin-bottom:10px;}
+.fam-words{display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:7px;}
+.fam-words span{display:flex; align-items:baseline; gap:6px; padding:8px 9px; border-radius:9px; background:var(--field); font-size:0.78rem;}
+.fam-words i{font-style:normal; font-size:0.6rem; color:var(--dim);}
+.fam-share{display:flex; gap:8px; margin-top:10px;}
+.fam-share button{flex:1 1 0; min-height:40px; border-radius:10px; border:1px solid var(--line); background:var(--field); color:var(--gold); font-size:0.75rem; font-family:inherit; cursor:pointer;}
+.fam-key > em{display:block; margin-top:10px; font-style:normal; font-size:0.68rem; line-height:1.4; color:var(--dim);}
+.theme-cell.off{opacity:.45;}
+.double{margin-bottom:12px; padding:12px; border-radius:13px; border:1px solid var(--line); background:var(--el);}
+.double > b{display:block; font-size:0.9rem; margin-bottom:8px;}
+.double-row{padding:8px 10px; margin-bottom:7px; border-radius:10px; background:var(--field);}
+.double-row span{display:block; font-size:0.8rem;}
+.double-row em{display:block; margin-top:2px; font-style:normal; font-size:0.68rem; color:var(--dim);}
+.btn-main.wide{width:100%; min-height:44px;}
 .ask-layer{position:fixed; top:0; left:50%; transform:translateX(-50%); width:100%; height:100%; z-index:200; display:flex; align-items:center; justify-content:center; padding:22px; background:rgba(4,10,17,.6); -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);}
 .ask{width:100%; max-width:330px; padding:18px; border-radius:16px; background:var(--sheet); border:1px solid var(--line); text-align:center;}
 .ask b{display:block; font-size:1rem; font-weight:600;}
