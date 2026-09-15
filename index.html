@@ -104,6 +104,7 @@
 "use strict";
 "use strict";
 "use strict";
+"use strict";
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
 /* ================================================================== */
 /*  Справочник стран: A2 | A3 | название | континент | шир. | долг.    */
@@ -1203,7 +1204,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "13.0";
+const APP_VERSION = "13.1";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -4683,6 +4684,24 @@ function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, 
                             ? TIER_NAME[r.tier]
                             : `ещё ${np(r.need - r.value, r.unitKey)}${r.suffix ? " " + r.suffix : ""}`)))))))));
         })(),
+        React.createElement("p", { className: "step-title" }, "\u0420\u0430\u0437\u0434\u0435\u043B\u044B"),
+        React.createElement("button", { className: "switch-row", onClick: onSettings },
+            React.createElement("span", { className: "switch-text" },
+                "\u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438",
+                React.createElement("em", null, "\u041A\u0430\u0440\u0442\u0430, \u043E\u0444\u043E\u0440\u043C\u043B\u0435\u043D\u0438\u0435, \u0441\u043D\u0438\u043C\u043A\u0438, \u0434\u043E\u0441\u0442\u0443\u043F")),
+            React.createElement("span", { className: "step-pen" }, "\u2192")),
+        React.createElement("button", { className: "switch-row", onClick: onReports },
+            React.createElement("span", { className: "switch-text" },
+                "\u041E\u0442\u0447\u0451\u0442\u044B \u0438 \u0433\u0440\u0430\u0444\u0438\u043A\u0438",
+                React.createElement("em", null, "\u0422\u0440\u0435\u043D\u0434\u044B, \u0441\u0435\u0437\u043E\u043D\u043D\u043E\u0441\u0442\u044C, \u043A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u044C \u043F\u043E\u0435\u0437\u0434\u043E\u043A")),
+            React.createElement("span", { className: "step-pen" }, "\u2192")),
+        React.createElement("button", { className: "switch-row", onClick: onFamily },
+            React.createElement("span", { className: "switch-text" },
+                "\u0421\u0435\u043C\u044C\u044F",
+                React.createElement("em", null, familyOn
+                    ? "Обмен поездками с близкими настроен"
+                    : "Обмениваться поездками с близкими")),
+            React.createElement("span", { className: "step-pen" }, "\u2192")),
         React.createElement("p", { className: "step-title" }, "\u041F\u0443\u0442\u0435\u0448\u0435\u0441\u0442\u0432\u0435\u043D\u043D\u0438\u043A\u0438"),
         people.length > 0 && (React.createElement("div", { className: "people" }, people.map((pr) => (React.createElement("div", { key: pr.id, className: "person" },
             React.createElement("span", { className: "person-name" }, pr.name),
