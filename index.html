@@ -98,6 +98,7 @@
 "use strict";
 "use strict";
 "use strict";
+"use strict";
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
 /* ================================================================== */
 /*  Справочник стран: A2 | A3 | название | континент | шир. | долг.    */
@@ -939,6 +940,7 @@ const K_PROFILE = "atlas:profile";
 const K_DATA = "atlas:data:main";
 const K_SETTINGS = "atlas:settings";
 const K_BACKUP = "atlas:data:backup";
+const K_PROF_BAK = "atlas:profile:backup";
 /* кто ездит вместе с вами */
 const ROLES = [
     "Супруг",
@@ -951,18 +953,17 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "12.3";
+const APP_VERSION = "12.4";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
-async function findAllData() {
+async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
     const found = [];
-    const keys = [K_DATA, K_BACKUP];
     for (const key of keys) {
         try {
             if (typeof window !== "undefined" && window.storage) {
                 const r = await window.storage.get(key, false);
                 const v = r ? JSON.parse(r.value) : null;
-                if (v === null || v === void 0 ? void 0 : v.visits)
+                if (test(v))
                     found.push({ where: "хранилище приложения", key, v });
             }
         }
@@ -971,7 +972,7 @@ async function findAllData() {
         }
         try {
             const v = await idb.get(key);
-            if (v === null || v === void 0 ? void 0 : v.visits)
+            if (test(v))
                 found.push({ where: "база браузера", key, v });
         }
         catch {
@@ -980,15 +981,15 @@ async function findAllData() {
         try {
             const raw = window.localStorage.getItem(key);
             const v = raw ? JSON.parse(raw) : null;
-            if (v === null || v === void 0 ? void 0 : v.visits)
+            if (test(v))
                 found.push({ where: "память страницы", key, v });
         }
         catch {
             /* пропускаем */
         }
     }
-    found.sort((a, b) => Object.keys(b.v.visits).length - Object.keys(a.v.visits).length ||
-        (b.v.at || 0) - (a.v.at || 0));
+    found.sort((a, b) => Object.keys(b.v.visits || {}).length -
+        Object.keys(a.v.visits || {}).length || (b.v.at || 0) - (a.v.at || 0));
     return found;
 }
 /* проверка: доступно ли постоянное хранилище и переживает ли запись перезапуск */
@@ -5555,6 +5556,25 @@ function Atlas() {
     var _a;
     const [booting, setBooting] = useState(true);
     const [profile, setProfile] = useState(null);
+    const loaded = useRef(false);
+    const saveProfile = useCallback(async (prof) => {
+        setProfile(prof);
+        if (!loaded.current)
+            return; // данные ещё читаются — не затираем
+        await store.set(K_PROFILE, prof);
+        try {
+            await idb.set(K_PROF_BAK, prof);
+        }
+        catch {
+            /* базы может не быть */
+        }
+        try {
+            window.localStorage.setItem(K_PROF_BAK, JSON.stringify(prof));
+        }
+        catch {
+            /* места может не хватить */
+        }
+    }, []);
     const [unlocked, setUnlocked] = useState(false);
     const [faceAvailable, setFaceAvailable] = useState(false);
     const [saveBroken, setSaveBroken] = useState(false);
@@ -5603,8 +5623,7 @@ function Atlas() {
             ? wish.filter((x) => x !== a3)
             : [...wish, a3];
         const prof = { ...profile, wish: next };
-        setProfile(prof);
-        await store.set(K_PROFILE, prof);
+        await saveProfile(prof);
     }, [wish, profile]);
     const setSpinStart = useCallback(async (v) => {
         setSpinStartState(v);
@@ -5856,6 +5875,20 @@ function Atlas() {
             setProfile(prof);
             if (prof && !prof.pinHash)
                 setUnlocked(true);
+            // профиль: если пуст, поднимаем резервную копию
+            let prof0 = await store.get(K_PROFILE);
+            const empty = (p) => !p ||
+                (!p.avatar && !p.since && !(p.people || []).length && !(p.wish || []).length);
+            if (empty(prof0)) {
+                const bak = await findAllData([K_PROF_BAK], (v) => v &&
+                    (v.avatar || v.since || (v.people || []).length || (v.wish || []).length));
+                if (bak.length) {
+                    prof0 = { ...(prof0 || {}), ...bak[0].v };
+                    store.set(K_PROFILE, prof0);
+                }
+            }
+            if (prof0)
+                setProfile(prof0);
             let data = await store.get(K_DATA);
             if (!(data === null || data === void 0 ? void 0 : data.visits) || !Object.keys(data.visits).length) {
                 const found = await findAllData();
@@ -5904,19 +5937,22 @@ function Atlas() {
     const setupPin = async (pin) => {
         const salt = Math.random().toString(36).slice(2, 12);
         const prof = {
-            name: (profile === null || profile === void 0 ? void 0 : profile.name) || "",
+            ...(profile || {}),
             salt,
             pinHash: await hashPass("pin", pin, salt),
             credId: "",
         };
-        await store.set(K_PROFILE, prof);
-        setProfile(prof);
+        await saveProfile(prof);
         setUnlocked(true);
     };
     const skipPin = async () => {
-        const prof = { name: (profile === null || profile === void 0 ? void 0 : profile.name) || "", salt: "", pinHash: "", credId: "" };
-        await store.set(K_PROFILE, prof);
-        setProfile(prof);
+        const prof = {
+            ...(profile || {}),
+            salt: "",
+            pinHash: "",
+            credId: "",
+        };
+        await saveProfile(prof);
         setUnlocked(true);
     };
     const tryPin = async (pin, fail) => {
@@ -5950,8 +5986,7 @@ function Atlas() {
                 return;
             const id = btoa(String.fromCharCode(...new Uint8Array(cred.rawId)));
             const next = { ...(prof || profile), credId: id };
-            await store.set(K_PROFILE, next);
-            setProfile(next);
+            await saveProfile(next);
         }
         catch {
             /* Face ID недоступен — остаётся код */
@@ -5985,7 +6020,6 @@ function Atlas() {
         setUnlocked(false);
         setSelected(null);
     };
-    const loaded = useRef(false);
     const save = useCallback(async (next) => {
         setVisits(next);
         if (!loaded.current)
@@ -6162,8 +6196,7 @@ function Atlas() {
                     ...(d.people ? { people: d.people } : {}),
                     ...(d.wish ? { wish: d.wish } : {}),
                 };
-                setProfile(prof);
-                await store.set(K_PROFILE, prof);
+                await saveProfile(prof);
             }
             setSheet(null);
         }
@@ -6207,8 +6240,7 @@ function Atlas() {
     }, [visits]);
     const saveAvatar = useCallback(async (dataUrl) => {
         const prof = { ...(profile || {}), avatar: dataUrl };
-        setProfile(prof);
-        await store.set(K_PROFILE, prof);
+        await saveProfile(prof);
         setAvatarDraft(null);
     }, [profile]);
     const [photoUsage, setPhotoUsage] = useState(null);
@@ -6390,19 +6422,16 @@ function Atlas() {
                             : null, visits: visits, onSave: (a3, trip) => editTrip(a3, editIdx, trip), mode: "edit", quality: photoQuality, since: profile.since, people: profile.people || [] }),
                     React.createElement(ProfileSheet, { open: sheet === "profile", onClose: () => setSheet(null), box: box, avatar: profile.avatar, name: profile.name, onName: async (v) => {
                             const prof = { ...profile, name: v };
-                            setProfile(prof);
-                            await store.set(K_PROFILE, prof);
+                            await saveProfile(prof);
                         }, onPickAvatar: (src) => setAvatarDraft(src), since: profile.since, people: profile.people || [], onPeople: async (list) => {
                             const prof = { ...profile, people: list };
-                            setProfile(prof);
-                            await store.set(K_PROFILE, prof);
+                            await saveProfile(prof);
                         }, onReports: () => {
                             setSheetBack("profile");
                             setSheet("reports");
                         }, onSettings: () => setSheet("settings"), onSince: async (v) => {
                             const prof = { ...profile, since: v };
-                            setProfile(prof);
-                            await store.set(K_PROFILE, prof);
+                            await saveProfile(prof);
                         }, onExport: exportData, onImport: importAsk, onRestore: restoreData, restoreMsg: restoreMsg, visits: visits }),
                     React.createElement(SettingsSheet, { open: sheet === "settings", onClose: () => setSheet("profile"), box: box, visits: visits, theme: theme, onTheme: setTheme, quality: photoQuality, onQuality: (v) => {
                             setPhotoQuality(v);
@@ -6416,15 +6445,13 @@ function Atlas() {
                             yes: "Убрать",
                             onYes: async () => {
                                 const prof = { ...profile, pinHash: "", salt: "", credId: "" };
-                                setProfile(prof);
-                                await store.set(K_PROFILE, prof);
+                                await saveProfile(prof);
                                 setSheet(null);
                             },
                         }), onLock: lock, onFace: async () => {
                             if (profile.credId) {
                                 const prof = { ...profile, credId: "" };
-                                setProfile(prof);
-                                await store.set(K_PROFILE, prof);
+                                await saveProfile(prof);
                             }
                             else {
                                 enrollFace(profile);
