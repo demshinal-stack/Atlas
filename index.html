@@ -91,6 +91,7 @@
 "use strict";
 "use strict";
 "use strict";
+"use strict";
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
 /* ================================================================== */
 /*  Справочник стран: A2 | A3 | название | континент | шир. | долг.    */
@@ -932,7 +933,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "11.6";
+const APP_VERSION = "11.7";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData() {
@@ -4232,7 +4233,7 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality,
                     React.createElement("path", { d: "M5 12.5l4.5 4.5L19 7.5", fill: "none", stroke: "currentColor", strokeWidth: "2.2", strokeLinecap: "round", strokeLinejoin: "round" })))))))));
 }
 /* шторка: профиль — вы и ваши данные */
-function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, since, onSince, people, onPeople, onReports, onExport, onImport, onRestore, restoreMsg, visits, }) {
+function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, since, onSince, people, onPeople, onReports, onSettings, onExport, onImport, onRestore, restoreMsg, visits, }) {
     const [showAll, setShowAll] = useState(false);
     const [addPerson, setAddPerson] = useState(false);
     const [newName, setNewName] = useState("");
@@ -4352,6 +4353,11 @@ function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, 
                             ? TIER_NAME[r.tier]
                             : `ещё ${np(r.need - r.value, r.unitKey)}${r.suffix ? " " + r.suffix : ""}`)))))))));
         })(),
+        React.createElement("button", { className: "switch-row", onClick: onSettings },
+            React.createElement("span", { className: "switch-text" },
+                "\u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438",
+                React.createElement("em", null, "\u041A\u0430\u0440\u0442\u0430, \u043E\u0444\u043E\u0440\u043C\u043B\u0435\u043D\u0438\u0435, \u0441\u043D\u0438\u043C\u043A\u0438, \u0434\u043E\u0441\u0442\u0443\u043F")),
+            React.createElement("span", { className: "step-pen" }, "\u2192")),
         React.createElement("button", { className: "switch-row", onClick: onReports },
             React.createElement("span", { className: "switch-text" },
                 "\u041E\u0442\u0447\u0451\u0442\u044B \u0438 \u0433\u0440\u0430\u0444\u0438\u043A\u0438",
@@ -5176,7 +5182,7 @@ function FiltersSheet({ open, onClose, box, target, years, yearFilter, onYear, m
         years.length === 0 && (React.createElement("p", { className: "focus-empty" }, "\u0424\u0438\u043B\u044C\u0442\u0440 \u043F\u043E\u044F\u0432\u0438\u0442\u0441\u044F, \u043A\u043E\u0433\u0434\u0430 \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u0435 \u043F\u0435\u0440\u0432\u0443\u044E \u043F\u043E\u0435\u0437\u0434\u043A\u0443."))))))));
 }
 /* шторка: все поездки — свёртка групп, поиск */
-function ListSheet({ visits, stats, open, onClose, onPick, onRemove, box, mode, since, wishCount = 0, onReports }) {
+function ListSheet({ visits, stats, open, onClose, onPick, onRemove, box, mode, since, wishCount = 0, onReports, onFilters }) {
     const [ask, setAsk] = useState(null);
     const [q, setQ] = useState("");
     const [closed, setClosed] = useState({});
@@ -5310,6 +5316,14 @@ function ListSheet({ visits, stats, open, onClose, onPick, onRemove, box, mode, 
                     e.stopPropagation();
                     onReports();
                 } }, "\u041E\u0442\u0447\u0451\u0442\u044B \u0438 \u0433\u0440\u0430\u0444\u0438\u043A\u0438 \u2192"),
+            React.createElement("button", { className: "filter-chip inline", onClick: onFilters },
+                React.createElement("svg", { viewBox: "0 0 24 24", width: "15", height: "15" },
+                    React.createElement("path", { d: "M4 7h16M7 12h10M10 17h4", fill: "none", stroke: "currentColor", strokeWidth: "1.9", strokeLinecap: "round" })),
+                mode === "year"
+                    ? "По годам"
+                    : mode === "country"
+                        ? "По странам"
+                        : "По частям света"),
             React.createElement("div", { className: "mode-hint" },
                 mode === "year"
                     ? "По годам"
@@ -6181,6 +6195,10 @@ function Atlas() {
                 React.createElement("div", { className: "brand" }, "\u0410\u0442\u043B\u0430\u0441")),
             React.createElement("div", { className: "cols" },
                 React.createElement("div", { className: "col-map" },
+                    React.createElement("button", { className: "filter-chip", onClick: openFilters },
+                        React.createElement("svg", { viewBox: "0 0 24 24", width: "15", height: "15" },
+                            React.createElement("path", { d: "M4 7h16M7 12h10M10 17h4", fill: "none", stroke: "currentColor", strokeWidth: "1.9", strokeLinecap: "round" })),
+                        yearFilter === "all" ? "Все годы" : yearFilter),
                     React.createElement(Globe, { geo: geo, isOn: isOn, onPick: (a3) => {
                             setSelected(BY_A3[a3] ? a3 : null);
                             setEditIdx(0);
@@ -6262,12 +6280,15 @@ function Atlas() {
                             const prof = { ...profile, people: list };
                             setProfile(prof);
                             await store.set(K_PROFILE, prof);
-                        }, onReports: () => setSheet("reports"), onSince: async (v) => {
+                        }, onReports: () => {
+                            setSheetBack("profile");
+                            setSheet("reports");
+                        }, onSettings: () => setSheet("settings"), onSince: async (v) => {
                             const prof = { ...profile, since: v };
                             setProfile(prof);
                             await store.set(K_PROFILE, prof);
                         }, onExport: exportData, onImport: importAsk, onRestore: restoreData, restoreMsg: restoreMsg, visits: visits }),
-                    React.createElement(SettingsSheet, { open: sheet === "settings", onClose: () => setSheet(null), box: box, visits: visits, theme: theme, onTheme: setTheme, quality: photoQuality, onQuality: (v) => {
+                    React.createElement(SettingsSheet, { open: sheet === "settings", onClose: () => setSheet("profile"), box: box, visits: visits, theme: theme, onTheme: setTheme, quality: photoQuality, onQuality: (v) => {
                             setPhotoQuality(v);
                             setSheet("photomode");
                         }, cityPins: cityPins, onToggleCityPins: setCityPins, spinStart: spinStart, onToggleSpin: setSpinStart, mapView: mapView, onMapView: setMapView, geoCount: ((_a = geo === null || geo === void 0 ? void 0 : geo.features) === null || _a === void 0 ? void 0 : _a.length) || 0, onReloadGeo: reloadGeo, hasPin: !!profile.pinHash, faceAvailable: faceAvailable, faceOn: !!profile.credId, onSetPin: () => {
@@ -6295,7 +6316,7 @@ function Atlas() {
                         } }),
                     React.createElement(CountrySheet, { country: sel, open: sheet === "country" && !!sel, onClose: () => setSheet(null), box: box }),
                     React.createElement(PhotoModeSheet, { open: sheet === "photomode", onClose: () => setSheet("settings"), box: box, quality: photoQuality, usage: photoUsage }),
-                    React.createElement(ReportsSheet, { open: sheet === "reports", onClose: () => setSheet(null), box: box, visits: visits, since: profile.since, stats: stats }),
+                    React.createElement(ReportsSheet, { open: sheet === "reports", onClose: () => setSheet(sheetBack === "list" ? "list" : "profile"), box: box, visits: visits, since: profile.since, stats: stats }),
                     React.createElement(FiltersSheet, { open: sheet === "filters", onClose: () => setSheet(null), box: box, target: sheetBack === "list" ? "list" : "globe", years: allYears, yearFilter: yearFilter, onYear: (v) => {
                             setYearFilter(v);
                             setSheet(sheetBack);
@@ -6306,14 +6327,20 @@ function Atlas() {
                     React.createElement(ListSheet, { visits: visits, stats: stats, open: sheet === "list", onClose: () => setSheet(null), onPick: (a3, idx) => {
                             setSelected(a3);
                             setEditIdx(idx || 0);
-                        }, onRemove: removeTrip, box: box, mode: listMode, since: profile.since, wishCount: wish.length, onReports: () => setSheet("reports") }),
+                        }, onRemove: removeTrip, box: box, mode: listMode, since: profile.since, wishCount: wish.length, onReports: () => {
+                            setSheetBack("list");
+                            setSheet("reports");
+                        }, onFilters: openFilters }),
                     React.createElement(Ask, { ask: ask, onClose: () => setAsk(null), box: box }),
                     React.createElement("nav", { className: "tabbar" },
-                        React.createElement("button", { className: "tab" + (sheet === "profile" ? " on" : ""), onClick: () => setSheet((v) => (v === "profile" ? null : "profile")) },
-                            profile.avatar ? (React.createElement("img", { className: "tab-ava", src: profile.avatar, alt: "" })) : (React.createElement("svg", { viewBox: "0 0 24 24", width: "22", height: "22" },
-                                React.createElement("circle", { cx: "12", cy: "8.5", r: "3.6", fill: "none", stroke: "currentColor", strokeWidth: "1.7" }),
-                                React.createElement("path", { d: "M4.8 20c.7-3.7 3.6-5.8 7.2-5.8s6.5 2.1 7.2 5.8", fill: "none", stroke: "currentColor", strokeWidth: "1.7", strokeLinecap: "round" }))),
-                            React.createElement("em", null, "\u041F\u0440\u043E\u0444\u0438\u043B\u044C")),
+                        React.createElement("button", { className: "tab" + (sheet === null ? " on" : ""), onClick: () => {
+                                setSheet(null);
+                                setSheetBack(null);
+                            } },
+                            React.createElement("svg", { viewBox: "0 0 24 24", width: "22", height: "22" },
+                                React.createElement("circle", { cx: "12", cy: "12", r: "8.6", fill: "none", stroke: "currentColor", strokeWidth: "1.7" }),
+                                React.createElement("path", { d: "M3.6 12h16.8M12 3.4c2.3 2.4 3.4 5.3 3.4 8.6S14.3 18.2 12 20.6c-2.3-2.4-3.4-5.3-3.4-8.6S9.7 5.8 12 3.4z", fill: "none", stroke: "currentColor", strokeWidth: "1.5" })),
+                            React.createElement("em", null, "\u041A\u0430\u0440\u0442\u0430")),
                         React.createElement("button", { className: "tab" + (sheet === "list" ? " on" : ""), onClick: () => setSheet((v) => (v === "list" ? null : "list")) },
                             React.createElement("svg", { viewBox: "0 0 24 24", width: "22", height: "22" },
                                 React.createElement("path", { d: "M4 7h16M4 12h16M4 17h10", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round" })),
@@ -6323,23 +6350,14 @@ function Atlas() {
                                 React.createElement("svg", { viewBox: "0 0 24 24", width: "24", height: "24" },
                                     React.createElement("path", { d: "M12 5v14M5 12h14", fill: "none", stroke: "currentColor", strokeWidth: "2.2", strokeLinecap: "round" }))),
                             React.createElement("em", null, "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C")),
-                        (sheet === null || sheet === "list" || sheet === "filters") && (React.createElement("button", { className: "tab" + (sheet === "filters" ? " on" : ""), onClick: openFilters },
-                            React.createElement("svg", { viewBox: "0 0 24 24", width: "22", height: "22" },
-                                React.createElement("path", { d: "M4 7h16M7 12h10M10 17h4", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round" })),
-                            React.createElement("em", null, "\u0424\u0438\u043B\u044C\u0442\u0440\u044B"))),
-                        React.createElement("button", { className: "tab" + (sheet === "settings" ? " on" : ""), onClick: () => setSheet((v) => (v === "settings" ? null : "settings")) },
-                            React.createElement("svg", { viewBox: "0 0 24 24", width: "22", height: "22" },
-                                React.createElement("circle", { cx: "12", cy: "12", r: "3.2", fill: "none", stroke: "currentColor", strokeWidth: "1.8" }),
-                                React.createElement("path", { d: "M19.4 13.5a7.8 7.8 0 0 0 0-3l1.7-1.3-1.8-3.1-2 .8a7.8 7.8 0 0 0-2.6-1.5L14.4 3h-3.6l-.3 2.4a7.8 7.8 0 0 0-2.6 1.5l-2-.8L4 9.2l1.7 1.3a7.8 7.8 0 0 0 0 3L4 14.8l1.8 3.1 2-.8a7.8 7.8 0 0 0 2.6 1.5l.3 2.4h3.6l.3-2.4a7.8 7.8 0 0 0 2.6-1.5l2 .8 1.8-3.1z", fill: "none", stroke: "currentColor", strokeWidth: "1.6", strokeLinejoin: "round" })),
-                            React.createElement("em", null, "\u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438")),
-                        React.createElement("button", { className: "tab" + (sheet === null ? " on" : ""), onClick: () => {
-                                setSheet(null);
-                                setSheetBack(null);
-                            } },
-                            React.createElement("svg", { viewBox: "0 0 24 24", width: "22", height: "22" },
-                                React.createElement("path", { d: "M4 11l8-6.5 8 6.5", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round" }),
-                                React.createElement("path", { d: "M6.5 10v9h11v-9", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round" })),
-                            React.createElement("em", null, "\u0413\u043B\u0430\u0432\u043D\u0430\u044F"))),
+                        React.createElement("button", { className: "tab" +
+                                (sheet === "profile" || sheet === "settings" || sheet === "reports"
+                                    ? " on"
+                                    : ""), onClick: () => setSheet((v) => (v === "profile" ? null : "profile")) },
+                            profile.avatar ? (React.createElement("img", { className: "tab-ava", src: profile.avatar, alt: "" })) : (React.createElement("svg", { viewBox: "0 0 24 24", width: "22", height: "22" },
+                                React.createElement("circle", { cx: "12", cy: "8.5", r: "3.6", fill: "none", stroke: "currentColor", strokeWidth: "1.7" }),
+                                React.createElement("path", { d: "M4.8 20c.7-3.7 3.6-5.8 7.2-5.8s6.5 2.1 7.2 5.8", fill: "none", stroke: "currentColor", strokeWidth: "1.7", strokeLinecap: "round" }))),
+                            React.createElement("em", null, "\u041F\u0440\u043E\u0444\u0438\u043B\u044C"))),
                     avatarDraft && (React.createElement("div", { className: "modal", style: box ? { left: box.left, width: box.width } : undefined },
                         React.createElement(AvatarEditor, { src: avatarDraft, onDone: saveAvatar, onCancel: () => setAvatarDraft(null) }))),
                     updateReady && (React.createElement("div", { className: "banner" },
@@ -6837,6 +6855,8 @@ body > div{max-width:100%;}
 .focus .cta{margin-top:12px;}
 
 
+.filter-chip{display:inline-flex; align-items:center; gap:7px; margin-bottom:10px; padding:8px 14px; border-radius:999px; border:1px solid var(--line); background:var(--el); color:var(--gold); font-size:0.75rem; font-family:inherit; cursor:pointer;}
+.filter-chip.inline{margin:8px 0 2px;}
 .tabbar{position:fixed; left:0; bottom:0; width:100%; z-index:120; display:flex;
   padding:6px 4px calc(6px + env(safe-area-inset-bottom));
   background:var(--panel); border-top:1px solid var(--line);
