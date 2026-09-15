@@ -97,6 +97,7 @@
 "use strict";
 "use strict";
 "use strict";
+"use strict";
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
 /* ================================================================== */
 /*  Справочник стран: A2 | A3 | название | континент | шир. | долг.    */
@@ -950,7 +951,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "12.2";
+const APP_VERSION = "12.3";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData() {
@@ -4350,36 +4351,50 @@ function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, 
             });
             const done = rows.filter((r) => r.done);
             const left = rows.filter((r) => !r.done);
-            // самая ценная: выше достоинство, при равном — выше порог
             const best = done
                 .slice()
                 .sort((a, b) => b.tier - a.tier || b.need - a.need)[0];
             const next = left
                 .slice()
                 .sort((a, b) => (a.need - a.value) / a.need - (b.need - b.value) / b.need)[0];
-            return (React.createElement(React.Fragment, null,
-                best ? (React.createElement("div", { className: "trophy tier-" + best.tier },
-                    React.createElement("span", { className: "trophy-cup" },
-                        React.createElement("svg", { viewBox: "0 0 24 24", width: "52", height: "52" },
-                            React.createElement("path", { d: "M7 4h10v4.2a5 5 0 0 1-10 0z", fill: "currentColor" }),
-                            React.createElement("path", { d: "M7 5H4.4a2.6 2.6 0 0 0 2.6 4.2M17 5h2.6a2.6 2.6 0 0 1-2.6 4.2", fill: "none", stroke: "currentColor", strokeWidth: "1.4" }),
-                            React.createElement("path", { d: "M10.2 13.4h3.6v3.1H17V19H7v-2.5h3.2z", fill: "currentColor" })),
-                        React.createElement("i", { className: "shine" })),
+            const metal = TIER_COLOR[(best === null || best === void 0 ? void 0 : best.tier) || 3];
+            return (React.createElement("div", { className: "awards-card" },
+                best ? (React.createElement("div", { className: "trophy" },
+                    React.createElement("svg", { viewBox: "0 0 92 92", className: "trophy-svg" },
+                        React.createElement("defs", null,
+                            React.createElement("radialGradient", { id: "halo" },
+                                React.createElement("stop", { offset: "0%", stopColor: metal, stopOpacity: "0.5" }),
+                                React.createElement("stop", { offset: "55%", stopColor: metal, stopOpacity: "0.14" }),
+                                React.createElement("stop", { offset: "100%", stopColor: metal, stopOpacity: "0" })),
+                            React.createElement("linearGradient", { id: "metal", x1: "0", y1: "0", x2: "1", y2: "1" },
+                                React.createElement("stop", { offset: "0%", stopColor: metal, stopOpacity: "0.75" }),
+                                React.createElement("stop", { offset: "45%", stopColor: "#ffffff", stopOpacity: "0.95" }),
+                                React.createElement("stop", { offset: "55%", stopColor: metal }),
+                                React.createElement("stop", { offset: "100%", stopColor: metal, stopOpacity: "0.7" }),
+                                React.createElement("animateTransform", { attributeName: "gradientTransform", type: "translate", values: "-0.7 -0.7; 0.7 0.7; -0.7 -0.7", dur: "4.5s", repeatCount: "indefinite" }))),
+                        React.createElement("circle", { cx: "46", cy: "44", r: "42", fill: "url(#halo)" },
+                            React.createElement("animate", { attributeName: "r", values: "36;44;36", dur: "4.5s", repeatCount: "indefinite" }),
+                            React.createElement("animate", { attributeName: "opacity", values: "0.55;1;0.55", dur: "4.5s", repeatCount: "indefinite" })),
+                        React.createElement("g", { transform: "translate(22 20) scale(2)" },
+                            React.createElement("path", { d: "M7 4h10v4.2a5 5 0 0 1-10 0z", fill: "url(#metal)" }),
+                            React.createElement("path", { d: "M7 5H4.4a2.6 2.6 0 0 0 2.6 4.2M17 5h2.6a2.6 2.6 0 0 1-2.6 4.2", fill: "none", stroke: "url(#metal)", strokeWidth: "1.3" }),
+                            React.createElement("path", { d: "M10.2 13.4h3.6v3.1H17V19H7v-2.5h3.2z", fill: "url(#metal)" }))),
                     React.createElement("span", { className: "trophy-text" },
                         React.createElement("b", null, best.title),
                         React.createElement("em", null,
                             best.group,
                             " \u00B7 ",
-                            TIER_NAME[best.tier])))) : (React.createElement("p", { className: "hint small" }, "\u041D\u0430\u0433\u0440\u0430\u0434 \u043F\u043E\u043A\u0430 \u043D\u0435\u0442. \u041F\u0435\u0440\u0432\u0430\u044F \u043F\u043E\u044F\u0432\u0438\u0442\u0441\u044F \u0441\u0440\u0430\u0437\u0443 \u043F\u043E\u0441\u043B\u0435 \u043F\u0435\u0440\u0432\u043E\u0439 \u043E\u0442\u043C\u0435\u0442\u043A\u0438.")),
-                React.createElement("button", { className: "switch-row", onClick: () => setShowAll((v) => !v) },
-                    React.createElement("span", { className: "switch-text" },
-                        "\u0412\u0441\u0435 \u043D\u0430\u0433\u0440\u0430\u0434\u044B",
-                        React.createElement("em", null,
+                            TIER_NAME[best.tier])))) : (React.createElement("p", { className: "hint small no-award" }, "\u041D\u0430\u0433\u0440\u0430\u0434 \u043F\u043E\u043A\u0430 \u043D\u0435\u0442. \u041F\u0435\u0440\u0432\u0430\u044F \u043F\u043E\u044F\u0432\u0438\u0442\u0441\u044F \u0441\u0440\u0430\u0437\u0443 \u043F\u043E\u0441\u043B\u0435 \u043F\u0435\u0440\u0432\u043E\u0439 \u043E\u0442\u043C\u0435\u0442\u043A\u0438.")),
+                React.createElement("button", { className: "awards-more", onClick: () => setShowAll((v) => !v) },
+                    React.createElement("span", null,
+                        React.createElement("b", null,
                             done.length,
                             " \u0438\u0437 ",
-                            np(rows.length, "award"),
-                            next ? ` · ближайшая: ${next.title}` : "")),
-                    React.createElement("span", { className: "step-pen" }, showAll ? "▲" : "▼")),
+                            np(rows.length, "award")),
+                        next && React.createElement("em", null,
+                            "\u0431\u043B\u0438\u0436\u0430\u0439\u0448\u0430\u044F: ",
+                            next.title)),
+                    React.createElement("i", null, showAll ? "▲" : "▼")),
                 showAll && (React.createElement("div", { className: "awards" }, rows.map((r) => (React.createElement("div", { key: r.key, className: "award" + (r.done ? " on" : "") },
                     React.createElement("span", { className: "cup", style: r.done ? { color: TIER_COLOR[r.tier] } : undefined },
                         React.createElement("svg", { viewBox: "0 0 24 24", width: "24", height: "24" },
@@ -4391,16 +4406,6 @@ function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, 
                             ? TIER_NAME[r.tier]
                             : `ещё ${np(r.need - r.value, r.unitKey)}${r.suffix ? " " + r.suffix : ""}`)))))))));
         })(),
-        React.createElement("button", { className: "switch-row", onClick: onSettings },
-            React.createElement("span", { className: "switch-text" },
-                "\u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438",
-                React.createElement("em", null, "\u041A\u0430\u0440\u0442\u0430, \u043E\u0444\u043E\u0440\u043C\u043B\u0435\u043D\u0438\u0435, \u0441\u043D\u0438\u043C\u043A\u0438, \u0434\u043E\u0441\u0442\u0443\u043F")),
-            React.createElement("span", { className: "step-pen" }, "\u2192")),
-        React.createElement("button", { className: "switch-row", onClick: onReports },
-            React.createElement("span", { className: "switch-text" },
-                "\u041E\u0442\u0447\u0451\u0442\u044B \u0438 \u0433\u0440\u0430\u0444\u0438\u043A\u0438",
-                React.createElement("em", null, "\u0422\u0440\u0435\u043D\u0434\u044B, \u0441\u0435\u0437\u043E\u043D\u043D\u043E\u0441\u0442\u044C, \u043A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u044C \u043F\u043E\u0435\u0437\u0434\u043E\u043A")),
-            React.createElement("span", { className: "step-pen" }, "\u2192")),
         React.createElement("p", { className: "step-title" }, "\u041F\u0443\u0442\u0435\u0448\u0435\u0441\u0442\u0432\u0435\u043D\u043D\u0438\u043A\u0438"),
         people.length > 0 && (React.createElement("div", { className: "people" }, people.map((pr) => (React.createElement("div", { key: pr.id, className: "person" },
             React.createElement("span", { className: "person-name" }, pr.name),
@@ -6914,23 +6919,21 @@ body > div{max-width:100%;}
 .sheet .suggest{position:relative;}
 .sheet .inline-list{max-height:46vh; overflow-y:auto; margin-top:10px;}
 .sheet .hotel-rows{display:flex; flex-direction:column; gap:7px; margin-bottom:8px;}
-.sheet .trophy{position:relative; display:flex; align-items:center; gap:16px; padding:18px 16px; margin-bottom:9px; border-radius:16px; overflow:hidden;
-  border:1px solid rgba(190,215,230,.35);
-  background:linear-gradient(135deg,#1a2c3e 0%,#24384b 40%,#16283a 100%);}
-.trophy-cup{position:relative; flex:none; display:flex; color:#dfe9f2;
-  filter:drop-shadow(0 0 10px rgba(200,230,245,.45));}
-.trophy.tier-1 .trophy-cup{color:#d19a67;}
-.trophy.tier-2 .trophy-cup{color:#cfd8e2;}
-.trophy.tier-3 .trophy-cup{color:#f0c95f;}
-.trophy.tier-4 .trophy-cup{color:#c9f2ee;}
+.sheet .awards-card{margin-bottom:10px; padding:4px 4px 6px; border-radius:16px; border:1px solid var(--line);
+  background:linear-gradient(160deg,#16293c 0%,#1b3247 55%,#132436 100%);}
+.trophy{display:flex; align-items:center; gap:6px; padding:10px 12px 6px;}
+.trophy-svg{flex:none; width:92px; height:92px;}
 .trophy-text{flex:1 1 auto; min-width:0;}
-.trophy-text b{display:block; font-family:Georgia,serif; font-size:1.15rem; font-weight:400; line-height:1.2;}
-.trophy-text em{display:block; margin-top:4px; font-style:normal; font-size:0.72rem; color:var(--dim);}
-.shine{position:absolute; inset:-40% -140%; pointer-events:none;
-  background:linear-gradient(105deg, transparent 38%, rgba(255,255,255,.55) 48%, rgba(255,255,255,.9) 52%, transparent 62%);
-  transform:translateX(-60%); animation:sweep 3.6s ease-in-out infinite;}
-@keyframes sweep{0%,62%{transform:translateX(-60%);}100%{transform:translateX(60%);}}
-.awards{display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:8px; margin-bottom:8px;}
+.trophy-text b{display:block; font-family:Georgia,serif; font-size:1.2rem; font-weight:400; line-height:1.2;}
+.trophy-text em{display:block; margin-top:5px; font-style:normal; font-size:0.72rem; color:var(--dim);}
+.no-award{padding:16px 14px 6px;}
+.awards-more{display:flex; align-items:center; gap:10px; width:100%; padding:11px 14px; border:0; border-top:1px solid var(--line);
+  background:none; color:var(--ink); text-align:left; cursor:pointer;}
+.awards-more span{flex:1 1 auto; min-width:0;}
+.awards-more b{display:block; font-size:0.82rem; font-weight:500;}
+.awards-more em{display:block; margin-top:2px; font-style:normal; font-size:0.68rem; color:var(--dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.awards-more i{flex:none; font-style:normal; font-size:0.6rem; color:var(--gold);}
+.awards{display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:8px; padding:0 10px 10px;}
 .award{display:flex; align-items:center; gap:9px; padding:10px; border-radius:12px; border:1px solid var(--line); background:var(--el); min-width:0;}
 .award:not(.on){opacity:.55;}
 .cup{flex:none; color:var(--dim); display:flex;}
