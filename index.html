@@ -136,6 +136,7 @@
 "use strict";
 "use strict";
 "use strict";
+"use strict";
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
 /* ================================================================== */
 /*  Справочник стран: A2 | A3 | название | континент | шир. | долг.    */
@@ -470,7 +471,7 @@ const applyBooks = (data) => {
     });
 };
 /* забираем справочники: с устройства, недостающее — с сервера */
-async function loadBooks({ force } = {}) {
+async function loadBooks({ force, onStep } = {}) {
     let saved = null;
     if (!force) {
         try {
@@ -489,6 +490,7 @@ async function loadBooks({ force } = {}) {
         applyBooks(data);
         return { from: "device", data, added: 0 };
     }
+    let done = 0;
     for (const b of missing) {
         try {
             const r = await fetch(`./data/${b.file}`, { cache: "force-cache" });
@@ -498,6 +500,8 @@ async function loadBooks({ force } = {}) {
         catch {
             /* этот файл не пришёл — остальные всё равно возьмём */
         }
+        done += 1;
+        onStep === null || onStep === void 0 ? void 0 : onStep(done / missing.length);
     }
     if (Object.keys(data).length)
         applyBooks(data);
@@ -572,6 +576,7 @@ const WORD = {
     cont: ["часть света", "части света", "частей света"],
     island: ["островная страна", "островные страны", "островных стран"],
     quarter: ["четверть света", "четверти света", "четвертей света"],
+    sight: ["место", "места", "мест"],
 };
 const pw = (n, key) => plural(n, ...WORD[key]);
 const np = (n, key) => `${n} ${pw(n, key)}`;
@@ -1243,7 +1248,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "16.5";
+const APP_VERSION = "16.6";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -4528,7 +4533,7 @@ function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, 
         React.createElement(Ask, { ask: ask, onClose: () => setAsk(null), box: box })))));
 }
 /* шторка: настройки — поведение приложения */
-function SettingsSheet({ open, onClose, box, visits, theme, onTheme, quality, onQuality, cityPins, onToggleCityPins, spinStart, onToggleSpin, mapView, onMapView, geoCount, onReloadGeo, booksSaved, booksSize, booksCounts, onKeepBooks, onDropBooks, onFreshBooks, hasPin, faceAvailable, faceOn, onSetPin, onDropPin, onLock, onFace, }) {
+function SettingsSheet({ open, onClose, box, visits, theme, onTheme, quality, onQuality, cityPins, onToggleCityPins, spinStart, onToggleSpin, mapView, onMapView, geoCount, onReloadGeo, offline, busy, progress, offlineAt, onToggleOffline, booksSize, booksCounts, hasPin, faceAvailable, faceOn, onSetPin, onDropPin, onLock, onFace, }) {
     const where = store.kind() === "idb"
         ? "база браузера"
         : store.kind() === "ls"
@@ -4591,39 +4596,23 @@ function SettingsSheet({ open, onClose, box, visits, theme, onTheme, quality, on
                         : "Вместо кода — вход по лицу")),
                 React.createElement("span", { className: "switch" + (faceOn ? " on" : "") },
                     React.createElement("i", null)))),
-            React.createElement("p", { className: "step-title" }, "\u0421\u043F\u0440\u0430\u0432\u043E\u0447\u043D\u0438\u043A\u0438"),
-            React.createElement("p", { className: "hint small" }, "\u0413\u043E\u0440\u043E\u0434\u0430, \u043E\u0442\u0435\u043B\u0438 \u0438 \u0434\u043E\u0441\u0442\u043E\u043F\u0440\u0438\u043C\u0435\u0447\u0430\u0442\u0435\u043B\u044C\u043D\u043E\u0441\u0442\u0438 \u043B\u0435\u0436\u0430\u0442 \u043D\u0430 \u0441\u0435\u0440\u0432\u0435\u0440\u0435 \u0438 \u043F\u0440\u0438\u0445\u043E\u0434\u044F\u0442 \u043F\u043E \u043C\u0435\u0440\u0435 \u043D\u0430\u0434\u043E\u0431\u043D\u043E\u0441\u0442\u0438. \u041C\u043E\u0436\u043D\u043E \u043E\u0441\u0442\u0430\u0432\u0438\u0442\u044C \u0438\u0445 \u043D\u0430 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0435 \u2014 \u0442\u043E\u0433\u0434\u0430 \u043E\u043D\u0438 \u0431\u0443\u0434\u0443\u0442 \u043F\u043E\u0434 \u0440\u0443\u043A\u043E\u0439 \u0438 \u0431\u0435\u0437 \u0441\u0435\u0442\u0438."),
-            React.createElement("div", { className: "books-row" },
+            React.createElement("p", { className: "step-title" }, "\u0410\u0432\u0442\u043E\u043D\u043E\u043C\u043D\u0430\u044F \u0440\u0430\u0431\u043E\u0442\u0430"),
+            React.createElement("button", { className: "switch-row" + (offline ? " on" : ""), onClick: onToggleOffline, disabled: busy },
                 React.createElement("span", { className: "switch-text" },
-                    booksSaved ? "Хранятся на телефоне" : "Берутся с сервера",
-                    React.createElement("em", null, booksSize
-                        ? `${(booksSize / 1024).toFixed(0)} КБ · ${np(booksCounts.cities, "city")}, ${np(booksCounts.hotels, "hotel")}`
-                        : "загружаются…"))),
-            booksSaved ? (React.createElement("button", { className: "switch-row danger-row", onClick: () => setAsk({
-                    title: "Убрать справочники с телефона?",
-                    text: `Освободится ${(booksSize / 1024).toFixed(0)} КБ. Города и отели будут приходить с сервера — без сети подсказок не будет.`,
-                    yes: "Убрать",
-                    onYes: onDropBooks,
-                }) },
-                React.createElement("span", { className: "switch-text" },
-                    "\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u0441 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430",
-                    React.createElement("em", null,
-                        "\u041E\u0441\u0432\u043E\u0431\u043E\u0434\u0438\u0442 ",
-                        (booksSize / 1024).toFixed(0),
-                        " \u041A\u0411")),
-                React.createElement("span", { className: "step-pen" }, "\u2715"))) : (React.createElement("button", { className: "switch-row", onClick: onKeepBooks },
-                React.createElement("span", { className: "switch-text" },
-                    "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C \u043D\u0430 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0435",
-                    React.createElement("em", null,
-                        "\u0417\u0430\u0439\u043C\u0451\u0442 \u043E\u043A\u043E\u043B\u043E ",
-                        (booksSize / 1024).toFixed(0) || "150",
-                        " \u041A\u0411, \u0437\u0430\u0442\u043E \u0431\u0443\u0434\u0443\u0442 \u0440\u0430\u0431\u043E\u0442\u0430\u0442\u044C \u0431\u0435\u0437 \u0441\u0435\u0442\u0438")),
-                React.createElement("span", { className: "step-pen" }, "\u2193"))),
-            React.createElement("button", { className: "switch-row", onClick: onFreshBooks },
-                React.createElement("span", { className: "switch-text" },
-                    "\u041E\u0431\u043D\u043E\u0432\u0438\u0442\u044C \u0441\u043F\u0440\u0430\u0432\u043E\u0447\u043D\u0438\u043A\u0438",
-                    React.createElement("em", null, "\u0417\u0430\u0431\u0440\u0430\u0442\u044C \u0441 \u0441\u0435\u0440\u0432\u0435\u0440\u0430 \u0441\u0432\u0435\u0436\u0438\u0435 \u0433\u043E\u0440\u043E\u0434\u0430, \u043E\u0442\u0435\u043B\u0438 \u0438 \u0437\u043D\u0430\u0447\u043A\u0438")),
-                React.createElement("span", { className: "step-pen" }, "\u21BB")),
+                    "\u0420\u0430\u0431\u043E\u0442\u0430\u0442\u044C \u0431\u0435\u0437 \u0441\u0435\u0442\u0438",
+                    React.createElement("em", null, "\u0413\u043E\u0440\u043E\u0434\u0430, \u043E\u0442\u0435\u043B\u0438, \u043C\u0435\u0441\u0442\u0430 \u0438 \u0437\u043D\u0430\u0447\u043A\u0438 \u0445\u0440\u0430\u043D\u044F\u0442\u0441\u044F \u0432 \u043F\u0430\u043C\u044F\u0442\u0438 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430")),
+                React.createElement("span", { className: "sw" + (offline ? " on" : "") },
+                    React.createElement("i", null))),
+            (busy || offline) && (React.createElement("div", { className: "load-bar" },
+                React.createElement("i", { style: {
+                        width: `${Math.round((busy ? progress : 1) * 100)}%`,
+                    } }))),
+            React.createElement("p", { className: "hint small" }, busy
+                ? `Загружаем… ${Math.round(progress * 100)}%`
+                : offline
+                    ? `В память телефона загружены данные по состоянию на ${offlineAt || "сегодня"} в объёме ${(booksSize / 1024).toFixed(0)} КБ: ${np(booksCounts.cities, "city")}, ${np(booksCounts.hotels, "hotel")}, ${np(booksCounts.sights, "sight")}.`
+                    : `Осталось загрузить с сервера ${(booksSize / 1024).toFixed(0) ||
+                        "≈540"} КБ. Пока выключено, справочники приходят с сервера при каждом запуске.`),
             React.createElement("p", { className: "step-title" }, "\u041E \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0438"),
             React.createElement("div", { className: "about-row" },
                 React.createElement("span", null, "\u0412\u0435\u0440\u0441\u0438\u044F"),
@@ -6191,26 +6180,60 @@ function Atlas() {
     const [booksFrom, setBooksFrom] = useState("");
     const [booksSize, setBooksSize] = useState(0);
     const [booksSaved, setBooksSaved] = useState(false);
+    const [booksAt, setBooksAt] = useState("");
+    const [booksBusy, setBooksBusy] = useState(false);
+    const [booksProgress, setBooksProgress] = useState(0);
     useEffect(() => {
-        store.get(K_BOOKS).then((v) => setBooksSaved(!!(v === null || v === void 0 ? void 0 : v.cities))).catch(() => { });
+        store
+            .get(K_BOOKS)
+            .then((v) => {
+            setBooksSaved(!!(v === null || v === void 0 ? void 0 : v.cities));
+            if (v === null || v === void 0 ? void 0 : v.__at)
+                setBooksAt(v.__at);
+        })
+            .catch(() => { });
     }, [booksFrom]);
-    /* скачать и оставить у себя */
+    /* включить автономную работу: скачать и оставить у себя */
     const keepBooks = useCallback(async () => {
-        const res = await loadBooks({ force: true });
-        if (!Object.keys(res.data).length)
-            return false;
-        await store.set(K_BOOKS, { ...res.data, __ver: BOOKS_VER });
-        setBooksSaved(true);
-        setBooksSize(booksBytes);
-        setBooksFrom("device");
+        setBooksBusy(true);
+        setBooksProgress(0);
+        try {
+            const res = await loadBooks({
+                force: true,
+                onStep: (p) => setBooksProgress(p),
+            });
+            if (!Object.keys(res.data).length) {
+                setBooksBusy(false);
+                return false;
+            }
+            const stamp = new Date().toLocaleDateString("ru-RU", {
+                day: "numeric",
+                month: "long",
+                year: "numeric",
+            });
+            await store.set(K_BOOKS, {
+                ...res.data,
+                __ver: BOOKS_VER,
+                __at: stamp,
+            });
+            setBooksSaved(true);
+            setBooksAt(stamp);
+            setBooksSize(booksBytes);
+            setBooksFrom("device");
+        }
+        catch {
+            /* сеть подвела — останемся на сервере */
+        }
+        setBooksBusy(false);
+        setBooksProgress(0);
         return true;
     }, []);
-    /* убрать с устройства — останутся на сервере */
+    /* выключить: очистить память телефона */
     const dropBooks = useCallback(async () => {
         await store.del(K_BOOKS);
         setBooksSaved(false);
+        setBooksAt("");
         setBooksFrom("server");
-        // сами справочники остаются в памяти до перезапуска — приложение не «слепнет»
     }, []);
     const wish = (profile === null || profile === void 0 ? void 0 : profile.wish) || [];
     const isWish = useCallback((a3) => wish.includes(a3), [wish]);
@@ -6522,6 +6545,42 @@ function Atlas() {
                 const res = await loadBooks();
                 setBooksFrom(res.from);
                 setBooksSize(booksBytes);
+                // автономная работа включена — сверимся с сервером, если он на связи
+                if (res.from === "device" && navigator.onLine) {
+                    fetch("./data/badges.txt", { cache: "no-store" })
+                        .then((r) => (r.ok ? r.text() : null))
+                        .then(async (fresh) => {
+                        var _c;
+                        if (!fresh)
+                            return;
+                        const mine = ((_c = (await store.get(K_BOOKS))) === null || _c === void 0 ? void 0 : _c.badges) || "";
+                        if (fresh.trim() === String(mine).trim())
+                            return;
+                        // на сервере другое — перезабираем всё
+                        setBooksBusy(true);
+                        const up = await loadBooks({
+                            force: true,
+                            onStep: (p) => setBooksProgress(p),
+                        });
+                        const stamp = new Date().toLocaleDateString("ru-RU", {
+                            day: "numeric",
+                            month: "long",
+                            year: "numeric",
+                        });
+                        await store.set(K_BOOKS, {
+                            ...up.data,
+                            __ver: BOOKS_VER,
+                            __at: stamp,
+                        });
+                        setBooksAt(stamp);
+                        setBooksSize(booksBytes);
+                        setBooksBusy(false);
+                        setBooksProgress(0);
+                    })
+                        .catch(() => {
+                        /* сервер молчит — работаем с тем, что на телефоне */
+                    });
+                }
             }
             catch {
                 setBooksFrom("none");
@@ -7190,17 +7249,10 @@ function Atlas() {
                     React.createElement(SettingsSheet, { open: sheet === "settings", onClose: () => setSheet("profile"), box: box, visits: visits, theme: theme, onTheme: setTheme, quality: photoQuality, onQuality: (v) => {
                             setPhotoQuality(v);
                             setSheet("photomode");
-                        }, cityPins: cityPins, onToggleCityPins: setCityPins, spinStart: spinStart, onToggleSpin: setSpinStart, mapView: mapView, onMapView: setMapView, geoCount: ((_c = geo === null || geo === void 0 ? void 0 : geo.features) === null || _c === void 0 ? void 0 : _c.length) || 0, onReloadGeo: reloadGeo, booksSaved: booksSaved, booksSize: booksSize, booksCounts: {
+                        }, cityPins: cityPins, onToggleCityPins: setCityPins, spinStart: spinStart, onToggleSpin: setSpinStart, mapView: mapView, onMapView: setMapView, geoCount: ((_c = geo === null || geo === void 0 ? void 0 : geo.features) === null || _c === void 0 ? void 0 : _c.length) || 0, onReloadGeo: reloadGeo, offline: booksSaved, busy: booksBusy, progress: booksProgress, offlineAt: booksAt, onToggleOffline: () => (booksSaved ? dropBooks() : keepBooks()), booksSize: booksSize, booksCounts: {
                             cities: CITIES.length,
                             hotels: Object.values(HOTELS_BY_CITY).reduce((n, v) => n + v.length, 0),
                             sights: SIGHTS.length,
-                        }, onKeepBooks: keepBooks, onDropBooks: dropBooks, onFreshBooks: async () => {
-                            await store.del(K_BOOKS);
-                            const res = await loadBooks({ force: true });
-                            if (booksSaved && Object.keys(res.data).length)
-                                await store.set(K_BOOKS, { ...res.data, __ver: BOOKS_VER });
-                            setBooksSize(booksBytes);
-                            window.location.reload();
                         }, hasPin: !!profile.pinHash, faceAvailable: faceAvailable, faceOn: !!profile.credId, onSetPin: () => {
                             setSheet(null);
                             setProfile(null);
@@ -7726,6 +7778,13 @@ body > div{max-width:100%;}
 .sights{display:flex; flex-wrap:wrap; gap:7px; margin-bottom:6px;}
 .sight{display:flex; align-items:baseline; gap:6px; padding:8px 11px; border-radius:10px; border:1px solid var(--line); background:var(--el); font-size:0.78rem;}
 .sight i{font-style:normal; font-size:0.62rem; color:var(--dim);}
+.sw{flex:none; width:46px; height:27px; border-radius:14px; background:var(--track); position:relative; transition:background .2s ease;}
+.sw.on{background:var(--gold);}
+.sw i{position:absolute; top:3px; left:3px; width:21px; height:21px; border-radius:50%; background:#0d1b2a; transition:transform .2s ease;}
+.sw.on i{transform:translateX(19px);}
+.switch-row:disabled{opacity:.6;}
+.load-bar{height:6px; margin:2px 0 8px; border-radius:3px; background:var(--track); overflow:hidden;}
+.load-bar i{display:block; height:100%; border-radius:3px; background:var(--gold); transition:width .3s ease;}
 .books-row{display:flex; align-items:center; padding:12px 14px; margin-bottom:8px; border-radius:12px; border:1px solid var(--line); background:var(--el);}
 .fam-key{padding:14px; margin-bottom:12px; border-radius:14px; border:1px solid var(--line); background:var(--el);}
 .fam-key > b{display:block; font-size:0.85rem; margin-bottom:10px;}
