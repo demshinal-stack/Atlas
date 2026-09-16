@@ -115,6 +115,7 @@
 "use strict";
 "use strict";
 "use strict";
+"use strict";
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
 /* ================================================================== */
 /*  Справочник стран: A2 | A3 | название | континент | шир. | долг.    */
@@ -1109,7 +1110,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "14.3";
+const APP_VERSION = "14.4";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -3902,7 +3903,6 @@ function WhenPicker({ y, m, noMonth, y2, approx, since, from, to, onChange }) {
 }
 function Suggest({ placeholder, pool, exclude, onAdd, allowCustom = true }) {
     const [q, setQ] = useState("");
-    const [searchOn, setSearchOn] = useState(false);
     const s = q.trim().toLowerCase();
     const found = pool
         .filter((c) => !exclude.includes(c) && (!s || c.toLowerCase().includes(s)))
@@ -5629,6 +5629,7 @@ function FiltersSheet({ open, onClose, box, target, years, yearFilter, onYear, m
 function ListSheet({ visits, stats, open, onClose, onPick, onRemove, onDone, box, mode, since, wishCount = 0, onReports, onFilters, people = [], meId = ME }) {
     const [ask, setAsk] = useState(null);
     const [q, setQ] = useState("");
+    const [searchOn, setSearchOn] = useState(false);
     const [closed, setClosed] = useState({});
     const [flipped, setFlipped] = useState(false);
     const [statsUp, setStatsUp] = useState(false);
