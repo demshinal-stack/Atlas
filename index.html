@@ -114,6 +114,7 @@
 "use strict";
 "use strict";
 "use strict";
+"use strict";
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
 /* ================================================================== */
 /*  Справочник стран: A2 | A3 | название | континент | шир. | долг.    */
@@ -1108,7 +1109,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "14.2";
+const APP_VERSION = "14.3";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -3901,6 +3902,7 @@ function WhenPicker({ y, m, noMonth, y2, approx, since, from, to, onChange }) {
 }
 function Suggest({ placeholder, pool, exclude, onAdd, allowCustom = true }) {
     const [q, setQ] = useState("");
+    const [searchOn, setSearchOn] = useState(false);
     const s = q.trim().toLowerCase();
     const found = pool
         .filter((c) => !exclude.includes(c) && (!s || c.toLowerCase().includes(s)))
@@ -5839,13 +5841,18 @@ function ListSheet({ visits, stats, open, onClose, onPick, onRemove, onDone, box
                 React.createElement("button", { className: "filter-icon", onClick: onFilters, "aria-label": "\u0424\u0438\u043B\u044C\u0442\u0440\u044B" },
                     React.createElement("svg", { viewBox: "0 0 24 24", width: "17", height: "17" },
                         React.createElement("path", { d: "M4 7h16M7 12h10M10 17h4", fill: "none", stroke: "currentColor", strokeWidth: "1.9", strokeLinecap: "round" }))),
-                React.createElement("span", { className: "mode-hint" }, mode === "year"
+                searchOn ? (React.createElement("input", { className: "list-find", value: q, placeholder: "\u041F\u043E\u0438\u0441\u043A \u043F\u043E \u0437\u0430\u043F\u0438\u0441\u044F\u043C", autoFocus: true, onChange: (e) => setQ(e.target.value), autoComplete: "off", autoCorrect: "off", spellCheck: "false" })) : (React.createElement("span", { className: "mode-hint" }, mode === "year"
                     ? "По годам"
                     : mode === "country"
                         ? "По странам"
                         : "По частям света")),
-            React.createElement("div", { className: "list-search" },
-                React.createElement(TextField, { search: true, value: q, placeholder: "\u041F\u043E\u0438\u0441\u043A \u043F\u043E \u0437\u0430\u043F\u0438\u0441\u044F\u043C", onChange: (e) => setQ(e.target.value) }))),
+                React.createElement("button", { className: "filter-icon" + (searchOn ? " on" : ""), "aria-label": searchOn ? "Закрыть поиск" : "Поиск", onClick: () => {
+                        if (searchOn)
+                            setQ("");
+                        setSearchOn((v) => !v);
+                    } }, searchOn ? (React.createElement("span", { className: "find-x" }, "\u2715")) : (React.createElement("svg", { viewBox: "0 0 24 24", width: "17", height: "17" },
+                    React.createElement("circle", { cx: "11", cy: "11", r: "6.4", fill: "none", stroke: "currentColor", strokeWidth: "1.9" }),
+                    React.createElement("path", { d: "M16 16l4.5 4.5", stroke: "currentColor", strokeWidth: "1.9", strokeLinecap: "round" })))))),
         found.length === 0 && (React.createElement("p", { className: "focus-empty pad16" }, all.length
             ? "Ничего не нашлось."
             : "Пока пусто. Нажмите «Добавить поездку».")),
@@ -7244,7 +7251,7 @@ body > div{max-width:100%;}
 .tf-clear{flex:none; width:32px; height:32px; display:flex; align-items:center; justify-content:center;
   padding:0; border:0; background:none; color:var(--dim); cursor:pointer;}
 .mode-hint{padding:2px 2px 0; font-size:0.7rem; color:var(--dim);}
-.list-search{margin-top:8px;}
+
 .stats-min{display:flex; align-items:center; gap:8px; width:100%; margin-top:10px; padding:11px 14px; border-radius:12px; border:1px solid var(--line); background:var(--el); color:var(--ink); cursor:pointer; min-width:0;}
 .stats-min b{flex:none; font-family:Georgia,serif; font-size:1rem; font-weight:400; color:var(--gold);}
 .stats-min span{flex:1 1 auto; min-width:0; font-size:0.72rem; color:var(--dim); text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
@@ -7255,6 +7262,9 @@ body > div{max-width:100%;}
 
 .list-tools{display:flex; align-items:center; gap:10px; margin-top:12px;}
 .filter-icon{flex:none; width:38px; height:38px; display:flex; align-items:center; justify-content:center; border-radius:11px; border:1px solid var(--line); background:var(--el); color:var(--gold); cursor:pointer;}
+.list-find{flex:1 1 auto; min-width:0; height:38px; padding:0 12px; border-radius:11px; border:1px solid var(--gold); background:var(--field); color:var(--ink); font-size:0.82rem; font-family:inherit; outline:none; appearance:none; -webkit-appearance:none;}
+.filter-icon.on{border-color:var(--gold); color:var(--gold);}
+.find-x{font-size:0.85rem;}
 .list-tools .mode-hint{flex:1 1 auto; min-width:0; padding:0; font-size:0.8rem; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 
 .rep{margin-bottom:16px; padding:14px; border-radius:14px; border:1px solid var(--line); background:var(--el);}
