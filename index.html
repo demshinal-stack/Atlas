@@ -119,6 +119,9 @@
 "use strict";
 "use strict";
 "use strict";
+"use strict";
+"use strict";
+"use strict";
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
 /* ================================================================== */
 /*  Справочник стран: A2 | A3 | название | континент | шир. | долг.    */
@@ -331,9 +334,29 @@ VU|VUT|Вануату|OC|-16.3|167.5
 const K_BOOKS = "atlas:books";
 const BOOKS = [
     { id: "cities", file: "cities.txt", title: "Города" },
+    { id: "regions", file: "regions.txt", title: "Регионы" },
     { id: "hotels", file: "hotels.txt", title: "Отели" },
     { id: "sights", file: "sights.txt", title: "Достопримечательности" },
+    { id: "phrases", file: "phrases.txt", title: "Разговорник" },
+    { id: "badges", file: "badges.txt", title: "Значки стран" },
 ];
+/* значки: один рисунок на все страны, по нему вырезаем нужную клетку */
+let BADGE = { cols: 14, cell: 56, index: {}, ready: false };
+const badgeStyle = (a3) => {
+    const i = BADGE.index[a3];
+    if (i === undefined)
+        return null;
+    const x = (i % BADGE.cols) * BADGE.cell;
+    const y = Math.floor(i / BADGE.cols) * BADGE.cell;
+    return {
+        backgroundImage: "url(./data/badges.webp)",
+        backgroundPosition: `-${x}px -${y}px`,
+        width: BADGE.cell,
+        height: BADGE.cell,
+    };
+};
+let REGIONS = {};
+let PHRASES = {};
 let CITIES = [];
 let HOTELS_BY_CITY = {};
 let HOTEL_CAT = {};
@@ -384,6 +407,31 @@ const parseSights = (raw) => {
     });
     return list;
 };
+const parseRegions = (raw) => {
+    const by = {};
+    (raw || "").split("\n").forEach((row) => {
+        const [a3, list] = row.split("|");
+        if (!a3 || !list)
+            return;
+        by[a3.trim()] = list.split(";").map((x) => x.trim()).filter(Boolean);
+    });
+    return by;
+};
+const parsePhrases = (raw) => {
+    const by = {};
+    (raw || "").split("\n").forEach((row) => {
+        // сами фразы содержат «|», поэтому делим только по первому
+        const i = row.indexOf("|");
+        if (i < 1)
+            return;
+        const lang = row.slice(0, i).trim();
+        by[lang] = row
+            .slice(i + 1)
+            .split(";")
+            .filter(Boolean);
+    });
+    return by;
+};
 const applyBooks = (data) => {
     booksBytes = 0;
     Object.values(data || {}).forEach((v) => (booksBytes += (v || "").length));
@@ -392,6 +440,14 @@ const applyBooks = (data) => {
     HOTELS_BY_CITY = h.by;
     HOTEL_CAT = h.cat;
     SIGHTS = parseSights(data === null || data === void 0 ? void 0 : data.sights);
+    REGIONS = parseRegions(data === null || data === void 0 ? void 0 : data.regions);
+    if (data === null || data === void 0 ? void 0 : data.badges) {
+        const [cols, cell, list] = data.badges.trim().split("|");
+        const index = {};
+        (list || "").split(";").forEach((c, i) => (index[c.trim()] = i));
+        BADGE = { cols: +cols || 14, cell: +cell || 56, index, ready: true };
+    }
+    PHRASES = parsePhrases(data === null || data === void 0 ? void 0 : data.phrases);
     SIGHTS_BY_A3 = {};
     SIGHTS.forEach((x) => {
         (SIGHTS_BY_A3[x.a3] = SIGHTS_BY_A3[x.a3] || []).push(x);
@@ -1126,7 +1182,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "14.7";
+const APP_VERSION = "15.1";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -1987,74 +2043,6 @@ const CURRENCY = Object.fromEntries(CURRENCY_RAW.split(" ").map((t) => t.split("
 const LANG_RAW = "AFG:fa ALB:sq DZA:ar AND:ca AGO:pt ARG:es ARM:hy AUS:en AUT:de AZE:az BHR:ar BGD:bn BLR:be BEL:nl BOL:es BIH:bs BRA:pt BGR:bg KHM:km CAN:en CHL:es CHN:zh COL:es CRI:es HRV:hr CUB:es CYP:el CZE:cs DNK:da DOM:es ECU:es EGY:ar SLV:es EST:et ETH:am FIN:fi FRA:fr GEO:ka DEU:de GRC:el GTM:es HKG:zh MAC:zh HUN:hu ISL:is IND:hi IDN:id IRN:fa IRQ:ar IRL:en ISR:he ITA:it JAM:en JPN:ja JOR:ar KAZ:kk KEN:sw KOR:ko KWT:ar KGZ:ky LAO:lo LVA:lv LBN:ar LTU:lt LUX:fr MYS:ms MDV:dv MLT:mt MEX:es MDA:ro MCO:fr MNG:mn MNE:sr MAR:ar MMR:my NAM:en NPL:ne NLD:nl NZL:en NIC:es MKD:mk NOR:no OMN:ar PAK:ur PSE:ar PAN:es PRY:es PER:es PHL:tl POL:pl PRT:pt QAT:ar ROU:ro RUS:ru SAU:ar SRB:sr SGP:en SVK:sk SVN:sl ZAF:en ESP:es LKA:si SWE:sv CHE:de SYR:ar TWN:zh TJK:tg TZA:sw THA:th TUN:ar TUR:tr TKM:tk UKR:uk ARE:ar GBR:en USA:en URY:es UZB:uz VAT:it VEN:es VNM:vi ZWE:en XKX:sq SYC:fr MUS:fr MDG:fr SEN:fr CIV:fr CMR:fr COD:fr GAB:fr BEN:fr BFA:fr MLI:fr NER:fr TCD:fr GIN:fr RWA:fr BDI:fr DJI:fr COM:fr MOZ:pt CPV:pt STP:pt GNB:pt TLS:pt SUR:nl BRN:ms FJI:en PNG:en SLB:en VUT:fr WSM:en TON:en TUV:en KIR:en NRU:en MHL:en FSM:en PLW:en BHS:en BRB:en BLZ:en ATG:en DMA:en GRD:en KNA:en LCA:en VCT:en TTO:en GUY:en JPN2:ja";
 const COUNTRY_LANG = Object.fromEntries(LANG_RAW.split(" ").map((t) => t.split(":")));
 /* шесть фраз: здравствуйте, до свидания, спасибо, пожалуйста, сколько стоит, помогите */
-const PHRASES = {
-    ru: ["Здравствуйте|здра́вствуйте", "До свидания|до свида́ния", "Спасибо|спаси́бо", "Пожалуйста|пожа́луйста", "Сколько стоит?|ско́лько сто́ит", "Помогите!|помоги́те"],
-    en: ["Hello|хэлло́у", "Goodbye|гудба́й", "Thank you|сэнк ю", "Please|плиз", "How much?|ха́у мач", "Help!|хэлп"],
-    es: ["Hola|о́ла", "Adiós|адьо́с", "Gracias|гра́сьяс", "Por favor|пор фаво́р", "¿Cuánto cuesta?|куа́нто куэ́ста", "¡Ayuda!|аю́да"],
-    fr: ["Bonjour|бонжу́р", "Au revoir|о ревуа́р", "Merci|мерси́", "S'il vous plaît|силь ву пле", "C'est combien?|се комбье́н", "Au secours!|о секу́р"],
-    de: ["Hallo|ха́лло", "Auf Wiedersehen|ауф ви́дерзеен", "Danke|да́нке", "Bitte|би́тте", "Wie viel kostet das?|ви филь ко́стет дас", "Hilfe!|хи́льфе"],
-    it: ["Buongiorno|буонджо́рно", "Arrivederci|арриведе́рчи", "Grazie|гра́цие", "Per favore|пер фаво́ре", "Quanto costa?|куа́нто ко́ста", "Aiuto!|аю́то"],
-    pt: ["Olá|ола́", "Adeus|адэ́уш", "Obrigado|обрига́ду", "Por favor|пур фаво́р", "Quanto custa?|куа́нту ку́шта", "Socorro!|соко́рру"],
-    nl: ["Hallo|ха́лло", "Tot ziens|тот зи́нс", "Dank je|данк е", "Alsjeblieft|альсхебли́фт", "Hoeveel kost het?|ху́вел кост хет", "Help!|хелп"],
-    sv: ["Hej|хей", "Hej då|хей до", "Tack|так", "Varsågod|варшого́д", "Vad kostar det?|вад ко́стар де", "Hjälp!|йельп"],
-    no: ["Hei|хей", "Ha det|ха де", "Takk|такк", "Vær så snill|вэр со снилль", "Hva koster det?|ва ко́стер де", "Hjelp!|йельп"],
-    da: ["Hej|хай", "Farvel|фарве́ль", "Tak|так", "Værsgo|вэсго́", "Hvad koster det?|ва ко́стер де", "Hjælp!|йельп"],
-    fi: ["Hei|хей", "Näkemiin|няке́миин", "Kiitos|ки́итос", "Ole hyvä|о́ле хю́вя", "Paljonko maksaa?|па́льонко ма́ксаа", "Apua!|а́пуа"],
-    pl: ["Dzień dobry|джень до́бры", "Do widzenia|до видзе́ня", "Dziękuję|дженку́е", "Proszę|про́ше", "Ile to kosztuje?|и́ле то коштуе", "Pomocy!|помо́цы"],
-    cs: ["Dobrý den|до́бри ден", "Na shledanou|насхледа́ноу", "Děkuji|де́куйи", "Prosím|про́сим", "Kolik to stojí?|ко́лик то сто́йи", "Pomoc!|по́моц"],
-    sk: ["Dobrý deň|до́бри день", "Dovidenia|довиде́ня", "Ďakujem|дя́куем", "Prosím|про́сим", "Koľko to stojí?|ко́лько то сто́йи", "Pomoc!|по́моц"],
-    hu: ["Jó napot|йо на́пот", "Viszlát|ви́слат", "Köszönöm|кёсёнём", "Kérem|ке́рем", "Mennyibe kerül?|ме́ннибе ке́рюль", "Segítség!|шеги́тшег"],
-    ro: ["Bună ziua|бу́нэ зи́уа", "La revedere|ла реведе́ре", "Mulțumesc|мулцуме́ск", "Vă rog|вэ рог", "Cât costă?|кыт ко́стэ", "Ajutor!|ажуто́р"],
-    bg: ["Здравейте|здраве́йте", "Довиждане|дови́ждане", "Благодаря|благодаря́", "Моля|мо́ля", "Колко струва?|ко́лко стру́ва", "Помощ!|по́мошт"],
-    el: ["Γεια σας|я сас", "Αντίο|анди́о", "Ευχαριστώ|эфхаристо́", "Παρακαλώ|паракало́", "Πόσο κάνει;|по́со ка́ни", "Βοήθεια!|вои́сия"],
-    tr: ["Merhaba|мерхаба́", "Hoşça kal|хошча́ кал", "Teşekkürler|тешеккюрле́р", "Lütfen|лю́тфен", "Ne kadar?|не када́р", "İmdat!|имда́т"],
-    ar: ["مرحبا|ма́рхаба", "مع السلامة|ма ас-саля́ма", "شكرا|шу́кран", "من فضلك|мин фа́длик", "كم الثمن؟|кям ас-са́ман", "النجدة!|ан-на́жда"],
-    he: ["שלום|шало́м", "להתראות|леитрао́т", "תודה|тода́", "בבקשה|бевакаша́", "כמה זה עולה?|ка́ма зэ оле́", "הצילו!|ацилу́"],
-    fa: ["سلام|саля́м", "خداحافظ|ходахафе́з", "ممنون|мамну́н", "لطفا|лотфа́н", "چند است؟|чанд аст", "کمک!|коме́к"],
-    hi: ["नमस्ते|намасте́", "अलविदा|алвида́", "धन्यवाद|дханьява́д", "कृपया|крипая́", "कितने का है?|китне́ ка хэ", "मदद!|мада́д"],
-    th: ["สวัสดี|саватди́", "ลาก่อน|ла ко́н", "ขอบคุณ|кхо́п кхун", "กรุณา|каруна́", "เท่าไหร่|тхау ра́й", "ช่วยด้วย|чуа́й дуа́й"],
-    vi: ["Xin chào|син тя́о", "Tạm biệt|там бье́т", "Cảm ơn|кам он", "Làm ơn|лам он", "Bao nhiêu tiền?|бао нье́у тье́н", "Cứu tôi!|кы́у той"],
-    id: ["Halo|ха́ло", "Sampai jumpa|сампа́й джу́мпа", "Terima kasih|тери́ма ка́си", "Tolong|то́лонг", "Berapa harganya?|бера́па харга́нья", "Tolong!|то́лонг"],
-    ms: ["Helo|хе́ло", "Selamat tinggal|селама́т тингга́л", "Terima kasih|тери́ма ка́сих", "Tolong|то́лонг", "Berapa harganya?|бера́па харга́нья", "Tolong!|то́лонг"],
-    zh: ["你好|ни хао", "再见|цзай цзя́нь", "谢谢|сесе", "请|цин", "多少钱？|дуо шао цянь", "救命！|цзю мин"],
-    ja: ["こんにちは|конничива́", "さようなら|сайо́нара", "ありがとう|ариГато́", "お願いします|онэГа́й симас", "いくらですか|и́кура дэс ка", "助けて|таскэ́тэ"],
-    ko: ["안녕하세요|аннёнхасе́ё", "안녕히 가세요|аннёнхи касе́ё", "감사합니다|камсахамни́да", "부탁합니다|путакхамни́да", "얼마예요?|о́льма ее́", "도와주세요!|товаджусе́ё"],
-    ka: ["გამარჯობა|гамарджо́ба", "ნახვამდის|нахвамди́с", "მადლობა|мадло́ба", "გთხოვთ|гтхо́вт", "რა ღირს?|ра гирс", "დახმარება!|дахмаре́ба"],
-    hy: ["Բարև|баре́в", "Ցտեսություն|цтесутю́н", "Շնորհակալություն|шнорхакалутю́н", "Խնդրեմ|хндре́м", "Ի՞նչ արժե|инч арже́", "Օգնությու՛ն|огнутю́н"],
-    az: ["Salam|сала́м", "Sağ ol|саг ол", "Təşəkkür|тешеккю́р", "Zəhmət olmasa|зэхме́т олмаса́", "Neçəyədir?|нечэйеди́р", "Kömək!|кёмя́к"],
-    kk: ["Сәлеметсіз бе|сэлеметси́з бе", "Сау болыңыз|сау болыны́з", "Рақмет|рахме́т", "Өтінемін|отинеми́н", "Қанша тұрады?|канша́ тура́ды", "Көмектесіңіз!|комектесини́з"],
-    uz: ["Assalomu alaykum|ассало́му алайку́м", "Xayr|хайр", "Rahmat|рахма́т", "Iltimos|илтимо́с", "Qancha turadi?|канча́ тура́ди", "Yordam bering!|йорда́м беринг"],
-    ky: ["Салам|сала́м", "Жакшы калыңыз|жакшы́ калыны́з", "Рахмат|рахма́т", "Сураныч|сураны́ч", "Канча турат?|канча́ тура́т", "Жардам!|жарда́м"],
-    tg: ["Салом|сало́м", "Хайр|хайр", "Ташаккур|ташаккку́р", "Лутфан|лутфа́н", "Чанд пул аст?|чанд пул аст", "Кумак!|кума́к"],
-    mn: ["Сайн байна уу|сайн байну́", "Баяртай|баярта́й", "Баярлалаа|баярлала́", "Гуйя|гуйя́", "Хэд вэ?|хэд вэ", "Туслаарай!|тусла́рай"],
-    sr: ["Здраво|здра́во", "Довиђења|довидже́ня", "Хвала|хва́ла", "Молим|мо́лим", "Колико кошта?|коли́ко ко́шта", "Упомоћ!|упомо́ч"],
-    hr: ["Dobar dan|до́бар дан", "Doviđenja|довидже́ня", "Hvala|хва́ла", "Molim|мо́лим", "Koliko košta?|коли́ко ко́шта", "Upomoć!|упомо́ч"],
-    sl: ["Dober dan|до́бер дан", "Nasvidenje|насвиде́нье", "Hvala|хва́ла", "Prosim|про́сим", "Koliko stane?|коли́ко ста́не", "Na pomoč!|на помо́ч"],
-    mk: ["Здраво|здра́во", "Довидување|довиду́вање", "Благодарам|благода́рам", "Ве молам|ве мо́лам", "Колку чини?|ко́лку чи́ни", "Помош!|по́мош"],
-    sq: ["Përshëndetje|першенде́тье", "Mirupafshim|мирупафши́м", "Faleminderit|фалеминде́рит", "Ju lutem|ю лу́тем", "Sa kushton?|са кушто́н", "Ndihmë!|ндихмё"],
-    uk: ["Доброго дня|до́брого дня", "До побачення|до поба́чення", "Дякую|дя́кую", "Будь ласка|будь ла́ска", "Скільки коштує?|скі́льки ко́штує", "Допоможіть!|допоможі́ть"],
-    be: ["Добры дзень|до́бры дзень", "Да пабачэння|да пабачэ́ння", "Дзякуй|дзя́куй", "Калі ласка|калі́ ла́ска", "Колькі каштуе?|ко́лькі кашту́е", "Дапамажыце!|дапамажы́це"],
-    lt: ["Labas|ла́бас", "Viso gero|ви́со ге́ро", "Ačiū|а́чю", "Prašau|праша́у", "Kiek kainuoja?|кек кайнуо́я", "Padėkite!|падэ́ките"],
-    lv: ["Sveiki|све́йки", "Uz redzēšanos|уз редзе́шанос", "Paldies|палдиэ́с", "Lūdzu|лу́дзу", "Cik maksā?|цик макса́", "Palīgā!|пали́га"],
-    et: ["Tere|те́ре", "Nägemist|нягеми́ст", "Aitäh|айтя́х", "Palun|па́лун", "Kui palju maksab?|куй па́лю ма́ксаб", "Appi!|а́ппи"],
-    is: ["Halló|хало́", "Bless|блесс", "Takk|такк", "Gjörðu svo vel|гьёрду сво вел", "Hvað kostar?|квад ко́стар", "Hjálp!|хьяульп"],
-    km: ["សួស្ដី|суосдэ́й", "លាហើយ|лиа ха́эй", "អរគុណ|оркун", "សូម|соум", "តម្លៃប៉ុន្មាន|тамлай понма́н", "ជួយ!|чуой"],
-    lo: ["ສະບາຍດີ|сабайди́", "ລາກ່ອນ|ла ко́н", "ຂອບໃຈ|кхоп тяй", "ກະລຸນາ|каруна́", "ລາຄາເທົ່າໃດ|лакха́ тхауда́й", "ຊ່ວຍດ້ວຍ|суай дуай"],
-    my: ["မင်္ဂလာပါ|минглаба́", "သွားတော့မယ်|тва тьо мэ", "ကျေးဇူးတင်ပါတယ်|тьезу́ тин ба дэ", "ကျေးဇူးပြု၍|тьезу́ пью-е", "ဘယ်လောက်လဲ|бэ лау лэ", "ကူညီပါ|ку ньи ба"],
-    ne: ["नमस्ते|намасте́", "फेरि भेटौंला|фе́ри бхета́унла", "धन्यवाद|дханьява́д", "कृपया|крипая́", "कति पर्छ?|ка́ти парчха", "मद्दत!|мадда́т"],
-    si: ["ආයුබෝවන්|аюбо́ван", "ගිහින් එන්නම්|гихи́н энна́м", "ස්තුතියි|стути́", "කරුණාකර|карунака́ра", "කීයද?|ки́яда", "උදව්!|уда́ву"],
-    ur: ["السلام علیکم|ассаля́му алейку́м", "خدا حافظ|худа́ ха́физ", "شکریہ|шукри́я", "براہ کرم|бара́-э кара́м", "کتنے کا ہے؟|китне́ ка хэ", "مدد!|мада́д"],
-    bn: ["নমস্কার|намошка́р", "বিদায়|бида́й", "ধন্যবাদ|дхоннобад", "দয়া করে|дойа́ коре", "কত দাম?|кото дам", "সাহায্য!|шаха́джо"],
-    tl: ["Kumusta|кумуста́", "Paalam|паала́м", "Salamat|салама́т", "Pakiusap|пакиуса́п", "Magkano?|магка́но", "Tulong!|ту́лонг"],
-    sw: ["Jambo|джа́мбо", "Kwaheri|кваэ́ри", "Asante|аса́нте", "Tafadhali|тафадха́ли", "Bei gani?|бей га́ни", "Msaada!|мсаа́да"],
-    am: ["ሰላም|сэля́м", "ደህና ሁን|дэхна хун", "አመሰግናለሁ|амэсэгнале́у", "እባክህ|ыбаки́х", "ስንት ነው?|сынт ноу", "እርዳታ!|ырдата́"],
-    af: ["Hallo|ха́лло", "Totsiens|тотси́нс", "Dankie|да́нки", "Asseblief|асебли́ф", "Hoeveel kos dit?|хуфи́л кос дит", "Help!|хелп"],
-    mt: ["Bonġu|бо́нджу", "Saħħa|са́хха", "Grazzi|гра́цци", "Jekk jogħġbok|екк йо́джбок", "Kemm jiswa?|кемм йи́сва", "Ajjut!|айю́т"],
-    ca: ["Hola|о́ла", "Adéu|адэ́у", "Gràcies|гра́сиес", "Si us plau|си ус пла́у", "Quant val?|куан вал", "Ajuda!|ажу́да"],
-    dv: ["އައްސަލާމް ޢަލައިކުމް|ассала́му алейку́м", "ދަނީ|дани́", "ޝުކުރިއްޔާ|шукури́я", "އަދޭސްކޮށް|адэ́скош", "ކިހާ އަގެއް|киха́ агэ́", "އެހީ|эхи́"],
-    bs: ["Dobar dan|до́бар дан", "Doviđenja|довидже́ня", "Hvala|хва́ла", "Molim|мо́лим", "Koliko košta?|коли́ко ко́шта", "Upomoć!|упомо́ч"],
-    tk: ["Salam|сала́м", "Hoş gal|хош гал", "Sag boluň|саг болу́нь", "Haýyş|хайы́ш", "Näçe?|няче́", "Kömek!|кёме́к"],
-};
 const PHRASE_LABELS = [
     "Здравствуйте",
     "До свидания",
@@ -3957,6 +3945,7 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality,
     const [q, setQ] = useState("");
     const [editWhen, setEditWhen] = useState(false);
     const [addCity, setAddCity] = useState(false);
+    const [addRegion, setAddRegion] = useState(false);
     const [addHotel, setAddHotel] = useState(false);
     const [addWho, setAddWho] = useState(false);
     const whoBox = useRef(null);
@@ -3987,6 +3976,7 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality,
             from: src.trip.from || "",
             to: src.trip.to || "",
             who: src.trip.who || [],
+            regions: src.trip.regions || [],
             plan: !!src.trip.plan,
             id: src.trip.id,
             by: src.trip.by || "",
@@ -4005,6 +3995,7 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality,
         setQ("");
         setEditWhen(false);
         setAddCity(false);
+        setAddRegion(false);
         setAddHotel(false);
         setAddWho(false);
         planTouched.current = !!initial;
@@ -4100,6 +4091,7 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality,
                         to: "",
                         plan: false,
                         who: [ME, ...people.filter((p) => p.always).map((p) => p.id)],
+                        regions: [],
                         cities: via ? [via] : [],
                         hotels: [],
                         photos: [],
@@ -4128,6 +4120,19 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality,
                     : "Включится само, если выбрать будущую дату")),
             React.createElement("span", { className: "switch" + (draft.plan ? " on" : "") },
                 React.createElement("i", null)))),
+        country && whenReady && !editWhen && (REGIONS[country.a3] || []).length > 0 && (React.createElement("div", { className: "step" },
+            React.createElement("p", { className: "step-title" }, "\u0420\u0435\u0433\u0438\u043E\u043D"),
+            (draft.regions || []).length > 0 && (React.createElement("div", { className: "city-chips" }, (draft.regions || []).map((r) => (React.createElement("span", { key: r, className: "city-chip" },
+                r,
+                React.createElement("button", { onClick: () => patch({
+                        regions: (draft.regions || []).filter((x) => x !== r),
+                    }) }, "\u2715")))))),
+            addRegion ? (React.createElement(Suggest, { placeholder: "\u041D\u0430\u0447\u043D\u0438\u0442\u0435 \u0432\u0432\u043E\u0434\u0438\u0442\u044C \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u0435", pool: REGIONS[country.a3] || [], exclude: draft.regions || [], onAdd: (r) => {
+                    patch({ regions: [...(draft.regions || []), r] });
+                    setAddRegion(false);
+                } })) : (React.createElement("button", { className: "link-btn", onClick: () => setAddRegion(true) },
+                "\uFF0B ",
+                (draft.regions || []).length ? "ещё регион" : "выбрать регион")))),
         country && whenReady && !editWhen && (React.createElement("div", { className: "step" },
             React.createElement("p", { className: "step-title" }, "\u0413\u043E\u0440\u043E\u0434\u0430"),
             draft.cities.length > 0 && (React.createElement("div", { className: "city-chips" }, draft.cities.map((c) => (React.createElement("span", { key: c, className: "city-chip" },
@@ -4217,6 +4222,7 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality,
                         from: draft.from || "",
                         to: draft.to || "",
                         who: draft.who || [],
+                        regions: draft.regions || [],
                         plan: !!draft.plan,
                         id: draft.id || uid(),
                         at: Date.now(),
@@ -4231,7 +4237,7 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality,
                     React.createElement("path", { d: "M5 12.5l4.5 4.5L19 7.5", fill: "none", stroke: "currentColor", strokeWidth: "2.2", strokeLinecap: "round", strokeLinejoin: "round" })))))))));
 }
 /* шторка: профиль — вы и ваши данные */
-function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, since, onSince, people, onPeople, onReports, onSettings, onFamily, familyOn, onExport, onImport, onRestore, restoreMsg, doubles, onDoubles, visits, }) {
+function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, since, onSince, people, onPeople, onReports, onShelf, onSettings, onFamily, familyOn, onExport, onImport, onRestore, restoreMsg, doubles, onDoubles, visits, }) {
     const [showAll, setShowAll] = useState(false);
     const [addPerson, setAddPerson] = useState(false);
     const crew = useMemo(() => travelerStats(visits, people), [visits, people]);
@@ -4371,6 +4377,11 @@ function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, 
             React.createElement("span", { className: "switch-text" },
                 "\u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438",
                 React.createElement("em", null, "\u041A\u0430\u0440\u0442\u0430, \u043E\u0444\u043E\u0440\u043C\u043B\u0435\u043D\u0438\u0435, \u0441\u043D\u0438\u043C\u043A\u0438, \u0434\u043E\u0441\u0442\u0443\u043F")),
+            React.createElement("span", { className: "step-pen" }, "\u2192")),
+        React.createElement("button", { className: "switch-row", onClick: onShelf },
+            React.createElement("span", { className: "switch-text" },
+                "\u041F\u043E\u043B\u043A\u0430 \u0441\u0443\u0432\u0435\u043D\u0438\u0440\u043E\u0432",
+                React.createElement("em", null, "\u0417\u043D\u0430\u0447\u043E\u043A \u0437\u0430 \u043A\u0430\u0436\u0434\u0443\u044E \u0441\u0442\u0440\u0430\u043D\u0443, \u0433\u0434\u0435 \u0432\u044B \u0431\u044B\u043B\u0438")),
             React.createElement("span", { className: "step-pen" }, "\u2192")),
         React.createElement("button", { className: "switch-row", onClick: onReports },
             React.createElement("span", { className: "switch-text" },
@@ -4675,11 +4686,17 @@ function CountrySheet({ country, open, onClose, box }) {
     return (React.createElement(Sheet, { open: open, onClose: onClose, title: "\u041F\u0440\u043E \u0441\u0442\u0440\u0430\u043D\u0443", box: box }, () => (React.createElement("div", { className: "sheet-body" },
         React.createElement("div", { className: "cs-head" },
             React.createElement("span", { className: "cs-flag" }, flag(country.a2)),
+            badgeStyle(country.a3) && (React.createElement("i", { className: "cs-badge", style: badgeStyle(country.a3) })),
             React.createElement("span", { className: "cs-title" },
                 React.createElement("b", null, country.name),
                 React.createElement("em", null,
                     CONTINENTS[country.cont],
                     lang ? ` · ${LANG_NAME[lang] || lang} язык` : ""))),
+        (SIGHTS_BY_A3[country.a3] || []).length > 0 && (React.createElement(React.Fragment, null,
+            React.createElement("p", { className: "step-title" }, "\u0427\u0442\u043E \u043F\u043E\u0441\u043C\u043E\u0442\u0440\u0435\u0442\u044C"),
+            React.createElement("div", { className: "sights" }, (SIGHTS_BY_A3[country.a3] || []).map((x) => (React.createElement("span", { key: x.name, className: "sight" },
+                x.name,
+                x.city && x.city !== country.name && React.createElement("i", null, x.city))))))),
         cur && (React.createElement(React.Fragment, null,
             React.createElement("p", { className: "step-title" }, "\u0412\u0430\u043B\u044E\u0442\u0430"),
             React.createElement("div", { className: "rate-card" },
@@ -5676,6 +5693,44 @@ function FamilySheet({ open, onClose, box, family, onFamily, visits, tombs, peop
                 React.createElement("em", null, "\u041A\u043B\u044E\u0447 \u0443\u0434\u0430\u043B\u0438\u0442\u0441\u044F \u0441 \u044D\u0442\u043E\u0433\u043E \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430")),
             React.createElement("span", { className: "step-pen" }, "\u2192"))))))));
 }
+/* шторка: полка сувениров — значок за каждую страну */
+function ShelfSheet({ open, onClose, box, isOn, isWish, onPick }) {
+    const [only, setOnly] = useState("all");
+    const list = useMemo(() => {
+        const arr = COUNTRIES.filter((c) => BADGE.index[c.a3] !== undefined);
+        arr.sort((a, b) => {
+            const av = isOn(a.a3) ? 0 : isWish(a.a3) ? 1 : 2;
+            const bv = isOn(b.a3) ? 0 : isWish(b.a3) ? 1 : 2;
+            return av - bv || a.name.localeCompare(b.name, "ru");
+        });
+        if (only === "got")
+            return arr.filter((c) => isOn(c.a3));
+        if (only === "left")
+            return arr.filter((c) => !isOn(c.a3));
+        return arr;
+    }, [isOn, isWish, only]);
+    const got = COUNTRIES.filter((c) => BADGE.index[c.a3] !== undefined && isOn(c.a3)).length;
+    const all = Object.keys(BADGE.index).length;
+    return (React.createElement(Sheet, { open: open, onClose: onClose, title: "\u041F\u043E\u043B\u043A\u0430 \u0441\u0443\u0432\u0435\u043D\u0438\u0440\u043E\u0432", box: box }, () => (React.createElement("div", { className: "sheet-body" }, !BADGE.ready ? (React.createElement("p", { className: "hint small" }, "\u0417\u043D\u0430\u0447\u043A\u0438 \u0435\u0449\u0451 \u043D\u0435 \u0437\u0430\u0433\u0440\u0443\u0437\u0438\u043B\u0438\u0441\u044C. \u0415\u0441\u043B\u0438 \u0441\u0435\u0442\u0438 \u043D\u0435\u0442, \u0441\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u0435 \u0441\u043F\u0440\u0430\u0432\u043E\u0447\u043D\u0438\u043A\u0438 \u043D\u0430 \u0442\u0435\u043B\u0435\u0444\u043E\u043D \u0432 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0430\u0445.")) : (React.createElement(React.Fragment, null,
+        React.createElement("div", { className: "shelf-top" },
+            React.createElement("b", null,
+                got,
+                " \u0438\u0437 ",
+                all),
+            React.createElement("span", null, "\u0437\u043D\u0430\u0447\u043A\u043E\u0432 \u0441\u043E\u0431\u0440\u0430\u043D\u043E")),
+        React.createElement("div", { className: "theme-row" }, [
+            ["all", "Все"],
+            ["got", "Мои"],
+            ["left", "Впереди"],
+        ].map(([k, t]) => (React.createElement("button", { key: k, className: "theme-cell" + (only === k ? " on" : ""), onClick: () => setOnly(k) }, t)))),
+        React.createElement("div", { className: "shelf" }, list.map((c) => {
+            const mine = isOn(c.a3);
+            return (React.createElement("button", { key: c.a3, className: "shelf-cell" +
+                    (mine ? " got" : isWish(c.a3) ? " wish" : ""), onClick: () => onPick(c.a3) },
+                React.createElement("i", { style: badgeStyle(c.a3) }),
+                React.createElement("em", null, c.name)));
+        }))))))));
+}
 /* шторка: похожие поездки — предлагаем объединить */
 function DoublesSheet({ open, onClose, box, pairs, people, onJoin }) {
     return (React.createElement(Sheet, { open: open, onClose: onClose, title: "\u041F\u043E\u0445\u043E\u0436\u0438\u0435 \u043F\u043E\u0435\u0437\u0434\u043A\u0438", box: box }, () => (React.createElement("div", { className: "sheet-body" }, pairs.length === 0 ? (React.createElement("p", { className: "hint small" }, "\u0421\u043E\u0432\u043F\u0430\u0434\u0435\u043D\u0438\u0439 \u043D\u0435\u0442.")) : (React.createElement(React.Fragment, null,
@@ -5843,12 +5898,12 @@ function ListSheet({ visits, stats, open, onClose, onPick, onRemove, onDone, box
     const yearHint = "";
     /* в строке: город, месяц или даты; страна и год стоят отдельно */
     const sub = (t) => {
-        var _a;
         const parts = [];
         if (t.plan)
             parts.push(planOverdue(t) ? "план · срок прошёл" : "план");
-        if ((_a = t.cities) === null || _a === void 0 ? void 0 : _a.length)
-            parts.push(t.cities.join(", "));
+        const place = [...(t.cities || []), ...(t.regions || [])];
+        if (place.length)
+            parts.push(place.join(", "));
         const a = dParts(t.from);
         const b = dParts(t.to);
         if (a && b) {
@@ -6558,6 +6613,7 @@ function Atlas() {
             from: (trip === null || trip === void 0 ? void 0 : trip.from) || "",
             to: (trip === null || trip === void 0 ? void 0 : trip.to) || "",
             who: (trip === null || trip === void 0 ? void 0 : trip.who) || [],
+            regions: (trip === null || trip === void 0 ? void 0 : trip.regions) || [],
             plan: !!(trip === null || trip === void 0 ? void 0 : trip.plan),
             id: (trip === null || trip === void 0 ? void 0 : trip.id) || uid(),
             at: Date.now(),
@@ -6989,13 +7045,13 @@ function Atlas() {
                                         ? tripLabel(curTrip)
                                         : "ещё не были"),
                                 selTrips.length > 0 && (React.createElement("div", { className: "sel-sub" }, (() => {
-                                    var _a;
+                                    var _a, _b;
                                     const t = curTrip;
                                     const bits = [];
                                     if (tripDays(t))
                                         bits.push(np(tripDays(t), "day"));
-                                    if ((_a = t.cities) === null || _a === void 0 ? void 0 : _a.length)
-                                        bits.push(t.cities.join(", "));
+                                    if (((_a = t.cities) === null || _a === void 0 ? void 0 : _a.length) || ((_b = t.regions) === null || _b === void 0 ? void 0 : _b.length))
+                                        bits.push([...(t.cities || []), ...(t.regions || [])].join(", "));
                                     {
                                         const names = whoNames(t, profile.people || []);
                                         if (names.length)
@@ -7060,7 +7116,7 @@ function Atlas() {
                         }, onReports: () => {
                             setSheetBack("profile");
                             setSheet("reports");
-                        }, onSettings: () => setSheet("settings"), onFamily: () => setSheet("family"), familyOn: !!(family === null || family === void 0 ? void 0 : family.raw), onSince: async (v) => {
+                        }, onSettings: () => setSheet("settings"), onShelf: () => setSheet("shelf"), onFamily: () => setSheet("family"), familyOn: !!(family === null || family === void 0 ? void 0 : family.raw), onSince: async (v) => {
                             const prof = { ...profile, since: v };
                             await saveProfile(prof);
                         }, onExport: exportData, onImport: importAsk, onRestore: restoreData, restoreMsg: restoreMsg, doubles: doubles.length, onDoubles: () => setSheet("doubles"), visits: visits }),
@@ -7095,6 +7151,11 @@ function Atlas() {
                     React.createElement(CountrySheet, { country: sel, open: sheet === "country" && !!sel, onClose: () => setSheet(null), box: box }),
                     React.createElement(PhotoModeSheet, { open: sheet === "photomode", onClose: () => setSheet("settings"), box: box, quality: photoQuality, usage: photoUsage }),
                     React.createElement(FamilySheet, { open: sheet === "family", onClose: () => setSheet("profile"), box: box, family: family, onFamily: setFamily, visits: visits, tombs: tombs, people: profile.people || [], meName: profile.name || "", onReceive: receiveFamily }),
+                    React.createElement(ShelfSheet, { open: sheet === "shelf", onClose: () => setSheet("profile"), box: box, isOn: isOn, isWish: isWish, onPick: (a3) => {
+                            setSelected(a3);
+                            setEditId(null);
+                            setSheet(null);
+                        } }),
                     React.createElement(DoublesSheet, { open: sheet === "doubles", onClose: () => setSheet("profile"), box: box, pairs: doubles, people: profile.people || [], onJoin: joinDouble }),
                     React.createElement(ReportsSheet, { open: sheet === "reports", onClose: () => setSheet(sheetBack === "list" ? "list" : "profile"), box: box, visits: visits, since: profile.since, stats: stats, people: profile.people || [], onOpenTrip: (a3, id) => {
                             setSelected(a3);
@@ -7382,6 +7443,18 @@ body > div{max-width:100%;}
 .donut-legend div{display:flex; align-items:center; gap:8px; min-width:0;}
 .donut-legend i{flex:none; width:11px; height:11px; border-radius:3px;}
 .donut-legend b{margin-left:auto; color:var(--ink); font-weight:500;}
+.cs-badge{flex:none; background-repeat:no-repeat; margin-right:4px;}
+.shelf-top{display:flex; align-items:baseline; gap:8px; margin-bottom:10px;}
+.shelf-top b{font-family:Georgia,serif; font-size:1.3rem; font-weight:400; color:var(--gold);}
+.shelf-top span{font-size:0.72rem; color:var(--dim);}
+.shelf{display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:10px; margin-top:12px;}
+.shelf-cell{display:flex; flex-direction:column; align-items:center; gap:5px; padding:9px 4px; border-radius:12px; border:1px solid var(--line); background:var(--el); color:var(--ink); font-family:inherit; cursor:pointer;}
+.shelf-cell i{display:block; background-repeat:no-repeat; filter:grayscale(1) brightness(.55); transition:filter .25s ease;}
+.shelf-cell.got i{filter:none;}
+.shelf-cell.wish i{filter:grayscale(.55) brightness(.8);}
+.shelf-cell em{font-style:normal; font-size:0.58rem; line-height:1.15; text-align:center; color:var(--dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%;}
+.shelf-cell.got{border-color:rgba(232,184,75,.4);}
+.shelf-cell.got em{color:var(--ink);}
 .crew{display:flex; flex-direction:column; gap:10px;}
 .crew-row{padding:11px 12px; border-radius:12px; border:1px solid var(--line); background:var(--field);}
 .crew-row.me{border-color:rgba(232,184,75,.45);}
