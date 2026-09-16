@@ -135,6 +135,7 @@
 "use strict";
 "use strict";
 "use strict";
+"use strict";
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
 /* ================================================================== */
 /*  Справочник стран: A2 | A3 | название | континент | шир. | долг.    */
@@ -345,6 +346,8 @@ VU|VUT|Вануату|OC|-16.3|167.5
 /* ================================================================== */
 /* справочники живут отдельно: на сервере, а по желанию — на устройстве */
 const K_BOOKS = "atlas:books";
+/* версия справочников: меняется, когда данные обновились на сервере */
+const BOOKS_VER = 6;
 const BOOKS = [
     { id: "cities", file: "cities.txt", title: "Города" },
     { id: "regions", file: "regions.txt", title: "Регионы" },
@@ -477,10 +480,12 @@ async function loadBooks({ force } = {}) {
             /* ничего не сохранено */
         }
     }
-    const data = { ...(saved || {}) };
+    // сохранённое от прежней версии перечитываем целиком
+    const stale = saved && saved.__ver !== BOOKS_VER;
+    const data = stale ? {} : { ...(saved || {}) };
     const missing = BOOKS.filter((b) => !data[b.id]);
-    // всё на месте — работаем без сети
-    if ((saved === null || saved === void 0 ? void 0 : saved.cities) && !missing.length) {
+    // всё на месте и не устарело — работаем без сети
+    if (!stale && (saved === null || saved === void 0 ? void 0 : saved.cities) && !missing.length) {
         applyBooks(data);
         return { from: "device", data, added: 0 };
     }
@@ -496,10 +501,10 @@ async function loadBooks({ force } = {}) {
     }
     if (Object.keys(data).length)
         applyBooks(data);
-    // на телефоне уже что-то лежало — дополним сохранённое
-    if ((saved === null || saved === void 0 ? void 0 : saved.cities) && Object.keys(data).length > Object.keys(saved).length) {
+    // на телефоне уже что-то лежало — обновим сохранённое
+    if ((saved === null || saved === void 0 ? void 0 : saved.cities) && Object.keys(data).length) {
         try {
-            await store.set(K_BOOKS, data);
+            await store.set(K_BOOKS, { ...data, __ver: BOOKS_VER });
         }
         catch {
             /* не поместилось — не беда */
@@ -1238,7 +1243,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "16.4";
+const APP_VERSION = "16.5";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -4523,7 +4528,7 @@ function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, 
         React.createElement(Ask, { ask: ask, onClose: () => setAsk(null), box: box })))));
 }
 /* шторка: настройки — поведение приложения */
-function SettingsSheet({ open, onClose, box, visits, theme, onTheme, quality, onQuality, cityPins, onToggleCityPins, spinStart, onToggleSpin, mapView, onMapView, geoCount, onReloadGeo, booksSaved, booksSize, booksCounts, onKeepBooks, onDropBooks, hasPin, faceAvailable, faceOn, onSetPin, onDropPin, onLock, onFace, }) {
+function SettingsSheet({ open, onClose, box, visits, theme, onTheme, quality, onQuality, cityPins, onToggleCityPins, spinStart, onToggleSpin, mapView, onMapView, geoCount, onReloadGeo, booksSaved, booksSize, booksCounts, onKeepBooks, onDropBooks, onFreshBooks, hasPin, faceAvailable, faceOn, onSetPin, onDropPin, onLock, onFace, }) {
     const where = store.kind() === "idb"
         ? "база браузера"
         : store.kind() === "ls"
@@ -4614,6 +4619,11 @@ function SettingsSheet({ open, onClose, box, visits, theme, onTheme, quality, on
                         (booksSize / 1024).toFixed(0) || "150",
                         " \u041A\u0411, \u0437\u0430\u0442\u043E \u0431\u0443\u0434\u0443\u0442 \u0440\u0430\u0431\u043E\u0442\u0430\u0442\u044C \u0431\u0435\u0437 \u0441\u0435\u0442\u0438")),
                 React.createElement("span", { className: "step-pen" }, "\u2193"))),
+            React.createElement("button", { className: "switch-row", onClick: onFreshBooks },
+                React.createElement("span", { className: "switch-text" },
+                    "\u041E\u0431\u043D\u043E\u0432\u0438\u0442\u044C \u0441\u043F\u0440\u0430\u0432\u043E\u0447\u043D\u0438\u043A\u0438",
+                    React.createElement("em", null, "\u0417\u0430\u0431\u0440\u0430\u0442\u044C \u0441 \u0441\u0435\u0440\u0432\u0435\u0440\u0430 \u0441\u0432\u0435\u0436\u0438\u0435 \u0433\u043E\u0440\u043E\u0434\u0430, \u043E\u0442\u0435\u043B\u0438 \u0438 \u0437\u043D\u0430\u0447\u043A\u0438")),
+                React.createElement("span", { className: "step-pen" }, "\u21BB")),
             React.createElement("p", { className: "step-title" }, "\u041E \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0438"),
             React.createElement("div", { className: "about-row" },
                 React.createElement("span", null, "\u0412\u0435\u0440\u0441\u0438\u044F"),
@@ -6189,7 +6199,7 @@ function Atlas() {
         const res = await loadBooks({ force: true });
         if (!Object.keys(res.data).length)
             return false;
-        await store.set(K_BOOKS, res.data);
+        await store.set(K_BOOKS, { ...res.data, __ver: BOOKS_VER });
         setBooksSaved(true);
         setBooksSize(booksBytes);
         setBooksFrom("device");
@@ -7184,7 +7194,14 @@ function Atlas() {
                             cities: CITIES.length,
                             hotels: Object.values(HOTELS_BY_CITY).reduce((n, v) => n + v.length, 0),
                             sights: SIGHTS.length,
-                        }, onKeepBooks: keepBooks, onDropBooks: dropBooks, hasPin: !!profile.pinHash, faceAvailable: faceAvailable, faceOn: !!profile.credId, onSetPin: () => {
+                        }, onKeepBooks: keepBooks, onDropBooks: dropBooks, onFreshBooks: async () => {
+                            await store.del(K_BOOKS);
+                            const res = await loadBooks({ force: true });
+                            if (booksSaved && Object.keys(res.data).length)
+                                await store.set(K_BOOKS, { ...res.data, __ver: BOOKS_VER });
+                            setBooksSize(booksBytes);
+                            window.location.reload();
+                        }, hasPin: !!profile.pinHash, faceAvailable: faceAvailable, faceOn: !!profile.credId, onSetPin: () => {
                             setSheet(null);
                             setProfile(null);
                         }, onDropPin: () => setAsk({
