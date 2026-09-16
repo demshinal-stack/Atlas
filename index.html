@@ -137,6 +137,8 @@
 "use strict";
 "use strict";
 "use strict";
+"use strict";
+"use strict";
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
 /* ================================================================== */
 /*  Справочник стран: A2 | A3 | название | континент | шир. | долг.    */
@@ -658,7 +660,14 @@ const yearsSpan = (visits, since) => {
 const planOverdue = (t) => {
     if (!(t === null || t === void 0 ? void 0 : t.plan))
         return false;
-    const b = dParts(t.to) || dParts(t.from);
+    // день начала уже наступил — пора спросить
+    const a = dParts(t.from);
+    if (a) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        return new Date(a.y, a.m - 1, a.d) <= today;
+    }
+    const b = dParts(t.to);
     if (b)
         return new Date(b.y, b.m - 1, b.d) < NOW;
     const y = t.y || 0;
@@ -1236,6 +1245,40 @@ async function pingServer(url) {
         return false;
     }
 }
+/* сколько осталось до поездки: дни, часы, минуты, секунды */
+const startsAt = (t) => {
+    if (!t)
+        return null;
+    const a = dParts(t.from);
+    if (a)
+        return new Date(a.y, a.m - 1, a.d, 0, 0, 0);
+    if (!t.y || t.approx)
+        return null;
+    return new Date(t.y, (t.m || 1) - 1, 1, 0, 0, 0);
+};
+function useCountdown(target) {
+    const [left, setLeft] = useState(() => target ? target.getTime() - Date.now() : 0);
+    useEffect(() => {
+        if (!target)
+            return;
+        const tick = () => setLeft(target.getTime() - Date.now());
+        tick();
+        const id = setInterval(tick, 1000);
+        return () => clearInterval(id);
+    }, [target && target.getTime()]);
+    if (!target || left <= 0)
+        return null;
+    const s = Math.floor(left / 1000);
+    return {
+        days: Math.floor(s / 86400),
+        hours: Math.floor((s % 86400) / 3600),
+        mins: Math.floor((s % 3600) / 60),
+        secs: s % 60,
+        total: s,
+    };
+}
+/* чем ближе поездка, тем заметнее карточка */
+const nearness = (days) => days == null ? 0 : days <= 1 ? 3 : days <= 7 ? 2 : days <= 30 ? 1 : 0;
 /* кто ездит вместе с вами */
 const ROLES = [
     "Супруг",
@@ -1248,7 +1291,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "16.6";
+const APP_VERSION = "16.8";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -5748,6 +5791,26 @@ function FamilySheet({ open, onClose, box, family, onFamily, visits, tombs, peop
                 React.createElement("em", null, "\u041A\u043B\u044E\u0447 \u0443\u0434\u0430\u043B\u0438\u0442\u0441\u044F \u0441 \u044D\u0442\u043E\u0433\u043E \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430")),
             React.createElement("span", { className: "step-pen" }, "\u2192"))))))));
 }
+/* плашка обратного отсчёта: дни, часы, минуты, секунды */
+function Countdown({ trip }) {
+    const target = useMemo(() => startsAt(trip), [trip === null || trip === void 0 ? void 0 : trip.from, trip === null || trip === void 0 ? void 0 : trip.y, trip === null || trip === void 0 ? void 0 : trip.m]);
+    const left = useCountdown(target);
+    if (!left)
+        return null;
+    const lvl = nearness(left.days);
+    const two = (n) => String(n).padStart(2, "0");
+    return (React.createElement("div", { className: "cd lvl" + lvl },
+        React.createElement("span", { className: "cd-lead" }, lvl >= 3 ? "Уже завтра" : lvl >= 2 ? "Совсем скоро" : "До поездки"),
+        React.createElement("span", { className: "cd-nums" },
+            React.createElement("b", null, left.days),
+            React.createElement("i", null, "\u0434\u043D"),
+            React.createElement("b", null, two(left.hours)),
+            React.createElement("i", null, "\u0447"),
+            React.createElement("b", null, two(left.mins)),
+            React.createElement("i", null, "\u043C\u0438\u043D"),
+            React.createElement("b", null, two(left.secs)),
+            React.createElement("i", null, "\u0441"))));
+}
 /* шторка: полка сувениров — значок за каждую страну */
 function ShelfSheet({ open, onClose, box, isOn, isWish, onPick }) {
     const [only, setOnly] = useState("all");
@@ -7163,30 +7226,17 @@ function Atlas() {
                         React.createElement("div", { className: "focus-head" },
                             React.createElement("span", { className: "big-fl" }, flag(sel.a2)),
                             React.createElement("div", { className: "focus-title" },
-                                React.createElement("div", { className: "sel-name" }, sel.name),
-                                React.createElement("div", { className: "sel-cont" },
-                                    CONTINENTS[sel.cont],
+                                React.createElement("div", { className: "sel-name" + ((curTrip === null || curTrip === void 0 ? void 0 : curTrip.plan) ? " is-plan" : "") }, sel.name),
+                                React.createElement("div", { className: "sel-cont" }, selTrips.length ? (React.createElement(React.Fragment, null,
+                                    [
+                                        ...((curTrip === null || curTrip === void 0 ? void 0 : curTrip.cities) || []),
+                                        ...((curTrip === null || curTrip === void 0 ? void 0 : curTrip.regions) || []),
+                                    ].join(", ") || CONTINENTS[sel.cont],
                                     " · ",
-                                    selTrips.length
-                                        ? tripLabel(curTrip)
-                                        : "ещё не были"),
-                                selTrips.length > 0 && (React.createElement("div", { className: "sel-sub" }, (() => {
-                                    var _c, _d;
-                                    const t = curTrip;
-                                    const bits = [];
-                                    if (tripDays(t))
-                                        bits.push(np(tripDays(t), "day"));
-                                    if (((_c = t.cities) === null || _c === void 0 ? void 0 : _c.length) || ((_d = t.regions) === null || _d === void 0 ? void 0 : _d.length))
-                                        bits.push([...(t.cities || []), ...(t.regions || [])].join(", "));
-                                    {
-                                        const names = whoNames(t, profile.people || []);
-                                        if (names.length)
-                                            bits.push(`с ${names.join(", ")}`);
-                                    }
-                                    if ((t.photos || []).length)
-                                        bits.push(np(t.photos.length, "photo"));
-                                    return bits.join(" · ") || "без подробностей";
-                                })())),
+                                    tripLabel(curTrip))) : (React.createElement(React.Fragment, null,
+                                    CONTINENTS[sel.cont],
+                                    " \u00B7 \u0435\u0449\u0451 \u043D\u0435 \u0431\u044B\u043B\u0438"))),
+                                (curTrip === null || curTrip === void 0 ? void 0 : curTrip.plan) && React.createElement(Countdown, { trip: curTrip }),
                                 selTrips.length > 1 && (React.createElement("div", { className: "trip-nav" },
                                     React.createElement("button", { onClick: () => {
                                             var _c;
@@ -7331,25 +7381,43 @@ function Atlas() {
                             React.createElement("em", null, "\u041F\u0440\u043E\u0444\u0438\u043B\u044C"))),
                     avatarDraft && (React.createElement("div", { className: "modal", style: box ? { left: box.left, width: box.width } : undefined },
                         React.createElement(AvatarEditor, { src: avatarDraft, onDone: saveAvatar, onCancel: () => setAvatarDraft(null) }))),
-                    overdue.length > 0 && (React.createElement("div", { className: "banner" },
-                        React.createElement("span", { className: "banner-dot" }),
-                        React.createElement("span", { className: "banner-text" },
-                            React.createElement("b", null,
-                                np(overdue.length, "trip"),
-                                " \u0438\u0437 \u043F\u043B\u0430\u043D\u043E\u0432 \u0443\u0436\u0435",
-                                " ",
-                                overdue.length === 1 ? "прошла" : "прошли"),
-                            React.createElement("em", null,
-                                overdue
-                                    .slice(0, 2)
-                                    .map((o) => { var _c; return (_c = BY_A3[o.a3]) === null || _c === void 0 ? void 0 : _c.name; })
-                                    .filter(Boolean)
-                                    .join(", "),
-                                overdue.length > 2 ? " и другие" : "",
-                                " \u2014 \u0441\u043E\u0441\u0442\u043E\u044F\u043B\u0438\u0441\u044C?")),
-                        React.createElement("button", { className: "banner-btn", onClick: () => {
-                                overdue.forEach((o) => editTrip(o.a3, o.idx, { plan: false }));
-                            } }, "\u0414\u0430"))),
+                    overdue.length > 0 && (React.createElement("div", { className: "due" },
+                        React.createElement("b", { className: "due-title" }, overdue.length === 1
+                            ? "Дата поездки наступила"
+                            : `Наступили даты ${np(overdue.length, "trip")}`),
+                        overdue.slice(0, 3).map((o) => {
+                            var _c, _d;
+                            const t = (visits[o.a3] || [])[o.idx];
+                            if (!t)
+                                return null;
+                            return (React.createElement("div", { key: o.a3 + o.idx, className: "due-row" },
+                                React.createElement("span", { className: "due-what" },
+                                    React.createElement("b", null,
+                                        flag((_c = BY_A3[o.a3]) === null || _c === void 0 ? void 0 : _c.a2),
+                                        " ", (_d = BY_A3[o.a3]) === null || _d === void 0 ? void 0 :
+                                        _d.name),
+                                    React.createElement("em", null, tripLabel(t))),
+                                React.createElement("div", { className: "due-acts" },
+                                    React.createElement("button", { className: "due-yes", onClick: () => editTrip(o.a3, t.id, { plan: false }) }, "\u0421\u043E\u0441\u0442\u043E\u044F\u043B\u0430\u0441\u044C"),
+                                    React.createElement("button", { className: "due-move", onClick: () => {
+                                            setSelected(o.a3);
+                                            setEditId(t.id);
+                                            setSheet("edit");
+                                        } }, "\u041F\u0435\u0440\u0435\u043D\u0435\u0441\u0442\u0438"),
+                                    React.createElement("button", { className: "due-del", onClick: () => {
+                                            var _c;
+                                            return setAsk({
+                                                title: "Удалить план?",
+                                                text: `${(_c = BY_A3[o.a3]) === null || _c === void 0 ? void 0 : _c.name}, ${tripLabel(t)}. Запись исчезнет без следа.`,
+                                                yes: "Удалить",
+                                                onYes: () => removeTrip(o.a3, t.id),
+                                            });
+                                        } }, "\u0423\u0434\u0430\u043B\u0438\u0442\u044C"))));
+                        }),
+                        overdue.length > 3 && (React.createElement("p", { className: "hint small" },
+                            "\u0415\u0449\u0451 ",
+                            np(overdue.length - 3, "trip"),
+                            " \u0436\u0434\u0443\u0442 \u0432 \u0441\u043F\u0438\u0441\u043A\u0435 \u043F\u043E\u0435\u0437\u0434\u043E\u043A.")))),
                     updateReady && (React.createElement("div", { className: "banner" },
                         React.createElement("span", { className: "banner-dot" }),
                         React.createElement("span", { className: "banner-text" },
@@ -7460,6 +7528,15 @@ body > div{max-width:100%;}
 .globe-full{padding-top:calc(12px + env(safe-area-inset-top)); position:fixed; top:0; left:0; width:100%; height:100%; overflow:hidden; z-index:80; background:var(--deep); display:flex; flex-direction:column; align-items:center; justify-content:center; padding:12px;}
 .globe-full .globe-controls{padding-top:14px;}
 
+.due{margin:0 0 10px; padding:12px 13px; border-radius:14px; border:1px solid rgba(232,184,75,.45); background:rgba(232,184,75,.08);}
+.due-title{display:block; font-size:0.85rem; color:var(--gold); margin-bottom:10px;}
+.due-row{padding:10px; margin-bottom:8px; border-radius:11px; border:1px solid var(--line); background:var(--el);}
+.due-what b{display:block; font-size:0.85rem; font-weight:400;}
+.due-what em{display:block; margin-top:2px; font-style:normal; font-size:0.68rem; color:var(--dim);}
+.due-acts{display:flex; gap:6px; margin-top:9px;}
+.due-acts button{flex:1 1 0; min-height:36px; border-radius:9px; font-size:0.7rem; font-family:inherit; cursor:pointer; border:1px solid var(--line); background:var(--field); color:var(--ink);}
+.due-yes{border-color:var(--gold) !important; color:var(--gold) !important;}
+.due-del{color:#c98b8b !important;}
 .banner{display:flex; align-items:center; gap:11px; margin-top:12px; padding:13px 14px; border-radius:14px; border:1px solid var(--line); background:var(--panel); min-width:0;}
 .banner-text{flex:1 1 auto; min-width:0;}
 .banner-text b{display:block; font-size:0.82rem; font-weight:600; color:var(--ink);}
@@ -7487,8 +7564,23 @@ body > div{max-width:100%;}
 .sel-card{margin:14px 0 0; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:12px;}
 .sel-head{display:flex; align-items:center; gap:10px;}
 .big-fl{font-size:1.625rem;}
+.sel-name.is-plan{color:var(--blue);}
 .sel-name{font-size:1.000rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .sel-sub{margin-top:4px; font-size:0.72rem; line-height:1.4; color:var(--dim);}
+.cd{display:flex; align-items:baseline; gap:9px; flex-wrap:wrap; margin-top:7px; padding:8px 11px; border-radius:11px;
+  border:1px solid rgba(74,127,181,.45); background:rgba(74,127,181,.12);}
+.cd-lead{font-size:0.66rem; color:var(--dim); letter-spacing:.02em;}
+.cd-nums{display:flex; align-items:baseline; gap:3px;}
+.cd-nums b{font-family:Georgia,serif; font-size:1.05rem; font-weight:400; color:var(--blue); font-variant-numeric:tabular-nums;}
+.cd-nums i{font-style:normal; font-size:0.6rem; color:var(--dim); margin-right:5px;}
+.cd.lvl1{border-color:rgba(74,127,181,.6);}
+.cd.lvl2{border-color:rgba(232,184,75,.5); background:rgba(232,184,75,.1);}
+.cd.lvl2 .cd-nums b{color:var(--gold);}
+.cd.lvl3{border-color:var(--gold); background:rgba(232,184,75,.16); animation:cd-pulse 1.8s ease-in-out infinite;}
+.cd.lvl3 .cd-nums b{color:var(--gold);}
+.cd.lvl3 .cd-lead{color:var(--gold);}
+@keyframes cd-pulse{0%,100%{box-shadow:0 0 0 0 rgba(232,184,75,0);} 50%{box-shadow:0 0 14px 0 rgba(232,184,75,.35);}}
+@media (prefers-reduced-motion: reduce){ .cd.lvl3{animation:none;} }
 .trip-nav{display:flex; align-items:center; gap:10px; margin-top:8px;}
 .trip-nav button{width:30px; height:30px; border-radius:9px; border:1px solid var(--line); background:var(--el); color:var(--gold); font-size:1rem; cursor:pointer;}
 .trip-nav span{font-size:0.7rem; color:var(--dim);}
@@ -7950,6 +8042,20 @@ body > div{max-width:100%;}
 .icon-btn{flex:none; width:34px; height:34px; display:flex; align-items:center; justify-content:center; border-radius:50%; border:1px solid var(--line); background:var(--sheet); color:var(--dim); font-size:0.812rem; cursor:pointer;}
 .icon-btn:active{background:var(--el2);}
 .focus-head .sel-sub{margin-top:4px; font-size:0.72rem; line-height:1.4; color:var(--dim);}
+.cd{display:flex; align-items:baseline; gap:9px; flex-wrap:wrap; margin-top:7px; padding:8px 11px; border-radius:11px;
+  border:1px solid rgba(74,127,181,.45); background:rgba(74,127,181,.12);}
+.cd-lead{font-size:0.66rem; color:var(--dim); letter-spacing:.02em;}
+.cd-nums{display:flex; align-items:baseline; gap:3px;}
+.cd-nums b{font-family:Georgia,serif; font-size:1.05rem; font-weight:400; color:var(--blue); font-variant-numeric:tabular-nums;}
+.cd-nums i{font-style:normal; font-size:0.6rem; color:var(--dim); margin-right:5px;}
+.cd.lvl1{border-color:rgba(74,127,181,.6);}
+.cd.lvl2{border-color:rgba(232,184,75,.5); background:rgba(232,184,75,.1);}
+.cd.lvl2 .cd-nums b{color:var(--gold);}
+.cd.lvl3{border-color:var(--gold); background:rgba(232,184,75,.16); animation:cd-pulse 1.8s ease-in-out infinite;}
+.cd.lvl3 .cd-nums b{color:var(--gold);}
+.cd.lvl3 .cd-lead{color:var(--gold);}
+@keyframes cd-pulse{0%,100%{box-shadow:0 0 0 0 rgba(232,184,75,0);} 50%{box-shadow:0 0 14px 0 rgba(232,184,75,.35);}}
+@media (prefers-reduced-motion: reduce){ .cd.lvl3{animation:none;} }
 .trip-nav{display:flex; align-items:center; gap:10px; margin-top:8px;}
 .trip-nav button{width:30px; height:30px; border-radius:9px; border:1px solid var(--line); background:var(--el); color:var(--gold); font-size:1rem; cursor:pointer;}
 .trip-nav span{font-size:0.7rem; color:var(--dim);}
