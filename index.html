@@ -124,6 +124,17 @@
 "use strict";
 "use strict";
 "use strict";
+"use strict";
+"use strict";
+"use strict";
+"use strict";
+"use strict";
+"use strict";
+"use strict";
+"use strict";
+"use strict";
+"use strict";
+"use strict";
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
 /* ================================================================== */
 /*  Справочник стран: A2 | A3 | название | континент | шир. | долг.    */
@@ -1227,7 +1238,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "15.3";
+const APP_VERSION = "16.4";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -5742,7 +5753,7 @@ function FamilySheet({ open, onClose, box, family, onFamily, visits, tombs, peop
 function ShelfSheet({ open, onClose, box, isOn, isWish, onPick }) {
     const [only, setOnly] = useState("all");
     const list = useMemo(() => {
-        const arr = COUNTRIES.filter((c) => BADGE.index[c.a3] !== undefined);
+        const arr = COUNTRIES.slice();
         arr.sort((a, b) => {
             const av = isOn(a.a3) ? 0 : isWish(a.a3) ? 1 : 2;
             const bv = isOn(b.a3) ? 0 : isWish(b.a3) ? 1 : 2;
@@ -5754,8 +5765,8 @@ function ShelfSheet({ open, onClose, box, isOn, isWish, onPick }) {
             return arr.filter((c) => !isOn(c.a3));
         return arr;
     }, [isOn, isWish, only]);
-    const got = COUNTRIES.filter((c) => BADGE.index[c.a3] !== undefined && isOn(c.a3)).length;
-    const all = Object.keys(BADGE.index).length;
+    const got = COUNTRIES.filter((c) => isOn(c.a3)).length;
+    const all = COUNTRIES.length;
     return (React.createElement(Sheet, { open: open, onClose: onClose, title: "\u041F\u043E\u043B\u043A\u0430 \u0441\u0443\u0432\u0435\u043D\u0438\u0440\u043E\u0432", box: box }, () => (React.createElement("div", { className: "sheet-body" }, !BADGE.ready ? (React.createElement("p", { className: "hint small" }, "\u0417\u043D\u0430\u0447\u043A\u0438 \u0435\u0449\u0451 \u043D\u0435 \u0437\u0430\u0433\u0440\u0443\u0437\u0438\u043B\u0438\u0441\u044C. \u0415\u0441\u043B\u0438 \u0441\u0435\u0442\u0438 \u043D\u0435\u0442, \u0441\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u0435 \u0441\u043F\u0440\u0430\u0432\u043E\u0447\u043D\u0438\u043A\u0438 \u043D\u0430 \u0442\u0435\u043B\u0435\u0444\u043E\u043D \u0432 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0430\u0445.")) : (React.createElement(React.Fragment, null,
         React.createElement("div", { className: "shelf-top" },
             React.createElement("b", null,
@@ -5772,7 +5783,7 @@ function ShelfSheet({ open, onClose, box, isOn, isWish, onPick }) {
             const mine = isOn(c.a3);
             return (React.createElement("button", { key: c.a3, className: "shelf-cell" +
                     (mine ? " got" : isWish(c.a3) ? " wish" : ""), onClick: () => onPick(c.a3) },
-                React.createElement("i", { style: badgeStyle(c.a3) }),
+                badgeStyle(c.a3) ? (React.createElement("i", { style: badgeStyle(c.a3) })) : (React.createElement("i", { className: "shelf-flag" }, flag(c.a2))),
                 React.createElement("em", null, c.name)));
         }))))))));
 }
@@ -7495,7 +7506,9 @@ body > div{max-width:100%;}
 .shelf-top span{font-size:0.72rem; color:var(--dim);}
 .shelf{display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:10px; margin-top:12px;}
 .shelf-cell{display:flex; flex-direction:column; align-items:center; gap:5px; padding:9px 4px; border-radius:12px; border:1px solid var(--line); background:var(--el); color:var(--ink); font-family:inherit; cursor:pointer;}
+.shelf-flag{display:flex; align-items:center; justify-content:center; width:56px; height:56px; font-size:1.9rem; border-radius:12px; background:var(--field); border:1px solid var(--line);}
 .shelf-cell i{display:block; background-repeat:no-repeat; filter:grayscale(1) brightness(.55); transition:filter .25s ease;}
+.shelf-cell:not(.got) .shelf-flag{opacity:.5;}
 .shelf-cell.got i{filter:none;}
 .shelf-cell.wish i{filter:grayscale(.55) brightness(.8);}
 .shelf-cell em{font-style:normal; font-size:0.58rem; line-height:1.15; text-align:center; color:var(--dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%;}
