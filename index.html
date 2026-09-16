@@ -116,6 +116,7 @@
 "use strict";
 "use strict";
 "use strict";
+"use strict";
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
 /* ================================================================== */
 /*  Справочник стран: A2 | A3 | название | континент | шир. | долг.    */
@@ -1110,7 +1111,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "14.4";
+const APP_VERSION = "14.5";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -3553,7 +3554,7 @@ function Loading({ done, total, label }) {
                 total))));
 }
 /* блок фотографий внутри поездки */
-function PhotoBlock({ country, trip, onChange, quality, totalPhotos }) {
+function PhotoBlock({ country, trip, onChange, quality, totalPhotos, box }) {
     const [busy, setBusy] = useState(null);
     const [rev, setRev] = useState({});
     const [warn, setWarn] = useState("");
@@ -3673,7 +3674,7 @@ function PhotoBlock({ country, trip, onChange, quality, totalPhotos }) {
                     add(e.target.files);
                     e.target.value = "";
                 } })),
-        React.createElement(Ask, { ask: ask, onClose: () => setAsk(null) }),
+        React.createElement(Ask, { ask: ask, onClose: () => setAsk(null), box: box }),
         view !== null && photos[view] && (React.createElement(PhotoView, { photos: photos, index: view, onClose: () => setView(null), onRemove: remove, onRotate: rotate, rev: rev })),
         busy && React.createElement(Loading, { ...busy })));
 }
@@ -4189,7 +4190,7 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality,
                     });
                     setAddHotel(false);
                 } })) : (React.createElement("button", { className: "link-btn", onClick: () => setAddHotel(true) }, "\uFF0B \u0435\u0449\u0451 \u043E\u0442\u0435\u043B\u044C")))),
-        country && whenReady && !editWhen && (React.createElement(PhotoBlock, { country: country, trip: draft, onChange: (p) => patch(p), quality: quality, totalPhotos: totalPhotos })),
+        country && whenReady && !editWhen && (React.createElement(PhotoBlock, { box: box, country: country, trip: draft, onChange: (p) => patch(p), quality: quality, totalPhotos: totalPhotos })),
         React.createElement(Ask, { ask: ask, onClose: () => setAsk(null), box: box }),
         country && whenReady && !editWhen && (React.createElement("div", { className: "edit-actions" },
             React.createElement("button", { className: "act ok", onClick: () => {
@@ -7478,7 +7479,7 @@ body > div{max-width:100%;}
 .double-row span{display:block; font-size:0.8rem;}
 .double-row em{display:block; margin-top:2px; font-style:normal; font-size:0.68rem; color:var(--dim);}
 .btn-main.wide{width:100%; min-height:44px;}
-.ask-layer{position:fixed; top:0; left:50%; transform:translateX(-50%); width:100%; height:100%; z-index:200; display:flex; align-items:center; justify-content:center; padding:22px; background:rgba(4,10,17,.6); -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);}
+.ask-layer{position:fixed; top:0; left:0; width:100%; height:100%; z-index:200; display:flex; align-items:center; justify-content:center; padding:22px; background:rgba(4,10,17,.6); -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);}
 .ask{width:100%; max-width:330px; padding:18px; border-radius:16px; background:var(--sheet); border:1px solid var(--line); text-align:center;}
 .ask b{display:block; font-size:1rem; font-weight:600;}
 .ask span{display:block; margin-top:7px; font-size:0.78rem; line-height:1.45; color:var(--dim);}
