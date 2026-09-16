@@ -139,6 +139,8 @@
 "use strict";
 "use strict";
 "use strict";
+"use strict";
+"use strict";
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
 /* ================================================================== */
 /*  Справочник стран: A2 | A3 | название | континент | шир. | долг.    */
@@ -1291,7 +1293,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "16.8";
+const APP_VERSION = "17.0";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -7222,6 +7224,43 @@ function Atlas() {
                             setEditId(null);
                         }, selected: selected, full: true, onToggleFull: () => setFull(false), visitKey: visitKey, home: lastTrip, boxWidth: globeBox, marks: marks, light: light, playing: spinning, setPlaying: setSpinning, view: mapView, page: mapPage, setPage: setMapPage, isWish: isWish }))),
                 React.createElement("div", { className: "col-side" },
+                    overdue.length > 0 && (React.createElement("div", { className: "due" },
+                        React.createElement("b", { className: "due-title" }, overdue.length === 1
+                            ? "Дата поездки наступила"
+                            : `Наступили даты ${np(overdue.length, "trip")}`),
+                        overdue.slice(0, 3).map((o) => {
+                            var _c, _d;
+                            const t = (visits[o.a3] || [])[o.idx];
+                            if (!t)
+                                return null;
+                            return (React.createElement("div", { key: o.a3 + o.idx, className: "due-row" },
+                                React.createElement("span", { className: "due-what" },
+                                    React.createElement("b", null,
+                                        flag((_c = BY_A3[o.a3]) === null || _c === void 0 ? void 0 : _c.a2),
+                                        " ", (_d = BY_A3[o.a3]) === null || _d === void 0 ? void 0 :
+                                        _d.name),
+                                    React.createElement("em", null, tripLabel(t))),
+                                React.createElement("div", { className: "due-acts" },
+                                    React.createElement("button", { className: "due-yes", onClick: () => editTrip(o.a3, t.id, { plan: false }) }, "\u0421\u043E\u0441\u0442\u043E\u044F\u043B\u0430\u0441\u044C"),
+                                    React.createElement("button", { className: "due-move", onClick: () => {
+                                            setSelected(o.a3);
+                                            setEditId(t.id);
+                                            setSheet("edit");
+                                        } }, "\u041F\u0435\u0440\u0435\u043D\u0435\u0441\u0442\u0438"),
+                                    React.createElement("button", { className: "due-del", onClick: () => {
+                                            var _c;
+                                            return setAsk({
+                                                title: "Удалить план?",
+                                                text: `${(_c = BY_A3[o.a3]) === null || _c === void 0 ? void 0 : _c.name}, ${tripLabel(t)}. Запись исчезнет без следа.`,
+                                                yes: "Удалить",
+                                                onYes: () => removeTrip(o.a3, t.id),
+                                            });
+                                        } }, "\u0423\u0434\u0430\u043B\u0438\u0442\u044C"))));
+                        }),
+                        overdue.length > 3 && (React.createElement("p", { className: "hint small" },
+                            "\u0415\u0449\u0451 ",
+                            np(overdue.length - 3, "trip"),
+                            " \u0436\u0434\u0443\u0442 \u0432 \u0441\u043F\u0438\u0441\u043A\u0435 \u043F\u043E\u0435\u0437\u0434\u043E\u043A.")))),
                     React.createElement("section", { className: "focus" }, sel ? (React.createElement(React.Fragment, null,
                         React.createElement("div", { className: "focus-head" },
                             React.createElement("span", { className: "big-fl" }, flag(sel.a2)),
@@ -7236,7 +7275,6 @@ function Atlas() {
                                     tripLabel(curTrip))) : (React.createElement(React.Fragment, null,
                                     CONTINENTS[sel.cont],
                                     " \u00B7 \u0435\u0449\u0451 \u043D\u0435 \u0431\u044B\u043B\u0438"))),
-                                (curTrip === null || curTrip === void 0 ? void 0 : curTrip.plan) && React.createElement(Countdown, { trip: curTrip }),
                                 selTrips.length > 1 && (React.createElement("div", { className: "trip-nav" },
                                     React.createElement("button", { onClick: () => {
                                             var _c;
@@ -7252,21 +7290,24 @@ function Atlas() {
                                             var _c;
                                             return setEditId((_c = selTrips[curIdx < selTrips.length - 1 ? curIdx + 1 : 0]) === null || _c === void 0 ? void 0 : _c.id);
                                         }, "aria-label": "\u0421\u043B\u0435\u0434\u0443\u044E\u0449\u0430\u044F \u043F\u043E\u0435\u0437\u0434\u043A\u0430" }, "\u203A")))),
-                            React.createElement("button", { className: "icon-btn", onClick: () => {
-                                    if (curTrip === null || curTrip === void 0 ? void 0 : curTrip.id)
-                                        setEditId(curTrip.id);
-                                    setSheet(selTrips.length ? "edit" : "add");
-                                }, "aria-label": "\u0418\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u043F\u043E\u0435\u0437\u0434\u043A\u0443" },
-                                React.createElement("svg", { viewBox: "0 0 24 24", width: "17", height: "17" },
-                                    React.createElement("path", { d: "M4 20h4L19 9l-4-4L4 16v4z", fill: "none", stroke: "currentColor", strokeWidth: "1.7", strokeLinejoin: "round" }),
-                                    React.createElement("path", { d: "M14 6l4 4", fill: "none", stroke: "currentColor", strokeWidth: "1.7" }))),
-                            React.createElement("button", { className: "icon-btn" + (isWish(sel.a3) ? " wish-on" : ""), onClick: () => toggleWish(sel.a3), "aria-label": isWish(sel.a3) ? "Убрать из желаний" : "Хочу поехать" }, isWish(sel.a3) ? "★" : "☆"),
-                            React.createElement("button", { className: "icon-btn", onClick: () => setSheet("country"), "aria-label": "\u041F\u0440\u043E \u0441\u0442\u0440\u0430\u043D\u0443" },
-                                React.createElement("svg", { viewBox: "0 0 24 24", width: "17", height: "17" },
-                                    React.createElement("circle", { cx: "12", cy: "12", r: "8.5", fill: "none", stroke: "currentColor", strokeWidth: "1.6" }),
-                                    React.createElement("path", { d: "M12 11v5.5", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round" }),
-                                    React.createElement("circle", { cx: "12", cy: "7.9", r: "1.1", fill: "currentColor" }))),
-                            React.createElement("button", { className: "icon-btn", onClick: () => setSelected(null), "aria-label": "\u0421\u043D\u044F\u0442\u044C \u0432\u044B\u0431\u043E\u0440" }, "\u2715")))) : (React.createElement(React.Fragment, null,
+                            React.createElement("div", { className: "focus-side" },
+                                (curTrip === null || curTrip === void 0 ? void 0 : curTrip.plan) && React.createElement(Countdown, { trip: curTrip }),
+                                React.createElement("div", { className: "focus-acts" },
+                                    React.createElement("button", { className: "icon-btn", onClick: () => {
+                                            if (curTrip === null || curTrip === void 0 ? void 0 : curTrip.id)
+                                                setEditId(curTrip.id);
+                                            setSheet(selTrips.length ? "edit" : "add");
+                                        }, "aria-label": "\u0418\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u043F\u043E\u0435\u0437\u0434\u043A\u0443" },
+                                        React.createElement("svg", { viewBox: "0 0 24 24", width: "17", height: "17" },
+                                            React.createElement("path", { d: "M4 20h4L19 9l-4-4L4 16v4z", fill: "none", stroke: "currentColor", strokeWidth: "1.7", strokeLinejoin: "round" }),
+                                            React.createElement("path", { d: "M14 6l4 4", fill: "none", stroke: "currentColor", strokeWidth: "1.7" }))),
+                                    React.createElement("button", { className: "icon-btn" + (isWish(sel.a3) ? " wish-on" : ""), onClick: () => toggleWish(sel.a3), "aria-label": isWish(sel.a3) ? "Убрать из желаний" : "Хочу поехать" }, isWish(sel.a3) ? "★" : "☆"),
+                                    React.createElement("button", { className: "icon-btn", onClick: () => setSheet("country"), "aria-label": "\u041F\u0440\u043E \u0441\u0442\u0440\u0430\u043D\u0443" },
+                                        React.createElement("svg", { viewBox: "0 0 24 24", width: "17", height: "17" },
+                                            React.createElement("circle", { cx: "12", cy: "12", r: "8.5", fill: "none", stroke: "currentColor", strokeWidth: "1.6" }),
+                                            React.createElement("path", { d: "M12 11v5.5", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round" }),
+                                            React.createElement("circle", { cx: "12", cy: "7.9", r: "1.1", fill: "currentColor" }))),
+                                    React.createElement("button", { className: "icon-btn", onClick: () => setSelected(null), "aria-label": "\u0421\u043D\u044F\u0442\u044C \u0432\u044B\u0431\u043E\u0440" }, "\u2715")))))) : (React.createElement(React.Fragment, null,
                         React.createElement("div", { className: "focus-head" },
                             React.createElement("span", { className: "num" }, stats.countries),
                             React.createElement("div", { className: "focus-title" },
@@ -7381,43 +7422,6 @@ function Atlas() {
                             React.createElement("em", null, "\u041F\u0440\u043E\u0444\u0438\u043B\u044C"))),
                     avatarDraft && (React.createElement("div", { className: "modal", style: box ? { left: box.left, width: box.width } : undefined },
                         React.createElement(AvatarEditor, { src: avatarDraft, onDone: saveAvatar, onCancel: () => setAvatarDraft(null) }))),
-                    overdue.length > 0 && (React.createElement("div", { className: "due" },
-                        React.createElement("b", { className: "due-title" }, overdue.length === 1
-                            ? "Дата поездки наступила"
-                            : `Наступили даты ${np(overdue.length, "trip")}`),
-                        overdue.slice(0, 3).map((o) => {
-                            var _c, _d;
-                            const t = (visits[o.a3] || [])[o.idx];
-                            if (!t)
-                                return null;
-                            return (React.createElement("div", { key: o.a3 + o.idx, className: "due-row" },
-                                React.createElement("span", { className: "due-what" },
-                                    React.createElement("b", null,
-                                        flag((_c = BY_A3[o.a3]) === null || _c === void 0 ? void 0 : _c.a2),
-                                        " ", (_d = BY_A3[o.a3]) === null || _d === void 0 ? void 0 :
-                                        _d.name),
-                                    React.createElement("em", null, tripLabel(t))),
-                                React.createElement("div", { className: "due-acts" },
-                                    React.createElement("button", { className: "due-yes", onClick: () => editTrip(o.a3, t.id, { plan: false }) }, "\u0421\u043E\u0441\u0442\u043E\u044F\u043B\u0430\u0441\u044C"),
-                                    React.createElement("button", { className: "due-move", onClick: () => {
-                                            setSelected(o.a3);
-                                            setEditId(t.id);
-                                            setSheet("edit");
-                                        } }, "\u041F\u0435\u0440\u0435\u043D\u0435\u0441\u0442\u0438"),
-                                    React.createElement("button", { className: "due-del", onClick: () => {
-                                            var _c;
-                                            return setAsk({
-                                                title: "Удалить план?",
-                                                text: `${(_c = BY_A3[o.a3]) === null || _c === void 0 ? void 0 : _c.name}, ${tripLabel(t)}. Запись исчезнет без следа.`,
-                                                yes: "Удалить",
-                                                onYes: () => removeTrip(o.a3, t.id),
-                                            });
-                                        } }, "\u0423\u0434\u0430\u043B\u0438\u0442\u044C"))));
-                        }),
-                        overdue.length > 3 && (React.createElement("p", { className: "hint small" },
-                            "\u0415\u0449\u0451 ",
-                            np(overdue.length - 3, "trip"),
-                            " \u0436\u0434\u0443\u0442 \u0432 \u0441\u043F\u0438\u0441\u043A\u0435 \u043F\u043E\u0435\u0437\u0434\u043E\u043A.")))),
                     updateReady && (React.createElement("div", { className: "banner" },
                         React.createElement("span", { className: "banner-dot" }),
                         React.createElement("span", { className: "banner-text" },
@@ -7567,12 +7571,14 @@ body > div{max-width:100%;}
 .sel-name.is-plan{color:var(--blue);}
 .sel-name{font-size:1.000rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .sel-sub{margin-top:4px; font-size:0.72rem; line-height:1.4; color:var(--dim);}
-.cd{display:flex; align-items:baseline; gap:9px; flex-wrap:wrap; margin-top:7px; padding:8px 11px; border-radius:11px;
+.focus-side{display:flex; flex-direction:column; align-items:flex-end; gap:7px; flex:none;}
+.focus-acts{display:flex; gap:6px;}
+.cd{display:flex; flex-direction:column; align-items:flex-end; gap:2px; padding:6px 9px; border-radius:10px;
   border:1px solid rgba(74,127,181,.45); background:rgba(74,127,181,.12);}
-.cd-lead{font-size:0.66rem; color:var(--dim); letter-spacing:.02em;}
-.cd-nums{display:flex; align-items:baseline; gap:3px;}
-.cd-nums b{font-family:Georgia,serif; font-size:1.05rem; font-weight:400; color:var(--blue); font-variant-numeric:tabular-nums;}
-.cd-nums i{font-style:normal; font-size:0.6rem; color:var(--dim); margin-right:5px;}
+.cd-lead{font-size:0.58rem; color:var(--dim); letter-spacing:.02em; white-space:nowrap;}
+.cd-nums{display:flex; align-items:baseline; gap:2px;}
+.cd-nums b{font-family:Georgia,serif; font-size:0.86rem; font-weight:400; color:var(--blue); font-variant-numeric:tabular-nums;}
+.cd-nums i{font-style:normal; font-size:0.52rem; color:var(--dim); margin-right:4px;}
 .cd.lvl1{border-color:rgba(74,127,181,.6);}
 .cd.lvl2{border-color:rgba(232,184,75,.5); background:rgba(232,184,75,.1);}
 .cd.lvl2 .cd-nums b{color:var(--gold);}
@@ -8035,19 +8041,21 @@ body > div{max-width:100%;}
 .trip-row{display:flex; align-items:center; justify-content:space-between; padding:11px 13px; background:var(--field); border:1px solid var(--line); border-radius:10px; font-size:0.875rem;}
 .trip-row button{background:none; border:0; color:#d97a6a; font-size:0.812rem; cursor:pointer;}
 
-.focus{margin-top:14px; min-width:0; background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px;}
+.focus{margin-top:0; min-width:0; background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:14px;}
 .focus-head{display:flex; align-items:center; gap:10px; min-width:0;}
 .focus-title{flex:1; min-width:0;}
 .focus-empty{font-size:0.812rem; color:var(--dim); line-height:1.5; margin:10px 0 0;}
 .icon-btn{flex:none; width:34px; height:34px; display:flex; align-items:center; justify-content:center; border-radius:50%; border:1px solid var(--line); background:var(--sheet); color:var(--dim); font-size:0.812rem; cursor:pointer;}
 .icon-btn:active{background:var(--el2);}
 .focus-head .sel-sub{margin-top:4px; font-size:0.72rem; line-height:1.4; color:var(--dim);}
-.cd{display:flex; align-items:baseline; gap:9px; flex-wrap:wrap; margin-top:7px; padding:8px 11px; border-radius:11px;
+.focus-side{display:flex; flex-direction:column; align-items:flex-end; gap:7px; flex:none;}
+.focus-acts{display:flex; gap:6px;}
+.cd{display:flex; flex-direction:column; align-items:flex-end; gap:2px; padding:6px 9px; border-radius:10px;
   border:1px solid rgba(74,127,181,.45); background:rgba(74,127,181,.12);}
-.cd-lead{font-size:0.66rem; color:var(--dim); letter-spacing:.02em;}
-.cd-nums{display:flex; align-items:baseline; gap:3px;}
-.cd-nums b{font-family:Georgia,serif; font-size:1.05rem; font-weight:400; color:var(--blue); font-variant-numeric:tabular-nums;}
-.cd-nums i{font-style:normal; font-size:0.6rem; color:var(--dim); margin-right:5px;}
+.cd-lead{font-size:0.58rem; color:var(--dim); letter-spacing:.02em; white-space:nowrap;}
+.cd-nums{display:flex; align-items:baseline; gap:2px;}
+.cd-nums b{font-family:Georgia,serif; font-size:0.86rem; font-weight:400; color:var(--blue); font-variant-numeric:tabular-nums;}
+.cd-nums i{font-style:normal; font-size:0.52rem; color:var(--dim); margin-right:4px;}
 .cd.lvl1{border-color:rgba(74,127,181,.6);}
 .cd.lvl2{border-color:rgba(232,184,75,.5); background:rgba(232,184,75,.1);}
 .cd.lvl2 .cd-nums b{color:var(--gold);}
@@ -8147,10 +8155,31 @@ body > div{max-width:100%;}
   .top{margin-bottom:6px;}
   .brand{font-size:1.3rem;}
 
-  .cols{display:flex; align-items:flex-start; gap:14px;}
-  .col-map{flex:0 0 54%; min-width:0;}
-  .col-side{flex:1 1 auto; min-width:0;}
+  .cols{flex-direction:row; align-items:stretch; gap:12px;
+    height:calc(100vh - 54px - env(safe-area-inset-top));}
+  .col-map{flex:0 0 52%; min-width:0; display:flex; flex-direction:column; gap:8px;}
+  .col-side{flex:1 1 auto; min-width:0; gap:9px;
+    overflow-y:auto; -webkit-overflow-scrolling:touch; padding-right:3px;}
   .foot{display:none;}
+
+  /* экран низкий — карточки компактнее */
+  .focus{padding:11px;}
+  .big-fl{font-size:1.5rem;}
+  .sel-name{font-size:1.05rem;}
+  .sel-cont{font-size:0.7rem;}
+  .focus-acts{gap:5px;}
+  .icon-btn{width:32px; height:32px;}
+  .cd{padding:5px 8px;}
+  .cd-nums b{font-size:0.78rem;}
+
+  .due{padding:10px;}
+  .due-title{font-size:0.78rem; margin-bottom:7px;}
+  .due-row{padding:8px; margin-bottom:6px;}
+  .due-acts button{min-height:32px; font-size:0.66rem;}
+  .banner{margin-top:0; padding:10px 12px;}
+
+  .shelf{grid-template-columns:repeat(6, minmax(0,1fr));}
+  .crew-cells{gap:5px;}
 
   .sheet{left:auto; right:0; bottom:0; top:0; width:min(440px, 62%);
     max-height:100%; border-radius:18px 0 0 18px; padding-bottom:0;}
