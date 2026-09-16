@@ -143,6 +143,7 @@
 "use strict";
 "use strict";
 "use strict";
+"use strict";
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
 /* ================================================================== */
 /*  Справочник стран: A2 | A3 | название | континент | шир. | долг.    */
@@ -1295,7 +1296,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "17.2";
+const APP_VERSION = "17.3";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -8159,17 +8160,13 @@ body > div{max-width:100%;}
   .top{margin-bottom:8px; padding-left:2px;}
   .brand{font-size:1.2rem;}
 
-  .cols{flex-direction:row; align-items:stretch; gap:14px;
-    height:calc(100vh - 46px - env(safe-area-inset-top)); overflow:hidden;}
-  .col-map{flex:0 0 50%; min-width:0; display:flex; flex-direction:column;
-    align-items:flex-start; justify-content:flex-start; gap:0; min-height:0;}
-  .col-side{flex:1 1 auto; min-width:0; gap:10px; min-height:0;
-    display:flex; flex-direction:column; overflow-y:auto;
-    -webkit-overflow-scrolling:touch;}
+  .cols{flex-direction:row; align-items:flex-start; gap:14px;}
+  .col-map{flex:0 0 50%; min-width:0;}
+  .col-side{flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:10px;}
   .foot{display:none;}
 
   /* кнопки карты — под глобусом, у левого края */
-  .col-map .globe-controls{display:flex; justify-content:flex-start; padding:8px 0 0;}
+  .globe-controls{justify-content:flex-start; padding:8px 0 0;}
   .focus{margin-top:0;}
 
   /* экран низкий — карточки компактнее */
@@ -8191,13 +8188,11 @@ body > div{max-width:100%;}
   .shelf{grid-template-columns:repeat(6, minmax(0,1fr));}
   .crew-cells{gap:5px;}
 
-  /* список занимает всю высоту шторки до низа экрана */
-  .sheet{height:100%; max-height:100%;}
+  /* шторка во всю высоту, прокручивается только её содержимое */
+  .sheet{left:auto; right:0; bottom:0; top:0; width:min(440px, 62%);
+    height:100%; max-height:100%; border-radius:18px 0 0 18px; padding-bottom:0;}
   .sheet-list, .sheet-body{flex:1 1 auto; min-height:0; overflow-y:auto;
     padding-bottom:calc(14px + env(safe-area-inset-bottom));}
-
-  .sheet{left:auto; right:0; bottom:0; top:0; width:min(440px, 62%);
-    max-height:100%; border-radius:18px 0 0 18px; padding-bottom:0;}
   .sheet-grab{display:none;}
   .sheet-head{padding-top:calc(10px + env(safe-area-inset-top));}
   .sheet-dim{height:100%;}
