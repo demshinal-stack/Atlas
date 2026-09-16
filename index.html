@@ -108,6 +108,7 @@
 "use strict";
 "use strict";
 "use strict";
+"use strict";
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
 /* ================================================================== */
 /*  Справочник стран: A2 | A3 | название | континент | шир. | долг.    */
@@ -1215,7 +1216,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "13.4";
+const APP_VERSION = "13.5";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -5331,16 +5332,25 @@ function reportData(visits, since, people) {
             firstSeen[a3] = y;
         if (t.m) {
             months[t.m - 1] += 1;
-            grid[`${y}:${t.m}`] = Math.max(grid[`${y}:${t.m}`] || 0, tripDays(t) || 1);
+            const k = `${y}:${t.m}`;
+            const cell = grid[k] || { v: 0, items: [] };
+            cell.v = Math.max(cell.v, tripDays(t) || 1);
+            cell.items.push({ a3, id: t.id, label: tripLabel(t) });
+            grid[k] = cell;
         }
         days[y] = (days[y] || 0) + tripDays(t);
     });
     // планы — отдельной подсветкой
-    plans.forEach(({ t }) => {
+    plans.forEach(({ a3, t }) => {
         const y = yearFrom(t);
         if (!y || !t.m)
             return;
-        planGrid[`${y}:${t.m}`] = Math.max(planGrid[`${y}:${t.m}`] || 0, tripDays(t) || 1);
+        t = { ...t, a3 };
+        const k = `${y}:${t.m}`;
+        const cell = planGrid[k] || { v: 0, items: [] };
+        cell.v = Math.max(cell.v, tripDays(t) || 1);
+        cell.items.push({ a3: t.a3, id: t.id, label: tripLabel(t), plan: true });
+        planGrid[k] = cell;
     });
     const known = Object.keys(years).map(Number);
     const planYears = plans.map(({ t }) => yearFrom(t)).filter(Boolean);
@@ -5380,30 +5390,79 @@ function reportData(visits, since, people) {
         topPeople: top(who, 4),
     };
 }
+/* появление при прокрутке: строим график, когда он попал на экран */
+function Reveal({ children, className = "" }) {
+    const box = useRef(null);
+    const [seen, setSeen] = useState(false);
+    useEffect(() => {
+        const el = box.current;
+        if (!el || seen)
+            return;
+        if (typeof IntersectionObserver === "undefined") {
+            setSeen(true);
+            return;
+        }
+        const io = new IntersectionObserver((list) => {
+            if (list.some((x) => x.isIntersecting)) {
+                setSeen(true);
+                io.disconnect();
+            }
+        }, { threshold: 0.25 });
+        io.observe(el);
+        return () => io.disconnect();
+    }, [seen]);
+    return (React.createElement("div", { ref: box, className: `reveal ${className}${seen ? " in" : ""}` }, children));
+}
 /* столбики с линией тренда; неточные периоды — полупрозрачной частью */
 function BarsChart({ data, vague, labels }) {
     const w = 320;
     const h = 150;
+    const box = useRef(null);
+    const [pick, setPick] = useState(null);
     const max = Math.max(1, ...data);
     const bw = data.length ? (w / data.length) * 0.58 : 0;
     const fmt = (v) => (v % 1 ? v.toFixed(1).replace(".", ",") : String(v));
-    return (React.createElement("svg", { viewBox: `0 0 ${w} ${h + 22}`, className: "chart" },
-        data.map((v, i) => {
-            const x = (i * w) / data.length + (w / data.length - bw) / 2;
-            const bh = (v / max) * (h - 16);
-            const vg = vague ? Math.min(v, vague[i] || 0) : 0;
-            const vh = (vg / max) * (h - 16);
-            return (React.createElement("g", { key: i },
-                React.createElement("rect", { x: x, y: h - bh, width: bw, height: bh - vh, rx: "3", fill: C_GOLD, opacity: "0.92" }),
-                vh > 0 && (React.createElement("rect", { x: x, y: h - vh, width: bw, height: vh, rx: "3", fill: C_GOLD, opacity: "0.3" })),
-                React.createElement("text", { x: x + bw / 2, y: h + 15, fill: C_DIM, fontSize: "9", textAnchor: "middle" }, String(labels[i]).slice(2))));
-        }),
-        React.createElement("polyline", { fill: "none", stroke: C_SILVER, strokeWidth: "1.6", points: data
-                .map((v, i) => `${(i * w) / data.length + w / data.length / 2},${h - (v / max) * (h - 16) - 5}`)
-                .join(" ") }),
-        React.createElement("text", { x: "2", y: "11", fill: C_DIM, fontSize: "9" },
-            "\u0432\u0441\u0435\u0433\u043E ",
-            fmt(Math.round(data.reduce((a, b) => a + b, 0) * 10) / 10))));
+    const at = (clientX) => {
+        const el = box.current;
+        if (!el || !data.length)
+            return;
+        const r = el.getBoundingClientRect();
+        const rel = ((clientX - r.left) / r.width) * w;
+        const i = Math.max(0, Math.min(data.length - 1, Math.floor((rel / w) * data.length)));
+        setPick(i);
+    };
+    const cur = pick === null ? data.length - 1 : pick;
+    const cx = (cur * w) / data.length + w / data.length / 2;
+    return (React.createElement("div", { ref: box, className: "chart-touch", onPointerDown: (e) => {
+            var _a, _b;
+            (_b = (_a = e.currentTarget).setPointerCapture) === null || _b === void 0 ? void 0 : _b.call(_a, e.pointerId);
+            at(e.clientX);
+        }, onPointerMove: (e) => {
+            if (e.buttons || e.pressure > 0)
+                at(e.clientX);
+        } },
+        React.createElement("svg", { viewBox: `0 0 ${w} ${h + 22}`, className: "chart" },
+            data.map((v, i) => {
+                const x = (i * w) / data.length + (w / data.length - bw) / 2;
+                const bh = (v / max) * (h - 26);
+                const vg = vague ? Math.min(v, vague[i] || 0) : 0;
+                const vh = (vg / max) * (h - 26);
+                return (React.createElement("g", { key: i, className: "bar-g", style: { "--d": `${i * 55}ms` } },
+                    React.createElement("rect", { x: x, y: h - bh, width: bw, height: Math.max(0, bh - vh), rx: "3", fill: C_GOLD, opacity: i === cur ? 1 : 0.8, style: { transformOrigin: `${x}px ${h}px` } }),
+                    vh > 0 && (React.createElement("rect", { x: x, y: h - vh, width: bw, height: vh, rx: "3", fill: C_GOLD, opacity: "0.3", style: { transformOrigin: `${x}px ${h}px` } })),
+                    React.createElement("text", { x: x + bw / 2, y: h + 15, fill: i === cur ? C_GOLD : C_DIM, fontSize: "9", textAnchor: "middle" }, String(labels[i]).slice(2))));
+            }),
+            React.createElement("polyline", { className: "trend", fill: "none", stroke: C_SILVER, strokeWidth: "1.6", points: data
+                    .map((v, i) => `${(i * w) / data.length + w / data.length / 2},${h - (v / max) * (h - 26) - 5}`)
+                    .join(" ") }),
+            data.length > 0 && (React.createElement(React.Fragment, null,
+                React.createElement("line", { x1: cx, y1: "20", x2: cx, y2: h, stroke: C_SILVER, strokeWidth: "1", opacity: "0.7", strokeDasharray: "3 3" }),
+                React.createElement("g", { transform: `translate(${Math.min(Math.max(cx - 36, 0), w - 72)}, 0)` },
+                    React.createElement("rect", { width: "72", height: "20", rx: "6", fill: "#16283a", stroke: C_LINE }),
+                    React.createElement("text", { x: "36", y: "14", fill: C_GOLD, fontSize: "10", textAnchor: "middle" },
+                        labels[cur],
+                        " \u00B7 ",
+                        fmt(data[cur]))))))));
 }
 /* накопительная кривая: палец ведёт вертикальную линию и показывает год */
 function AreaChart({ points }) {
@@ -5437,8 +5496,8 @@ function AreaChart({ points }) {
                 at(e.clientX);
         }, onPointerUp: () => { } },
         React.createElement("svg", { viewBox: `0 0 ${w} ${h + 22}`, className: "chart" },
-            React.createElement("polygon", { points: [...xy.map((p) => p.join(",")), `${w},${h}`, `0,${h}`].join(" "), fill: C_FILL }),
-            React.createElement("polyline", { fill: "none", stroke: C_GOLD, strokeWidth: "2.2", points: xy.map((p) => p.join(",")).join(" ") }),
+            React.createElement("polygon", { className: "area-fill", points: [...xy.map((p) => p.join(",")), `${w},${h}`, `0,${h}`].join(" "), fill: C_FILL }),
+            React.createElement("polyline", { className: "area-line", fill: "none", stroke: C_GOLD, strokeWidth: "2.2", points: xy.map((p) => p.join(",")).join(" ") }),
             React.createElement("line", { x1: xy[cur][0], y1: "14", x2: xy[cur][0], y2: h, stroke: C_SILVER, strokeWidth: "1", opacity: "0.75", strokeDasharray: "3 3" }),
             React.createElement("circle", { cx: xy[cur][0], cy: xy[cur][1], r: "4.5", fill: C_GOLD }),
             React.createElement("g", { transform: `translate(${Math.min(Math.max(xy[cur][0] - 34, 0), w - 68)}, 0)` },
@@ -5500,6 +5559,7 @@ function RowsChart({ rows, unit }) {
         React.createElement("span", { className: "row-k" }, k),
         React.createElement("span", { className: "row-bar" },
             React.createElement("i", { style: {
+                    "--w": `${(v / max) * 100}%`,
                     width: `${(v / max) * 100}%`,
                     background: i === 0 ? C_GOLD : C_SILVER,
                 } })),
@@ -5508,29 +5568,61 @@ function RowsChart({ rows, unit }) {
             unit ? ` ${unit}` : ""))))));
 }
 /* календарь: год × месяц; планы — синим, неточные периоды — полосой года */
-function GridChart({ grid, planGrid, vague, years }) {
+function GridChart({ grid, planGrid, vague, years, onOpen }) {
     const mn = ["я", "ф", "м", "а", "м", "и", "и", "а", "с", "о", "н", "д"];
-    const vals = [...Object.values(grid), ...Object.values(planGrid || {})];
-    const max = Math.max(1, ...vals);
+    const MN = [
+        "январь", "февраль", "март", "апрель", "май", "июнь",
+        "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь",
+    ];
+    const [pick, setPick] = useState(null);
+    const val = (c) => (typeof c === "number" ? c : (c === null || c === void 0 ? void 0 : c.v) || 0);
+    const items = (c) => (typeof c === "number" ? [] : (c === null || c === void 0 ? void 0 : c.items) || []);
+    const max = Math.max(1, ...Object.values(grid).map(val), ...Object.values(planGrid || {}).map(val));
     return (React.createElement("div", { className: "grid-chart" },
         React.createElement("div", { className: "grid-head" },
             React.createElement("span", null),
             mn.map((m, i) => (React.createElement("span", { key: i }, m)))),
-        years.map((y) => {
+        years.map((y, row) => {
             const vg = (vague === null || vague === void 0 ? void 0 : vague[y]) || 0;
-            return (React.createElement("div", { key: y, className: "grid-row" + (vg ? " vague" : "") },
+            return (React.createElement("div", { key: y, className: "grid-row" + (vg ? " vague" : ""), style: { "--d": `${row * 70}ms` } },
                 React.createElement("span", { className: "grid-y" }, y),
                 mn.map((_, i) => {
-                    const v = grid[`${y}:${i + 1}`] || 0;
-                    const p = (planGrid === null || planGrid === void 0 ? void 0 : planGrid[`${y}:${i + 1}`]) || 0;
+                    const key = `${y}:${i + 1}`;
+                    const c = grid[key];
+                    const p = planGrid === null || planGrid === void 0 ? void 0 : planGrid[key];
+                    const v = val(c);
+                    const pv = val(p);
+                    const list = [...items(c), ...items(p)];
                     const style = v
                         ? { background: C_GOLD, opacity: 0.3 + (v / max) * 0.7 }
-                        : p
-                            ? { background: C_BLUE, opacity: 0.35 + (p / max) * 0.65 }
+                        : pv
+                            ? { background: C_BLUE, opacity: 0.35 + (pv / max) * 0.65 }
                             : undefined;
-                    return React.createElement("span", { key: i, className: "grid-cell", style: style });
+                    return (React.createElement("span", { key: i, className: "grid-cell" +
+                            (list.length ? " has" : "") +
+                            ((pick === null || pick === void 0 ? void 0 : pick.key) === key ? " sel" : ""), style: style, onClick: () => list.length &&
+                            setPick((pick === null || pick === void 0 ? void 0 : pick.key) === key
+                                ? null
+                                : { key, y, m: i + 1, list }) }));
                 })));
         }),
+        pick && (React.createElement("div", { className: "grid-tip" },
+            React.createElement("b", null,
+                MN[pick.m - 1],
+                " ",
+                pick.y),
+            pick.list.map((it, n) => {
+                var _a, _b;
+                return (React.createElement("button", { key: n, className: "grid-trip", onClick: () => onOpen === null || onOpen === void 0 ? void 0 : onOpen(it.a3, it.id) },
+                    React.createElement("span", null,
+                        flag((_a = BY_A3[it.a3]) === null || _a === void 0 ? void 0 : _a.a2),
+                        " ",
+                        ((_b = BY_A3[it.a3]) === null || _b === void 0 ? void 0 : _b.name) || it.a3),
+                    React.createElement("em", null,
+                        it.label,
+                        it.plan ? " · план" : ""),
+                    React.createElement("i", null, "\u2192")));
+            }))),
         React.createElement("div", { className: "grid-legend" },
             React.createElement("i", { style: { background: C_GOLD } }),
             " \u0441\u043E\u0441\u0442\u043E\u044F\u043B\u043E\u0441\u044C",
@@ -5540,53 +5632,53 @@ function GridChart({ grid, planGrid, vague, years }) {
             " \u043D\u0435\u0442\u043E\u0447\u043D\u0430\u044F \u0434\u0430\u0442\u0430")));
 }
 /* шторка отчётов */
-function ReportsSheet({ open, onClose, box, visits, since, stats, people = [] }) {
+function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], onOpenTrip }) {
     const r = useMemo(() => reportData(visits, since, people), [visits, since, people]);
     const years = r.allYears.length ? r.allYears : [NOW.getFullYear()];
     return (React.createElement(Sheet, { open: open, onClose: onClose, title: "\u041E\u0442\u0447\u0451\u0442\u044B", box: box }, () => (React.createElement("div", { className: "sheet-body" }, r.trips.length === 0 ? (React.createElement("p", { className: "hint small" }, "\u041E\u0442\u0447\u0451\u0442\u044B \u043F\u043E\u044F\u0432\u044F\u0442\u0441\u044F, \u043A\u043E\u0433\u0434\u0430 \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u0435 \u043F\u0435\u0440\u0432\u0443\u044E \u043F\u043E\u0435\u0437\u0434\u043A\u0443.")) : (React.createElement(React.Fragment, null,
-        React.createElement("div", { className: "rep" },
+        React.createElement(Reveal, { className: "rep" },
             React.createElement("b", null, "\u041F\u043E\u0435\u0437\u0434\u043A\u0438 \u043F\u043E \u0433\u043E\u0434\u0430\u043C"),
             React.createElement("em", null, "\u0441\u0442\u043E\u043B\u0431\u0438\u043A\u0438 \u0438 \u043B\u0438\u043D\u0438\u044F \u0442\u0440\u0435\u043D\u0434\u0430"),
             React.createElement(BarsChart, { data: years.map((y) => Math.round((r.years[y] || 0) * 10) / 10), vague: years.map((y) => r.vague[y] || 0), labels: years }),
             Object.keys(r.vague).length > 0 && (React.createElement("p", { className: "hint small" }, "\u0411\u043B\u0435\u0434\u043D\u0430\u044F \u0447\u0430\u0441\u0442\u044C \u0441\u0442\u043E\u043B\u0431\u0438\u043A\u0430 \u2014 \u043F\u043E\u0435\u0437\u0434\u043A\u0438 \u0441 \u043D\u0435\u0442\u043E\u0447\u043D\u043E\u0439 \u0434\u0430\u0442\u043E\u0439, \u0440\u0430\u0437\u043B\u043E\u0436\u0435\u043D\u043D\u044B\u0435 \u043F\u043E\u0440\u043E\u0432\u043D\u0443 \u043F\u043E \u0433\u043E\u0434\u0430\u043C \u043F\u0435\u0440\u0438\u043E\u0434\u0430."))),
-        React.createElement("div", { className: "rep" },
+        React.createElement(Reveal, { className: "rep" },
             React.createElement("b", null, "\u0421\u0442\u0440\u0430\u043D\u044B \u043D\u0430\u0440\u0430\u0441\u0442\u0430\u044E\u0449\u0438\u043C \u0438\u0442\u043E\u0433\u043E\u043C"),
             React.createElement("em", null, "\u043A\u0430\u043A \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u043B\u0441\u044F \u043C\u0438\u0440"),
             React.createElement(AreaChart, { points: r.line })),
-        React.createElement("div", { className: "rep" },
+        React.createElement(Reveal, { className: "rep" },
             React.createElement("b", null, "\u0427\u0430\u0441\u0442\u0438 \u0441\u0432\u0435\u0442\u0430"),
             React.createElement("em", null, "\u0441\u043A\u043E\u043B\u044C\u043A\u043E \u0441\u0442\u0440\u0430\u043D \u0432 \u043A\u0430\u0436\u0434\u043E\u0439"),
             React.createElement(DonutChart, { parts: CONT_ORDER.filter((k) => r.conts[k]).map((k) => ({
                     k,
                     v: r.conts[k],
                 })), total: stats.countries })),
-        React.createElement("div", { className: "rep" },
+        React.createElement(Reveal, { className: "rep" },
             React.createElement("b", null, "\u0421\u0435\u0437\u043E\u043D\u043D\u043E\u0441\u0442\u044C"),
             React.createElement("em", null, "\u0432 \u043A\u0430\u043A\u0438\u0435 \u043C\u0435\u0441\u044F\u0446\u044B \u0432\u044B \u0432 \u043F\u0443\u0442\u0438"),
             React.createElement("div", { className: "center" },
                 React.createElement(SeasonChart, { months: r.months }))),
-        React.createElement("div", { className: "rep" },
+        React.createElement(Reveal, { className: "rep" },
             React.createElement("b", null, "\u0414\u043D\u0438 \u0432 \u043F\u0443\u0442\u0438"),
             React.createElement("em", null, "\u043F\u043E \u0433\u043E\u0434\u0430\u043C, \u0433\u0434\u0435 \u0443\u043A\u0430\u0437\u0430\u043D\u044B \u0442\u043E\u0447\u043D\u044B\u0435 \u0434\u0430\u0442\u044B"),
             Object.keys(r.days).length ? (React.createElement(RowsChart, { rows: years
                     .filter((y) => r.days[y])
                     .map((y) => [String(y), r.days[y]]), unit: "\u0434\u043D." })) : (React.createElement("p", { className: "hint small" }, "\u0423\u043A\u0430\u0436\u0438\u0442\u0435 \u0442\u043E\u0447\u043D\u044B\u0435 \u0434\u0430\u0442\u044B \u0445\u043E\u0442\u044F \u0431\u044B \u0432 \u043E\u0434\u043D\u043E\u0439 \u043F\u043E\u0435\u0437\u0434\u043A\u0435."))),
-        React.createElement("div", { className: "rep" },
+        React.createElement(Reveal, { className: "rep" },
             React.createElement("b", null, "\u0427\u0430\u0449\u0435 \u0432\u0441\u0435\u0433\u043E"),
             React.createElement("em", null, "\u0433\u043E\u0440\u043E\u0434\u0430, \u043A\u0443\u0434\u0430 \u0432\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u0435\u0442\u0435\u0441\u044C"),
             r.topCities.length ? (React.createElement(RowsChart, { rows: r.topCities })) : (React.createElement("p", { className: "hint small" }, "\u0413\u043E\u0440\u043E\u0434\u0430 \u043F\u043E\u043A\u0430 \u043D\u0435 \u043E\u0442\u043C\u0435\u0447\u0435\u043D\u044B."))),
-        r.topHotels.length > 0 && (React.createElement("div", { className: "rep" },
+        r.topHotels.length > 0 && (React.createElement(Reveal, { className: "rep" },
             React.createElement("b", null, "\u041B\u044E\u0431\u0438\u043C\u044B\u0435 \u043E\u0442\u0435\u043B\u0438"),
             React.createElement("em", null, "\u0433\u0434\u0435 \u043E\u0441\u0442\u0430\u043D\u0430\u0432\u043B\u0438\u0432\u0430\u043B\u0438\u0441\u044C \u043D\u0435 \u0440\u0430\u0437"),
             React.createElement(RowsChart, { rows: r.topHotels }))),
-        r.topPeople.length > 0 && (React.createElement("div", { className: "rep" },
+        r.topPeople.length > 0 && (React.createElement(Reveal, { className: "rep" },
             React.createElement("b", null, "\u0421 \u043A\u0435\u043C \u0435\u0437\u0434\u0438\u0442\u0435"),
             React.createElement("em", null, "\u0447\u0438\u0441\u043B\u043E \u043F\u043E\u0435\u0437\u0434\u043E\u043A \u0432\u043C\u0435\u0441\u0442\u0435"),
             React.createElement(RowsChart, { rows: r.topPeople }))),
-        React.createElement("div", { className: "rep" },
+        React.createElement(Reveal, { className: "rep" },
             React.createElement("b", null, "\u041A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u044C \u043F\u043E\u0435\u0437\u0434\u043E\u043A"),
             React.createElement("em", null, "\u0433\u043E\u0434 \u0438 \u043C\u0435\u0441\u044F\u0446, \u044F\u0440\u0447\u0435 \u2014 \u0434\u043E\u043B\u044C\u0448\u0435"),
-            React.createElement(GridChart, { grid: r.grid, planGrid: r.planGrid, vague: r.vague, years: years.slice(-8) }))))))));
+            React.createElement(GridChart, { grid: r.grid, planGrid: r.planGrid, vague: r.vague, years: years.slice(-8), onOpen: onOpenTrip }))))))));
 }
 /* шторка: семья — ключ, способ обмена, отправка и приём */
 function FamilySheet({ open, onClose, box, family, onFamily, visits, tombs, people, meName, onReceive, }) {
@@ -7179,7 +7271,11 @@ function Atlas() {
                     React.createElement(PhotoModeSheet, { open: sheet === "photomode", onClose: () => setSheet("settings"), box: box, quality: photoQuality, usage: photoUsage }),
                     React.createElement(FamilySheet, { open: sheet === "family", onClose: () => setSheet("profile"), box: box, family: family, onFamily: setFamily, visits: visits, tombs: tombs, people: profile.people || [], meName: profile.name || "", onReceive: receiveFamily }),
                     React.createElement(DoublesSheet, { open: sheet === "doubles", onClose: () => setSheet("profile"), box: box, pairs: doubles, people: profile.people || [], onJoin: joinDouble }),
-                    React.createElement(ReportsSheet, { open: sheet === "reports", onClose: () => setSheet(sheetBack === "list" ? "list" : "profile"), box: box, visits: visits, since: profile.since, stats: stats, people: profile.people || [] }),
+                    React.createElement(ReportsSheet, { open: sheet === "reports", onClose: () => setSheet(sheetBack === "list" ? "list" : "profile"), box: box, visits: visits, since: profile.since, stats: stats, people: profile.people || [], onOpenTrip: (a3, id) => {
+                            setSelected(a3);
+                            setEditId(id || null);
+                            setSheet(null);
+                        } }),
                     React.createElement(FiltersSheet, { open: sheet === "filters", onClose: () => setSheet(null), box: box, target: sheetBack === "list" ? "list" : "globe", years: allYears, yearFilter: yearFilter, onYear: (v) => {
                             setYearFilter(v);
                             setSheet(sheetBack);
@@ -7478,6 +7574,48 @@ body > div{max-width:100%;}
 .grid-legend i:first-child{margin-left:0;}
 .grid-legend i.vg{background:repeating-linear-gradient(135deg, rgba(232,184,75,.5) 0 3px, transparent 3px 6px);}
 .chart-touch{touch-action:pan-y; cursor:pointer;}
+
+/* появление графиков по мере прокрутки */
+.reveal{opacity:0; transform:translateY(14px); transition:opacity .5s ease, transform .5s cubic-bezier(.2,.7,.3,1);}
+.reveal.in{opacity:1; transform:none;}
+
+.reveal .bar-g rect{transform:scaleY(0); transition:transform .7s cubic-bezier(.2,.8,.25,1); transition-delay:var(--d, 0ms);}
+.reveal.in .bar-g rect{transform:scaleY(1);}
+.reveal .bar-g text{opacity:0; transition:opacity .4s ease; transition-delay:var(--d, 0ms);}
+.reveal.in .bar-g text{opacity:1;}
+
+.reveal .trend{stroke-dasharray:1200; stroke-dashoffset:1200; transition:stroke-dashoffset 1.3s ease .35s;}
+.reveal.in .trend{stroke-dashoffset:0;}
+
+.reveal .area-line{stroke-dasharray:1400; stroke-dashoffset:1400; transition:stroke-dashoffset 1.4s ease .15s;}
+.reveal.in .area-line{stroke-dashoffset:0;}
+.reveal .area-fill{opacity:0; transition:opacity .9s ease .5s;}
+.reveal.in .area-fill{opacity:1;}
+
+.reveal .donut path{stroke-dasharray:400; stroke-dashoffset:400; transition:stroke-dashoffset 1s cubic-bezier(.3,.8,.3,1);}
+.reveal.in .donut path{stroke-dashoffset:0;}
+
+.reveal .season line{transform:scale(.1); transform-origin:center; transition:transform .7s cubic-bezier(.2,.9,.3,1);}
+.reveal.in .season line{transform:scale(1);}
+
+.reveal .row-bar i{width:0 !important; transition:width .9s cubic-bezier(.2,.8,.3,1);}
+.reveal.in .row-bar i{width:var(--w) !important;}
+
+.reveal .grid-row{opacity:0; transform:translateX(-8px); transition:opacity .45s ease, transform .45s ease; transition-delay:var(--d, 0ms);}
+.reveal.in .grid-row{opacity:1; transform:none;}
+
+.grid-cell.has{cursor:pointer;}
+.grid-cell.sel{outline:2px solid var(--gold); outline-offset:1px;}
+.grid-tip{margin-top:10px; padding:11px; border-radius:12px; border:1px solid var(--line); background:var(--el);}
+.grid-tip > b{display:block; font-size:0.8rem; margin-bottom:8px;}
+.grid-trip{display:flex; align-items:center; gap:9px; width:100%; padding:9px 10px; margin-bottom:6px; border-radius:10px; border:1px solid var(--line); background:var(--field); color:var(--ink); font-family:inherit; text-align:left; cursor:pointer;}
+.grid-trip span{flex:0 0 auto; font-size:0.78rem;}
+.grid-trip em{flex:1 1 auto; min-width:0; font-style:normal; font-size:0.68rem; color:var(--dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.grid-trip i{flex:none; font-style:normal; color:var(--gold);}
+
+@media (prefers-reduced-motion: reduce){
+  .reveal, .reveal *{transition:none !important;}
+}
 .flip{margin-top:10px; perspective:1200px; cursor:pointer;}
 .flip-in{position:relative; height:266px; transform-style:preserve-3d;
   transition:transform .55s cubic-bezier(.3,.8,.3,1);}
