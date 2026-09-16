@@ -112,6 +112,7 @@
 "use strict";
 "use strict";
 "use strict";
+"use strict";
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
 /* ================================================================== */
 /*  Справочник стран: A2 | A3 | название | континент | шир. | долг.    */
@@ -1106,7 +1107,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "14.0";
+const APP_VERSION = "14.1";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -5650,9 +5651,12 @@ function ListSheet({ visits, stats, open, onClose, onPick, onRemove, onDone, box
                 return;
             arr.forEach((t, idx) => out.push({ a3, c, t, idx }));
         });
+        const day = (t) => { var _a; return ((_a = dParts(t.from)) === null || _a === void 0 ? void 0 : _a.d) || 0; };
+        const mon = (t) => { var _a; return ((_a = dParts(t.from)) === null || _a === void 0 ? void 0 : _a.m) || t.m || 0; };
         out.sort((x, y) => (y.t.plan ? 1 : 0) - (x.t.plan ? 1 : 0) ||
             y.t.y - x.t.y ||
-            (y.t.m || 0) - (x.t.m || 0));
+            mon(y.t) - mon(x.t) ||
+            day(y.t) - day(x.t));
         return out;
     }, [visits]);
     const found = useMemo(() => {
@@ -5729,30 +5733,27 @@ function ListSheet({ visits, stats, open, onClose, onPick, onRemove, onDone, box
         };
     }, [visits, since]);
     const yearHint = "";
+    /* в строке: город, месяц или даты; страна и год стоят отдельно */
     const sub = (t) => {
-        var _a, _b;
+        var _a;
         const parts = [];
         if (t.plan)
             parts.push(planOverdue(t) ? "план · срок прошёл" : "план");
-        if (t.by && t.by !== meId) {
-            const who = (people || []).find((p) => p.id === t.by);
-            parts.push(`добавил${who ? " " + who.name : "а семья"}`);
-        }
-        if (t.m)
-            parts.push(MONTHS[t.m - 1]);
-        if (tripDays(t))
-            parts.push(np(tripDays(t), "day"));
-        {
-            const names = whoNames(t, people);
-            if (names.length)
-                parts.push(`с ${names.join(", ")}`);
-        }
         if ((_a = t.cities) === null || _a === void 0 ? void 0 : _a.length)
             parts.push(t.cities.join(", "));
-        if ((_b = t.hotels) === null || _b === void 0 ? void 0 : _b.length)
-            parts.push(t.hotels
-                .map((h) => (h.note ? `${h.name} (${h.note})` : h.name))
-                .join(", "));
+        const a = dParts(t.from);
+        const b = dParts(t.to);
+        if (a && b) {
+            parts.push(a.m === b.m
+                ? `${a.d}–${b.d} ${MONTHS_GEN[a.m - 1]}`
+                : `${a.d} ${MONTHS_GEN[a.m - 1]} – ${b.d} ${MONTHS_GEN[b.m - 1]}`);
+        }
+        else if (a) {
+            parts.push(`${a.d} ${MONTHS_GEN[a.m - 1]}`);
+        }
+        else if (t.m) {
+            parts.push(MONTHS[t.m - 1]);
+        }
         return parts.join(" · ");
     };
     return (React.createElement(Sheet, { open: open, onClose: onClose, title: "\u041C\u043E\u0438 \u043F\u043E\u0435\u0437\u0434\u043A\u0438", box: box }, (close) => (React.createElement("div", { className: "sheet-list", ref: listRef, onScroll: onListScroll },
