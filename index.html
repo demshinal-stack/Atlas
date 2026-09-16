@@ -142,6 +142,7 @@
 "use strict";
 "use strict";
 "use strict";
+"use strict";
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
 /* ================================================================== */
 /*  Справочник стран: A2 | A3 | название | континент | шир. | долг.    */
@@ -1294,7 +1295,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "17.1";
+const APP_VERSION = "17.2";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -7225,11 +7226,6 @@ function Atlas() {
                             setEditId(null);
                         }, selected: selected, full: true, onToggleFull: () => setFull(false), visitKey: visitKey, home: lastTrip, boxWidth: globeBox, marks: marks, light: light, playing: spinning, setPlaying: setSpinning, view: mapView, page: mapPage, setPage: setMapPage, isWish: isWish }))),
                 React.createElement("div", { className: "col-side" },
-                    React.createElement("div", { className: "side-controls" },
-                        mapView !== "map" && (React.createElement("button", { className: "play" + (spinning ? " on" : ""), onClick: () => setSpinning((v) => !v), "aria-label": spinning ? "Остановить вращение" : "Вращать глобус" }, spinning ? (React.createElement("svg", { viewBox: "0 0 24 24", width: "15", height: "15" },
-                            React.createElement("path", { d: "M8 6h3v12H8zM13 6h3v12h-3z", fill: "currentColor" }))) : (React.createElement("svg", { viewBox: "0 0 24 24", width: "15", height: "15" },
-                            React.createElement("path", { d: "M9 6l9 6-9 6z", fill: "currentColor" }))))),
-                        React.createElement("button", { onClick: () => setFull(true), "aria-label": "\u0412\u043E \u0432\u0435\u0441\u044C \u044D\u043A\u0440\u0430\u043D" }, "\u26F6")),
                     overdue.length > 0 && (React.createElement("div", { className: "due" },
                         React.createElement("b", { className: "due-title" }, overdue.length === 1
                             ? "Дата поездки наступила"
@@ -7530,7 +7526,6 @@ body > div{max-width:100%;}
 .map-pager{display:flex; justify-content:center; gap:6px; padding:9px 0 2px;}
 .map-dot{width:6px; height:6px; border-radius:50%; background:var(--track);}
 .map-dot.on{background:var(--gold);}
-.side-controls{display:none;}
 .globe-controls{padding-bottom:2px; display:flex; justify-content:center; gap:8px; padding:4px 0 12px;}
 .globe-controls .play{color:var(--gold);}
 .globe-controls svg{display:block;}
@@ -8164,21 +8159,18 @@ body > div{max-width:100%;}
   .top{margin-bottom:8px; padding-left:2px;}
   .brand{font-size:1.2rem;}
 
-  .cols{flex-direction:row; align-items:flex-start; gap:14px;
-    height:calc(100vh - 46px - env(safe-area-inset-top));}
+  .cols{flex-direction:row; align-items:stretch; gap:14px;
+    height:calc(100vh - 46px - env(safe-area-inset-top)); overflow:hidden;}
   .col-map{flex:0 0 50%; min-width:0; display:flex; flex-direction:column;
-    align-items:flex-start; gap:0;}
+    align-items:flex-start; justify-content:flex-start; gap:0; min-height:0;}
   .col-side{flex:1 1 auto; min-width:0; gap:10px; min-height:0;
-    display:flex; flex-direction:column;}
+    display:flex; flex-direction:column; overflow-y:auto;
+    -webkit-overflow-scrolling:touch;}
   .foot{display:none;}
 
-  /* карта слева без нижних кнопок — они уходят вправо */
-  .col-map .globe-controls{display:none;}
+  /* кнопки карты — под глобусом, у левого края */
+  .col-map .globe-controls{display:flex; justify-content:flex-start; padding:8px 0 0;}
   .focus{margin-top:0;}
-  .side-controls{display:flex; justify-content:flex-end; gap:7px; order:9; margin-top:auto;}
-  .side-controls button{width:38px; height:34px; border-radius:11px; border:1px solid var(--line);
-    background:var(--el); color:var(--ink); display:flex; align-items:center; justify-content:center; cursor:pointer;}
-  .side-controls .play.on{background:var(--gold); border-color:var(--gold); color:#0d1b2a;}
 
   /* экран низкий — карточки компактнее */
   .focus{padding:11px;}
