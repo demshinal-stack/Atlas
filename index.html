@@ -122,6 +122,8 @@
 "use strict";
 "use strict";
 "use strict";
+"use strict";
+"use strict";
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
 /* ================================================================== */
 /*  Справочник стран: A2 | A3 | название | континент | шир. | долг.    */
@@ -453,34 +455,50 @@ const applyBooks = (data) => {
         (SIGHTS_BY_A3[x.a3] = SIGHTS_BY_A3[x.a3] || []).push(x);
     });
 };
-/* забираем справочники: сначала с устройства, затем с сервера */
+/* забираем справочники: с устройства, недостающее — с сервера */
 async function loadBooks({ force } = {}) {
+    let saved = null;
     if (!force) {
         try {
-            const saved = await store.get(K_BOOKS);
-            if (saved === null || saved === void 0 ? void 0 : saved.cities) {
-                applyBooks(saved);
-                return { from: "device", data: saved };
-            }
+            saved = await store.get(K_BOOKS);
         }
         catch {
-            /* нет сохранённых — пойдём в сеть */
+            /* ничего не сохранено */
         }
     }
-    const data = {};
-    for (const b of BOOKS) {
+    const data = { ...(saved || {}) };
+    const missing = BOOKS.filter((b) => !data[b.id]);
+    // всё на месте — работаем без сети
+    if ((saved === null || saved === void 0 ? void 0 : saved.cities) && !missing.length) {
+        applyBooks(data);
+        return { from: "device", data, added: 0 };
+    }
+    for (const b of missing) {
         try {
             const r = await fetch(`./data/${b.file}`, { cache: "force-cache" });
             if (r.ok)
                 data[b.id] = await r.text();
         }
         catch {
-            /* один файл не пришёл — работаем с тем, что есть */
+            /* этот файл не пришёл — остальные всё равно возьмём */
         }
     }
     if (Object.keys(data).length)
         applyBooks(data);
-    return { from: "server", data };
+    // на телефоне уже что-то лежало — дополним сохранённое
+    if ((saved === null || saved === void 0 ? void 0 : saved.cities) && Object.keys(data).length > Object.keys(saved).length) {
+        try {
+            await store.set(K_BOOKS, data);
+        }
+        catch {
+            /* не поместилось — не беда */
+        }
+    }
+    return {
+        from: (saved === null || saved === void 0 ? void 0 : saved.cities) ? "device" : "server",
+        data,
+        added: missing.length,
+    };
 }
 const CONTINENTS = {
     EU: "Европа",
@@ -722,6 +740,14 @@ const idb = {
             };
         });
     },
+    async del(key) {
+        const db = await idb.open();
+        return new Promise((res, rej) => {
+            const t = db.transaction("kv", "readwrite").objectStore("kv").delete(key);
+            t.onsuccess = () => res(true);
+            t.onerror = () => rej(t.error);
+        });
+    },
     async set(key, value) {
         const db = await idb.open();
         return new Promise((res, rej) => {
@@ -800,6 +826,25 @@ async function retryBackend() {
 }
 const store = {
     live: () => backend.kind !== "memory",
+    /* полное удаление: не пустая запись, а освобождение места */
+    async del(key) {
+        mem.delete(key);
+        await pickBackend();
+        try {
+            if (typeof window !== "undefined" && window.storage)
+                await window.storage.delete(key, false);
+        }
+        catch { /* не поддерживается */ }
+        try {
+            await idb.del(key);
+        }
+        catch { /* базы может не быть */ }
+        try {
+            window.localStorage.removeItem(key);
+        }
+        catch { /* недоступно */ }
+        return true;
+    },
     kind: () => backend.kind,
     async get(key) {
         await pickBackend();
@@ -1182,7 +1227,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "15.1";
+const APP_VERSION = "15.3";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -1372,11 +1417,11 @@ function topoToGeo(topo, objName) {
         type: "FeatureCollection",
         features: (obj.geometries || [])
             .map((g) => {
-            var _a;
+            var _c;
             const geometry = geom(g);
             if (!geometry)
                 return null;
-            const raw = String((_a = g.id) !== null && _a !== void 0 ? _a : "");
+            const raw = String((_c = g.id) !== null && _c !== void 0 ? _c : "");
             const id = raw.length === 3 && /^\d+$/.test(raw)
                 ? NUM_TO_A3[raw]
                 : raw.toUpperCase();
@@ -2476,20 +2521,20 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
     state.current = { isOn, selected, geo, marks, light, full, isMap, isWish };
     /* размер: по фактической ширине плитки, с повторами до готовности разметки */
     useEffect(() => {
-        var _a;
+        var _c;
         let tries = 0;
         let raf = 0;
         const fit = () => {
-            var _a, _b, _c;
+            var _c, _d, _e;
             if (full) {
-                const vw = ((_a = window.visualViewport) === null || _a === void 0 ? void 0 : _a.width) || window.innerWidth || 360;
-                const vh = ((_b = window.visualViewport) === null || _b === void 0 ? void 0 : _b.height) || window.innerHeight || 640;
+                const vw = ((_c = window.visualViewport) === null || _c === void 0 ? void 0 : _c.width) || window.innerWidth || 360;
+                const vh = ((_d = window.visualViewport) === null || _d === void 0 ? void 0 : _d.height) || window.innerHeight || 640;
                 setSize(Math.max(240, Math.min(vw - 24, vh - 210)));
                 return;
             }
             const el = wrapRef.current;
             const w = el ? Math.floor(el.getBoundingClientRect().width) : 0;
-            const vh = ((_c = window.visualViewport) === null || _c === void 0 ? void 0 : _c.height) || window.innerHeight || 640;
+            const vh = ((_e = window.visualViewport) === null || _e === void 0 ? void 0 : _e.height) || window.innerHeight || 640;
             // в горизонтальном положении экран низкий — ограничиваем по высоте
             const land = window.matchMedia("(orientation:landscape) and (max-height:600px)").matches;
             const roomH = Math.round(vh - (land ? 120 : 250));
@@ -2511,16 +2556,16 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         }
         window.addEventListener("resize", fit);
         window.addEventListener("orientationchange", fit);
-        (_a = window.visualViewport) === null || _a === void 0 ? void 0 : _a.addEventListener("resize", fit);
+        (_c = window.visualViewport) === null || _c === void 0 ? void 0 : _c.addEventListener("resize", fit);
         return () => {
-            var _a;
+            var _c;
             cancelAnimationFrame(raf);
             clearTimeout(t1);
             clearTimeout(t2);
             ro === null || ro === void 0 ? void 0 : ro.disconnect();
             window.removeEventListener("resize", fit);
             window.removeEventListener("orientationchange", fit);
-            (_a = window.visualViewport) === null || _a === void 0 ? void 0 : _a.removeEventListener("resize", fit);
+            (_c = window.visualViewport) === null || _c === void 0 ? void 0 : _c.removeEventListener("resize", fit);
         };
     }, [full]);
     /* жесты по глобусу не должны двигать страницу */
@@ -3454,11 +3499,11 @@ function Photo({ id, onClick, size = 74, rev = 0 }) {
     useEffect(() => {
         let dead = false;
         (async () => {
-            var _a;
+            var _c;
             const v = await store.get(photoKey(id));
             let out = (v === null || v === void 0 ? void 0 : v.thumb) || (v === null || v === void 0 ? void 0 : v.full) || (v === null || v === void 0 ? void 0 : v.data) || null;
             if (!out)
-                out = ((_a = (await store.get(thumbKey(id)))) === null || _a === void 0 ? void 0 : _a.data) || null;
+                out = ((_c = (await store.get(thumbKey(id)))) === null || _c === void 0 ? void 0 : _c.data) || null;
             if (!dead)
                 setSrc(out);
         })();
@@ -3764,14 +3809,14 @@ function TextField({ value, onChange, placeholder, search = false, onFocus, auto
         React.createElement("input", { ref: ref, className: "tf-input", type: search ? "search" : "text", role: search ? "searchbox" : undefined, name: search ? "q" : "field", value: value, placeholder: placeholder, onChange: onChange, onFocus: (e) => {
                 onFocus === null || onFocus === void 0 ? void 0 : onFocus(e);
                 setTimeout(() => {
-                    var _a;
-                    (_a = ref.current) === null || _a === void 0 ? void 0 : _a.scrollIntoView({ block: "center", behavior: "smooth" });
+                    var _c;
+                    (_c = ref.current) === null || _c === void 0 ? void 0 : _c.scrollIntoView({ block: "center", behavior: "smooth" });
                 }, 280);
             }, autoFocus: autoFocus, inputMode: search ? "search" : "text", enterKeyHint: search ? "search" : "done", autoComplete: "off", autoCorrect: "off", autoCapitalize: search ? "none" : "sentences", spellCheck: "false", "aria-autocomplete": "none", "data-lpignore": "true", "data-1p-ignore": "true", "data-form-type": "other", "x-autocompletetype": "off" }),
         value ? (React.createElement("button", { className: "tf-clear", "aria-label": "\u041E\u0447\u0438\u0441\u0442\u0438\u0442\u044C", onMouseDown: (e) => e.preventDefault(), onClick: () => {
-                var _a;
+                var _c;
                 onChange({ target: { value: "" } });
-                (_a = ref.current) === null || _a === void 0 ? void 0 : _a.focus();
+                (_c = ref.current) === null || _c === void 0 ? void 0 : _c.focus();
             } },
             React.createElement("svg", { viewBox: "0 0 24 24", width: "16", height: "16" },
                 React.createElement("circle", { cx: "12", cy: "12", r: "9", fill: "currentColor", opacity: "0.28" }),
@@ -4079,8 +4124,8 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality,
             React.createElement(TextField, { search: true, value: q, placeholder: "\u041D\u0430\u0447\u043D\u0438\u0442\u0435 \u0432\u0432\u043E\u0434\u0438\u0442\u044C \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u0435", onChange: (e) => setQ(e.target.value) }),
             React.createElement("p", { className: "tf-hint" }, "\u041D\u0430\u043F\u0440\u0438\u043C\u0435\u0440: \u042F\u043F\u043E\u043D\u0438\u044F, \u041F\u0445\u0443\u043A\u0435\u0442, \u041F\u0440\u0430\u0433\u0430"),
             React.createElement("div", { className: "sheet-list inline-list" }, results.map(({ c, via }) => {
-                var _a;
-                return (React.createElement("button", { key: c.a3, className: "opt" + (((_a = visits[c.a3]) === null || _a === void 0 ? void 0 : _a.length) ? " opt-on" : ""), onClick: () => setDraft({
+                var _c;
+                return (React.createElement("button", { key: c.a3, className: "opt" + (((_c = visits[c.a3]) === null || _c === void 0 ? void 0 : _c.length) ? " opt-on" : ""), onClick: () => setDraft({
                         a3: c.a3,
                         y: NOW.getFullYear(),
                         m: null,
@@ -4259,8 +4304,8 @@ function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, 
         if (!addPerson)
             return;
         const outside = (e) => {
-            var _a, _b;
-            const box = (_b = (_a = e.target).closest) === null || _b === void 0 ? void 0 : _b.call(_a, ".person-new");
+            var _c, _d;
+            const box = (_d = (_c = e.target).closest) === null || _d === void 0 ? void 0 : _d.call(_c, ".person-new");
             if (!box)
                 setAddPerson(false);
         };
@@ -4275,8 +4320,8 @@ function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, 
             React.createElement("label", { className: "avatar" },
                 avatar ? React.createElement("img", { src: avatar, alt: "" }) : React.createElement("span", null, "\uFF0B"),
                 React.createElement("input", { type: "file", accept: "image/*", onChange: async (e) => {
-                        var _a;
-                        const f = (_a = e.target.files) === null || _a === void 0 ? void 0 : _a[0];
+                        var _c;
+                        const f = (_c = e.target.files) === null || _c === void 0 ? void 0 : _c[0];
                         e.target.value = "";
                         if (f)
                             onPickAvatar(await readFile(f));
@@ -4458,8 +4503,8 @@ function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, 
                 React.createElement("em", null, "\u0417\u0430\u043C\u0435\u043D\u0438\u0442 \u0442\u043E, \u0447\u0442\u043E \u0441\u0435\u0439\u0447\u0430\u0441 \u0432 \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0438")),
             React.createElement("span", { className: "step-pen" }, "\u2191"),
             React.createElement("input", { type: "file", accept: "application/json", style: { display: "none" }, onChange: (e) => {
-                    var _a;
-                    const f = (_a = e.target.files) === null || _a === void 0 ? void 0 : _a[0];
+                    var _c;
+                    const f = (_c = e.target.files) === null || _c === void 0 ? void 0 : _c[0];
                     e.target.value = "";
                     if (f)
                         onImport(f);
@@ -4476,7 +4521,7 @@ function SettingsSheet({ open, onClose, box, visits, theme, onTheme, quality, on
                 ? "хранилище приложения"
                 : "только до закрытия";
     return (React.createElement(Sheet, { open: open, onClose: onClose, title: "\u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438", box: box }, (close) => {
-        var _a;
+        var _c;
         return (React.createElement("div", { className: "sheet-body" },
             React.createElement("p", { className: "step-title" }, "\u041A\u0430\u0440\u0442\u0430 \u043C\u0438\u0440\u0430"),
             React.createElement("div", { className: "theme-row" }, [
@@ -4579,7 +4624,7 @@ function SettingsSheet({ open, onClose, box, visits, theme, onTheme, quality, on
             React.createElement("div", { className: "about-row" },
                 React.createElement("span", null, "\u0420\u0435\u0436\u0438\u043C"),
                 React.createElement("b", null, typeof window !== "undefined" &&
-                    ((_a = window.matchMedia) === null || _a === void 0 ? void 0 : _a.call(window, "(display-mode: standalone)").matches)
+                    ((_c = window.matchMedia) === null || _c === void 0 ? void 0 : _c.call(window, "(display-mode: standalone)").matches)
                     ? "с домашнего экрана"
                     : "в браузере")),
             React.createElement("div", { className: "copyright" },
@@ -4931,7 +4976,7 @@ const ISLAND_A3 = new Set(("JPN PHL IDN LKA MDV MLT CYP ISL IRL NZL FJI MUS SYC 
     "SGP TWN HKG MAC COM CPV STP KIR TON WSM VUT SLB PLW FSM MHL NRU TUV ATG DMA GRD " +
     "KNA LCA VCT BHR MDG BRN TLS").split(" "));
 function awardStats(visits, since) {
-    const countries = Object.keys(visits).filter((a) => { var _a; return (_a = visits[a]) === null || _a === void 0 ? void 0 : _a.length; });
+    const countries = Object.keys(visits).filter((a) => { var _c; return (_c = visits[a]) === null || _c === void 0 ? void 0 : _c.length; });
     const conts = new Set();
     const cities = new Set();
     const years = new Set();
@@ -5204,8 +5249,8 @@ function BarsChart({ data, vague, labels }) {
     const cur = pick === null ? data.length - 1 : pick;
     const cx = (cur * w) / data.length + w / data.length / 2;
     return (React.createElement("div", { ref: box, className: "chart-touch", onPointerDown: (e) => {
-            var _a, _b;
-            (_b = (_a = e.currentTarget).setPointerCapture) === null || _b === void 0 ? void 0 : _b.call(_a, e.pointerId);
+            var _c, _d;
+            (_d = (_c = e.currentTarget).setPointerCapture) === null || _d === void 0 ? void 0 : _d.call(_c, e.pointerId);
             at(e.clientX);
         }, onPointerMove: (e) => {
             if (e.buttons || e.pressure > 0)
@@ -5258,8 +5303,8 @@ function AreaChart({ points }) {
     };
     const cur = pick === null ? points.length - 1 : pick;
     return (React.createElement("div", { ref: box, className: "chart-touch", onPointerDown: (e) => {
-            var _a, _b;
-            (_b = (_a = e.currentTarget).setPointerCapture) === null || _b === void 0 ? void 0 : _b.call(_a, e.pointerId);
+            var _c, _d;
+            (_d = (_c = e.currentTarget).setPointerCapture) === null || _d === void 0 ? void 0 : _d.call(_c, e.pointerId);
             at(e.clientX);
         }, onPointerMove: (e) => {
             if (e.buttons || e.pressure > 0)
@@ -5382,12 +5427,12 @@ function GridChart({ grid, planGrid, vague, years, onOpen }) {
                 " ",
                 pick.y),
             pick.list.map((it, n) => {
-                var _a, _b;
+                var _c, _d;
                 return (React.createElement("button", { key: n, className: "grid-trip", onClick: () => onOpen === null || onOpen === void 0 ? void 0 : onOpen(it.a3, it.id) },
                     React.createElement("span", null,
-                        flag((_a = BY_A3[it.a3]) === null || _a === void 0 ? void 0 : _a.a2),
+                        flag((_c = BY_A3[it.a3]) === null || _c === void 0 ? void 0 : _c.a2),
                         " ",
-                        ((_b = BY_A3[it.a3]) === null || _b === void 0 ? void 0 : _b.name) || it.a3),
+                        ((_d = BY_A3[it.a3]) === null || _d === void 0 ? void 0 : _d.name) || it.a3),
                     React.createElement("em", null,
                         it.label,
                         it.plan ? " · план" : ""),
@@ -5658,8 +5703,8 @@ function FamilySheet({ open, onClose, box, family, onFamily, visits, tombs, peop
                 React.createElement("em", null, "\u041F\u043E\u0435\u0437\u0434\u043A\u0438 \u0434\u043E\u0431\u0430\u0432\u044F\u0442\u0441\u044F \u043A \u0432\u0430\u0448\u0438\u043C, \u043D\u0438\u0447\u0435\u0433\u043E \u043D\u0435 \u0437\u0430\u0442\u0440\u0451\u0442\u0441\u044F")),
             React.createElement("span", { className: "step-pen" }, "\u2191"),
             React.createElement("input", { type: "file", accept: "application/json", style: { display: "none" }, onChange: async (e) => {
-                    var _a;
-                    const f = (_a = e.target.files) === null || _a === void 0 ? void 0 : _a[0];
+                    var _c;
+                    const f = (_c = e.target.files) === null || _c === void 0 ? void 0 : _c[0];
                     e.target.value = "";
                     if (!f)
                         return;
@@ -5736,9 +5781,9 @@ function DoublesSheet({ open, onClose, box, pairs, people, onJoin }) {
     return (React.createElement(Sheet, { open: open, onClose: onClose, title: "\u041F\u043E\u0445\u043E\u0436\u0438\u0435 \u043F\u043E\u0435\u0437\u0434\u043A\u0438", box: box }, () => (React.createElement("div", { className: "sheet-body" }, pairs.length === 0 ? (React.createElement("p", { className: "hint small" }, "\u0421\u043E\u0432\u043F\u0430\u0434\u0435\u043D\u0438\u0439 \u043D\u0435\u0442.")) : (React.createElement(React.Fragment, null,
         React.createElement("p", { className: "hint small" }, "\u0414\u0430\u0442\u044B \u044D\u0442\u0438\u0445 \u043F\u043E\u0435\u0437\u0434\u043E\u043A \u043F\u0435\u0440\u0435\u0441\u0435\u043A\u0430\u044E\u0442\u0441\u044F \u2014 \u0432\u043E\u0437\u043C\u043E\u0436\u043D\u043E, \u043E\u0434\u043D\u0430 \u0438 \u0442\u0430 \u0436\u0435 \u0437\u0430\u043F\u0438\u0441\u0430\u043D\u0430 \u0434\u0432\u0430\u0436\u0434\u044B. \u041E\u0431\u044A\u0435\u0434\u0438\u043D\u0435\u043D\u0438\u0435 \u0441\u043E\u0445\u0440\u0430\u043D\u0438\u0442 \u0433\u043E\u0440\u043E\u0434\u0430, \u043E\u0442\u0435\u043B\u0438, \u0443\u0447\u0430\u0441\u0442\u043D\u0438\u043A\u043E\u0432 \u0438 \u0441\u043D\u0438\u043C\u043A\u0438 \u043E\u0431\u0435\u0438\u0445."),
         pairs.map((pr, i) => {
-            var _a;
+            var _c;
             return (React.createElement("div", { key: i, className: "double" },
-                React.createElement("b", null, (_a = BY_A3[pr.a3]) === null || _a === void 0 ? void 0 : _a.name),
+                React.createElement("b", null, (_c = BY_A3[pr.a3]) === null || _c === void 0 ? void 0 : _c.name),
                 React.createElement("div", { className: "double-row" },
                     React.createElement("span", null, tripLabel(pr.a)),
                     React.createElement("em", null, [
@@ -5792,8 +5837,8 @@ function ListSheet({ visits, stats, open, onClose, onPick, onRemove, onDone, box
     const [statsUp, setStatsUp] = useState(false);
     const listRef = useRef(null);
     const onListScroll = () => {
-        var _a;
-        const t = ((_a = listRef.current) === null || _a === void 0 ? void 0 : _a.scrollTop) || 0;
+        var _c;
+        const t = ((_c = listRef.current) === null || _c === void 0 ? void 0 : _c.scrollTop) || 0;
         if (t > 48 && !statsUp)
             setStatsUp(true);
         else if (t < 12 && statsUp)
@@ -5814,8 +5859,8 @@ function ListSheet({ visits, stats, open, onClose, onPick, onRemove, onDone, box
                 return;
             arr.forEach((t, idx) => out.push({ a3, c, t, idx }));
         });
-        const day = (t) => { var _a; return ((_a = dParts(t.from)) === null || _a === void 0 ? void 0 : _a.d) || 0; };
-        const mon = (t) => { var _a; return ((_a = dParts(t.from)) === null || _a === void 0 ? void 0 : _a.m) || t.m || 0; };
+        const day = (t) => { var _c; return ((_c = dParts(t.from)) === null || _c === void 0 ? void 0 : _c.d) || 0; };
+        const mon = (t) => { var _c; return ((_c = dParts(t.from)) === null || _c === void 0 ? void 0 : _c.m) || t.m || 0; };
         out.sort((x, y) => (y.t.plan ? 1 : 0) - (x.t.plan ? 1 : 0) ||
             y.t.y - x.t.y ||
             mon(y.t) - mon(x.t) ||
@@ -5922,9 +5967,9 @@ function ListSheet({ visits, stats, open, onClose, onPick, onRemove, onDone, box
     return (React.createElement(Sheet, { open: open, onClose: onClose, title: "\u041C\u043E\u0438 \u043F\u043E\u0435\u0437\u0434\u043A\u0438", box: box }, (close) => (React.createElement("div", { className: "sheet-list", ref: listRef, onScroll: onListScroll },
         React.createElement("div", { className: "list-head" },
             statsUp ? (React.createElement("button", { className: "stats-min", onClick: () => {
-                    var _a;
+                    var _c;
                     setStatsUp(false);
-                    (_a = listRef.current) === null || _a === void 0 ? void 0 : _a.scrollTo({ top: 0, behavior: "smooth" });
+                    (_c = listRef.current) === null || _c === void 0 ? void 0 : _c.scrollTo({ top: 0, behavior: "smooth" });
                 } },
                 React.createElement("b", null,
                     stats.countries,
@@ -6054,7 +6099,7 @@ function ListSheet({ visits, stats, open, onClose, onPick, onRemove, onDone, box
 /*  Приложение                                                        */
 /* ================================================================== */
 function Atlas() {
-    var _a;
+    var _c;
     const [booting, setBooting] = useState(true);
     const [profile, setProfile] = useState(null);
     const loaded = useRef(false);
@@ -6093,7 +6138,7 @@ function Atlas() {
             setUpdateReady(true);
         const onReady = () => setUpdateReady(true);
         window.addEventListener("atlas-update-ready", onReady);
-        const id = setInterval(() => { var _a; return (_a = window.__atlasCheckUpdate) === null || _a === void 0 ? void 0 : _a.call(window); }, 30 * 60 * 1000);
+        const id = setInterval(() => { var _c; return (_c = window.__atlasCheckUpdate) === null || _c === void 0 ? void 0 : _c.call(window); }, 30 * 60 * 1000);
         return () => {
             window.removeEventListener("atlas-update-ready", onReady);
             clearInterval(id);
@@ -6141,9 +6186,10 @@ function Atlas() {
     }, []);
     /* убрать с устройства — останутся на сервере */
     const dropBooks = useCallback(async () => {
-        await store.set(K_BOOKS, null);
+        await store.del(K_BOOKS);
         setBooksSaved(false);
         setBooksFrom("server");
+        // сами справочники остаются в памяти до перезапуска — приложение не «слепнет»
     }, []);
     const wish = (profile === null || profile === void 0 ? void 0 : profile.wish) || [];
     const isWish = useCallback((a3) => wish.includes(a3), [wish]);
@@ -6170,14 +6216,14 @@ function Atlas() {
     }, [cityPins, theme, spinStart, mapView]);
     const [sysDark, setSysDark] = useState(true);
     useEffect(() => {
-        var _a, _b;
-        const mq = (_a = window.matchMedia) === null || _a === void 0 ? void 0 : _a.call(window, "(prefers-color-scheme: light)");
+        var _c, _d;
+        const mq = (_c = window.matchMedia) === null || _c === void 0 ? void 0 : _c.call(window, "(prefers-color-scheme: light)");
         if (!mq)
             return;
         const apply = () => setSysDark(!mq.matches);
         apply();
-        (_b = mq.addEventListener) === null || _b === void 0 ? void 0 : _b.call(mq, "change", apply);
-        return () => { var _a; return (_a = mq.removeEventListener) === null || _a === void 0 ? void 0 : _a.call(mq, "change", apply); };
+        (_d = mq.addEventListener) === null || _d === void 0 ? void 0 : _d.call(mq, "change", apply);
+        return () => { var _c; return (_c = mq.removeEventListener) === null || _c === void 0 ? void 0 : _c.call(mq, "change", apply); };
     }, []);
     const setTheme = useCallback(async (v) => {
         setThemeState(v);
@@ -6209,12 +6255,12 @@ function Atlas() {
     const [vw, setVw] = useState(null);
     const minSeen = useRef(Infinity);
     useEffect(() => {
-        var _a;
+        var _c;
         const measure = () => {
-            var _a, _b;
-            const vvp = ((_a = window.visualViewport) === null || _a === void 0 ? void 0 : _a.width) || Infinity;
+            var _c, _d;
+            const vvp = ((_c = window.visualViewport) === null || _c === void 0 ? void 0 : _c.width) || Infinity;
             const inner = window.innerWidth || Infinity;
-            const client = ((_b = document.documentElement) === null || _b === void 0 ? void 0 : _b.clientWidth) || Infinity;
+            const client = ((_d = document.documentElement) === null || _d === void 0 ? void 0 : _d.clientWidth) || Infinity;
             // ширину экрана не учитываем: при повороте iOS её не обновляет
             const w = Math.min(vvp, inner, client);
             if (w > 100)
@@ -6244,13 +6290,13 @@ function Atlas() {
         };
         window.addEventListener("resize", measure);
         window.addEventListener("orientationchange", reset);
-        (_a = window.visualViewport) === null || _a === void 0 ? void 0 : _a.addEventListener("resize", measure);
+        (_c = window.visualViewport) === null || _c === void 0 ? void 0 : _c.addEventListener("resize", measure);
         return () => {
-            var _a;
+            var _c;
             clearTimeout(id);
             window.removeEventListener("resize", measure);
             window.removeEventListener("orientationchange", reset);
-            (_a = window.visualViewport) === null || _a === void 0 ? void 0 : _a.removeEventListener("resize", measure);
+            (_c = window.visualViewport) === null || _c === void 0 ? void 0 : _c.removeEventListener("resize", measure);
         };
     }, []);
     const colW = vw ? Math.floor(vw) : null;
@@ -6259,15 +6305,15 @@ function Atlas() {
         : undefined;
     const [land, setLand] = useState(false);
     useEffect(() => {
-        var _a;
+        var _c;
         const mq = window.matchMedia("(orientation:landscape) and (max-height:600px)");
         const on = () => setLand(mq.matches);
         on();
-        (_a = mq.addEventListener) === null || _a === void 0 ? void 0 : _a.call(mq, "change", on);
+        (_c = mq.addEventListener) === null || _c === void 0 ? void 0 : _c.call(mq, "change", on);
         window.addEventListener("resize", on);
         return () => {
-            var _a;
-            (_a = mq.removeEventListener) === null || _a === void 0 ? void 0 : _a.call(mq, "change", on);
+            var _c;
+            (_c = mq.removeEventListener) === null || _c === void 0 ? void 0 : _c.call(mq, "change", on);
             window.removeEventListener("resize", on);
         };
     }, []);
@@ -6327,17 +6373,17 @@ function Atlas() {
     useEffect(() => {
         let dead = false;
         const normalize = (j) => {
-            var _a;
+            var _c;
             if ((j === null || j === void 0 ? void 0 : j.type) === "Topology")
                 return topoToGeo(j);
-            if (!((_a = j === null || j === void 0 ? void 0 : j.features) === null || _a === void 0 ? void 0 : _a.length))
+            if (!((_c = j === null || j === void 0 ? void 0 : j.features) === null || _c === void 0 ? void 0 : _c.length))
                 return null;
             return {
                 type: "FeatureCollection",
                 features: j.features
                     .map((f) => {
-                    var _a, _b, _c, _d, _e;
-                    const raw = String((_e = (_c = (_a = f.id) !== null && _a !== void 0 ? _a : (_b = f.properties) === null || _b === void 0 ? void 0 : _b.iso_a3) !== null && _c !== void 0 ? _c : (_d = f.properties) === null || _d === void 0 ? void 0 : _d.ISO_A3) !== null && _e !== void 0 ? _e : "");
+                    var _c, _d, _e, _f, _g;
+                    const raw = String((_g = (_e = (_c = f.id) !== null && _c !== void 0 ? _c : (_d = f.properties) === null || _d === void 0 ? void 0 : _d.iso_a3) !== null && _e !== void 0 ? _e : (_f = f.properties) === null || _f === void 0 ? void 0 : _f.ISO_A3) !== null && _g !== void 0 ? _g : "");
                     const id = raw.length === 3 && /^\d+$/.test(raw)
                         ? NUM_TO_A3[raw]
                         : raw.toUpperCase();
@@ -6349,10 +6395,10 @@ function Atlas() {
             };
         };
         (async () => {
-            var _a;
+            var _c;
             const cached = await store.get(K_GEO);
             // кеш годится, только если у стран есть буквенные коды
-            const okCache = ((_a = cached === null || cached === void 0 ? void 0 : cached.features) === null || _a === void 0 ? void 0 : _a.length) > 100 &&
+            const okCache = ((_c = cached === null || cached === void 0 ? void 0 : cached.features) === null || _c === void 0 ? void 0 : _c.length) > 100 &&
                 cached.features.filter((f) => /^[A-Z]{3}$/.test(String(f.id))).length >
                     100;
             if (okCache) {
@@ -6388,7 +6434,7 @@ function Atlas() {
     /* профиль и блокировка */
     useEffect(() => {
         (async () => {
-            var _a, _b;
+            var _c, _d;
             let prof = await store.get(K_PROFILE);
             if (!prof) {
                 // перенос данных из прежней версии с логином и паролем
@@ -6472,7 +6518,7 @@ function Atlas() {
                 setSpinStartState(st.spinStart);
                 setSpinning(st.spinStart);
             }
-            if ((_a = window.PublicKeyCredential) === null || _a === void 0 ? void 0 : _a.isUserVerifyingPlatformAuthenticatorAvailable) {
+            if ((_c = window.PublicKeyCredential) === null || _c === void 0 ? void 0 : _c.isUserVerifyingPlatformAuthenticatorAvailable) {
                 try {
                     setFaceAvailable(await window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable());
                 }
@@ -6487,7 +6533,7 @@ function Atlas() {
                 probe = await checkStorage();
                 if (probe.ok) {
                     setProfile(await store.get(K_PROFILE));
-                    setVisits(((_b = (await store.get(K_DATA))) === null || _b === void 0 ? void 0 : _b.visits) || {});
+                    setVisits(((_d = (await store.get(K_DATA))) === null || _d === void 0 ? void 0 : _d.visits) || {});
                 }
             }
             setSaveBroken(!probe.ok);
@@ -6826,7 +6872,7 @@ function Atlas() {
     }, []);
     /* приём данных от родных: объединяем, ничего не затирая */
     const receiveFamily = useCallback((data) => {
-        var _a;
+        var _c;
         if (!(data === null || data === void 0 ? void 0 : data.visits))
             return;
         const res = mergeVisits(visits, data.visits, tombsRef.current, data.tombs);
@@ -6834,7 +6880,7 @@ function Atlas() {
         setTombs(res.tombs);
         save(res.visits);
         // участников из группы добавляем, если таких ещё нет
-        if ((_a = data.people) === null || _a === void 0 ? void 0 : _a.length) {
+        if ((_c = data.people) === null || _c === void 0 ? void 0 : _c.length) {
             const cur = (profile === null || profile === void 0 ? void 0 : profile.people) || [];
             const add = data.people.filter((p) => !cur.some((x) => x.id === p.id || x.name === p.name));
             receiveRef.current = receiveFamily;
@@ -6850,7 +6896,7 @@ function Atlas() {
     /* сам обменивается с роднёй, когда сервер настроен */
     const syncing = useRef(false);
     const autoSync = useCallback(async () => {
-        var _a, _b;
+        var _c, _d;
         const f = familyRef.current;
         if (!(f === null || f === void 0 ? void 0 : f.raw) || f.via !== "server" || !f.server || syncing.current)
             return;
@@ -6858,7 +6904,7 @@ function Atlas() {
             return;
         syncing.current = true;
         try {
-            const payload = familyPayload(visitsRef.current, tombsRef.current, (_a = profileRef.current) === null || _a === void 0 ? void 0 : _a.people, (_b = profileRef.current) === null || _b === void 0 ? void 0 : _b.name);
+            const payload = familyPayload(visitsRef.current, tombsRef.current, (_c = profileRef.current) === null || _c === void 0 ? void 0 : _c.people, (_d = profileRef.current) === null || _d === void 0 ? void 0 : _d.name);
             const list = await familySync(f, payload);
             list.forEach((d) => receiveRef.current(d));
         }
@@ -7045,12 +7091,12 @@ function Atlas() {
                                         ? tripLabel(curTrip)
                                         : "ещё не были"),
                                 selTrips.length > 0 && (React.createElement("div", { className: "sel-sub" }, (() => {
-                                    var _a, _b;
+                                    var _c, _d;
                                     const t = curTrip;
                                     const bits = [];
                                     if (tripDays(t))
                                         bits.push(np(tripDays(t), "day"));
-                                    if (((_a = t.cities) === null || _a === void 0 ? void 0 : _a.length) || ((_b = t.regions) === null || _b === void 0 ? void 0 : _b.length))
+                                    if (((_c = t.cities) === null || _c === void 0 ? void 0 : _c.length) || ((_d = t.regions) === null || _d === void 0 ? void 0 : _d.length))
                                         bits.push([...(t.cities || []), ...(t.regions || [])].join(", "));
                                     {
                                         const names = whoNames(t, profile.people || []);
@@ -7063,8 +7109,8 @@ function Atlas() {
                                 })())),
                                 selTrips.length > 1 && (React.createElement("div", { className: "trip-nav" },
                                     React.createElement("button", { onClick: () => {
-                                            var _a;
-                                            return setEditId((_a = selTrips[curIdx > 0 ? curIdx - 1 : selTrips.length - 1]) === null || _a === void 0 ? void 0 : _a.id);
+                                            var _c;
+                                            return setEditId((_c = selTrips[curIdx > 0 ? curIdx - 1 : selTrips.length - 1]) === null || _c === void 0 ? void 0 : _c.id);
                                         }, "aria-label": "\u041F\u0440\u0435\u0434\u044B\u0434\u0443\u0449\u0430\u044F \u043F\u043E\u0435\u0437\u0434\u043A\u0430" }, "\u2039"),
                                     React.createElement("span", null,
                                         "\u043F\u043E\u0435\u0437\u0434\u043A\u0430 ",
@@ -7073,8 +7119,8 @@ function Atlas() {
                                         " ",
                                         selTrips.length),
                                     React.createElement("button", { onClick: () => {
-                                            var _a;
-                                            return setEditId((_a = selTrips[curIdx < selTrips.length - 1 ? curIdx + 1 : 0]) === null || _a === void 0 ? void 0 : _a.id);
+                                            var _c;
+                                            return setEditId((_c = selTrips[curIdx < selTrips.length - 1 ? curIdx + 1 : 0]) === null || _c === void 0 ? void 0 : _c.id);
                                         }, "aria-label": "\u0421\u043B\u0435\u0434\u0443\u044E\u0449\u0430\u044F \u043F\u043E\u0435\u0437\u0434\u043A\u0430" }, "\u203A")))),
                             React.createElement("button", { className: "icon-btn", onClick: () => {
                                     if (curTrip === null || curTrip === void 0 ? void 0 : curTrip.id)
@@ -7123,7 +7169,7 @@ function Atlas() {
                     React.createElement(SettingsSheet, { open: sheet === "settings", onClose: () => setSheet("profile"), box: box, visits: visits, theme: theme, onTheme: setTheme, quality: photoQuality, onQuality: (v) => {
                             setPhotoQuality(v);
                             setSheet("photomode");
-                        }, cityPins: cityPins, onToggleCityPins: setCityPins, spinStart: spinStart, onToggleSpin: setSpinStart, mapView: mapView, onMapView: setMapView, geoCount: ((_a = geo === null || geo === void 0 ? void 0 : geo.features) === null || _a === void 0 ? void 0 : _a.length) || 0, onReloadGeo: reloadGeo, booksSaved: booksSaved, booksSize: booksSize, booksCounts: {
+                        }, cityPins: cityPins, onToggleCityPins: setCityPins, spinStart: spinStart, onToggleSpin: setSpinStart, mapView: mapView, onMapView: setMapView, geoCount: ((_c = geo === null || geo === void 0 ? void 0 : geo.features) === null || _c === void 0 ? void 0 : _c.length) || 0, onReloadGeo: reloadGeo, booksSaved: booksSaved, booksSize: booksSize, booksCounts: {
                             cities: CITIES.length,
                             hotels: Object.values(HOTELS_BY_CITY).reduce((n, v) => n + v.length, 0),
                             sights: SIGHTS.length,
@@ -7216,7 +7262,7 @@ function Atlas() {
                             React.createElement("em", null,
                                 overdue
                                     .slice(0, 2)
-                                    .map((o) => { var _a; return (_a = BY_A3[o.a3]) === null || _a === void 0 ? void 0 : _a.name; })
+                                    .map((o) => { var _c; return (_c = BY_A3[o.a3]) === null || _c === void 0 ? void 0 : _c.name; })
                                     .filter(Boolean)
                                     .join(", "),
                                 overdue.length > 2 ? " и другие" : "",
@@ -7241,13 +7287,13 @@ function Atlas() {
                                 ? location.protocol + "//" + (location.host || "локальный файл")
                                 : "")),
                         React.createElement("button", { className: "banner-ghost", onClick: async () => {
-                                var _a;
+                                var _c;
                                 await retryBackend();
                                 const r = await checkStorage();
                                 setSaveBroken(!r.ok);
                                 if (r.ok) {
                                     setProfile(await store.get(K_PROFILE));
-                                    setVisits(((_a = (await store.get(K_DATA))) === null || _a === void 0 ? void 0 : _a.visits) || {});
+                                    setVisits(((_c = (await store.get(K_DATA))) === null || _c === void 0 ? void 0 : _c.visits) || {});
                                 }
                             } }, "\u0415\u0449\u0451 \u0440\u0430\u0437")))))),
         React.createElement("footer", { className: "foot" }, "\u041E\u0442\u043C\u0435\u0442\u043A\u0438 \u0441\u043E\u0445\u0440\u0430\u043D\u044F\u044E\u0442\u0441\u044F \u0432 \u043F\u0430\u043C\u044F\u0442\u0438 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430. \u0412 \u043F\u0440\u043E\u0444\u0438\u043B\u0435 \u0438\u0445 \u043C\u043E\u0436\u043D\u043E \u0432\u044B\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u0432 \u0444\u0430\u0439\u043B \u0438 \u0437\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u043E\u0431\u0440\u0430\u0442\u043D\u043E.")));
