@@ -109,6 +109,9 @@
 "use strict";
 "use strict";
 "use strict";
+"use strict";
+"use strict";
+"use strict";
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
 /* ================================================================== */
 /*  Справочник стран: A2 | A3 | название | континент | шир. | долг.    */
@@ -317,223 +320,105 @@ VU|VUT|Вануату|OC|-16.3|167.5
 /* ================================================================== */
 /*  Города: A3|Город;Город;…  — по ним тоже ищется страна             */
 /* ================================================================== */
-const CITY_RAW = `
-ALB|Тирана;Дуррес;Саранда
-AND|Андорра-ла-Велья
-AUT|Вена;Зальцбург;Инсбрук;Грац;Линц
-BLR|Минск;Брест;Гродно;Витебск
-BEL|Брюссель;Брюгге;Антверпен;Гент
-BIH|Сараево;Мостар;Баня-Лука
-BGR|София;Варна;Бургас;Пловдив;Несебр;Созополь;Золотые Пески
-HRV|Загреб;Дубровник;Сплит;Пула;Задар;Ровинь
-CYP|Никосия;Лимасол;Ларнака;Пафос;Айя-Напа
-CZE|Прага;Брно;Карловы Вары;Чески-Крумлов;Острава
-DNK|Копенгаген;Орхус;Оденсе
-EST|Таллин;Тарту;Пярну;Нарва
-FIN|Хельсинки;Тампере;Турку;Рованиеми;Лаппеэнранта
-FRA|Париж;Ницца;Марсель;Лион;Канны;Бордо;Страсбург;Тулуза;Ним;Версаль
-DEU|Берлин;Мюнхен;Гамбург;Кёльн;Франкфурт;Дюссельдорф;Дрезден;Штутгарт;Нюрнберг
-GRC|Афины;Салоники;Ираклион;Родос;Санторини;Корфу;Крит;Халкидики;Миконос
-HUN|Будапешт;Дебрецен;Хевиз;Эгер
-ISL|Рейкьявик;Акюрейри
-IRL|Дублин;Корк;Голуэй
-ITA|Рим;Милан;Венеция;Флоренция;Неаполь;Турин;Верона;Болонья;Римини;Палермо;Пиза;Сицилия;Сардиния
-XKX|Приштина
-LVA|Рига;Юрмала;Лиепая
-LIE|Вадуц
-LTU|Вильнюс;Каунас;Клайпеда;Паланга
-LUX|Люксембург
-MLT|Валлетта;Слима;Сент-Джулианс;Гозо
-MDA|Кишинёв;Бельцы
-MCO|Монако;Монте-Карло
-MNE|Подгорица;Будва;Котор;Тиват;Херцег-Нови;Свети-Стефан
-NLD|Амстердам;Роттердам;Гаага;Утрехт;Эйндховен
-MKD|Скопье;Охрид
-NOR|Осло;Берген;Тромсё;Ставангер
-POL|Варшава;Краков;Гданьск;Вроцлав;Познань;Закопане
-PRT|Лиссабон;Порту;Фару;Мадейра;Албуфейра;Синтра;Фуншал
-ROU|Бухарест;Брашов;Клуж-Напока;Констанца
-RUS|Москва;Санкт-Петербург;Сочи;Казань;Екатеринбург;Новосибирск;Калининград;Владивосток;Нижний Новгород;Краснодар;Новороссийск;Мурманск;Иркутск;Уфа;Самара;Ростов-на-Дону;Пермь;Красноярск;Анапа;Геленджик;Крым;Ялта;Севастополь
-SMR|Сан-Марино
-SRB|Белград;Нови-Сад;Ниш
-SVK|Братислава;Кошице;Высокие Татры
-SVN|Любляна;Блед;Пиран;Марибор
-ESP|Мадрид;Барселона;Валенсия;Севилья;Малага;Пальма;Тенерифе;Аликанте;Ибица;Гранада;Бильбао;Марбелья;Гран-Канария
-SWE|Стокгольм;Гётеборг;Мальмё
-CHE|Цюрих;Женева;Берн;Люцерн;Церматт;Лозанна;Интерлакен;Базель
-UKR|Киев;Одесса;Львов;Харьков;Днепр
-GBR|Лондон;Эдинбург;Манчестер;Ливерпуль;Глазго;Бирмингем;Оксфорд;Кембридж;Белфаст;Кардифф
-VAT|Ватикан
-AFG|Кабул
-ARM|Ереван;Гюмри;Дилижан;Цахкадзор;Севан
-AZE|Баку;Габала;Гянджа;Шеки
-BHR|Манама
-BGD|Дакка;Читтагонг
-BTN|Тхимпху;Паро
-BRN|Бандар-Сери-Бегаван
-KHM|Пномпень;Сиемреап;Сиануквиль;Ангкор
-CHN|Пекин;Шанхай;Гуанчжоу;Шэньчжэнь;Санья;Сиань;Чэнду;Харбин;Урумчи;Ханчжоу;Хайнань
-GEO|Тбилиси;Батуми;Кутаиси;Мцхета;Гудаури;Боржоми;Сигнахи
-HKG|Гонконг;Коулун;Цзюлун;Виктория-Пик;Лантау
-MAC|Макао;Тайпа;Колоан;Котай
-IND|Дели;Мумбаи;Гоа;Джайпур;Агра;Бангалор;Ченнаи;Керала;Варанаси
-IDN|Джакарта;Бали;Денпасар;Убуд;Сурабая;Ломбок;Джокьякарта
-IRN|Тегеран;Исфахан;Шираз
-IRQ|Багдад;Эрбиль
-ISR|Иерусалим;Тель-Авив;Хайфа;Эйлат;Нетания;Мёртвое море
-JPN|Токио;Киото;Осака;Саппоро;Нагоя;Хиросима;Окинава;Хаконе;Нара;Фукуока;Хоккайдо;Иокогама
-JOR|Амман;Акаба;Петра;Мёртвое море
-KAZ|Астана;Алматы;Шымкент;Актау;Караганда
-KWT|Эль-Кувейт
-KGZ|Бишкек;Ош;Иссык-Куль;Чолпон-Ата
-LAO|Вьентьян;Луангпхабанг
-LBN|Бейрут
-MYS|Куала-Лумпур;Лангкави;Пенанг;Джохор-Бару;Кота-Кинабалу;Малакка
-MDV|Мале
-MNG|Улан-Батор
-MMR|Янгон;Нейпьидо;Баган
-NPL|Катманду;Покхара
-PRK|Пхеньян
-OMN|Маскат;Салала
-PAK|Исламабад;Карачи;Лахор
-PSE|Вифлеем;Рамалла
-PHL|Манила;Себу;Боракай;Палаван;Давао
-QAT|Доха
-SAU|Эр-Рияд;Джидда;Мекка;Медина
-SGP|Сингапур
-KOR|Сеул;Пусан;Чеджу;Инчхон
-LKA|Коломбо;Канди;Галле;Негомбо;Бентота
-SYR|Дамаск;Алеппо
-TWN|Тайбэй;Гаосюн
-TJK|Душанбе;Худжанд
-THA|Бангкок;Пхукет;Паттайя;Чиангмай;Самуи;Краби;Ко Чанг;Хуахин;Пхи-Пхи;Аюттхая
-TLS|Дили
-TUR|Стамбул;Анталья;Анкара;Измир;Бодрум;Каппадокия;Мармарис;Аланья;Кемер;Сиде;Фетхие;Белек;Памуккале;Трабзон
-TKM|Ашхабад
-ARE|Дубай;Абу-Даби;Шарджа;Рас-эль-Хайма;Фуджейра;Аджман
-UZB|Ташкент;Самарканд;Бухара;Хива;Нукус
-VNM|Ханой;Хошимин;Нячанг;Дананг;Фукуок;Хойан;Фантьет;Халонг
-YEM|Сана
-DZA|Алжир;Оран
-AGO|Луанда
-BEN|Порто-Ново;Котону
-BWA|Габороне
-BFA|Уагадугу
-BDI|Гитега;Бужумбура
-CPV|Прая;Сал;Боа-Вишта
-CMR|Яунде;Дуала
-CAF|Банги
-TCD|Нджамена
-COM|Морони
-COG|Браззавиль
-COD|Киншаса
-CIV|Ямусукро;Абиджан
-DJI|Джибути
-EGY|Каир;Хургада;Шарм-эль-Шейх;Луксор;Александрия;Асуан;Дахаб;Марса-Алам;Гиза;Таба
-GNQ|Малабо
-ERI|Асмэра
-SWZ|Мбабане
-ETH|Аддис-Абеба
-GAB|Либревиль
-GMB|Банжул
-GHA|Аккра
-GIN|Конакри
-GNB|Бисау
-KEN|Найроби;Момбаса;Масаи-Мара
-LSO|Масеру
-LBR|Монровия
-LBY|Триполи
-MDG|Антананариву;Нуси-Бе
-MWI|Лилонгве
-MLI|Бамако
-MRT|Нуакшот
-MUS|Порт-Луи;Гранд-Бе;Флик-ан-Флак
-MAR|Рабат;Марракеш;Касабланка;Агадир;Фес;Танжер;Эс-Сувейра;Шефшауэн
-MOZ|Мапуту
-NAM|Виндхук;Свакопмунд
-NER|Ниамей
-NGA|Абуджа;Лагос
-RWA|Кигали
-STP|Сан-Томе
-SEN|Дакар
-SYC|Виктория;Маэ;Праслин;Ла-Диг
-SLE|Фритаун
-SOM|Могадишо
-ZAF|Кейптаун;Йоханнесбург;Претория;Дурбан
-SSD|Джуба
-SDN|Хартум
-TZA|Додома;Дар-эс-Салам;Занзибар;Аруша;Килиманджаро
-TGO|Ломе
-TUN|Тунис;Хаммамет;Сусс;Джерба;Монастир;Махдия
-UGA|Кампала
-ZMB|Лусака;Ливингстон
-ZWE|Хараре;Виктория-Фолс
-ATG|Сент-Джонс
-BHS|Нассау
-BRB|Бриджтаун
-BLZ|Бельмопан
-CAN|Оттава;Торонто;Ванкувер;Монреаль;Калгари;Квебек;Ниагара
-CRI|Сан-Хосе
-CUB|Гавана;Варадеро;Кайо-Коко;Тринидад;Ольгин
-DMA|Розо
-DOM|Санто-Доминго;Пунта-Кана;Ла-Романа;Пуэрто-Плата;Баваро
-SLV|Сан-Сальвадор
-GRD|Сент-Джорджес
-GTM|Гватемала;Антигуа
-HTI|Порт-о-Пренс
-HND|Тегусигальпа;Роатан
-JAM|Кингстон;Монтего-Бей;Очо-Риос;Негрил
-MEX|Мехико;Канкун;Плайя-дель-Кармен;Гвадалахара;Тулум;Акапулько;Косумель;Ривьера-Майя
-NIC|Манагуа
-PAN|Панама
-KNA|Бастер
-LCA|Кастри
-VCT|Кингстаун
-TTO|Порт-оф-Спейн
-USA|Нью-Йорк;Лос-Анджелес;Сан-Франциско;Лас-Вегас;Майами;Чикаго;Вашингтон;Бостон;Сиэтл;Орландо;Гавайи;Гонолулу;Сан-Диего;Новый Орлеан;Даллас;Хьюстон;Денвер;Филадельфия;Атланта
-ARG|Буэнос-Айрес;Барилоче;Ушуайя;Мендоса;Игуасу
-BOL|Ла-Пас;Сукре;Уюни
-BRA|Бразилиа;Рио-де-Жанейро;Сан-Паулу;Салвадор;Форталеза;Манаус
-CHL|Сантьяго;Вальпараисо;Пунта-Аренас;Атакама
-COL|Богота;Картахена;Медельин
-ECU|Кито;Гуаякиль;Галапагосы
-GUY|Джорджтаун
-PRY|Асунсьон
-PER|Лима;Куско;Мачу-Пикчу;Арекипа
-SUR|Парамарибо
-URY|Монтевидео;Пунта-дель-Эсте
-VEN|Каракас;Маргарита
-AUS|Канберра;Сидней;Мельбурн;Брисбен;Перт;Голд-Кост;Кэрнс;Аделаида
-FJI|Сува;Нанди
-KIR|Тарава
-MHL|Маджуро
-FSM|Паликир
-NRU|Ярен
-NZL|Веллингтон;Окленд;Крайстчерч;Квинстаун
-PLW|Нгерулмуд;Корор
-PNG|Порт-Морсби
-WSM|Апиа
-SLB|Хониара
-TON|Нукуалофа
-TUV|Фунафути
-VUT|Порт-Вила
-`.trim();
-const COUNTRIES = RAW.split("\n").map((l) => {
-    const [a2, a3, name, cont, lat, lon] = l.split("|");
-    return { a2, a3, name, cont, lat: +lat, lon: +lon };
-});
-const BY_A3 = Object.fromEntries(COUNTRIES.map((c) => [c.a3, c]));
-const TOTAL = COUNTRIES.length;
-const CITIES = [];
-CITY_RAW.split("\n").forEach((l) => {
-    const [a3, list] = l.split("|");
-    if (!list)
-        return;
-    list.split(";").forEach((city) => {
-        if (city.trim())
-            CITIES.push({ a3, city: city.trim() });
+/* справочники живут отдельно: на сервере, а по желанию — на устройстве */
+const K_BOOKS = "atlas:books";
+const BOOKS = [
+    { id: "cities", file: "cities.txt", title: "Города" },
+    { id: "hotels", file: "hotels.txt", title: "Отели" },
+    { id: "sights", file: "sights.txt", title: "Достопримечательности" },
+];
+let CITIES = [];
+let HOTELS_BY_CITY = {};
+let HOTEL_CAT = {};
+let SIGHTS = [];
+let SIGHTS_BY_A3 = {};
+let booksBytes = 0;
+const parseCities = (raw) => {
+    const out = [];
+    (raw || "").split("\n").forEach((l) => {
+        const [a3, list] = l.split("|");
+        if (!list)
+            return;
+        list.split(";").forEach((city) => {
+            if (city.trim())
+                out.push({ a3, city: city.trim() });
+        });
     });
-});
+    return out;
+};
+const parseHotels = (raw) => {
+    const by = {};
+    const cat = {};
+    (raw || "").split("\n").forEach((row) => {
+        const [city, list] = row.split("|");
+        if (!city || !list)
+            return;
+        by[city.trim()] = list.split(";").map((x) => {
+            const [name, stars] = String(x).split("*");
+            const h = { name: name.trim(), cat: stars ? +stars : 0 };
+            if (h.cat)
+                cat[h.name] = h.cat;
+            return h;
+        });
+    });
+    return { by, cat };
+};
+const parseSights = (raw) => {
+    const list = [];
+    (raw || "").split("\n").forEach((row) => {
+        const [a3, items] = row.split("|");
+        if (!a3 || !items)
+            return;
+        items.split(";").forEach((x) => {
+            const [name, city] = x.split("@");
+            if (name)
+                list.push({ a3, name: name.trim(), city: (city || "").trim() });
+        });
+    });
+    return list;
+};
+const applyBooks = (data) => {
+    booksBytes = 0;
+    Object.values(data || {}).forEach((v) => (booksBytes += (v || "").length));
+    CITIES = parseCities(data === null || data === void 0 ? void 0 : data.cities);
+    const h = parseHotels(data === null || data === void 0 ? void 0 : data.hotels);
+    HOTELS_BY_CITY = h.by;
+    HOTEL_CAT = h.cat;
+    SIGHTS = parseSights(data === null || data === void 0 ? void 0 : data.sights);
+    SIGHTS_BY_A3 = {};
+    SIGHTS.forEach((x) => {
+        (SIGHTS_BY_A3[x.a3] = SIGHTS_BY_A3[x.a3] || []).push(x);
+    });
+};
+/* забираем справочники: сначала с устройства, затем с сервера */
+async function loadBooks({ force } = {}) {
+    if (!force) {
+        try {
+            const saved = await store.get(K_BOOKS);
+            if (saved === null || saved === void 0 ? void 0 : saved.cities) {
+                applyBooks(saved);
+                return { from: "device", data: saved };
+            }
+        }
+        catch {
+            /* нет сохранённых — пойдём в сеть */
+        }
+    }
+    const data = {};
+    for (const b of BOOKS) {
+        try {
+            const r = await fetch(`./data/${b.file}`, { cache: "force-cache" });
+            if (r.ok)
+                data[b.id] = await r.text();
+        }
+        catch {
+            /* один файл не пришёл — работаем с тем, что есть */
+        }
+    }
+    if (Object.keys(data).length)
+        applyBooks(data);
+    return { from: "server", data };
+}
 const CONTINENTS = {
     EU: "Европа",
     AS: "Азия",
@@ -543,6 +428,12 @@ const CONTINENTS = {
     OC: "Океания",
 };
 const CONT_ORDER = ["EU", "AS", "AF", "NA", "SA", "OC"];
+const COUNTRIES = RAW.split("\n").map((l) => {
+    const [a2, a3, name, cont, lat, lon] = l.split("|");
+    return { a2, a3, name, cont, lat: +lat, lon: +lon };
+});
+const BY_A3 = Object.fromEntries(COUNTRIES.map((c) => [c.a3, c]));
+const TOTAL = COUNTRIES.length;
 const CONT_TOTALS = CONT_ORDER.reduce((a, k) => {
     a[k] = COUNTRIES.filter((c) => c.cont === k).length;
     return a;
@@ -571,7 +462,6 @@ function plural(n, one, few, many) {
         return one;
     return many;
 }
-const nPlural = (n, one, few, many) => `${n} ${plural(n, one, few, many)}`;
 const WORD = {
     country: ["страна", "страны", "стран"],
     trip: ["поездка", "поездки", "поездок"],
@@ -1216,7 +1106,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "13.5";
+const APP_VERSION = "14.0";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -1712,255 +1602,6 @@ function fillStyleFor(ctx, a3, bounds, wish) {
     return g;
 }
 /* популярные отели по городам — подсказки при выборе жилья */
-const HOTELS_RAW = `
-Токио|Park Hyatt Tokyo;Aman Tokyo;Mandarin Oriental;The Peninsula;Hoshinoya Tokyo;Shibuya Excel Hotel;Imperial Hotel Tokyo;Hotel Okura Tokyo;Grand Hyatt Tokyo;Conrad Tokyo;Andaz Tokyo;Palace Hotel Tokyo;Four Seasons Otemachi;Keio Plaza
-Киото|The Ritz-Carlton Kyoto;Hoshinoya Kyoto;Four Seasons Kyoto;Hyatt Regency;Kyoto Hotel Okura;Park Hyatt Kyoto;Aman Kyoto;Suiran Luxury;The Thousand Kyoto;Sowaka
-Осака|Conrad Osaka;The St. Regis;Hotel Granvia;Swissôtel Nankai;Imperial Hotel Osaka;W Osaka;Four Seasons Osaka;Hotel Hankyu;Ritz-Carlton Osaka;Zentis Osaka
-Бангкок|Mandarin Oriental;The Siam;Shangri-La Bangkok;Lebua at State Tower;Banyan Tree;Chatrium Riverside
-Пхукет|Amanpuri;Trisara;The Slate;Katathani Beach;Banyan Tree Phuket;Rosewood Phuket
-Паттайя|Hilton Pattaya;Royal Cliff Beach;Dusit Thani;Centara Grand Mirage;Amari Pattaya
-Самуи|Four Seasons Koh Samui;Banyan Tree Samui;Santiburi Beach;W Koh Samui;Conrad Koh Samui
-Краби|Rayavadee;Phulay Bay;Centara Grand Beach;Dusit Thani Krabi
-Сингапур|Marina Bay Sands;Raffles Singapore;The Fullerton;Shangri-La Singapore;Capella Sentosa
-Гонконг|The Peninsula;Mandarin Oriental;Four Seasons;The Upper House;Island Shangri-La
-Макао|The Venetian Macao;Wynn Palace;Grand Lisboa;MGM Cotai;Banyan Tree Macau
-Дубай|Burj Al Arab;Atlantis The Palm;Jumeirah Beach Hotel;Address Downtown;One&Only Royal Mirage;Rixos Premium;Bulgari Resort Dubai;Armani Hotel;Palazzo Versace;Jumeirah Al Qasr;FIVE Palm;Waldorf Astoria Palm
-Абу-Даби|Emirates Palace;The St. Regis Saadiyat;Rosewood Abu Dhabi;Jumeirah Saadiyat
-Доха|Four Seasons Doha;The St. Regis;Mandarin Oriental;Banana Island Anantara
-Стамбул|Four Seasons Sultanahmet;Çırağan Palace Kempinski;Pera Palace;Raffles Istanbul;Swissôtel The Bosphorus;Shangri-La Bosphorus;Six Senses Kocatas;Four Seasons Bosphorus;The Ritz-Carlton Istanbul
-Анталья|Rixos Downtown;Titanic Beach Lara;Delphin Imperial;Akra Hotel;Mardan Palace
-Кемер|Rixos Sungate;Amara Premier Palace;Club Med Palmiye;Maxx Royal Kemer
-Бодрум|Mandarin Oriental Bodrum;Amanruya;The Bodrum EDITION;Titanic Deluxe
-Париж|Le Bristol;Ritz Paris;Four Seasons George V;Le Meurice;Hôtel Plaza Athénée;Citadines Saint-Germain;Hôtel de Crillon;Shangri-La Paris;Mandarin Oriental Paris;Hôtel Lutetia;Cheval Blanc Paris
-Лондон|The Savoy;Claridge's;The Ritz London;The Langham;Shangri-La The Shard;Premier Inn County Hall;The Connaught;The Berkeley;Bulgari London;The Dorchester;Rosewood London
-Рим|Hotel de Russie;Hassler Roma;St. Regis Rome;Hotel Eden;Palazzo Manfredi;Six Senses Rome;Bulgari Hotel Roma;The Rome EDITION;Villa Agrippina
-Милан|Bulgari Hotel;Four Seasons Milano;Park Hyatt Milan;Hotel Principe di Savoia
-Венеция|The Gritti Palace;Hotel Danieli;Belmond Cipriani;Aman Venice
-Флоренция|Four Seasons Firenze;Portrait Firenze;The St. Regis;Hotel Savoy
-Барселона|Hotel Arts;W Barcelona;Mandarin Oriental;Majestic Hotel;El Palace
-Мадрид|Mandarin Oriental Ritz;Four Seasons Madrid;Rosewood Villa Magna;Hotel Urso
-Лиссабон|Four Seasons Ritz;Bairro Alto Hotel;Tivoli Avenida;Pestana Palace
-Прага|Four Seasons Prague;Augustine;Aria Hotel;Hotel Paris;Alchymist Grand;Mandarin Oriental Prague;Grandium;Golden Well;Art Nouveau Palace
-Вена|Hotel Sacher;Park Hyatt Vienna;The Ritz-Carlton;Hotel Imperial
-Будапешт|Four Seasons Gresham;Aria Hotel;Corinthia Budapest;Kempinski Corvinus
-Берлин|Hotel Adlon Kempinski;Regent Berlin;Das Stue;25hours Bikini
-Мюнхен|Bayerischer Hof;Mandarin Oriental;The Charles Hotel;Rocco Forte
-Амстердам|Waldorf Astoria;De L'Europe;Conservatorium;Pulitzer Amsterdam
-Копенгаген|Hotel d'Angleterre;Nimb Hotel;Villa Copenhagen;71 Nyhavn
-Стокгольм|Grand Hôtel;Ett Hem;Nobis Hotel;Hotel Diplomat
-Хельсинки|Hotel Kämp;Hotel St. George;Clarion Helsinki;Lilla Roberts
-Осло|The Thief;Grand Hotel Oslo;Amerikalinjen;Hotel Continental
-Рейкьявик|The Retreat at Blue Lagoon;Hotel Borg;Canopy Reykjavik;Konsulat Hotel
-Афины|Hotel Grande Bretagne;King George;Electra Metropolis;Athens Was
-Санторини|Grace Hotel;Katikies;Canaves Oia;Mystique;Andronis Luxury
-Дубровник|Villa Dubrovnik;Hotel Excelsior;Hotel Bellevue;Rixos Premium
-Москва|Метрополь;Националь;Four Seasons Москва;Ararat Park Hyatt;Radisson Collection;Азимут Олимпик;Балчуг Кемпински;Swissôtel Красные Холмы;Lotte Hotel Moscow;Хаятт Ридженси Петровский;StandArt
-Санкт-Петербург|Гранд Отель Европа;Астория;Кемпински Мойка 22;Four Seasons Лион Палас;Индиго;Belmond Гранд Отель Европа;W St. Petersburg;Домина;Коринтия;Рэдиссон Соня
-Сочи|Rodina Grand Hotel;Swissôtel Камелия;Radisson Роза Хутор;Pullman Сочи;Богатырь
-Казань|Корстон;Гранд Отель Казань;Ramada Kazan;Кортъярд Марриотт
-Калининград|Кайзерхоф;Радиссон Блю;Мёркурэ;Холидей Инн;Шкиперская;Скандинавия;Меркюр Калининград
-Тбилиси|Rooms Hotel;Stamba Hotel;Radisson Blu Iveria;Vinotel;Tbilisi Marriott
-Батуми|Le Méridien Batumi;Hilton Batumi;Radisson Blu;Sheraton Batumi
-Ереван|The Alexander;Grand Hotel Yerevan;Marriott Armenia;Radisson Blu
-Баку|Four Seasons Baku;Fairmont Flame Towers;JW Marriott Absheron;Hilton Baku
-Алматы|Ritz-Carlton Almaty;InterContinental;Rixos Almaty;Кazakhstan Hotel
-Астана|Ritz-Carlton Astana;Hilton Astana;St. Regis Astana;Rixos President
-Ташкент|Hyatt Regency Tashkent;Hilton Tashkent City;Inspira-S;Lotte City
-Самарканд|Silk Road by Minyoun;Savitsky Plaza;Hilton Garden Inn;Registon Plaza
-Минск|Президент-отель;DoubleTree by Hilton;Renaissance Minsk;Европа
-Нью-Йорк|The Plaza;The Ritz-Carlton Central Park;The Standard High Line;Park Hyatt NY;Pod 51;The Mark;Aman New York;Baccarat Hotel;The Carlyle;Crosby Street Hotel
-Лос-Анджелес|Beverly Hills Hotel;Chateau Marmont;The Beverly Wilshire;Shutters on the Beach
-Лас-Вегас|Bellagio;The Venetian;Wynn Las Vegas;Caesars Palace;ARIA
-Майами|Fontainebleau;The Setai;Faena Hotel;1 Hotel South Beach
-Сан-Франциско|Fairmont San Francisco;The Ritz-Carlton;Hotel Nikko;Palace Hotel
-Торонто|Fairmont Royal York;Shangri-La Toronto;The Ritz-Carlton;Hotel X
-Мехико|Four Seasons Mexico;St. Regis Mexico;Las Alcobas;Condesa DF
-Канкун|Ritz-Carlton Cancun;Nizuc Resort;Live Aqua;Hyatt Ziva
-Гавана|Hotel Nacional;Gran Hotel Manzana;Iberostar Parque Central;Saratoga
-Варадеро|Meliá Varadero;Iberostar Bella Vista;Paradisus Varadero;Royalton Hicacos
-Рио-де-Жанейро|Copacabana Palace;Fasano Rio;Hotel Santa Teresa;Sheraton Grand Rio
-Буэнос-Айрес|Alvear Palace;Four Seasons BA;Palacio Duhau;Faena Hotel
-Лима|Belmond Miraflores Park;JW Marriott Lima;Country Club Lima;Hotel B
-Куско|Belmond Monasterio;Palacio del Inka;JW Marriott El Convento;Inkaterra La Casona
-Каир|Marriott Mena House;Four Seasons Nile Plaza;The Nile Ritz-Carlton;Kempinski Nile
-Хургада|Steigenberger Al Dau;Baron Palace Sahl Hasheesh;Sunrise Meraki;Albatros White Beach
-Шарм-эль-Шейх|Four Seasons Sharm;Rixos Premium Seagate;Savoy Sharm;Baron Palms;Sunrise Arabian
-Марракеш|La Mamounia;Royal Mansour;Four Seasons Marrakech;Amanjena
-Кейптаун|The Silo Hotel;Belmond Mount Nelson;One&Only Cape Town;Cape Grace
-Занзибар|Park Hyatt Zanzibar;The Residence;Baraza Resort;Zuri Zanzibar
-Сидней|Park Hyatt Sydney;Four Seasons Sydney;The Langham;Shangri-La Sydney
-Мельбурн|Crown Towers;Park Hyatt Melbourne;The Langham;QT Melbourne
-Окленд|The Hotel Britomart;Cordis Auckland;Sofitel Viaduct;Park Hyatt Auckland
-Бали|Four Seasons Sayan;Amankila;The Mulia;Ayana Resort;Bulgari Resort;Padma Legian;COMO Shambhala;Alila Villas Uluwatu;Six Senses Uluwatu;The Legian Seminyak;Viceroy Bali
-Куала-Лумпур|Mandarin Oriental KL;The Ritz-Carlton;Four Seasons KL;Banyan Tree KL
-Ханой|Sofitel Legend Metropole;Capella Hanoi;JW Marriott Hanoi;Apricot Hotel
-Хошимин|Park Hyatt Saigon;The Reverie Saigon;Hotel Majestic;Caravelle Saigon
-Нячанг|InterContinental Nha Trang;Vinpearl Resort;Amiana Resort;Sheraton Nha Trang
-Дананг|InterContinental Danang;Furama Resort;TIA Wellness;Hyatt Regency Danang
-Сеул|Signiel Seoul;Four Seasons Seoul;The Shilla;Park Hyatt Seoul;Lotte Hotel;Josun Palace;Grand Hyatt Seoul;Conrad Seoul;Fairmont Ambassador
-Пекин|The Peninsula Beijing;Waldorf Astoria;Rosewood Beijing;Park Hyatt Beijing
-Шанхай|The Peninsula Shanghai;Waldorf Astoria on the Bund;Fairmont Peace Hotel;Bulgari Shanghai
-Санья|Atlantis Sanya;The Ritz-Carlton Sanya;Mandarin Oriental;Banyan Tree Sanya
-Мале|Soneva Fushi;Baros Maldives;Conrad Rangali;One&Only Reethi Rah;Gili Lankanfushi;Anantara Dhigu;Cheval Blanc Randheli;Velaa Private Island;Joali Maldives;Patina Maldives;Six Senses Laamu
-Коломбо|Shangri-La Colombo;Galle Face Hotel;Cinnamon Grand;Taj Samudra
-Дели|The Oberoi New Delhi;The Leela Palace;Taj Mahal Hotel;ITC Maurya
-Гоа|Taj Exotica;W Goa;The Leela Goa;Alila Diwa;Park Hyatt Goa;Grand Hyatt Goa;ITC Grand Goa;Planet Hollywood Goa
-Катманду|Dwarika's Hotel;Hyatt Regency Kathmandu;Hotel Yak & Yeti;Kathmandu Marriott
-Тель-Авив|The Norman;Hotel Montefiore;Dan Tel Aviv;Setai Tel Aviv
-Иерусалим|King David;Waldorf Astoria Jerusalem;Mamilla Hotel;American Colony
-Амман|Four Seasons Amman;Fairmont Amman;W Amman;InterContinental Jordan
-Маскат|The Chedi Muscat;Al Bustan Palace;Shangri-La Al Husn;W Muscat;Kempinski Muscat;Anantara Al Jabal;Alila Jabal Akhdar
-Окинава|Halekulani Okinawa;The Busena Terrace;Hoshinoya Okinawa;Ritz-Carlton Okinawa;Hyatt Regency Seragaki;ANA InterContinental Manza
-Саппоро|JR Tower Hotel Nikko;Sapporo Grand Hotel;Cross Hotel Sapporo;The Royal Park Canvas
-Хаконе|Gora Kadan;Hyatt Regency Hakone;Hakone Ginyu;Fujiya Hotel
-Фукуока|Grand Hyatt Fukuoka;The Ritz-Carlton Fukuoka;Hotel Nikko Fukuoka
-Нагоя|Nagoya Marriott;The Tower Hotel;Hilton Nagoya
-Хиросима|Sheraton Grand Hiroshima;Rihga Royal;Hotel Granvia Hiroshima
-Пусан|Park Hyatt Busan;Paradise Hotel;Signiel Busan;Lotte Hotel Busan
-Тайбэй|Mandarin Oriental Taipei;W Taipei;Grand Hyatt Taipei;The Okura Prestige
-Манила|The Peninsula Manila;Shangri-La at the Fort;Raffles Makati;Solaire Resort
-Себу|Shangri-La Mactan;Crimson Resort;Dusit Thani Mactan;Nustar Resort
-Боракай|Shangri-La Boracay;Discovery Shores;Henann Regency;Crimson Boracay
-Джакарта|Mandarin Oriental Jakarta;Four Seasons Jakarta;The Hermitage;Raffles Jakarta
-Пенанг|Eastern & Oriental;Shangri-La Rasa Sayang;The Prestige;Angsana Teluk Bahang
-Лангкави|The Datai;Four Seasons Langkawi;The St. Regis Langkawi;The Andaman
-Чиангмай|Four Seasons Chiang Mai;137 Pillars House;Anantara Chiang Mai;Dhara Dhevi
-Хуахин|Anantara Hua Hin;InterContinental Hua Hin;Centara Grand Beach;So Sofitel Hua Hin
-Сием Реап|Raffles Grand Hotel d'Angkor;Park Hyatt Siem Reap;Belmond La Résidence;Anantara Angkor
-Пномпень|Raffles Le Royal;Rosewood Phnom Penh;Sofitel Phokeethra
-Луангпрабанг|Amantaka;Belmond La Résidence Phou Vao;Rosewood Luang Prabang;Sofitel Luang Prabang
-Янгон|The Strand Yangon;Belmond Governor's Residence;Chatrium Hotel;Pan Pacific Yangon
-Галле|Amangalla;Le Grand Galle;Jetwing Lighthouse;Cape Weligama
-Бентота|Taj Bentota;Club Villa;Vivanta Bentota;Avani Bentota
-Мумбаи|The Taj Mahal Palace;The Oberoi Mumbai;Four Seasons Mumbai;St. Regis Mumbai
-Джайпур|Rambagh Palace;Oberoi Rajvilas;Taj Jai Mahal;Samode Haveli
-Агра|The Oberoi Amarvilas;ITC Mughal;Taj Hotel & Convention
-Рас-эль-Хайма|Waldorf Astoria RAK;Rixos Bab Al Bahr;Ritz-Carlton Al Wadi;Hilton Al Hamra
-Фуджейра|InterContinental Fujairah;Fairmont Fujairah;Address Beach Resort
-Салала|Al Baleed Anantara;Hilton Salalah;Rotana Salalah
-Манама|Four Seasons Bahrain Bay;The Ritz-Carlton Bahrain;Sofitel Zallaq
-Эр-Рияд|Four Seasons Riyadh;The Ritz-Carlton Riyadh;Hyatt Regency Riyadh
-Джидда|Rosewood Jeddah;Park Hyatt Jeddah;Waldorf Astoria Jeddah
-Акаба|Kempinski Aqaba;InterContinental Aqaba;Hyatt Regency Ayla;Movenpick Tala Bay
-Петра|Mövenpick Petra;Petra Marriott;Old Village Resort
-Мёртвое море|Kempinski Ishtar;Mövenpick Dead Sea;Hilton Dead Sea
-Эйлат|Dan Eilat;Herods Palace;Royal Beach Eilat;Isrotel Agamim
-Владивосток|Лотте Отель;Азимут;Приморье;Vladivostok Grand Hotel
-Иркутск|Courtyard Marriott Иркутск;Звезда;Империя;Байкал Бизнес Центр
-Екатеринбург|Хаятт Ридженси;Рамада;Онегин;Высоцкий
-Нижний Новгород|Sheraton Kremlin;Азимут;Marins Park;Волна
-Мурманск|Азимут Мурманск;Парк Инн Полярные Зори;Меридиан
-Красная Поляна|Rixos Красная Поляна;Marriott Красная Поляна;Novotel Резиденция;Солис Сочи
-Анапа|Golden Resort;Довиль;Аквамарин;Ривьера
-Геленджик|Кемпински Гранд Отель;Приморье Grand Resort;Александрия
-Ялта|Мрия Резорт;Villa Elena;Ореанда;Palmira Palace
-Киев|Hyatt Regency Kyiv;InterContinental Kyiv;Fairmont Grand;Premier Palace
-Одесса|Bristol Hotel;Nemo Resort;Londonskaya;Grand Marine
-Львов|Leopolis Hotel;Citadel Inn;Nobilis Hotel;Astoria
-Рига|Grand Hotel Kempinski;Pullman Riga;Radisson Blu Latvija;Neiburgs
-Вильнюс|Kempinski Cathedral Square;Grotthuss;Pacai Hotel;Radisson Blu Lietuva
-Таллин|Hotel Telegraaf;Swissôtel Tallinn;Schlössle;Hilton Tallinn Park
-Берген|Bergen Børs;Hotel Norge;Opus XVI;Clarion Admiral
-Тромсё|Clarion The Edge;Radisson Blu Tromsø;Scandic Ishavshotel
-Цюрих|Baur au Lac;The Dolder Grand;Widder Hotel;Park Hyatt Zurich
-Женева|Beau-Rivage;Four Seasons des Bergues;Mandarin Oriental Geneva;La Réserve
-Люцерн|Bürgenstock Resort;Hotel Schweizerhof;Palace Luzern
-Зальцбург|Hotel Sacher Salzburg;Schloss Mönchstein;Sheraton Grand Salzburg
-Инсбрук|Grand Hotel Europa;Hotel Schwarzer Adler;aDLERS Hotel
-Краков|Hotel Copernicus;Sheraton Grand Krakow;Stary Hotel;Bonerowski Palace
-Гданьск|Hotel Podewils;Radisson Blu Gdansk;Grano Hotel;Hilton Gdansk
-Варшава|Hotel Bristol;Raffles Europejski;InterContinental Warszawa;Polonia Palace
-Братислава|Grand Hotel River Park;Radisson Blu Carlton;Roset Hotel
-Любляна|InterContinental Ljubljana;Grand Hotel Union;Vander Urbani
-Загреб|Esplanade Zagreb;Hotel Dubrovnik;Amadria Park;The Westin Zagreb
-Сплит|Le Méridien Lav;Hotel Park Split;Radisson Blu Resort;Cornaro Hotel
-Будва|Dukley Hotel;Avala Resort;Splendid Conference;Blue Star
-Котор|Hyatt Regency Kotor;Regent Porto Montenegro;Palazzo Radomiri
-Тирана|Plaza Tirana;Rogner Hotel;Maritim Plaza
-София|Sofia Hotel Balkan;InterContinental Sofia;Grand Hotel Millennium;Hyatt Regency Sofia
-Бухарест|Athenee Palace Hilton;InterContinental Athénée;JW Marriott Bucharest;Grand Hotel Continental
-Белград|Square Nine;Hyatt Regency Belgrade;Metropol Palace;Saint Ten
-Салоники|Electra Palace;Makedonia Palace;The Met Hotel;Hyatt Regency Thessaloniki
-Крит|Blue Palace Elounda;Amirandes Grecotel;Daios Cove;Elounda Mare;Domes of Elounda
-Родос|Rodos Palace;Sheraton Rhodes;Atrium Prestige;Lindos Blu
-Корфу|Angsana Corfu;Ikos Dassia;Corfu Imperial;MarBella Corfu
-Миконос|Cavo Tagoo;Santa Marina;Mykonos Blu;Bill & Coo
-Мальта|The Phoenicia;Corinthia St George's Bay;Hilton Malta;Iniala Harbour House
-Лимасол|Four Seasons Limassol;Parklane Resort;Amara Hotel;Amathus Beach
-Айя-Напа|Nissi Beach Resort;Grecian Park;Adams Beach;Olympic Lagoon
-Пафос|Annabelle;Almyra;Anassa;Elysium Beach
-Ницца|Hotel Negresco;Anantara Plaza Nice;Hyatt Regency Palais;Boscolo Exedra
-Канны|InterContinental Carlton;Hôtel Martinez;Majestic Barrière;Five Seas
-Марсель|InterContinental Marseille;Sofitel Vieux Port;Les Bords de Mer
-Лион|Villa Florentine;InterContinental Lyon;Sofitel Lyon Bellecour
-Бордо|InterContinental Bordeaux;Les Sources de Caudalie;Yndo Hotel
-Страсбург|Sofitel Strasbourg;Régent Petite France;Hotel Les Haras
-Севилья|Hotel Alfonso XIII;Mercer Sevilla;Gran Meliá Colón
-Валенсия|The Westin Valencia;Caro Hotel;Las Arenas Balneario
-Малага|Gran Hotel Miramar;Room Mate Valeria;Vincci Selección Posada
-Марбелья|Puente Romano;Marbella Club;Villa Padierna;Nobu Marbella
-Ибица|Six Senses Ibiza;Nobu Ibiza Bay;Hotel Torre del Mar;Ushuaïa
-Пальма|Cap Rocat;Belmond La Residencia;Castillo Hotel Son Vida;Nakar Hotel
-Тенерифе|The Ritz-Carlton Abama;Bahia del Duque;Royal Hideaway Corales;Iberostar Grand El Mirador
-Гран-Канария|Seaside Grand Residencia;Lopesan Costa Meloneras;Santa Catalina Royal
-Порту|The Yeatman;Torel Avantgarde;Pestana Vintage;InterContinental Palacio
-Мадейра|Belmond Reid's Palace;Savoy Palace;Les Suites at The Cliff Bay
-Дублин|The Merrion;The Shelbourne;The Westbury;Conrad Dublin
-Эдинбург|The Balmoral;Gleneagles Townhouse;The Witchery;Waldorf Astoria Caledonian
-Гамбург|Fairmont Vier Jahreszeiten;The Fontenay;Park Hyatt Hamburg
-Франкфурт|Villa Kennedy;Jumeirah Frankfurt;Steigenberger Frankfurter Hof
-Кёльн|Excelsior Hotel Ernst;Hyatt Regency Köln;The Qvest
-Дрезден|Hotel Taschenbergpalais;Bülow Palais;Swissôtel Dresden
-Брюгге|Dukes' Palace;Hotel Heritage;Grand Hotel Casselbergh
-Брюссель|Hotel Amigo;Steigenberger Wiltcher's;The Hotel Brussels
-Роттердам|Mainport Hotel;nhow Rotterdam;Hilton Rotterdam
-Бостон|Four Seasons Boston;The Langham Boston;XV Beacon;Boston Harbor Hotel
-Вашингтон|The Hay-Adams;Four Seasons Washington;Willard InterContinental;Riggs Washington
-Сиэтл|Four Seasons Seattle;Fairmont Olympic;The Edgewater;Thompson Seattle
-Сан-Диего|Hotel del Coronado;Fairmont Grand Del Mar;Pendry San Diego
-Новый Орлеан|The Roosevelt;Hotel Monteleone;Windsor Court;Ace Hotel NOLA
-Гонолулу|Halekulani;The Royal Hawaiian;Moana Surfrider;Four Seasons Ko Olina
-Монреаль|Ritz-Carlton Montreal;Four Seasons Montreal;Hotel Le St-James
-Квебек|Fairmont Le Château Frontenac;Auberge Saint-Antoine;Hotel Le Germain
-Ванкувер|Fairmont Pacific Rim;Rosewood Hotel Georgia;Shangri-La Vancouver
-Богота|Four Seasons Casa Medina;Sofitel Victoria Regia;W Bogota
-Картахена|Sofitel Santa Clara;Casa San Agustin;Hotel Charleston
-Сан-Паулу|Palácio Tangará;Fasano São Paulo;Rosewood São Paulo;Emiliano
-Монтевидео|Sofitel Carrasco;Hyatt Centric Montevideo;Alma Histórica
-Кито|Casa Gangotena;JW Marriott Quito;Illa Experience
-Панама|The Santa Maria;American Trade Hotel;Waldorf Astoria Panama
-Пунта-Кана|Tortuga Bay;Eden Roc Cap Cana;Excellence Punta Cana;Hard Rock Punta Cana
-Нассау|Baha Mar Rosewood;Atlantis Paradise Island;The Ocean Club
-Аруба|Ritz-Carlton Aruba;Bucuti & Tara;Hyatt Regency Aruba
-Йоханнесбург|Saxon Hotel;Four Seasons The Westcliff;The Michelangelo
-Дурбан|The Oyster Box;Beverly Hills Hotel;Southern Sun Elangeni
-Виктория-Фолс|Victoria Falls Hotel;Royal Livingstone;Matetsi River Lodge
-Момбаса|Serena Beach Resort;Swahili Beach;Diani Reef Beach
-Аруша|Gran Meliá Arusha;Arusha Coffee Lodge;Four Points Arusha
-Тунис|Four Seasons Tunis;La Badira;Movenpick Gammarth
-Хаммамет|La Badira;Movenpick Hammamet;Hasdrubal Thalassa
-Агадир|Sofitel Agadir Royal Bay;Hyatt Place Taghazout;Riu Palace Tikida
-Фес|Riad Fes;Palais Faraj;Sahrai Hotel
-Танжер|Hilton Tanger;Movenpick Malabata;El Minzah
-Луксор|Sofitel Winter Palace;Hilton Luxor;Al Moudira
-Асуан|Sofitel Old Cataract;Movenpick Elephantine
-Перт|COMO The Treasury;Crown Towers Perth;The Ritz-Carlton Perth
-Брисбен|The Calile;W Brisbane;Emporium Hotel
-Голд-Кост|The Langham Gold Coast;JW Marriott Surfers;Palazzo Versace
-Кэрнс|Crystalbrook Riley;Shangri-La The Marina;Pullman Reef
-Квинстаун|Eichardt's Private Hotel;Matakauri Lodge;Sofitel Queenstown
-Крайстчерч|The George;Mayfair Christchurch;Distinction Christchurch
-Веллингтон|QT Wellington;InterContinental Wellington;Sofitel Wellington
-Нанди|Sofitel Fiji;Sheraton Fiji;InterContinental Fiji;Six Senses Fiji
-`;
-const HOTELS_BY_CITY = {};
-HOTELS_RAW.trim()
-    .split("\n")
-    .forEach((row) => {
-    const [city, list] = row.split("|");
-    if (city && list)
-        HOTELS_BY_CITY[city.trim()] = list.split(";");
-});
 /* координаты популярных городов; остальные привязываются к центру страны */
 const CITY_XY_RAW = `
 Токио|35.7|139.7
@@ -4358,17 +3999,19 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality,
     const knownHotels = useMemo(() => {
         const out = [];
         const seen = new Set();
-        const push = (n) => {
+        const push = (n, cat) => {
             if (n && !seen.has(n)) {
                 seen.add(n);
                 out.push(n);
+                if (cat)
+                    HOTEL_CAT[n] = cat;
             }
         };
         // отели городов этой поездки — первыми
-        ((draft === null || draft === void 0 ? void 0 : draft.cities) || []).forEach((c) => (HOTELS_BY_CITY[c] || []).forEach(push));
+        ((draft === null || draft === void 0 ? void 0 : draft.cities) || []).forEach((c) => (HOTELS_BY_CITY[c] || []).forEach((h) => push(h.name, h.cat)));
         // затем по остальным городам страны
         if (draft === null || draft === void 0 ? void 0 : draft.a3)
-            CITIES.filter((x) => x.a3 === draft.a3).forEach((x) => (HOTELS_BY_CITY[x.city] || []).forEach(push));
+            CITIES.filter((x) => x.a3 === draft.a3).forEach((x) => (HOTELS_BY_CITY[x.city] || []).forEach((h) => push(h.name, h.cat)));
         // и то, что вы уже отмечали раньше
         Object.values(visits).forEach((arr) => arr.forEach((t) => (t.hotels || []).forEach((h) => push(h.name))));
         return out;
@@ -4513,7 +4156,11 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality,
             React.createElement("p", { className: "step-title" }, "\u0413\u0434\u0435 \u0436\u0438\u043B\u0438"),
             draft.hotels.length > 0 && (React.createElement("div", { className: "hotel-rows" }, draft.hotels.map((h, i) => (React.createElement("div", { key: i, className: "hotel-card" },
                 React.createElement("div", { className: "hotel-row" },
-                    React.createElement("span", { className: "hotel-name" }, h.name),
+                    React.createElement("span", { className: "hotel-name" },
+                        h.name,
+                        HOTEL_CAT[h.name] ? (React.createElement("em", { className: "hotel-cat" },
+                            HOTEL_CAT[h.name],
+                            "\u2605 \u0437\u0430\u044F\u0432\u043B\u0435\u043D\u043E")) : null),
                     React.createElement(Stars, { value: h.stars || 0, onPick: (stars) => patch({
                             hotels: draft.hotels.map((x, n) => n === i ? { ...x, stars } : x),
                         }) }),
@@ -4778,7 +4425,7 @@ function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, 
         React.createElement(Ask, { ask: ask, onClose: () => setAsk(null), box: box })))));
 }
 /* шторка: настройки — поведение приложения */
-function SettingsSheet({ open, onClose, box, visits, theme, onTheme, quality, onQuality, cityPins, onToggleCityPins, spinStart, onToggleSpin, mapView, onMapView, geoCount, onReloadGeo, hasPin, faceAvailable, faceOn, onSetPin, onDropPin, onLock, onFace, }) {
+function SettingsSheet({ open, onClose, box, visits, theme, onTheme, quality, onQuality, cityPins, onToggleCityPins, spinStart, onToggleSpin, mapView, onMapView, geoCount, onReloadGeo, booksSaved, booksSize, booksCounts, onKeepBooks, onDropBooks, hasPin, faceAvailable, faceOn, onSetPin, onDropPin, onLock, onFace, }) {
     const where = store.kind() === "idb"
         ? "база браузера"
         : store.kind() === "ls"
@@ -4841,6 +4488,34 @@ function SettingsSheet({ open, onClose, box, visits, theme, onTheme, quality, on
                         : "Вместо кода — вход по лицу")),
                 React.createElement("span", { className: "switch" + (faceOn ? " on" : "") },
                     React.createElement("i", null)))),
+            React.createElement("p", { className: "step-title" }, "\u0421\u043F\u0440\u0430\u0432\u043E\u0447\u043D\u0438\u043A\u0438"),
+            React.createElement("p", { className: "hint small" }, "\u0413\u043E\u0440\u043E\u0434\u0430, \u043E\u0442\u0435\u043B\u0438 \u0438 \u0434\u043E\u0441\u0442\u043E\u043F\u0440\u0438\u043C\u0435\u0447\u0430\u0442\u0435\u043B\u044C\u043D\u043E\u0441\u0442\u0438 \u043B\u0435\u0436\u0430\u0442 \u043D\u0430 \u0441\u0435\u0440\u0432\u0435\u0440\u0435 \u0438 \u043F\u0440\u0438\u0445\u043E\u0434\u044F\u0442 \u043F\u043E \u043C\u0435\u0440\u0435 \u043D\u0430\u0434\u043E\u0431\u043D\u043E\u0441\u0442\u0438. \u041C\u043E\u0436\u043D\u043E \u043E\u0441\u0442\u0430\u0432\u0438\u0442\u044C \u0438\u0445 \u043D\u0430 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0435 \u2014 \u0442\u043E\u0433\u0434\u0430 \u043E\u043D\u0438 \u0431\u0443\u0434\u0443\u0442 \u043F\u043E\u0434 \u0440\u0443\u043A\u043E\u0439 \u0438 \u0431\u0435\u0437 \u0441\u0435\u0442\u0438."),
+            React.createElement("div", { className: "books-row" },
+                React.createElement("span", { className: "switch-text" },
+                    booksSaved ? "Хранятся на телефоне" : "Берутся с сервера",
+                    React.createElement("em", null, booksSize
+                        ? `${(booksSize / 1024).toFixed(0)} КБ · ${np(booksCounts.cities, "city")}, ${np(booksCounts.hotels, "hotel")}`
+                        : "загружаются…"))),
+            booksSaved ? (React.createElement("button", { className: "switch-row danger-row", onClick: () => setAsk({
+                    title: "Убрать справочники с телефона?",
+                    text: `Освободится ${(booksSize / 1024).toFixed(0)} КБ. Города и отели будут приходить с сервера — без сети подсказок не будет.`,
+                    yes: "Убрать",
+                    onYes: onDropBooks,
+                }) },
+                React.createElement("span", { className: "switch-text" },
+                    "\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u0441 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430",
+                    React.createElement("em", null,
+                        "\u041E\u0441\u0432\u043E\u0431\u043E\u0434\u0438\u0442 ",
+                        (booksSize / 1024).toFixed(0),
+                        " \u041A\u0411")),
+                React.createElement("span", { className: "step-pen" }, "\u2715"))) : (React.createElement("button", { className: "switch-row", onClick: onKeepBooks },
+                React.createElement("span", { className: "switch-text" },
+                    "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C \u043D\u0430 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0435",
+                    React.createElement("em", null,
+                        "\u0417\u0430\u0439\u043C\u0451\u0442 \u043E\u043A\u043E\u043B\u043E ",
+                        (booksSize / 1024).toFixed(0) || "150",
+                        " \u041A\u0411, \u0437\u0430\u0442\u043E \u0431\u0443\u0434\u0443\u0442 \u0440\u0430\u0431\u043E\u0442\u0430\u0442\u044C \u0431\u0435\u0437 \u0441\u0435\u0442\u0438")),
+                React.createElement("span", { className: "step-pen" }, "\u2193"))),
             React.createElement("p", { className: "step-title" }, "\u041E \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0438"),
             React.createElement("div", { className: "about-row" },
                 React.createElement("span", null, "\u0412\u0435\u0440\u0441\u0438\u044F"),
@@ -6278,6 +5953,29 @@ function Atlas() {
     }, [cityPins, theme, photoQuality, spinStart]);
     const [spinning, setSpinning] = useState(false);
     const [mapPage, setMapPage] = useState(0);
+    const [booksFrom, setBooksFrom] = useState("");
+    const [booksSize, setBooksSize] = useState(0);
+    const [booksSaved, setBooksSaved] = useState(false);
+    useEffect(() => {
+        store.get(K_BOOKS).then((v) => setBooksSaved(!!(v === null || v === void 0 ? void 0 : v.cities))).catch(() => { });
+    }, [booksFrom]);
+    /* скачать и оставить у себя */
+    const keepBooks = useCallback(async () => {
+        const res = await loadBooks({ force: true });
+        if (!Object.keys(res.data).length)
+            return false;
+        await store.set(K_BOOKS, res.data);
+        setBooksSaved(true);
+        setBooksSize(booksBytes);
+        setBooksFrom("device");
+        return true;
+    }, []);
+    /* убрать с устройства — останутся на сервере */
+    const dropBooks = useCallback(async () => {
+        await store.set(K_BOOKS, null);
+        setBooksSaved(false);
+        setBooksFrom("server");
+    }, []);
     const wish = (profile === null || profile === void 0 ? void 0 : profile.wish) || [];
     const isWish = useCallback((a3) => wish.includes(a3), [wish]);
     const toggleWish = useCallback(async (a3) => {
@@ -6583,6 +6281,15 @@ function Atlas() {
                 setPhotoQualityState(st.photoQuality);
             if (st === null || st === void 0 ? void 0 : st.mapView)
                 setMapViewState(st.mapView);
+            // справочники: с устройства, иначе с сервера
+            try {
+                const res = await loadBooks();
+                setBooksFrom(res.from);
+                setBooksSize(booksBytes);
+            }
+            catch {
+                setBooksFrom("none");
+            }
             const fam = await store.get(K_FAMILY);
             if (fam === null || fam === void 0 ? void 0 : fam.raw)
                 setFamilyState(fam);
@@ -7246,7 +6953,11 @@ function Atlas() {
                     React.createElement(SettingsSheet, { open: sheet === "settings", onClose: () => setSheet("profile"), box: box, visits: visits, theme: theme, onTheme: setTheme, quality: photoQuality, onQuality: (v) => {
                             setPhotoQuality(v);
                             setSheet("photomode");
-                        }, cityPins: cityPins, onToggleCityPins: setCityPins, spinStart: spinStart, onToggleSpin: setSpinStart, mapView: mapView, onMapView: setMapView, geoCount: ((_a = geo === null || geo === void 0 ? void 0 : geo.features) === null || _a === void 0 ? void 0 : _a.length) || 0, onReloadGeo: reloadGeo, hasPin: !!profile.pinHash, faceAvailable: faceAvailable, faceOn: !!profile.credId, onSetPin: () => {
+                        }, cityPins: cityPins, onToggleCityPins: setCityPins, spinStart: spinStart, onToggleSpin: setSpinStart, mapView: mapView, onMapView: setMapView, geoCount: ((_a = geo === null || geo === void 0 ? void 0 : geo.features) === null || _a === void 0 ? void 0 : _a.length) || 0, onReloadGeo: reloadGeo, booksSaved: booksSaved, booksSize: booksSize, booksCounts: {
+                            cities: CITIES.length,
+                            hotels: Object.values(HOTELS_BY_CITY).reduce((n, v) => n + v.length, 0),
+                            sights: SIGHTS.length,
+                        }, onKeepBooks: keepBooks, onDropBooks: dropBooks, hasPin: !!profile.pinHash, faceAvailable: faceAvailable, faceOn: !!profile.credId, onSetPin: () => {
                             setSheet(null);
                             setProfile(null);
                         }, onDropPin: () => setAsk({
@@ -7733,6 +7444,10 @@ body > div{max-width:100%;}
 .sheet .switch-row{display:flex; align-items:center; gap:12px; width:100%; margin-bottom:8px; padding:13px 14px; background:var(--el); border:1px solid var(--line); border-radius:12px; color:var(--ink); font-size:0.875rem; text-align:left; cursor:pointer; min-width:0;}
 .sheet .switch-text{flex:1 1 auto; min-width:0;}
 .sheet .switch-text em{display:block; margin-top:3px; font-style:normal; font-size:0.719rem; color:var(--dim); line-height:1.35;}
+.sights{display:flex; flex-wrap:wrap; gap:7px; margin-bottom:6px;}
+.sight{display:flex; align-items:baseline; gap:6px; padding:8px 11px; border-radius:10px; border:1px solid var(--line); background:var(--el); font-size:0.78rem;}
+.sight i{font-style:normal; font-size:0.62rem; color:var(--dim);}
+.books-row{display:flex; align-items:center; padding:12px 14px; margin-bottom:8px; border-radius:12px; border:1px solid var(--line); background:var(--el);}
 .fam-key{padding:14px; margin-bottom:12px; border-radius:14px; border:1px solid var(--line); background:var(--el);}
 .fam-key > b{display:block; font-size:0.85rem; margin-bottom:10px;}
 .fam-words{display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:7px;}
@@ -7861,7 +7576,8 @@ body > div{max-width:100%;}
 .hotel-note:focus{border-color:var(--gold);}
 .hotel-card .hotel-row{margin:0; padding:0; background:none; border:0;}
 .hotel-row{display:flex; align-items:center; gap:9px; padding:9px 11px; background:var(--el); border:1px solid var(--line); border-radius:10px; min-width:0;}
-.sheet .hotel-name{flex:1 1 auto; min-width:0; font-size:0.875rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.sheet .hotel-cat{display:block; margin-top:2px; font-style:normal; font-size:0.6rem; color:var(--dim);}
+.hotel-name{flex:1 1 auto; min-width:0; font-size:0.875rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .sheet .stars{display:flex; gap:1px; flex:none;}
 .sheet .star{background:none; border:0; padding:1px; font-size:0.875rem; color:var(--track); cursor:pointer;}
 .sheet .star.on{color:var(--gold);}
