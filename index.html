@@ -118,6 +118,7 @@
 "use strict";
 "use strict";
 "use strict";
+"use strict";
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
 /* ================================================================== */
 /*  Справочник стран: A2 | A3 | название | континент | шир. | долг.    */
@@ -569,6 +570,19 @@ const planOverdue = (t) => {
     const m = t.m || 12;
     return (y < NOW.getFullYear() ||
         (y === NOW.getFullYear() && m < NOW.getMonth() + 1));
+};
+/* все годы, которых касается поездка: период тоже считается */
+const yearsOf = (t) => {
+    if (!t)
+        return [];
+    if (t.approx && t.y) {
+        const to = t.y2 && t.y2 > t.y ? t.y2 : t.y;
+        const out = [];
+        for (let y = t.y; y <= to; y++)
+            out.push(y);
+        return out;
+    }
+    return tripYears(t);
 };
 const tripDays = (t) => {
     const a = dParts(t.from);
@@ -1112,7 +1126,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "14.6";
+const APP_VERSION = "14.7";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -4985,7 +4999,7 @@ function travelerStats(visits, people) {
             if (c)
                 r.conts.add(c.cont);
             (t.cities || []).forEach((x) => r.cities.add(x));
-            tripYears(t).forEach((y) => r.years.add(y));
+            yearsOf(t).forEach((y) => r.years.add(y));
             r.trips += 1;
             r.days += tripDays(t);
         });
