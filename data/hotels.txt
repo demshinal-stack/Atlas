@@ -1,0 +1,466 @@
+Токио|Park Hyatt Tokyo;Aman Tokyo;Mandarin Oriental*5;The Peninsula*5;Hoshinoya Tokyo;Shibuya Excel Hotel;Imperial Hotel Tokyo;Hotel Okura Tokyo;Grand Hyatt Tokyo;Conrad Tokyo;Andaz Tokyo;Palace Hotel Tokyo;Four Seasons Otemachi*5;Keio Plaza*4;Park Hyatt*5;Aman*5;Hoshinoya*5;Imperial Hotel*5;Hotel Okura*5;Grand Hyatt*5;Conrad*5;Andaz*5;Palace Hotel*5;Shibuya Excel*4;Hilton Shinjuku*5;Hyatt Regency*5;Sunroute Plaza*3;APA Shinjuku*3;Raffles*5;Fairmont*5;Rosewood*5;Ritz-Carlton*5;Azimut*4;Hyatt Place*4;Best Western Plus*4;Four Points*4;Wyndham Garden*4;Super 8*3;Motel One*3;Ibis*3
+Киото|The Ritz-Carlton Kyoto;Hoshinoya Kyoto;Four Seasons Kyoto;Hyatt Regency*5;Kyoto Hotel Okura*5;Park Hyatt Kyoto;Aman Kyoto;Suiran Luxury;The Thousand Kyoto;Sowaka*5;The Ritz-Carlton*5;Hoshinoya*5;Four Seasons*5;Park Hyatt*5;Aman*5;Suiran*5;The Thousand*4;Mitsui Garden*4;Daiwa Roynet*3;Marriott*5;Sheraton Grand*5;Shangri-La*5;Raffles*5;Le Méridien*5;Mandarin Oriental*5;Radisson Collection*5;DoubleTree by Hilton*4;Scandic*4;Park Inn*4;Ramada*4;Azimut*4;B&B Hotel*3;Days Inn*3;Comfort Inn*3
+Осака|Conrad Osaka;The St. Regis;Hotel Granvia;Swissôtel Nankai;Imperial Hotel Osaka;W Osaka;Four Seasons Osaka;Hotel Hankyu;Ritz-Carlton Osaka;Zentis Osaka;Mandarin Oriental*5;St. Regis*5;Grand Hyatt*5;Raffles*5;Pullman*5;W Hotel*5;Hilton*5;Ramada*4;Crowne Plaza*4;Mercure*4;NH Hotel*4;Best Western Plus*4;Ibis*3;citizenM*3;Comfort Inn*3
+Бангкок|Mandarin Oriental*5;The Siam*5;Shangri-La Bangkok;Lebua at State Tower*5;Banyan Tree*5;Chatrium Riverside*5;Shangri-La*5;Anantara Riverside*5;Millennium Hilton*5;Novotel Siam*4;Ibis Sathorn*3;Centara Grand*5;Sofitel Sukhumvit*5;Holiday Inn Silom*4;Amari Watergate*4;Four Seasons*5;Ritz-Carlton*5;Marriott*5;Pullman*5;Le Méridien*5;Raffles*5;Radisson Collection*5;NH Hotel*4;Radisson Blu*4;Holiday Inn*4;Vienna House*4;Courtyard Marriott*4;citizenM*3;Hampton by Hilton*3;Motel One*3
+Пхукет|Amanpuri*5;Trisara*5;The Slate*5;Katathani Beach*5;Banyan Tree Phuket;Rosewood Phuket;Banyan Tree*5;Rosewood*5;Marriott Nai Yang*5;Novotel Karon*4;Ibis Patong*3;Hilton Arcadia*5;Centara Grand Beach*5;Holiday Inn Patong*4;Mandarin Oriental*5;Kempinski*5;St. Regis*5;JW Marriott*5;Le Méridien*5;Four Seasons*5;Swissôtel*5;Scandic*4;Golden Tulip*4;NH Hotel*4;Hyatt Place*4;Park Inn*4;Hampton by Hilton*3;Holiday Inn Express*3;Premier Inn*3
+Паттайя|Hilton Pattaya;Royal Cliff Beach*5;Dusit Thani*5;Centara Grand Mirage*5;Amari Pattaya;Hilton*5;Amari*4;Holiday Inn*4;Novotel*4;Ibis*3;Hard Rock*4;Waldorf Astoria*5;Le Méridien*5;Grand Hyatt*5;Hyatt Regency*5;Swissôtel*5;InterContinental*5;Sheraton Grand*5;Radisson Blu*4;Golden Tulip*4;Best Western Plus*4;Crowne Plaza*4;Hyatt Place*4;Comfort Inn*3;Motel One*3;Travelodge*3
+Самуи|Four Seasons Koh Samui;Banyan Tree Samui;Santiburi Beach;W Koh Samui;Conrad Koh Samui
+Краби|Rayavadee;Phulay Bay;Centara Grand Beach;Dusit Thani Krabi
+Сингапур|Marina Bay Sands*5;Raffles Singapore;The Fullerton*5;Shangri-La Singapore;Capella Sentosa*5;Raffles*5;Shangri-La*5;Mandarin Oriental*5;Pan Pacific*5;Novotel Clarke Quay*4;Ibis Bencoolen*3;Kempinski*5;Rixos*5;Le Méridien*5;W Hotel*5;Park Hyatt*5;Sheraton Grand*5;Hilton*5;Park Inn*4;Golden Tulip*4;Wyndham Garden*4;Scandic*4;Crowne Plaza*4;Hampton by Hilton*3;Motel One*3;Travelodge*3
+Гонконг|The Peninsula*5;Mandarin Oriental*5;Four Seasons*5;The Upper House*5;Island Shangri-La*5;Grand Hyatt*5;Conrad*5;Novotel Century*4;Ibis Central*3;Hyatt Regency*5;Shangri-La*5;Rosewood*5;Ritz-Carlton*5;Sheraton Grand*5;Radisson Collection*5;Four Points*4;Scandic*4;Holiday Inn*4;Park Inn*4;Courtyard Marriott*4;citizenM*3;Ibis*3;Holiday Inn Express*3
+Макао|The Venetian Macao;Wynn Palace;Grand Lisboa;MGM Cotai;Banyan Tree Macau;Marriott*5;Radisson Collection*5;Hyatt Regency*5;Park Hyatt*5;InterContinental*5;St. Regis*5;Ritz-Carlton*5;Golden Tulip*4;Scandic*4;Wyndham Garden*4;Radisson Blu*4;Tryp*4;citizenM*3;Motel One*3;Travelodge*3
+Дубай|Burj Al Arab*5;Atlantis The Palm*5;Jumeirah Beach Hotel*5;Address Downtown*5;One&Only Royal Mirage*5;Rixos Premium*5;Bulgari Resort Dubai;Armani Hotel*5;Palazzo Versace*5;Jumeirah Al Qasr*5;FIVE Palm*5;Waldorf Astoria Palm*5;Bulgari Resort*5;Hilton Al Habtoor*5;Rove Downtown*3;Ibis Al Barsha*3;Novotel Al Barsha*4;Media Rotana*5;Grand Hyatt*5;Sofitel The Palm*5;Radisson Blu Deira*4;Kempinski*5;Ritz-Carlton*5;Conrad*5;Four Seasons*5;Sofitel*5;Rosewood*5;Rixos*5;Scandic*4;Golden Tulip*4;NH Hotel*4;Radisson Blu*4;Ramada*4;Ibis Styles*3;B&B Hotel*3;Hampton by Hilton*3
+Абу-Даби|Emirates Palace*5;The St. Regis Saadiyat*5;Rosewood Abu Dhabi;Jumeirah Saadiyat*5;Rosewood*5;Anantara Eastern Mangroves*5;Hilton Yas Island*5;Radisson Blu*4;Novotel*4;Sheraton Grand*5;JW Marriott*5;Four Seasons*5;Le Méridien*5;St. Regis*5;Rixos*5;InterContinental*5;AC Hotel*4;NH Hotel*4;Scandic*4;Ramada*4;Super 8*3;Days Inn*3;citizenM*3
+Доха|Four Seasons Doha;The St. Regis;Mandarin Oriental;Banana Island Anantara;W Hotel*5;Kempinski*5;Raffles*5;Grand Hyatt*5;InterContinental*5;Pullman*5;Radisson Collection*5;Tryp*4;Courtyard Marriott*4;Radisson Blu*4;Azimut*4;Crowne Plaza*4;Ibis Styles*3;Travelodge*3;Comfort Inn*3
+Стамбул|Four Seasons Sultanahmet*5;Çırağan Palace Kempinski*5;Pera Palace*5;Raffles Istanbul;Swissôtel The Bosphorus*5;Shangri-La Bosphorus*5;Six Senses Kocatas*5;Four Seasons Bosphorus;The Ritz-Carlton Istanbul;Raffles*5;Ritz-Carlton*5;Hilton Bomonti*5;Radisson Blu Pera*4;Novotel*4;Ibis*3;Mercure*4;Sura Hagia Sophia*4;Sheraton Grand*5;Shangri-La*5;Le Méridien*5;Waldorf Astoria*5;Kempinski*5;W Hotel*5;Courtyard Marriott*4;Four Points*4;Scandic*4;AC Hotel*4;Travelodge*3;Super 8*3
+Анталья|Rixos Downtown*5;Titanic Beach Lara*5;Delphin Imperial*5;Akra Hotel;Mardan Palace*5;Akra*5;Lara Barut*5;Concorde De Luxe*5;Royal Wings*5;Ramada Plaza*5;Ibis*3;JW Marriott*5;W Hotel*5;Raffles*5;St. Regis*5;Le Méridien*5;Mandarin Oriental*5;Grand Hyatt*5;Radisson Blu*4;AC Hotel*4;Wyndham Garden*4;Best Western Plus*4;Scandic*4;Motel One*3;Hampton by Hilton*3;B&B Hotel*3;Waldorf Astoria*5;Shangri-La*5;Fairmont*5;Hyatt Place*4;Ramada*4;Golden Tulip*4;DoubleTree by Hilton*4;Days Inn*3
+Кемер|Rixos Sungate*5;Amara Premier Palace*5;Club Med Palmiye*4;Maxx Royal Kemer;Maxx Royal*5;Crystal Sunset*5;Sherwood Exclusive*5;Pullman*5;Rosewood*5;Shangri-La*5;Azimut*4;Four Points*4;Park Inn*4;Novotel*4;Holiday Inn Express*3;Motel One*3
+Бодрум|Mandarin Oriental Bodrum;Amanruya*5;The Bodrum EDITION*5;Titanic Deluxe*5;Mandarin Oriental*5;Hilton Türkbükü*5;Voyage Torba*5;Sheraton Grand*5;Rosewood*5;Shangri-La*5;Hilton*5;Waldorf Astoria*5;Rixos*5;Kempinski*5;Novotel*4;Scandic*4;Best Western Plus*4;Four Points*4;DoubleTree by Hilton*4;Travelodge*3;Hampton by Hilton*3;Super 8*3
+Париж|Le Bristol*5;Ritz Paris*5;Four Seasons George V*5;Le Meurice*5;Hôtel Plaza Athénée;Citadines Saint-Germain*3;Hôtel de Crillon*5;Shangri-La Paris;Mandarin Oriental Paris;Hôtel Lutetia;Cheval Blanc Paris;Plaza Athénée*5;Shangri-La*5;Mandarin Oriental*5;Lutetia*5;Cheval Blanc*5;Novotel Les Halles*4;Ibis Bastille*3;Mercure Montmartre*4;Pullman Tour Eiffel*4;Hyatt Regency Étoile*4;Pullman*5;Waldorf Astoria*5;Sheraton Grand*5;Radisson Collection*5;W Hotel*5;Rosewood*5;Raffles*5;Crowne Plaza*4;Ramada*4;Vienna House*4;DoubleTree by Hilton*4;Golden Tulip*4;Comfort Inn*3;citizenM*3;Hampton by Hilton*3
+Лондон|The Savoy*5;Claridge's*5;The Ritz London;The Langham*5;Shangri-La The Shard*5;Premier Inn County Hall*3;The Connaught*5;The Berkeley*5;Bulgari London;The Dorchester*5;Rosewood London;The Ritz*5;Bulgari*5;Rosewood*5;Novotel Tower Bridge*4;Hilton Park Lane*5;Park Plaza Westminster*4;citizenM Tower*4;Waldorf Astoria*5;Radisson Collection*5;Rixos*5;St. Regis*5;Park Hyatt*5;InterContinental*5;Swissôtel*5;Radisson Blu*4;Park Inn*4;Scandic*4;Courtyard Marriott*4;Best Western Plus*4;Premier Inn*3;Travelodge*3;Holiday Inn Express*3
+Рим|Hotel de Russie*5;Hassler Roma;St. Regis Rome;Hotel Eden*5;Palazzo Manfredi*5;Six Senses Rome*5;Bulgari Hotel Roma;The Rome EDITION*5;Villa Agrippina*5;Hassler*5;St. Regis*5;Bulgari*5;NH Collection*4;Mercure Centro*4;Ibis Styles*3;Waldorf Astoria*5;JW Marriott*5;Pullman*5;Swissôtel*5;Ritz-Carlton*5;Rixos*5;Tryp*4;Vienna House*4;Azimut*4;Courtyard Marriott*4;Golden Tulip*4;Travelodge*3;Days Inn*3;Hampton by Hilton*3
+Милан|Bulgari Hotel;Four Seasons Milano;Park Hyatt Milan;Hotel Principe di Savoia;Rixos*5;Mandarin Oriental*5;Le Méridien*5;St. Regis*5;Ritz-Carlton*5;Four Seasons*5;W Hotel*5;Azimut*4;Four Points*4;Hyatt Place*4;Crowne Plaza*4;Holiday Inn*4;Holiday Inn Express*3;Ibis Styles*3;Hampton by Hilton*3
+Венеция|The Gritti Palace;Hotel Danieli;Belmond Cipriani;Aman Venice;Grand Hyatt*5;Rixos*5;Sofitel*5;Swissôtel*5;St. Regis*5;Raffles*5;Four Seasons*5;Crowne Plaza*4;Wyndham Garden*4;Radisson Blu*4;Courtyard Marriott*4;Golden Tulip*4;Premier Inn*3;B&B Hotel*3;Super 8*3
+Флоренция|Four Seasons Firenze;Portrait Firenze;The St. Regis;Hotel Savoy;Sheraton Grand*5;Hyatt Regency*5;Kempinski*5;Waldorf Astoria*5;Rosewood*5;Radisson Collection*5;Ritz-Carlton*5;Mercure*4;Holiday Inn*4;DoubleTree by Hilton*4;Best Western Plus*4;Wyndham Garden*4;citizenM*3;Super 8*3;Premier Inn*3
+Барселона|Hotel Arts*5;W Barcelona*5;Mandarin Oriental*5;Majestic Hotel;El Palace*5;Majestic*5;Casa Fuster*5;H10 Metropolitan*4;Novotel City*4;Ibis Centro*3;Catalonia Plaza*4;Marriott*5;Rixos*5;Grand Hyatt*5;JW Marriott*5;Park Hyatt*5;Conrad*5;W Hotel*5;Vienna House*4;Best Western Plus*4;DoubleTree by Hilton*4;Scandic*4;Holiday Inn*4;Super 8*3;Holiday Inn Express*3;Ibis Styles*3
+Мадрид|Mandarin Oriental Ritz*5;Four Seasons Madrid;Rosewood Villa Magna*5;Hotel Urso;Four Seasons*5;Urso*5;Westin Palace*5;NH Collection Gran Vía*4;Ibis Centro*3;Riu Plaza España*4;Rixos*5;Conrad*5;Sofitel*5;Le Méridien*5;St. Regis*5;Ritz-Carlton*5;Hyatt Regency*5;Azimut*4;Mercure*4;Ramada*4;Park Inn*4;NH Hotel*4;citizenM*3;Hampton by Hilton*3;Premier Inn*3
+Лиссабон|Four Seasons Ritz;Bairro Alto Hotel;Tivoli Avenida;Pestana Palace;Le Méridien*5;W Hotel*5;Rosewood*5;Marriott*5;Four Seasons*5;Kempinski*5;Rixos*5;Best Western Plus*4;NH Hotel*4;Four Points*4;Scandic*4;Tryp*4;citizenM*3;Travelodge*3;Motel One*3
+Прага|Four Seasons Prague;Augustine*5;Aria Hotel;Hotel Paris*5;Alchymist Grand*5;Mandarin Oriental Prague;Grandium*4;Golden Well*5;Art Nouveau Palace*5;Four Seasons*5;Aria*5;Mandarin Oriental*5;NH Prague City*4;Mercure Old Town*4;Ibis Wenceslas*3;JW Marriott*5;Marriott*5;Sheraton Grand*5;InterContinental*5;Hyatt Regency*5;Pullman*5;Novotel*4;Vienna House*4;Scandic*4;AC Hotel*4;Holiday Inn*4;Super 8*3;Comfort Inn*3;citizenM*3
+Вена|Hotel Sacher*5;Park Hyatt Vienna;The Ritz-Carlton;Hotel Imperial;Park Hyatt*5;Ritz-Carlton*5;Imperial*5;Bristol*5;Kempinski*5;Novotel City*4;Ibis Hauptbahnhof*3;Motel One*3;Raffles*5;Rixos*5;Le Méridien*5;Swissôtel*5;Fairmont*5;Sofitel*5;Radisson Blu*4;NH Hotel*4;Holiday Inn*4;Azimut*4;Tryp*4;B&B Hotel*3;citizenM*3
+Будапешт|Four Seasons Gresham;Aria Hotel;Corinthia Budapest;Kempinski Corvinus;JW Marriott*5;Hyatt Regency*5;Conrad*5;Marriott*5;Swissôtel*5;Park Hyatt*5;Le Méridien*5;Hyatt Place*4;AC Hotel*4;Radisson Blu*4;Mercure*4;Best Western Plus*4;Days Inn*3;citizenM*3;Ibis*3
+Берлин|Hotel Adlon Kempinski;Regent Berlin;Das Stue*5;25hours Bikini*4;Adlon Kempinski*5;Regent*5;Ritz-Carlton*5;Waldorf Astoria*5;Novotel Mitte*4;Ibis Hauptbahnhof*3;Motel One*3;Conrad*5;Marriott*5;JW Marriott*5;Four Seasons*5;Raffles*5;Rixos*5;Mandarin Oriental*5;Ramada*4;Best Western Plus*4;Hyatt Place*4;Park Inn*4;Azimut*4;Ibis*3;Travelodge*3;Ibis Styles*3
+Мюнхен|Bayerischer Hof*5;Mandarin Oriental*5;The Charles Hotel;Rocco Forte*5;The Charles*5;Sofitel Bayerpost*5;Novotel City*4;Ibis Messe*3;Motel One*3;Rixos*5;Marriott*5;Fairmont*5;Park Hyatt*5;InterContinental*5;Rosewood*5;St. Regis*5;Mercure*4;Best Western Plus*4;Wyndham Garden*4;Courtyard Marriott*4;Holiday Inn*4;Ibis*3;citizenM*3;Travelodge*3
+Амстердам|Waldorf Astoria*5;De L'Europe*5;Conservatorium*5;Pulitzer Amsterdam;Pulitzer*5;Okura*5;NH Collection*4;citizenM*4;Ibis Centre*3;Grand Hyatt*5;Kempinski*5;Rixos*5;Conrad*5;Park Hyatt*5;Shangri-La*5;Sheraton Grand*5;Crowne Plaza*4;Park Inn*4;Four Points*4;Mercure*4;Azimut*4;Comfort Inn*3;Holiday Inn Express*3;Ibis*3
+Копенгаген|Hotel d'Angleterre;Nimb Hotel;Villa Copenhagen;71 Nyhavn;Pullman*5;Fairmont*5;Ritz-Carlton*5;JW Marriott*5;Le Méridien*5;InterContinental*5;Sofitel*5;Tryp*4;Courtyard Marriott*4;Wyndham Garden*4;Novotel*4;Holiday Inn*4;Comfort Inn*3;Holiday Inn Express*3;Motel One*3
+Стокгольм|Grand Hôtel;Ett Hem;Nobis Hotel;Hotel Diplomat;Pullman*5;JW Marriott*5;W Hotel*5;Sofitel*5;Conrad*5;Radisson Collection*5;Marriott*5;Radisson Blu*4;Park Inn*4;Holiday Inn*4;AC Hotel*4;Scandic*4;Super 8*3;Ibis Styles*3;citizenM*3
+Хельсинки|Hotel Kämp*5;Hotel St. George;Clarion Helsinki;Lilla Roberts*5;St. George*5;Clarion*4;Scandic Grand Marina*4;Radisson Blu Plaza*4;Original Sokos*4;Grand Hyatt*5;Waldorf Astoria*5;JW Marriott*5;Four Seasons*5;Fairmont*5;Raffles*5;Mandarin Oriental*5;Courtyard Marriott*4;Ramada*4;Mercure*4;DoubleTree by Hilton*4;Azimut*4;Premier Inn*3;Super 8*3;Ibis Styles*3
+Осло|The Thief;Grand Hotel Oslo;Amerikalinjen;Hotel Continental;Sofitel*5;Shangri-La*5;Raffles*5;Le Méridien*5;Pullman*5;Conrad*5;Fairmont*5;Scandic*4;Radisson Blu*4;Courtyard Marriott*4;Crowne Plaza*4;AC Hotel*4;Holiday Inn Express*3;Days Inn*3;Super 8*3
+Рейкьявик|The Retreat at Blue Lagoon*5;Hotel Borg*5;Canopy Reykjavik;Konsulat Hotel;Canopy*4;Konsulat*5;Radisson Blu Saga*4;Reykjavik Marina*4
+Афины|Hotel Grande Bretagne;King George;Electra Metropolis;Athens Was;InterContinental*5;Raffles*5;Conrad*5;Four Seasons*5;Pullman*5;Hilton*5;Park Hyatt*5;Scandic*4;Hyatt Place*4;Courtyard Marriott*4;Tryp*4;Vienna House*4;Premier Inn*3;Comfort Inn*3;Days Inn*3
+Санторини|Grace Hotel;Katikies;Canaves Oia;Mystique;Andronis Luxury
+Дубровник|Villa Dubrovnik*5;Hotel Excelsior;Hotel Bellevue;Rixos Premium*5;Excelsior*5;Bellevue*5;Sun Gardens*5;Hilton Imperial*5;Mandarin Oriental*5;Raffles*5;Hilton*5;Golden Tulip*4;Vienna House*4;Hyatt Place*4;Park Inn*4;Motel One*3;Days Inn*3
+Москва|Метрополь;Националь;Four Seasons Москва;Ararat Park Hyatt*5;Radisson Collection*5;Азимут Олимпик;Балчуг Кемпински*5;Swissôtel Красные Холмы*5;Lotte Hotel Moscow;Хаятт Ридженси Петровский;StandArt*5;Metropol*5;National*5;Four Seasons*5;Lotte Hotel*5;Azimut Смоленская*4;Novotel Киевская*4;Ibis Динамо*3;Holiday Inn Сокольники*4;Mercure Бауманская*4;Crowne Plaza*5;Marriott Тверская*5;Хилтон Ленинградская*5;Cosmos*4;Измайлово Гамма*3;Планета Отель*4;Fairmont*5;W Hotel*5;Rixos*5;Marriott*5;Sheraton Grand*5;Raffles*5;Waldorf Astoria*5;DoubleTree by Hilton*4;Four Points*4;Hyatt Place*4;Azimut*4;Courtyard Marriott*4;B&B Hotel*3;Motel One*3;Holiday Inn Express*3
+Санкт-Петербург|Гранд Отель Европа*5;Астория*5;Кемпински Мойка 22*5;Four Seasons Лион Палас*5;Индиго*4;Belmond Гранд Отель Европа;W St. Petersburg*5;Домина;Коринтия*5;Рэдиссон Соня;Domina Prestige*5;Radisson Соня*4;Park Inn Пулковская*4;Azimut*4;Sokos Olympia Garden*4;Novotel Центр*4;Ibis Центр*3;Solo Sokos Vasilievsky*4;Гельвеция*5;Талион Империал*5;Mandarin Oriental*5;W Hotel*5;Hilton*5;Pullman*5;Four Seasons*5;Rosewood*5;JW Marriott*5;Wyndham Garden*4;DoubleTree by Hilton*4;Novotel*4;Four Points*4;Radisson Blu*4;Ibis*3;Super 8*3;Hampton by Hilton*3
+Сочи|Rodina Grand Hotel*5;Swissôtel Камелия*5;Radisson Роза Хутор*4;Pullman Сочи*5;Богатырь*4;Marriott Красная Поляна*5;Rixos Красная Поляна*5;Hyatt Regency Сочи*5;Mercure Сочи*4;Novotel Сочи*4;Приморская*3;Жемчужина*4;Bridge Resort*4;Сочи Парк Отель*3;Mandarin Oriental*5;Raffles*5;Pullman*5;Waldorf Astoria*5;Swissôtel*5;Shangri-La*5;Conrad*5;Radisson Blu*4;NH Hotel*4;Golden Tulip*4;Novotel*4;Best Western Plus*4;Ibis Styles*3;Holiday Inn Express*3;Hampton by Hilton*3
+Казань|Корстон*4;Гранд Отель Казань*5;Ramada Kazan;Кортъярд Марриотт;Ramada*4;Courtyard Marriott*4;Ibis*3;Mirage*5;Ногай*3;Кремлёвский*4;Luciano*5;InterContinental*5;Rosewood*5;Ritz-Carlton*5;Fairmont*5;Conrad*5;Hilton*5;Raffles*5;Holiday Inn*4;Four Points*4;NH Hotel*4;Hyatt Place*4;Days Inn*3;Ibis Styles*3
+Калининград|Кайзерхоф*4;Радиссон Блю*4;Мёркурэ*4;Холидей Инн*4;Шкиперская*4;Скандинавия*3;Меркюр Калининград;Le Méridien*5;Ritz-Carlton*5;InterContinental*5;Hilton*5;St. Regis*5;Rixos*5;Rosewood*5;Hyatt Place*4;Park Inn*4;Novotel*4;Vienna House*4;NH Hotel*4;Holiday Inn Express*3;Days Inn*3;Comfort Inn*3
+Тбилиси|Rooms Hotel*5;Stamba Hotel;Radisson Blu Iveria*5;Vinotel*5;Tbilisi Marriott;Stamba*5;Marriott*5;Sheraton Metechi*5;Holiday Inn*4;Ibis*3;Mercure Old Town*4;Sheraton Grand*5;Mandarin Oriental*5;Four Seasons*5;Fairmont*5;Conrad*5;W Hotel*5;Kempinski*5;Park Inn*4;Hyatt Place*4;Novotel*4;Radisson Blu*4;Premier Inn*3;Holiday Inn Express*3
+Батуми|Le Méridien Batumi;Hilton Batumi;Radisson Blu*5;Sheraton Batumi;Le Méridien*5;Hilton*5;Sheraton*5;Wyndham*5;Colosseum Marina*4;Waldorf Astoria*5;Mandarin Oriental*5;Hyatt Place*4;Novotel*4;AC Hotel*4;Holiday Inn Express*3;Motel One*3
+Ереван|The Alexander*5;Grand Hotel Yerevan*5;Marriott Armenia*5;Radisson Blu*4;Hyatt Place*4;Ibis*3;Holiday Inn*4;W Hotel*5;Conrad*5;Swissôtel*5;Park Hyatt*5;Le Méridien*5;Hilton*5;Sheraton Grand*5;Four Points*4;Wyndham Garden*4;Ramada*4;B&B Hotel*3;Travelodge*3;Days Inn*3
+Баку|Four Seasons Baku;Fairmont Flame Towers*5;JW Marriott Absheron*5;Hilton Baku;Four Seasons*5;Hilton*5;Hyatt Regency*5;Boulevard Autograph*5;Holiday Inn*4;Ibis*3;St. Regis*5;Marriott*5;Pullman*5;Rixos*5;Waldorf Astoria*5;InterContinental*5;Scandic*4;Radisson Blu*4;NH Hotel*4;Golden Tulip*4;Park Inn*4;Super 8*3;citizenM*3
+Алматы|Ritz-Carlton Almaty;InterContinental*5;Rixos Almaty;Кazakhstan Hotel;Ritz-Carlton*5;Rixos*5;Казахстан*4;Novotel*4;Holiday Inn*4;Ibis*3;Rahat Palace*5;Radisson Collection*5;Park Hyatt*5;Four Seasons*5;Pullman*5;St. Regis*5;Fairmont*5;Courtyard Marriott*4;AC Hotel*4;Vienna House*4;Radisson Blu*4;Hampton by Hilton*3;B&B Hotel*3;Motel One*3
+Астана|Ritz-Carlton Astana;Hilton Astana;St. Regis Astana;Rixos President*5;Ritz-Carlton*5;Hilton*5;St. Regis*5;Marriott*5;Radisson*4;Ibis*3;Holiday Inn*4;Grand Hyatt*5;Le Méridien*5;W Hotel*5;Four Seasons*5;Rixos*5;Ramada*4;Park Inn*4;Vienna House*4;Four Points*4;DoubleTree by Hilton*4;Premier Inn*3;Hampton by Hilton*3;Ibis Styles*3
+Ташкент|Hyatt Regency Tashkent;Hilton Tashkent City*5;Inspira-S*4;Lotte City*4;Hyatt Regency*5;Wyndham*5;Ramada*4;Ibis*3;Kempinski*5;Marriott*5;JW Marriott*5;Park Hyatt*5;Fairmont*5;Swissôtel*5;Waldorf Astoria*5;Novotel*4;Scandic*4;AC Hotel*4;Four Points*4;Golden Tulip*4;B&B Hotel*3;citizenM*3;Hampton by Hilton*3
+Самарканд|Silk Road by Minyoun*5;Savitsky Plaza*5;Hilton Garden Inn*4;Registon Plaza*4;Lyabi House*3;Kempinski*5;Raffles*5;Park Hyatt*5;Four Points*4;AC Hotel*4;Radisson Blu*4;Best Western Plus*4;Travelodge*3;Days Inn*3
+Минск|Президент-отель*5;DoubleTree by Hilton*5;Renaissance Minsk;Европа*5;Renaissance*5;Marriott*5;Victoria*4;Беларусь*3;Fairmont*5;Le Méridien*5;Shangri-La*5;Waldorf Astoria*5;Kempinski*5;JW Marriott*5;Sheraton Grand*5;Hyatt Place*4;Golden Tulip*4;Wyndham Garden*4;Tryp*4;Radisson Blu*4;Ibis*3;Motel One*3;Comfort Inn*3
+Нью-Йорк|The Plaza*5;The Ritz-Carlton Central Park;The Standard High Line*4;Park Hyatt NY;Pod 51*2;The Mark*5;Aman New York;Baccarat Hotel;The Carlyle*5;Crosby Street Hotel;Ritz-Carlton Central Park*5;Park Hyatt*5;Aman*5;Baccarat*5;Crosby Street*5;citizenM Times Square*4;Hilton Midtown*4;Marriott Marquis*4;Four Seasons*5;Mandarin Oriental*5;Ritz-Carlton*5;Sofitel*5;Marriott*5;Hilton*5;DoubleTree by Hilton*4;Golden Tulip*4;Hyatt Place*4;Crowne Plaza*4;Holiday Inn*4;Premier Inn*3;B&B Hotel*3;Ibis*3
+Лос-Анджелес|Beverly Hills Hotel;Chateau Marmont;The Beverly Wilshire;Shutters on the Beach;Kempinski*5;Hyatt Regency*5;W Hotel*5;JW Marriott*5;Marriott*5;Four Seasons*5;Waldorf Astoria*5;AC Hotel*4;Park Inn*4;Tryp*4;Holiday Inn*4;NH Hotel*4;Hampton by Hilton*3;B&B Hotel*3;Comfort Inn*3
+Лас-Вегас|Bellagio*5;The Venetian*5;Wynn Las Vegas;Caesars Palace*5;ARIA*5;Wynn*5;MGM Grand*4;Mandalay Bay*4;Cosmopolitan*5;Luxor*3;Conrad*5;Kempinski*5;Le Méridien*5;InterContinental*5;Marriott*5;Radisson Collection*5;Grand Hyatt*5;Park Inn*4;Radisson Blu*4;Scandic*4;Golden Tulip*4;DoubleTree by Hilton*4;citizenM*3;Travelodge*3;Ibis*3
+Майами|Fontainebleau;The Setai;Faena Hotel;1 Hotel South Beach;Ritz-Carlton*5;Waldorf Astoria*5;Mandarin Oriental*5;Hyatt Regency*5;Rixos*5;Sheraton Grand*5;Shangri-La*5;Ramada*4;Hyatt Place*4;Scandic*4;NH Hotel*4;Courtyard Marriott*4;B&B Hotel*3;Premier Inn*3;Days Inn*3
+Сан-Франциско|Fairmont San Francisco;The Ritz-Carlton;Hotel Nikko;Palace Hotel;Shangri-La*5;Rosewood*5;Ritz-Carlton*5;Marriott*5;Raffles*5;Park Hyatt*5;InterContinental*5;Golden Tulip*4;Scandic*4;Vienna House*4;Four Points*4;Park Inn*4;citizenM*3;Days Inn*3;B&B Hotel*3
+Торонто|Fairmont Royal York;Shangri-La Toronto;The Ritz-Carlton;Hotel X;Park Hyatt*5;Marriott*5;Pullman*5;Swissôtel*5;JW Marriott*5;Radisson Collection*5;Four Seasons*5;Holiday Inn*4;Vienna House*4;Wyndham Garden*4;Best Western Plus*4;Courtyard Marriott*4;Ibis Styles*3;B&B Hotel*3;Premier Inn*3
+Мехико|Four Seasons Mexico;St. Regis Mexico;Las Alcobas*5;Condesa DF*5;Four Seasons*5;St. Regis*5;W*5;Hyatt Regency*5;Ibis*3;Waldorf Astoria*5;Marriott*5;Le Méridien*5;W Hotel*5;JW Marriott*5;Park Hyatt*5;Hyatt Place*4;Courtyard Marriott*4;Ramada*4;DoubleTree by Hilton*4;Crowne Plaza*4;Ibis Styles*3;Super 8*3;Travelodge*3
+Канкун|Ritz-Carlton Cancun;Nizuc Resort;Live Aqua*5;Hyatt Ziva*5;Ritz-Carlton*5;Nizuc*5;Hard Rock*5;Grand Fiesta Americana*5;Iberostar*5;Shangri-La*5;Rixos*5;Mandarin Oriental*5;Grand Hyatt*5;Four Seasons*5;Conrad*5;Radisson Collection*5;Four Points*4;Vienna House*4;Wyndham Garden*4;Holiday Inn*4;Novotel*4;Premier Inn*3;Hampton by Hilton*3;B&B Hotel*3
+Гавана|Hotel Nacional*5;Gran Hotel Manzana*5;Iberostar Parque Central*5;Saratoga*5;Melia Cohiba*5
+Варадеро|Meliá Varadero;Iberostar Bella Vista*5;Paradisus Varadero;Royalton Hicacos*5;Melia Varadero*5;Paradisus*5;Melia Las Americas*5
+Рио-де-Жанейро|Copacabana Palace*5;Fasano Rio;Hotel Santa Teresa;Sheraton Grand Rio;Fasano*5;Santa Teresa*5;Sheraton Grand*5;Hilton Barra*5;Windsor Marapendi*4;Hyatt Regency*5;Rosewood*5;Radisson Collection*5;Rixos*5;Sofitel*5;Waldorf Astoria*5;Ritz-Carlton*5;Radisson Blu*4;Holiday Inn*4;Vienna House*4;NH Hotel*4;Best Western Plus*4;Hampton by Hilton*3;Holiday Inn Express*3;Ibis Styles*3
+Буэнос-Айрес|Alvear Palace*5;Four Seasons BA;Palacio Duhau*5;Faena Hotel;Four Seasons*5;Faena*5;Hilton Puerto Madero*5;NH Collection*4;Pullman*5;Shangri-La*5;Swissôtel*5;Rosewood*5;Waldorf Astoria*5;Marriott*5;Grand Hyatt*5;Crowne Plaza*4;DoubleTree by Hilton*4;Wyndham Garden*4;Mercure*4;Azimut*4;Motel One*3;Ibis Styles*3;Super 8*3
+Лима|Belmond Miraflores Park;JW Marriott Lima;Country Club Lima;Hotel B;Rixos*5;Hyatt Regency*5;Grand Hyatt*5;St. Regis*5;Conrad*5;Four Seasons*5;Radisson Collection*5;Ramada*4;NH Hotel*4;Courtyard Marriott*4;Best Western Plus*4;DoubleTree by Hilton*4;Comfort Inn*3;Premier Inn*3;Ibis*3
+Куско|Belmond Monasterio;Palacio del Inka;JW Marriott El Convento;Inkaterra La Casona
+Каир|Marriott Mena House;Four Seasons Nile Plaza;The Nile Ritz-Carlton;Kempinski Nile;Sofitel*5;W Hotel*5;Shangri-La*5;Kempinski*5;Raffles*5;Mandarin Oriental*5;Grand Hyatt*5;NH Hotel*4;Holiday Inn*4;Ramada*4;DoubleTree by Hilton*4;Park Inn*4;Super 8*3;Travelodge*3;Ibis*3
+Хургада|Steigenberger Al Dau*5;Baron Palace Sahl Hasheesh;Sunrise Meraki*5;Albatros White Beach*5;Baron Palace*5;Jaz Aquamarine*5;Rixos Premium Magawish*5;Hilton Plaza*4;Titanic Beach*5;Grand Hyatt*5;Park Hyatt*5;Four Seasons*5;Rosewood*5;Fairmont*5;Raffles*5;JW Marriott*5;Novotel*4;Hyatt Place*4;Mercure*4;DoubleTree by Hilton*4;Radisson Blu*4;Travelodge*3;Days Inn*3;citizenM*3
+Шарм-эль-Шейх|Four Seasons Sharm;Rixos Premium Seagate*5;Savoy Sharm;Baron Palms*5;Sunrise Arabian*5;Four Seasons*5;Savoy*5;Jaz Mirabel*5;Hilton Waterfalls*5;Coral Sea Sensatori*5;Steigenberger Alcazar*5;Conrad*5;Swissôtel*5;Le Méridien*5;Sheraton Grand*5;Sofitel*5;Radisson Collection*5;Four Points*4;AC Hotel*4;DoubleTree by Hilton*4;Tryp*4;Courtyard Marriott*4;Comfort Inn*3;Premier Inn*3;Hampton by Hilton*3
+Марракеш|La Mamounia*5;Royal Mansour*5;Four Seasons Marrakech;Amanjena*5;Four Seasons*5;Sofitel Palais Imperial*5;Movenpick*5;Radisson Blu*4;Hilton*5;St. Regis*5;Kempinski*5;Ritz-Carlton*5;InterContinental*5;Park Hyatt*5;Radisson Collection*5;Scandic*4;DoubleTree by Hilton*4;NH Hotel*4;Four Points*4;Novotel*4;Premier Inn*3;Ibis Styles*3;B&B Hotel*3
+Кейптаун|The Silo Hotel;Belmond Mount Nelson*5;One&Only Cape Town;Cape Grace*5;The Silo*5;One&Only*5;Radisson Blu Waterfront*5;Southern Sun*4;Protea*4;Hilton*5;St. Regis*5;Four Seasons*5;Mandarin Oriental*5;Fairmont*5;Pullman*5;JW Marriott*5;Holiday Inn*4;Four Points*4;Azimut*4;Hyatt Place*4;Vienna House*4;Holiday Inn Express*3;Travelodge*3;Premier Inn*3
+Занзибар|Park Hyatt Zanzibar;The Residence;Baraza Resort;Zuri Zanzibar
+Сидней|Park Hyatt Sydney;Four Seasons Sydney;The Langham*5;Shangri-La Sydney;Park Hyatt*5;Four Seasons*5;Shangri-La*5;Sofitel Darling Harbour*5;Hilton*5;Ibis World Square*3;InterContinental*5;Le Méridien*5;Raffles*5;St. Regis*5;Sofitel*5;Swissôtel*5;Radisson Blu*4;Wyndham Garden*4;Ramada*4;Hyatt Place*4;Scandic*4;Hampton by Hilton*3;Premier Inn*3;Comfort Inn*3
+Мельбурн|Crown Towers*5;Park Hyatt Melbourne;The Langham*5;QT Melbourne;Park Hyatt*5;QT*5;Sofitel Collins*5;Novotel*4;Ibis*3;InterContinental*5;Fairmont*5;Pullman*5;Mandarin Oriental*5;Hyatt Regency*5;Kempinski*5;Conrad*5;NH Hotel*4;Tryp*4;Wyndham Garden*4;Park Inn*4;Azimut*4;Days Inn*3;Comfort Inn*3
+Окленд|The Hotel Britomart;Cordis Auckland;Sofitel Viaduct;Park Hyatt Auckland;Grand Hyatt*5;Fairmont*5;Sheraton Grand*5;Conrad*5;Le Méridien*5;Pullman*5;Rosewood*5;Mercure*4;Ramada*4;Novotel*4;Scandic*4;Best Western Plus*4;Hampton by Hilton*3;Days Inn*3;Travelodge*3
+Бали|Four Seasons Sayan*5;Amankila*5;The Mulia*5;Ayana Resort;Bulgari Resort;Padma Legian*5;COMO Shambhala*5;Alila Villas Uluwatu*5;Six Senses Uluwatu*5;The Legian Seminyak;Viceroy Bali;Ayana*5;Bulgari*5;The Legian*5;Viceroy*5;Novotel Nusa Dua*4;Ibis Kuta*3;Hilton Bali*5;Marriott*5;Conrad*5;Shangri-La*5;Mandarin Oriental*5;Ritz-Carlton*5;Four Seasons*5;Hyatt Regency*5;Golden Tulip*4;Vienna House*4;NH Hotel*4;Park Inn*4;DoubleTree by Hilton*4;Days Inn*3;B&B Hotel*3;Premier Inn*3
+Куала-Лумпур|Mandarin Oriental KL;The Ritz-Carlton;Four Seasons KL;Banyan Tree KL;Mandarin Oriental*5;Ritz-Carlton*5;Four Seasons*5;Banyan Tree*5;Grand Hyatt*5;W*5;Novotel Bukit Bintang*4;Ibis Sentral*3;Hilton*5;Fairmont*5;JW Marriott*5;Park Hyatt*5;Marriott*5;Sheraton Grand*5;Hyatt Regency*5;Ramada*4;Courtyard Marriott*4;NH Hotel*4;Vienna House*4;Four Points*4;Comfort Inn*3;Hampton by Hilton*3;Holiday Inn Express*3
+Ханой|Sofitel Legend Metropole*5;Capella Hanoi;JW Marriott Hanoi;Apricot Hotel;Capella*5;JW Marriott*5;Apricot*5;InterContinental Westlake*5;Melia*5;Hanoi La Siesta*4;Shangri-La*5;InterContinental*5;Rixos*5;Swissôtel*5;Radisson Collection*5;Hilton*5;Sheraton Grand*5;Novotel*4;AC Hotel*4;Scandic*4;Azimut*4;Ramada*4;Travelodge*3;B&B Hotel*3;Super 8*3
+Хошимин|Park Hyatt Saigon;The Reverie Saigon;Hotel Majestic*5;Caravelle Saigon;Park Hyatt*5;The Reverie*5;Caravelle*5;Sheraton*5;Rex*5;Liberty Central*4;Ibis*3;Mandarin Oriental*5;Rosewood*5;W Hotel*5;Hilton*5;Conrad*5;Shangri-La*5;Hyatt Regency*5;Courtyard Marriott*4;Novotel*4;Golden Tulip*4;Holiday Inn*4;Scandic*4;Days Inn*3;Holiday Inn Express*3;Hampton by Hilton*3
+Нячанг|InterContinental Nha Trang;Vinpearl Resort;Amiana Resort;Sheraton Nha Trang;InterContinental*5;Vinpearl*5;Amiana*5;Sheraton*5;Novotel*4;Mia Resort*5;Havana*5;Hyatt Regency*5;Conrad*5;Hilton*5;Grand Hyatt*5;Sheraton Grand*5;Park Hyatt*5;Mandarin Oriental*5;Radisson Blu*4;Courtyard Marriott*4;NH Hotel*4;Tryp*4;Wyndham Garden*4;Travelodge*3;Days Inn*3;B&B Hotel*3
+Дананг|InterContinental Danang;Furama Resort;TIA Wellness*5;Hyatt Regency Danang;InterContinental*5;Furama*5;Hyatt Regency*5;Pullman*5;Novotel*4;Vinpearl*5;Grand Hyatt*5;Rixos*5;Conrad*5;Rosewood*5;Le Méridien*5;Raffles*5;Sofitel*5;Vienna House*4;Best Western Plus*4;NH Hotel*4;Azimut*4;Hyatt Place*4;Hampton by Hilton*3;Days Inn*3;Super 8*3
+Сеул|Signiel Seoul;Four Seasons Seoul;The Shilla*5;Park Hyatt Seoul;Lotte Hotel*5;Josun Palace*5;Grand Hyatt Seoul;Conrad Seoul;Fairmont Ambassador*5;Signiel*5;Four Seasons*5;Park Hyatt*5;Grand Hyatt*5;Conrad*5;Novotel Dongdaemun*4;Ibis Myeongdong*3;Rixos*5;Fairmont*5;Kempinski*5;Radisson Collection*5;Hyatt Regency*5;Holiday Inn*4;Mercure*4;Crowne Plaza*4;Hyatt Place*4;AC Hotel*4;Holiday Inn Express*3;B&B Hotel*3;Travelodge*3
+Пекин|The Peninsula Beijing;Waldorf Astoria*5;Rosewood Beijing;Park Hyatt Beijing;The Peninsula*5;Rosewood*5;Park Hyatt*5;Grand Hyatt*5;Kerry Hotel*5;Novotel Xinqiao*4;Ibis Sanyuan*3;Crowne Plaza*5;Swissôtel*5;Hilton*5;Marriott*5;InterContinental*5;Sofitel*5;Shangri-La*5;Courtyard Marriott*4;AC Hotel*4;Ramada*4;Best Western Plus*4;Wyndham Garden*4;Ibis Styles*3;Hampton by Hilton*3;citizenM*3
+Шанхай|The Peninsula Shanghai;Waldorf Astoria on the Bund*5;Fairmont Peace Hotel*5;Bulgari Shanghai;The Peninsula*5;Bulgari*5;Grand Hyatt*5;Park Hyatt*5;Ritz-Carlton Pudong*5;Novotel Atlantis*4;Ibis Nanjing Road*3;Sofitel*5;Conrad*5;Rosewood*5;Waldorf Astoria*5;Four Seasons*5;JW Marriott*5;Tryp*4;Mercure*4;Golden Tulip*4;DoubleTree by Hilton*4;Wyndham Garden*4;Premier Inn*3;Hampton by Hilton*3;Super 8*3
+Санья|Atlantis Sanya;The Ritz-Carlton Sanya;Mandarin Oriental*5;Banyan Tree Sanya;Atlantis*5;The Ritz-Carlton*5;Banyan Tree*5;Hilton*5;Sheraton*5;Marriott*5;Holiday Inn*4;Ritz-Carlton*5;Kempinski*5;Ramada*4;Hyatt Place*4;DoubleTree by Hilton*4;Wyndham Garden*4;B&B Hotel*3;Days Inn*3
+Мале|Soneva Fushi*5;Baros Maldives;Conrad Rangali*5;One&Only Reethi Rah*5;Gili Lankanfushi*5;Anantara Dhigu*5;Cheval Blanc Randheli*5;Velaa Private Island;Joali Maldives;Patina Maldives;Six Senses Laamu*5;Baros*5;Velaa*5;Joali*5;Patina*5;Centara Ras Fushi*4;Adaaran Club*4;Sofitel*5;Park Hyatt*5;Fairmont*5;Grand Hyatt*5;St. Regis*5;W Hotel*5;Shangri-La*5;Hyatt Place*4;Best Western Plus*4;Courtyard Marriott*4;Crowne Plaza*4;Golden Tulip*4;Ibis*3;Motel One*3;Comfort Inn*3
+Коломбо|Shangri-La Colombo;Galle Face Hotel;Cinnamon Grand*5;Taj Samudra*5;Shangri-La*5;Galle Face*5;Hilton*5;Marino Beach*4;Movenpick*5;Le Méridien*5;Grand Hyatt*5;Hyatt Regency*5;Mandarin Oriental*5;Sofitel*5;Fairmont*5;Swissôtel*5;Ramada*4;Scandic*4;Best Western Plus*4;Crowne Plaza*4;Tryp*4;Days Inn*3;Hampton by Hilton*3;Travelodge*3
+Дели|The Oberoi New Delhi;The Leela Palace*5;Taj Mahal Hotel*5;ITC Maurya*5;The Oberoi*5;Shangri-La Eros*5;Radisson Blu*5;Ibis Aerocity*3;Novotel Aerocity*4;Four Seasons*5;Grand Hyatt*5;Rosewood*5;Kempinski*5;Le Méridien*5;Rixos*5;Hyatt Regency*5;Park Inn*4;Scandic*4;Four Points*4;Tryp*4;Azimut*4;Super 8*3;Days Inn*3;Motel One*3
+Гоа|Taj Exotica*5;W Goa*5;The Leela Goa;Alila Diwa*5;Park Hyatt Goa;Grand Hyatt Goa;ITC Grand Goa;Planet Hollywood Goa;The Leela*5;Park Hyatt*5;Grand Hyatt*5;ITC Grand*5;Novotel Candolim*4;Holiday Inn*4;W Hotel*5;Sheraton Grand*5;AC Hotel*4;NH Hotel*4;Ramada*4;DoubleTree by Hilton*4;Travelodge*3;Super 8*3
+Катманду|Dwarika's Hotel;Hyatt Regency Kathmandu;Hotel Yak & Yeti;Kathmandu Marriott;Raffles*5;Park Hyatt*5;Shangri-La*5;Pullman*5;JW Marriott*5;Marriott*5;Conrad*5;Ramada*4;Radisson Blu*4;Hyatt Place*4;Holiday Inn*4;Vienna House*4;Travelodge*3;Motel One*3;Super 8*3
+Тель-Авив|The Norman;Hotel Montefiore;Dan Tel Aviv;Setai Tel Aviv;Swissôtel*5;Fairmont*5;W Hotel*5;Shangri-La*5;InterContinental*5;Hilton*5;Le Méridien*5;AC Hotel*4;Ramada*4;Hyatt Place*4;Park Inn*4;Mercure*4;Hampton by Hilton*3;Comfort Inn*3;Ibis*3
+Иерусалим|King David;Waldorf Astoria Jerusalem;Mamilla Hotel;American Colony
+Амман|Four Seasons Amman;Fairmont Amman;W Amman;InterContinental Jordan;Shangri-La*5;Park Hyatt*5;Pullman*5;Swissôtel*5;Mandarin Oriental*5;Fairmont*5;Hilton*5;Wyndham Garden*4;Four Points*4;Radisson Blu*4;Tryp*4;Mercure*4;Ibis*3;Comfort Inn*3;Days Inn*3
+Маскат|The Chedi Muscat;Al Bustan Palace;Shangri-La Al Husn;W Muscat;Kempinski Muscat;Anantara Al Jabal;Alila Jabal Akhdar;Fairmont*5;Ritz-Carlton*5;Sofitel*5;InterContinental*5;Marriott*5;Radisson Collection*5;Conrad*5;DoubleTree by Hilton*4;Radisson Blu*4;Wyndham Garden*4;AC Hotel*4;Scandic*4;Holiday Inn Express*3;citizenM*3;Comfort Inn*3
+Окинава|Halekulani Okinawa;The Busena Terrace*5;Hoshinoya Okinawa;Ritz-Carlton Okinawa;Hyatt Regency Seragaki*5;ANA InterContinental Manza*5;Halekulani*5;Hoshinoya*5;Ritz-Carlton*5;Hilton Chatan*4;Okinawa Marriott*4;Waldorf Astoria*5;Fairmont*5;St. Regis*5;Best Western Plus*4;Holiday Inn*4;Radisson Blu*4;Four Points*4;Holiday Inn Express*3;Ibis Styles*3
+Саппоро|JR Tower Hotel Nikko;Sapporo Grand Hotel;Cross Hotel Sapporo;The Royal Park Canvas;Shangri-La*5;Grand Hyatt*5;Rosewood*5;Mercure*4;Novotel*4;Ramada*4;Scandic*4;Holiday Inn Express*3;Ibis Styles*3
+Хаконе|Gora Kadan;Hyatt Regency Hakone;Hakone Ginyu;Fujiya Hotel
+Фукуока|Grand Hyatt Fukuoka;The Ritz-Carlton Fukuoka;Hotel Nikko Fukuoka;Rosewood*5;JW Marriott*5;Marriott*5;DoubleTree by Hilton*4;Vienna House*4;Mercure*4;Tryp*4;Ibis Styles*3;Holiday Inn Express*3
+Нагоя|Nagoya Marriott;The Tower Hotel;Hilton Nagoya;Mandarin Oriental*5;W Hotel*5;Four Seasons*5;Crowne Plaza*4;Holiday Inn*4;Scandic*4;Wyndham Garden*4;Hampton by Hilton*3;Premier Inn*3
+Хиросима|Sheraton Grand Hiroshima;Rihga Royal;Hotel Granvia Hiroshima;Hilton*5;Four Seasons*5;Park Hyatt*5;Golden Tulip*4;Mercure*4;Courtyard Marriott*4;Ramada*4;Motel One*3;Holiday Inn Express*3
+Пусан|Park Hyatt Busan;Paradise Hotel;Signiel Busan;Lotte Hotel Busan;Marriott*5;Four Seasons*5;Ritz-Carlton*5;InterContinental*5;Kempinski*5;Sheraton Grand*5;Park Hyatt*5;Radisson Blu*4;Scandic*4;AC Hotel*4;NH Hotel*4;Hyatt Place*4;Premier Inn*3;Ibis Styles*3;Ibis*3
+Тайбэй|Mandarin Oriental Taipei;W Taipei;Grand Hyatt Taipei;The Okura Prestige;Swissôtel*5;Four Seasons*5;Sofitel*5;JW Marriott*5;Rosewood*5;InterContinental*5;Le Méridien*5;Mercure*4;Holiday Inn*4;Crowne Plaza*4;Four Points*4;AC Hotel*4;Ibis*3;Hampton by Hilton*3;Motel One*3
+Манила|The Peninsula Manila;Shangri-La at the Fort;Raffles Makati;Solaire Resort;Rosewood*5;Conrad*5;Hyatt Regency*5;Ritz-Carlton*5;Raffles*5;Waldorf Astoria*5;Mandarin Oriental*5;Mercure*4;AC Hotel*4;Best Western Plus*4;Tryp*4;Radisson Blu*4;Motel One*3;Ibis Styles*3;B&B Hotel*3
+Себу|Shangri-La Mactan;Crimson Resort;Dusit Thani Mactan;Nustar Resort;Fairmont*5;JW Marriott*5;Radisson Collection*5;Four Seasons*5;Park Hyatt*5;Sheraton Grand*5;Shangri-La*5;NH Hotel*4;Hyatt Place*4;Vienna House*4;Tryp*4;Novotel*4;Holiday Inn Express*3;Comfort Inn*3;Hampton by Hilton*3
+Боракай|Shangri-La Boracay;Discovery Shores;Henann Regency;Crimson Boracay
+Джакарта|Mandarin Oriental Jakarta;Four Seasons Jakarta;The Hermitage;Raffles Jakarta;Sofitel*5;Hilton*5;Ritz-Carlton*5;JW Marriott*5;St. Regis*5;Hyatt Regency*5;Mandarin Oriental*5;Scandic*4;Park Inn*4;Mercure*4;Azimut*4;Hyatt Place*4;Comfort Inn*3;Motel One*3;B&B Hotel*3
+Пенанг|Eastern & Oriental;Shangri-La Rasa Sayang;The Prestige;Angsana Teluk Bahang;Four Seasons*5;Park Hyatt*5;Fairmont*5;Park Inn*4;Azimut*4;AC Hotel*4;Wyndham Garden*4;citizenM*3;Ibis Styles*3
+Лангкави|The Datai;Four Seasons Langkawi;The St. Regis Langkawi;The Andaman;Four Seasons*5;Pullman*5;Ritz-Carlton*5;Hyatt Place*4;Ramada*4;Courtyard Marriott*4;Novotel*4;Comfort Inn*3;Holiday Inn Express*3
+Чиангмай|Four Seasons Chiang Mai;137 Pillars House;Anantara Chiang Mai;Dhara Dhevi
+Хуахин|Anantara Hua Hin;InterContinental Hua Hin;Centara Grand Beach;So Sofitel Hua Hin
+Сием Реап|Raffles Grand Hotel d'Angkor;Park Hyatt Siem Reap;Belmond La Résidence;Anantara Angkor
+Пномпень|Raffles Le Royal;Rosewood Phnom Penh;Sofitel Phokeethra
+Луангпрабанг|Amantaka;Belmond La Résidence Phou Vao;Rosewood Luang Prabang;Sofitel Luang Prabang
+Янгон|The Strand Yangon;Belmond Governor's Residence;Chatrium Hotel;Pan Pacific Yangon
+Галле|Amangalla;Le Grand Galle;Jetwing Lighthouse;Cape Weligama;Fairmont*5;Mandarin Oriental*5;St. Regis*5;Four Points*4;Courtyard Marriott*4;Ramada*4;DoubleTree by Hilton*4;Hampton by Hilton*3;Premier Inn*3
+Бентота|Taj Bentota;Club Villa;Vivanta Bentota;Avani Bentota
+Мумбаи|The Taj Mahal Palace;The Oberoi Mumbai;Four Seasons Mumbai;St. Regis Mumbai;Hyatt Regency*5;Hilton*5;Swissôtel*5;Conrad*5;Grand Hyatt*5;Radisson Collection*5;Waldorf Astoria*5;Tryp*4;Crowne Plaza*4;Best Western Plus*4;Azimut*4;Park Inn*4;Holiday Inn Express*3;Super 8*3;Hampton by Hilton*3
+Джайпур|Rambagh Palace;Oberoi Rajvilas;Taj Jai Mahal;Samode Haveli;Fairmont*5;Rosewood*5;Grand Hyatt*5;Golden Tulip*4;Mercure*4;Best Western Plus*4;Tryp*4;Travelodge*3;Hampton by Hilton*3
+Агра|The Oberoi Amarvilas;ITC Mughal;Taj Hotel & Convention
+Рас-эль-Хайма|Waldorf Astoria RAK;Rixos Bab Al Bahr;Ritz-Carlton Al Wadi;Hilton Al Hamra;Conrad*5;Rixos*5;Shangri-La*5;DoubleTree by Hilton*4;Golden Tulip*4;Courtyard Marriott*4;Novotel*4;Days Inn*3;Ibis*3
+Фуджейра|InterContinental Fujairah;Fairmont Fujairah;Address Beach Resort;Raffles*5;Sofitel*5;JW Marriott*5;Park Inn*4;Scandic*4;DoubleTree by Hilton*4;Best Western Plus*4;B&B Hotel*3;Days Inn*3
+Салала|Al Baleed Anantara;Hilton Salalah;Rotana Salalah;Four Seasons*5;InterContinental*5;Raffles*5;Park Inn*4;Azimut*4;Holiday Inn*4;Radisson Blu*4;Ibis Styles*3;Motel One*3
+Манама|Four Seasons Bahrain Bay;The Ritz-Carlton Bahrain;Sofitel Zallaq;Marriott*5;Conrad*5;Shangri-La*5;Kempinski*5;Park Hyatt*5;Radisson Collection*5;Fairmont*5;Best Western Plus*4;Radisson Blu*4;DoubleTree by Hilton*4;Ramada*4;NH Hotel*4;Ibis Styles*3;Hampton by Hilton*3;Motel One*3
+Эр-Рияд|Four Seasons Riyadh;The Ritz-Carlton Riyadh;Hyatt Regency Riyadh;InterContinental*5;Four Seasons*5;Sofitel*5;Ritz-Carlton*5;Fairmont*5;Conrad*5;Marriott*5;Golden Tulip*4;Hyatt Place*4;Crowne Plaza*4;Tryp*4;Holiday Inn*4;Hampton by Hilton*3;Motel One*3;Ibis*3
+Джидда|Rosewood Jeddah;Park Hyatt Jeddah;Waldorf Astoria Jeddah;Waldorf Astoria*5;Conrad*5;Hyatt Regency*5;Le Méridien*5;Ritz-Carlton*5;Grand Hyatt*5;W Hotel*5;Holiday Inn*4;AC Hotel*4;Ramada*4;Azimut*4;Mercure*4;Days Inn*3;Ibis Styles*3;Motel One*3
+Акаба|Kempinski Aqaba;InterContinental Aqaba;Hyatt Regency Ayla;Movenpick Tala Bay
+Петра|Mövenpick Petra;Petra Marriott;Old Village Resort
+Мёртвое море|Kempinski Ishtar;Mövenpick Dead Sea;Hilton Dead Sea
+Эйлат|Dan Eilat;Herods Palace;Royal Beach Eilat;Isrotel Agamim;Radisson Collection*5;Pullman*5;Raffles*5;Ramada*4;Wyndham Garden*4;Holiday Inn*4;Hyatt Place*4;Super 8*3;Ibis*3
+Владивосток|Лотте Отель*5;Азимут*4;Приморье*4;Vladivostok Grand Hotel;Вилла Арте*4;Экватор*3;Астория*4;Hilton*5;St. Regis*5;Ritz-Carlton*5;Four Seasons*5;Fairmont*5;Le Méridien*5;Grand Hyatt*5;AC Hotel*4;Holiday Inn*4;Wyndham Garden*4;Four Points*4;Tryp*4;Super 8*3;Holiday Inn Express*3;Premier Inn*3
+Иркутск|Courtyard Marriott Иркутск;Звезда*4;Империя*4;Байкал Бизнес Центр*4;Courtyard Marriott*4;Sayen*5;Kempinski*5;Marriott*5;Conrad*5;JW Marriott*5;Raffles*5;Fairmont*5;Pullman*5;Wyndham Garden*4;AC Hotel*4;Radisson Blu*4;Four Points*4;Novotel*4;Motel One*3;Comfort Inn*3;Ibis Styles*3
+Екатеринбург|Хаятт Ридженси*5;Рамада*4;Онегин*5;Высоцкий*4;Novotel*4;Angelo*4;Московская Горка*4;Атриум Палас*5;Fairmont*5;Pullman*5;Shangri-La*5;Kempinski*5;W Hotel*5;Mandarin Oriental*5;Marriott*5;Golden Tulip*4;Ramada*4;Four Points*4;NH Hotel*4;Ibis Styles*3;Comfort Inn*3;Super 8*3
+Нижний Новгород|Sheraton Kremlin*5;Азимут*4;Marins Park*4;Волна*4;Courtyard Marriott*4;Ibis*3
+Мурманск|Азимут Мурманск;Парк Инн Полярные Зори*4;Меридиан*4;Азимут*4;Огни Мурманска*4;JW Marriott*5;Raffles*5;Rixos*5;Four Points*4;Scandic*4;Wyndham Garden*4;AC Hotel*4;citizenM*3;Comfort Inn*3
+Красная Поляна|Rixos Красная Поляна;Marriott Красная Поляна;Novotel Резиденция*4;Солис Сочи*5;Rixos*5;Marriott*5;Golden Tulip*4;Кристалл*4;Поляна 1389*4
+Анапа|Golden Resort*4;Довиль*5;Аквамарин*4;Ривьера*4;Alean Family Sputnik*4;Миродом*3
+Геленджик|Кемпински Гранд Отель*5;Приморье Grand Resort*4;Александрия*4;Кемпински Гранд Отель Геленджик*5;Sea Galaxy*4
+Ялта|Мрия Резорт*5;Villa Elena*5;Ореанда*5;Palmira Palace*4;Ялта-Интурист*4;Левант*4
+Киев|Hyatt Regency Kyiv;InterContinental Kyiv;Fairmont Grand;Premier Palace;Four Seasons*5;Swissôtel*5;Hilton*5;Shangri-La*5;Raffles*5;Hyatt Regency*5;Sofitel*5;Tryp*4;Novotel*4;Crowne Plaza*4;Scandic*4;Wyndham Garden*4;Hampton by Hilton*3;Ibis*3;Motel One*3
+Одесса|Bristol Hotel;Nemo Resort;Londonskaya;Grand Marine;Sofitel*5;Shangri-La*5;W Hotel*5;Crowne Plaza*4;Park Inn*4;Hyatt Place*4;Radisson Blu*4;Motel One*3;Ibis*3
+Львов|Leopolis Hotel;Citadel Inn;Nobilis Hotel;Astoria;St. Regis*5;InterContinental*5;Hyatt Regency*5;Novotel*4;DoubleTree by Hilton*4;AC Hotel*4;Park Inn*4;Days Inn*3;Motel One*3
+Рига|Grand Hotel Kempinski;Pullman Riga;Radisson Blu Latvija;Neiburgs;Conrad*5;Kempinski*5;Sheraton Grand*5;Park Hyatt*5;Pullman*5;Waldorf Astoria*5;Hilton*5;Scandic*4;Hyatt Place*4;Golden Tulip*4;Best Western Plus*4;Novotel*4;Super 8*3;Premier Inn*3;Comfort Inn*3
+Вильнюс|Kempinski Cathedral Square;Grotthuss;Pacai Hotel;Radisson Blu Lietuva;Hilton*5;Conrad*5;InterContinental*5;Swissôtel*5;Rosewood*5;Sheraton Grand*5;Ritz-Carlton*5;Park Inn*4;Golden Tulip*4;Holiday Inn*4;Tryp*4;NH Hotel*4;Days Inn*3;B&B Hotel*3;Ibis Styles*3
+Таллин|Hotel Telegraaf;Swissôtel Tallinn;Schlössle;Hilton Tallinn Park;W Hotel*5;JW Marriott*5;Waldorf Astoria*5;Sheraton Grand*5;Conrad*5;Sofitel*5;St. Regis*5;Azimut*4;DoubleTree by Hilton*4;Park Inn*4;NH Hotel*4;Ramada*4;citizenM*3;Comfort Inn*3;Travelodge*3
+Берген|Bergen Børs;Hotel Norge;Opus XVI;Clarion Admiral;Mandarin Oriental*5;Pullman*5;Rixos*5;Novotel*4;Holiday Inn*4;Park Inn*4;Azimut*4;B&B Hotel*3;Ibis*3
+Тромсё|Clarion The Edge;Radisson Blu Tromsø;Scandic Ishavshotel
+Цюрих|Baur au Lac;The Dolder Grand;Widder Hotel;Park Hyatt Zurich;Sheraton Grand*5;Park Hyatt*5;Raffles*5;Hilton*5;Waldorf Astoria*5;Rixos*5;Swissôtel*5;Tryp*4;Novotel*4;Holiday Inn*4;Radisson Blu*4;Crowne Plaza*4;Hampton by Hilton*3;B&B Hotel*3;Comfort Inn*3
+Женева|Beau-Rivage;Four Seasons des Bergues;Mandarin Oriental Geneva;La Réserve;Kempinski*5;Hilton*5;Conrad*5;Marriott*5;Mandarin Oriental*5;Hyatt Regency*5;Shangri-La*5;Wyndham Garden*4;Courtyard Marriott*4;Azimut*4;Crowne Plaza*4;Ramada*4;Comfort Inn*3;Travelodge*3;Days Inn*3
+Люцерн|Bürgenstock Resort;Hotel Schweizerhof;Palace Luzern
+Зальцбург|Hotel Sacher Salzburg;Schloss Mönchstein;Sheraton Grand Salzburg;Park Hyatt*5;InterContinental*5;Hyatt Regency*5;Swissôtel*5;Conrad*5;Marriott*5;St. Regis*5;Golden Tulip*4;Wyndham Garden*4;Park Inn*4;Tryp*4;NH Hotel*4;B&B Hotel*3;citizenM*3;Hampton by Hilton*3
+Инсбрук|Grand Hotel Europa;Hotel Schwarzer Adler;aDLERS Hotel;St. Regis*5;Kempinski*5;Le Méridien*5;Best Western Plus*4;AC Hotel*4;Four Points*4;Park Inn*4;Comfort Inn*3;Travelodge*3
+Краков|Hotel Copernicus;Sheraton Grand Krakow;Stary Hotel;Bonerowski Palace;Marriott*5;St. Regis*5;Conrad*5;Mandarin Oriental*5;Ritz-Carlton*5;Pullman*5;Park Hyatt*5;Courtyard Marriott*4;Best Western Plus*4;Ramada*4;AC Hotel*4;Hyatt Place*4;Travelodge*3;citizenM*3;B&B Hotel*3
+Гданьск|Hotel Podewils;Radisson Blu Gdansk;Grano Hotel;Hilton Gdansk;Rixos*5;Marriott*5;InterContinental*5;Scandic*4;Ramada*4;Best Western Plus*4;Mercure*4;Ibis Styles*3;Comfort Inn*3
+Варшава|Hotel Bristol;Raffles Europejski;InterContinental Warszawa;Polonia Palace;W Hotel*5;Grand Hyatt*5;Raffles*5;Sofitel*5;Ritz-Carlton*5;Pullman*5;Kempinski*5;Radisson Blu*4;Tryp*4;AC Hotel*4;NH Hotel*4;Azimut*4;citizenM*3;Ibis Styles*3;Motel One*3
+Братислава|Grand Hotel River Park;Radisson Blu Carlton;Roset Hotel;Waldorf Astoria*5;Park Hyatt*5;JW Marriott*5;Sheraton Grand*5;Hilton*5;Shangri-La*5;Four Seasons*5;Ramada*4;Novotel*4;Hyatt Place*4;Vienna House*4;Wyndham Garden*4;Hampton by Hilton*3;Premier Inn*3;Comfort Inn*3
+Любляна|InterContinental Ljubljana;Grand Hotel Union;Vander Urbani;Radisson Collection*5;Sofitel*5;Pullman*5;W Hotel*5;Hilton*5;Le Méridien*5;Shangri-La*5;Hyatt Place*4;Scandic*4;Golden Tulip*4;Radisson Blu*4;Azimut*4;Hampton by Hilton*3;Premier Inn*3;Ibis*3
+Загреб|Esplanade Zagreb;Hotel Dubrovnik;Amadria Park;The Westin Zagreb;Grand Hyatt*5;Hyatt Regency*5;Waldorf Astoria*5;Raffles*5;InterContinental*5;Rosewood*5;Le Méridien*5;Azimut*4;Four Points*4;Ramada*4;Wyndham Garden*4;DoubleTree by Hilton*4;Motel One*3;Premier Inn*3;Holiday Inn Express*3
+Сплит|Le Méridien Lav;Hotel Park Split;Radisson Blu Resort;Cornaro Hotel;Marriott*5;Kempinski*5;Four Seasons*5;Hyatt Place*4;Tryp*4;Mercure*4;Holiday Inn*4;Days Inn*3;Premier Inn*3
+Будва|Dukley Hotel;Avala Resort*5;Splendid Conference;Blue Star*4;Dukley*5;Splendid*5;Slovenska Plaza*4;Falkensteiner*4
+Котор|Hyatt Regency Kotor;Regent Porto Montenegro;Palazzo Radomiri
+Тирана|Plaza Tirana;Rogner Hotel;Maritim Plaza
+София|Sofia Hotel Balkan;InterContinental Sofia;Grand Hotel Millennium;Hyatt Regency Sofia;Marriott*5;Grand Hyatt*5;Pullman*5;JW Marriott*5;Swissôtel*5;Radisson Collection*5;Conrad*5;Holiday Inn*4;Scandic*4;Best Western Plus*4;Four Points*4;NH Hotel*4;Motel One*3;Ibis*3;B&B Hotel*3
+Бухарест|Athenee Palace Hilton;InterContinental Athénée;JW Marriott Bucharest;Grand Hotel Continental;Rixos*5;JW Marriott*5;Mandarin Oriental*5;Fairmont*5;W Hotel*5;Pullman*5;Ritz-Carlton*5;Four Points*4;Vienna House*4;Novotel*4;Courtyard Marriott*4;Best Western Plus*4;Premier Inn*3;Holiday Inn Express*3;Hampton by Hilton*3
+Белград|Square Nine;Hyatt Regency Belgrade;Metropol Palace;Saint Ten;Sofitel*5;Marriott*5;St. Regis*5;Rixos*5;Pullman*5;Park Hyatt*5;Grand Hyatt*5;Mercure*4;Wyndham Garden*4;Novotel*4;Hyatt Place*4;Azimut*4;citizenM*3;Ibis Styles*3;Hampton by Hilton*3
+Салоники|Electra Palace;Makedonia Palace;The Met Hotel;Hyatt Regency Thessaloniki;Radisson Collection*5;Kempinski*5;Sofitel*5;Le Méridien*5;Fairmont*5;Rixos*5;Pullman*5;Courtyard Marriott*4;Tryp*4;Azimut*4;Four Points*4;Golden Tulip*4;Travelodge*3;Super 8*3;Premier Inn*3
+Крит|Blue Palace Elounda;Amirandes Grecotel;Daios Cove;Elounda Mare;Domes of Elounda
+Родос|Rodos Palace;Sheraton Rhodes;Atrium Prestige;Lindos Blu;Marriott*5;InterContinental*5;Swissôtel*5;Hyatt Place*4;Holiday Inn*4;Wyndham Garden*4;Golden Tulip*4;Comfort Inn*3;Days Inn*3
+Корфу|Angsana Corfu;Ikos Dassia;Corfu Imperial;MarBella Corfu;Rosewood*5;Ritz-Carlton*5;InterContinental*5;Holiday Inn*4;Radisson Blu*4;Ramada*4;NH Hotel*4;citizenM*3;Holiday Inn Express*3
+Миконос|Cavo Tagoo;Santa Marina;Mykonos Blu;Bill & Coo
+Мальта|The Phoenicia;Corinthia St George's Bay;Hilton Malta;Iniala Harbour House
+Лимасол|Four Seasons Limassol;Parklane Resort;Amara Hotel;Amathus Beach*5;Four Seasons*5;Parklane*5;Amara*5;Mediterranean Beach*4;Atlantica Miramare*4
+Айя-Напа|Nissi Beach Resort;Grecian Park;Adams Beach;Olympic Lagoon
+Пафос|Annabelle;Almyra;Anassa;Elysium Beach
+Ницца|Hotel Negresco;Anantara Plaza Nice;Hyatt Regency Palais;Boscolo Exedra;Raffles*5;St. Regis*5;Shangri-La*5;Four Points*4;Azimut*4;AC Hotel*4;Wyndham Garden*4;Travelodge*3;Motel One*3
+Канны|InterContinental Carlton;Hôtel Martinez;Majestic Barrière;Five Seas;Mandarin Oriental*5;Pullman*5;InterContinental*5;Novotel*4;Radisson Blu*4;NH Hotel*4;Four Points*4;Holiday Inn Express*3;Super 8*3
+Марсель|InterContinental Marseille;Sofitel Vieux Port;Les Bords de Mer;Conrad*5;Pullman*5;Raffles*5;Courtyard Marriott*4;NH Hotel*4;Hyatt Place*4;Wyndham Garden*4;citizenM*3;Comfort Inn*3
+Лион|Villa Florentine;InterContinental Lyon;Sofitel Lyon Bellecour;Le Méridien*5;Fairmont*5;Four Seasons*5;Holiday Inn*4;Crowne Plaza*4;Hyatt Place*4;Novotel*4;B&B Hotel*3;Comfort Inn*3
+Бордо|InterContinental Bordeaux;Les Sources de Caudalie;Yndo Hotel;JW Marriott*5;W Hotel*5;Four Seasons*5;NH Hotel*4;DoubleTree by Hilton*4;Mercure*4;Tryp*4;Premier Inn*3;Hampton by Hilton*3
+Страсбург|Sofitel Strasbourg;Régent Petite France;Hotel Les Haras;Ritz-Carlton*5;Grand Hyatt*5;Sofitel*5;Mercure*4;Golden Tulip*4;Park Inn*4;Vienna House*4;Super 8*3;B&B Hotel*3
+Севилья|Hotel Alfonso XIII;Mercer Sevilla;Gran Meliá Colón;Shangri-La*5;Fairmont*5;JW Marriott*5;Sheraton Grand*5;Four Seasons*5;Waldorf Astoria*5;Marriott*5;Novotel*4;Courtyard Marriott*4;Park Inn*4;AC Hotel*4;Four Points*4;citizenM*3;Travelodge*3;Days Inn*3
+Валенсия|The Westin Valencia;Caro Hotel;Las Arenas Balneario;Raffles*5;Grand Hyatt*5;W Hotel*5;Mandarin Oriental*5;JW Marriott*5;Sheraton Grand*5;Le Méridien*5;Holiday Inn*4;Courtyard Marriott*4;Scandic*4;Novotel*4;Tryp*4;Comfort Inn*3;Ibis Styles*3;Hampton by Hilton*3
+Малага|Gran Hotel Miramar;Room Mate Valeria;Vincci Selección Posada;Sheraton Grand*5;Kempinski*5;Rixos*5;Raffles*5;St. Regis*5;Pullman*5;Fairmont*5;Radisson Blu*4;AC Hotel*4;Mercure*4;Scandic*4;DoubleTree by Hilton*4;Premier Inn*3;B&B Hotel*3;Holiday Inn Express*3
+Марбелья|Puente Romano;Marbella Club;Villa Padierna;Nobu Marbella
+Ибица|Six Senses Ibiza;Nobu Ibiza Bay;Hotel Torre del Mar;Ushuaïa;Radisson Collection*5;JW Marriott*5;Rixos*5;Novotel*4;Tryp*4;Park Inn*4;Hyatt Place*4;Days Inn*3;B&B Hotel*3
+Пальма|Cap Rocat;Belmond La Residencia;Castillo Hotel Son Vida;Nakar Hotel;Sofitel*5;JW Marriott*5;Shangri-La*5;DoubleTree by Hilton*4;Park Inn*4;Crowne Plaza*4;Mercure*4;Premier Inn*3;Super 8*3
+Тенерифе|The Ritz-Carlton Abama;Bahia del Duque;Royal Hideaway Corales;Iberostar Grand El Mirador;InterContinental*5;JW Marriott*5;Hilton*5;Vienna House*4;Mercure*4;Novotel*4;DoubleTree by Hilton*4;B&B Hotel*3;Hampton by Hilton*3
+Гран-Канария|Seaside Grand Residencia;Lopesan Costa Meloneras;Santa Catalina Royal;InterContinental*5;Pullman*5;Rosewood*5;Courtyard Marriott*4;Crowne Plaza*4;Four Points*4;Best Western Plus*4;citizenM*3;B&B Hotel*3
+Порту|The Yeatman;Torel Avantgarde;Pestana Vintage;InterContinental Palacio;Le Méridien*5;Pullman*5;Shangri-La*5;W Hotel*5;Sofitel*5;Swissôtel*5;Ritz-Carlton*5;Novotel*4;Ramada*4;Mercure*4;DoubleTree by Hilton*4;Best Western Plus*4;Days Inn*3;Premier Inn*3;Ibis*3;Crowne Plaza*4;Courtyard Marriott*4;B&B Hotel*3;Super 8*3
+Мадейра|Belmond Reid's Palace;Savoy Palace;Les Suites at The Cliff Bay
+Дублин|The Merrion;The Shelbourne;The Westbury;Conrad Dublin;W Hotel*5;Mandarin Oriental*5;Rixos*5;Shangri-La*5;Grand Hyatt*5;Conrad*5;Rosewood*5;Crowne Plaza*4;Courtyard Marriott*4;Novotel*4;NH Hotel*4;Vienna House*4;Hampton by Hilton*3;Comfort Inn*3;citizenM*3
+Эдинбург|The Balmoral;Gleneagles Townhouse;The Witchery;Waldorf Astoria Caledonian;Grand Hyatt*5;Rixos*5;Rosewood*5;W Hotel*5;Mandarin Oriental*5;Fairmont*5;Four Seasons*5;Scandic*4;DoubleTree by Hilton*4;Crowne Plaza*4;NH Hotel*4;Azimut*4;Comfort Inn*3;Super 8*3;Ibis*3
+Гамбург|Fairmont Vier Jahreszeiten;The Fontenay;Park Hyatt Hamburg;Park Hyatt*5;St. Regis*5;Hyatt Regency*5;Fairmont*5;Rixos*5;Kempinski*5;Hilton*5;Azimut*4;Park Inn*4;Best Western Plus*4;Vienna House*4;Crowne Plaza*4;Motel One*3;Holiday Inn Express*3;Hampton by Hilton*3
+Франкфурт|Villa Kennedy;Jumeirah Frankfurt;Steigenberger Frankfurter Hof;Le Méridien*5;St. Regis*5;Sheraton Grand*5;Sofitel*5;Marriott*5;Rosewood*5;Hyatt Regency*5;Park Inn*4;Azimut*4;Holiday Inn*4;Tryp*4;Ramada*4;Hampton by Hilton*3;Super 8*3;Travelodge*3
+Кёльн|Excelsior Hotel Ernst;Hyatt Regency Köln;The Qvest;Pullman*5;Waldorf Astoria*5;Swissôtel*5;Four Seasons*5;Rixos*5;Hilton*5;Ritz-Carlton*5;Park Inn*4;Azimut*4;Best Western Plus*4;Novotel*4;Mercure*4;Ibis Styles*3;Hampton by Hilton*3;Travelodge*3
+Дрезден|Hotel Taschenbergpalais;Bülow Palais;Swissôtel Dresden;Marriott*5;Park Hyatt*5;Mandarin Oriental*5;St. Regis*5;Fairmont*5;Rosewood*5;Waldorf Astoria*5;Wyndham Garden*4;Best Western Plus*4;Park Inn*4;Scandic*4;Crowne Plaza*4;citizenM*3;Holiday Inn Express*3;Comfort Inn*3
+Брюгге|Dukes' Palace;Hotel Heritage;Grand Hotel Casselbergh
+Брюссель|Hotel Amigo;Steigenberger Wiltcher's;The Hotel Brussels;Sheraton Grand*5;Sofitel*5;Ritz-Carlton*5;Waldorf Astoria*5;Kempinski*5;Hilton*5;Mandarin Oriental*5;Wyndham Garden*4;Holiday Inn*4;Mercure*4;Best Western Plus*4;Hyatt Place*4;Holiday Inn Express*3;Motel One*3;citizenM*3
+Роттердам|Mainport Hotel;nhow Rotterdam;Hilton Rotterdam;Waldorf Astoria*5;Park Hyatt*5;Radisson Collection*5;Mandarin Oriental*5;Hyatt Regency*5;Shangri-La*5;Rosewood*5;Four Points*4;Courtyard Marriott*4;Hyatt Place*4;Wyndham Garden*4;Radisson Blu*4;Super 8*3;Comfort Inn*3;Travelodge*3
+Бостон|Four Seasons Boston;The Langham Boston;XV Beacon;Boston Harbor Hotel;Hyatt Regency*5;Sofitel*5;Shangri-La*5;Mandarin Oriental*5;Pullman*5;Conrad*5;Rosewood*5;Courtyard Marriott*4;Park Inn*4;Golden Tulip*4;Holiday Inn*4;DoubleTree by Hilton*4;Hampton by Hilton*3;Ibis*3;Holiday Inn Express*3
+Вашингтон|The Hay-Adams;Four Seasons Washington;Willard InterContinental;Riggs Washington;W Hotel*5;Sofitel*5;Swissôtel*5;Waldorf Astoria*5;Grand Hyatt*5;Hyatt Regency*5;St. Regis*5;Crowne Plaza*4;Azimut*4;Vienna House*4;AC Hotel*4;DoubleTree by Hilton*4;Premier Inn*3;Ibis*3;Days Inn*3
+Сиэтл|Four Seasons Seattle;Fairmont Olympic;The Edgewater;Thompson Seattle;JW Marriott*5;Sheraton Grand*5;Four Seasons*5;Rixos*5;St. Regis*5;Conrad*5;W Hotel*5;Holiday Inn*4;Novotel*4;DoubleTree by Hilton*4;Golden Tulip*4;Radisson Blu*4;Comfort Inn*3;Ibis Styles*3;Super 8*3
+Сан-Диего|Hotel del Coronado;Fairmont Grand Del Mar;Pendry San Diego;Kempinski*5;Fairmont*5;Four Seasons*5;Park Inn*4;Mercure*4;Wyndham Garden*4;Courtyard Marriott*4;Travelodge*3;Holiday Inn Express*3
+Новый Орлеан|The Roosevelt;Hotel Monteleone;Windsor Court;Ace Hotel NOLA
+Гонолулу|Halekulani;The Royal Hawaiian;Moana Surfrider;Four Seasons Ko Olina
+Монреаль|Ritz-Carlton Montreal;Four Seasons Montreal;Hotel Le St-James;Fairmont*5;Sofitel*5;Raffles*5;Four Seasons*5;Rosewood*5;Hilton*5;Conrad*5;Crowne Plaza*4;AC Hotel*4;Wyndham Garden*4;Golden Tulip*4;Park Inn*4;Super 8*3;Comfort Inn*3;citizenM*3
+Квебек|Fairmont Le Château Frontenac;Auberge Saint-Antoine;Hotel Le Germain;Park Hyatt*5;Hyatt Regency*5;Mandarin Oriental*5;Ramada*4;NH Hotel*4;AC Hotel*4;Vienna House*4;Premier Inn*3;B&B Hotel*3
+Ванкувер|Fairmont Pacific Rim;Rosewood Hotel Georgia;Shangri-La Vancouver;Swissôtel*5;Fairmont*5;Kempinski*5;JW Marriott*5;Sheraton Grand*5;InterContinental*5;Hilton*5;Azimut*4;AC Hotel*4;Mercure*4;Four Points*4;Tryp*4;Travelodge*3;Days Inn*3;B&B Hotel*3
+Богота|Four Seasons Casa Medina;Sofitel Victoria Regia;W Bogota;Shangri-La*5;Pullman*5;InterContinental*5;Mandarin Oriental*5;St. Regis*5;W Hotel*5;Fairmont*5;Hyatt Place*4;Ramada*4;Radisson Blu*4;Azimut*4;Mercure*4;Travelodge*3;Ibis Styles*3;Holiday Inn Express*3
+Картахена|Sofitel Santa Clara;Casa San Agustin;Hotel Charleston;JW Marriott*5;Conrad*5;Le Méridien*5;Radisson Blu*4;NH Hotel*4;Mercure*4;Wyndham Garden*4;B&B Hotel*3;citizenM*3
+Сан-Паулу|Palácio Tangará;Fasano São Paulo;Rosewood São Paulo;Emiliano;Pullman*5;Shangri-La*5;Kempinski*5;Hyatt Regency*5;Rosewood*5;Marriott*5;Radisson Collection*5;Wyndham Garden*4;Crowne Plaza*4;Four Points*4;Courtyard Marriott*4;AC Hotel*4;citizenM*3;Travelodge*3;Premier Inn*3
+Монтевидео|Sofitel Carrasco;Hyatt Centric Montevideo;Alma Histórica;Sofitel*5;Kempinski*5;Shangri-La*5;AC Hotel*4;NH Hotel*4;Scandic*4;Tryp*4;citizenM*3;Ibis*3
+Кито|Casa Gangotena;JW Marriott Quito;Illa Experience;Grand Hyatt*5;Conrad*5;Waldorf Astoria*5;Ramada*4;Courtyard Marriott*4;Wyndham Garden*4;NH Hotel*4;B&B Hotel*3;Ibis Styles*3
+Панама|The Santa Maria;American Trade Hotel;Waldorf Astoria Panama
+Пунта-Кана|Tortuga Bay*5;Eden Roc Cap Cana*5;Excellence Punta Cana;Hard Rock Punta Cana;Excellence*5;Hard Rock*5;Barcelo Bavaro*5;Iberostar Grand*5;Riu Palace*5
+Нассау|Baha Mar Rosewood;Atlantis Paradise Island;The Ocean Club
+Аруба|Ritz-Carlton Aruba;Bucuti & Tara;Hyatt Regency Aruba
+Йоханнесбург|Saxon Hotel;Four Seasons The Westcliff;The Michelangelo;St. Regis*5;Marriott*5;Mandarin Oriental*5;Ritz-Carlton*5;Grand Hyatt*5;Pullman*5;Rosewood*5;Park Inn*4;Hyatt Place*4;Courtyard Marriott*4;Best Western Plus*4;Wyndham Garden*4;Holiday Inn Express*3;Ibis*3;citizenM*3
+Дурбан|The Oyster Box;Beverly Hills Hotel;Southern Sun Elangeni;Radisson Collection*5;Sheraton Grand*5;Shangri-La*5;Four Points*4;Golden Tulip*4;Crowne Plaza*4;AC Hotel*4;Motel One*3;Hampton by Hilton*3
+Виктория-Фолс|Victoria Falls Hotel;Royal Livingstone;Matetsi River Lodge
+Момбаса|Serena Beach Resort;Swahili Beach;Diani Reef Beach;Mandarin Oriental*5;Marriott*5;Four Seasons*5;Mercure*4;Scandic*4;Azimut*4;Four Points*4;Super 8*3;B&B Hotel*3
+Аруша|Gran Meliá Arusha;Arusha Coffee Lodge;Four Points Arusha
+Тунис|Four Seasons Tunis;La Badira;Movenpick Gammarth;Sofitel*5;W Hotel*5;Pullman*5;Four Seasons*5;JW Marriott*5;Kempinski*5;Rixos*5;Radisson Blu*4;Holiday Inn*4;Park Inn*4;Courtyard Marriott*4;Best Western Plus*4;citizenM*3;B&B Hotel*3;Hampton by Hilton*3
+Хаммамет|La Badira;Movenpick Hammamet;Hasdrubal Thalassa;Waldorf Astoria*5;Raffles*5;Sheraton Grand*5;NH Hotel*4;Ramada*4;Golden Tulip*4;Novotel*4;Travelodge*3;Motel One*3
+Агадир|Sofitel Agadir Royal Bay;Hyatt Place Taghazout;Riu Palace Tikida;Conrad*5;Rosewood*5;Le Méridien*5;Hyatt Place*4;Tryp*4;Holiday Inn*4;Mercure*4;Comfort Inn*3;Hampton by Hilton*3
+Фес|Riad Fes;Palais Faraj;Sahrai Hotel;JW Marriott*5;Conrad*5;Shangri-La*5;Radisson Blu*4;Courtyard Marriott*4;NH Hotel*4;Scandic*4;Super 8*3;Ibis Styles*3
+Танжер|Hilton Tanger;Movenpick Malabata;El Minzah;Fairmont*5;Pullman*5;JW Marriott*5;Novotel*4;AC Hotel*4;Golden Tulip*4;Vienna House*4;Ibis*3;Comfort Inn*3
+Луксор|Sofitel Winter Palace;Hilton Luxor;Al Moudira;Grand Hyatt*5;Hilton*5;InterContinental*5;Scandic*4;NH Hotel*4;Courtyard Marriott*4;Azimut*4;Super 8*3;citizenM*3
+Асуан|Sofitel Old Cataract;Movenpick Elephantine;Le Méridien*5;Ritz-Carlton*5;Four Seasons*5;Best Western Plus*4;Hyatt Place*4;Scandic*4;Courtyard Marriott*4;Travelodge*3;Motel One*3
+Перт|COMO The Treasury;Crown Towers Perth;The Ritz-Carlton Perth;Swissôtel*5;St. Regis*5;Fairmont*5;Waldorf Astoria*5;Mandarin Oriental*5;Hyatt Regency*5;Ritz-Carlton*5;Vienna House*4;Novotel*4;Azimut*4;Tryp*4;Crowne Plaza*4;B&B Hotel*3;Ibis Styles*3;citizenM*3
+Брисбен|The Calile;W Brisbane;Emporium Hotel;InterContinental*5;Ritz-Carlton*5;Kempinski*5;Hyatt Regency*5;Park Hyatt*5;Raffles*5;Shangri-La*5;Scandic*4;Best Western Plus*4;Park Inn*4;Golden Tulip*4;Courtyard Marriott*4;Comfort Inn*3;Ibis Styles*3;Travelodge*3
+Голд-Кост|The Langham Gold Coast;JW Marriott Surfers;Palazzo Versace;JW Marriott*5;Fairmont*5;St. Regis*5;Wyndham Garden*4;Crowne Plaza*4;Park Inn*4;Four Points*4;Ibis Styles*3;Holiday Inn Express*3
+Кэрнс|Crystalbrook Riley;Shangri-La The Marina;Pullman Reef;Conrad*5;JW Marriott*5;Kempinski*5;Four Points*4;Hyatt Place*4;Azimut*4;Best Western Plus*4;Holiday Inn Express*3;Comfort Inn*3
+Квинстаун|Eichardt's Private Hotel;Matakauri Lodge;Sofitel Queenstown;W Hotel*5;St. Regis*5;Fairmont*5;Park Inn*4;Tryp*4;Hyatt Place*4;Crowne Plaza*4;Super 8*3;citizenM*3
+Крайстчерч|The George;Mayfair Christchurch;Distinction Christchurch;Waldorf Astoria*5;Marriott*5;Four Seasons*5;Ramada*4;Courtyard Marriott*4;Azimut*4;Tryp*4;Ibis Styles*3;Motel One*3
+Веллингтон|QT Wellington;InterContinental Wellington;Sofitel Wellington;Le Méridien*5;Rosewood*5;Hilton*5;Vienna House*4;NH Hotel*4;Tryp*4;Novotel*4;Holiday Inn Express*3;Ibis Styles*3
+Нанди|Sofitel Fiji;Sheraton Fiji;InterContinental Fiji;Six Senses Fiji;W Hotel*5;Shangri-La*5;Rixos*5;Crowne Plaza*4;NH Hotel*4;Scandic*4;Mercure*4;Motel One*3;Premier Inn*3
+Ижевск|Park Inn*4;Ижевск*3;Центральная*3;Амакс Центральный*3;Арт-Отель*4;JW Marriott*5;Hyatt Regency*5;Pullman*5;Best Western Plus*4;Golden Tulip*4;Wyndham Garden*4;Courtyard Marriott*4;Ibis*3;Motel One*3
+Новосибирск|Marriott*5;DoubleTree by Hilton*4;Azimut*4;River Park*3;Домина*4;Сибирь*4;JW Marriott*5;St. Regis*5;Sofitel*5;Rixos*5;Mandarin Oriental*5;Ritz-Carlton*5;Pullman*5;Holiday Inn*4;Mercure*4;Hyatt Place*4;Scandic*4;Super 8*3;Premier Inn*3;Days Inn*3
+Гуйлинь|Shangri-La*5;Sheraton*5;Lijiang Waterfall*5;Guilin Park*4;Kempinski*5;Conrad*5;AC Hotel*4;Scandic*4;Ramada*4;Golden Tulip*4;Super 8*3;B&B Hotel*3
+Яншо|Yangshuo Mountain Retreat*4;Banyan Tree*5;Alila*5;Green Lotus*4
+Чжанцзяцзе|Pullman*5;Crowne Plaza*5;Days Hotel*4;Zhangjiajie International*4
+Красноярск|Pullman*5;JW Marriott*5;St. Regis*5;Radisson Collection*5;Kempinski*5;Waldorf Astoria*5;Ritz-Carlton*5;Park Inn*4;Tryp*4;NH Hotel*4;Novotel*4;Holiday Inn*4;Holiday Inn Express*3;Premier Inn*3;Comfort Inn*3
+Самара|Pullman*5;Raffles*5;St. Regis*5;Four Seasons*5;Park Hyatt*5;Waldorf Astoria*5;Fairmont*5;Park Inn*4;Novotel*4;Golden Tulip*4;NH Hotel*4;Scandic*4;Ibis Styles*3;Super 8*3;Days Inn*3
+Уфа|Waldorf Astoria*5;Raffles*5;Pullman*5;InterContinental*5;Ritz-Carlton*5;Rosewood*5;Hyatt Regency*5;Vienna House*4;Wyndham Garden*4;Crowne Plaza*4;Hyatt Place*4;AC Hotel*4;Premier Inn*3;Holiday Inn Express*3;Days Inn*3
+Ростов-на-Дону|Sofitel*5;InterContinental*5;Rosewood*5;Radisson Collection*5;Waldorf Astoria*5;Grand Hyatt*5;W Hotel*5;Holiday Inn*4;Scandic*4;Hyatt Place*4;Radisson Blu*4;Best Western Plus*4;Ibis*3;Ibis Styles*3;Days Inn*3
+Волгоград|Four Seasons*5;Sheraton Grand*5;Shangri-La*5;InterContinental*5;JW Marriott*5;Marriott*5;Kempinski*5;Azimut*4;Hyatt Place*4;NH Hotel*4;Four Points*4;DoubleTree by Hilton*4;Super 8*3;Ibis Styles*3;Holiday Inn Express*3
+Пермь|InterContinental*5;Le Méridien*5;W Hotel*5;Pullman*5;Rosewood*5;Swissôtel*5;Mandarin Oriental*5;Park Inn*4;Holiday Inn*4;Tryp*4;Novotel*4;Radisson Blu*4;Motel One*3;Premier Inn*3;B&B Hotel*3
+Воронеж|InterContinental*5;Four Seasons*5;Radisson Collection*5;Grand Hyatt*5;Sofitel*5;Hyatt Regency*5;Sheraton Grand*5;Tryp*4;Crowne Plaza*4;Radisson Blu*4;Vienna House*4;Azimut*4;B&B Hotel*3;citizenM*3;Travelodge*3
+Челябинск|Raffles*5;Park Hyatt*5;Rixos*5;Four Seasons*5;Ritz-Carlton*5;Le Méridien*5;Hyatt Regency*5;NH Hotel*4;Mercure*4;Novotel*4;Radisson Blu*4;Hyatt Place*4;Ibis Styles*3;Motel One*3;citizenM*3
+Краснодар|Park Hyatt*5;Mandarin Oriental*5;Radisson Collection*5;Fairmont*5;W Hotel*5;Hyatt Regency*5;Four Seasons*5;Crowne Plaza*4;Golden Tulip*4;Vienna House*4;Radisson Blu*4;Hyatt Place*4;Ibis Styles*3;Premier Inn*3;Ibis*3
+Тюмень|Le Méridien*5;Raffles*5;Ritz-Carlton*5;Rosewood*5;Swissôtel*5;JW Marriott*5;Pullman*5;Tryp*4;Novotel*4;Radisson Blu*4;AC Hotel*4;Four Points*4;Days Inn*3;Ibis Styles*3;Motel One*3
+Нижний|Waldorf Astoria*5;Sheraton Grand*5;Grand Hyatt*5;Conrad*5;Swissôtel*5;Fairmont*5;Le Méridien*5;Ramada*4;Golden Tulip*4;Scandic*4;Park Inn*4;Holiday Inn*4;Days Inn*3;Premier Inn*3;Hampton by Hilton*3
+Новгород|Waldorf Astoria*5;JW Marriott*5;InterContinental*5;Raffles*5;Conrad*5;Rixos*5;Park Hyatt*5;Crowne Plaza*4;Hyatt Place*4;Vienna House*4;Mercure*4;Radisson Blu*4;Motel One*3;Holiday Inn Express*3;Ibis Styles*3
+Бишкек|Sofitel*5;Marriott*5;W Hotel*5;Pullman*5;Grand Hyatt*5;Sheraton Grand*5;Hilton*5;AC Hotel*4;Park Inn*4;NH Hotel*4;Scandic*4;Holiday Inn*4;Motel One*3;Holiday Inn Express*3;Travelodge*3
+Измир|Le Méridien*5;Park Hyatt*5;Conrad*5;Kempinski*5;Rixos*5;Sheraton Grand*5;Marriott*5;Courtyard Marriott*4;Holiday Inn*4;Best Western Plus*4;Novotel*4;Park Inn*4;Holiday Inn Express*3;Ibis*3;Days Inn*3
+Анкара|Waldorf Astoria*5;Park Hyatt*5;InterContinental*5;Ritz-Carlton*5;Swissôtel*5;Sofitel*5;Conrad*5;Vienna House*4;Ramada*4;Hyatt Place*4;Courtyard Marriott*4;AC Hotel*4;Super 8*3;Comfort Inn*3;Ibis Styles*3
+Неаполь|Waldorf Astoria*5;Rosewood*5;Grand Hyatt*5;St. Regis*5;Sheraton Grand*5;Ritz-Carlton*5;Conrad*5;Radisson Blu*4;Scandic*4;Holiday Inn*4;Four Points*4;Golden Tulip*4;Motel One*3;Super 8*3;Ibis Styles*3
+Дюссельдорф|Shangri-La*5;Mandarin Oriental*5;Radisson Collection*5;Swissôtel*5;Grand Hyatt*5;W Hotel*5;InterContinental*5;Vienna House*4;Hyatt Place*4;Tryp*4;Azimut*4;Holiday Inn*4;citizenM*3;Super 8*3;B&B Hotel*3
+Штутгарт|Conrad*5;Sofitel*5;W Hotel*5;Grand Hyatt*5;Kempinski*5;Pullman*5;Hyatt Regency*5;Tryp*4;Courtyard Marriott*4;Wyndham Garden*4;Golden Tulip*4;Radisson Blu*4;Travelodge*3;Ibis Styles*3;Premier Inn*3
+Брно|Rixos*5;JW Marriott*5;W Hotel*5;Park Hyatt*5;Raffles*5;Swissôtel*5;Grand Hyatt*5;DoubleTree by Hilton*4;Radisson Blu*4;Wyndham Garden*4;NH Hotel*4;Novotel*4;Hampton by Hilton*3;Travelodge*3;Ibis*3
+Антверпен|Sofitel*5;JW Marriott*5;Mandarin Oriental*5;W Hotel*5;Rixos*5;Fairmont*5;Marriott*5;Vienna House*4;Radisson Blu*4;Crowne Plaza*4;Courtyard Marriott*4;Scandic*4;Days Inn*3;B&B Hotel*3;Ibis Styles*3
+Манчестер|Grand Hyatt*5;Waldorf Astoria*5;Kempinski*5;Fairmont*5;Four Seasons*5;Park Hyatt*5;Sheraton Grand*5;Scandic*4;Courtyard Marriott*4;Azimut*4;DoubleTree by Hilton*4;Golden Tulip*4;Travelodge*3;Holiday Inn Express*3;Motel One*3
+Кувейт|Grand Hyatt*5;Marriott*5;InterContinental*5;Sheraton Grand*5;Swissôtel*5;Sofitel*5;Shangri-La*5;Vienna House*4;Four Points*4;Courtyard Marriott*4;Tryp*4;Ramada*4;Motel One*3;Holiday Inn Express*3;Hampton by Hilton*3
+Гуанчжоу|JW Marriott*5;Four Seasons*5;Waldorf Astoria*5;Kempinski*5;Hyatt Regency*5;InterContinental*5;Grand Hyatt*5;AC Hotel*4;DoubleTree by Hilton*4;Hyatt Place*4;Holiday Inn*4;Scandic*4;Hampton by Hilton*3;Comfort Inn*3;B&B Hotel*3
+Шэньчжэнь|Radisson Collection*5;Sofitel*5;Le Méridien*5;Fairmont*5;Marriott*5;Pullman*5;Grand Hyatt*5;Hyatt Place*4;Holiday Inn*4;AC Hotel*4;Scandic*4;Best Western Plus*4;Ibis Styles*3;Ibis*3;Motel One*3
+Бангалор|JW Marriott*5;Rosewood*5;Swissôtel*5;Sofitel*5;InterContinental*5;Pullman*5;Grand Hyatt*5;Novotel*4;Hyatt Place*4;Crowne Plaza*4;Park Inn*4;Four Points*4;Premier Inn*3;Motel One*3;Super 8*3
+Ченнаи|JW Marriott*5;Swissôtel*5;Park Hyatt*5;Four Seasons*5;Grand Hyatt*5;St. Regis*5;Hilton*5;Holiday Inn*4;NH Hotel*4;Vienna House*4;Courtyard Marriott*4;Scandic*4;citizenM*3;Ibis*3;Travelodge*3
+Чикаго|Marriott*5;Four Seasons*5;Grand Hyatt*5;Ritz-Carlton*5;Rixos*5;W Hotel*5;St. Regis*5;Radisson Blu*4;Park Inn*4;Vienna House*4;Novotel*4;NH Hotel*4;Ibis Styles*3;Travelodge*3;B&B Hotel*3
+Сантьяго|Swissôtel*5;Rosewood*5;Fairmont*5;Le Méridien*5;Mandarin Oriental*5;Rixos*5;Waldorf Astoria*5;AC Hotel*4;Golden Tulip*4;Holiday Inn*4;Best Western Plus*4;Scandic*4;Ibis*3;citizenM*3;Days Inn*3
+Найроби|Hyatt Regency*5;Ritz-Carlton*5;St. Regis*5;Rixos*5;Kempinski*5;W Hotel*5;Pullman*5;AC Hotel*4;Courtyard Marriott*4;Tryp*4;NH Hotel*4;Azimut*4;Ibis Styles*3;Comfort Inn*3;Hampton by Hilton*3
+Лагос|Park Hyatt*5;Swissôtel*5;Mandarin Oriental*5;Sheraton Grand*5;Hilton*5;Sofitel*5;Pullman*5;Vienna House*4;Ramada*4;Tryp*4;Best Western Plus*4;Wyndham Garden*4;Ibis*3;Hampton by Hilton*3;Comfort Inn*3
+Касабланка|Fairmont*5;Grand Hyatt*5;W Hotel*5;St. Regis*5;Rixos*5;Park Hyatt*5;Hilton*5;Four Points*4;Crowne Plaza*4;Tryp*4;Azimut*4;DoubleTree by Hilton*4;Premier Inn*3;Comfort Inn*3;Days Inn*3
+Сургут|Pullman*5;W Hotel*5;Park Hyatt*5;Tryp*4;Four Points*4;Courtyard Marriott*4;Scandic*4;Days Inn*3;Motel One*3
+Тольятти|Shangri-La*5;Marriott*5;Rosewood*5;Park Inn*4;Ramada*4;Vienna House*4;Radisson Blu*4;Premier Inn*3;B&B Hotel*3
+Ярославль|Sheraton Grand*5;Four Seasons*5;Grand Hyatt*5;Four Points*4;Scandic*4;AC Hotel*4;Golden Tulip*4;Premier Inn*3;Hampton by Hilton*3
+Тула|Swissôtel*5;St. Regis*5;Hilton*5;Vienna House*4;Mercure*4;Golden Tulip*4;Azimut*4;B&B Hotel*3;Hampton by Hilton*3
+Рязань|Sheraton Grand*5;Marriott*5;Le Méridien*5;Novotel*4;Vienna House*4;Best Western Plus*4;Courtyard Marriott*4;Ibis*3;Comfort Inn*3
+Барнаул|Hyatt Regency*5;InterContinental*5;Rosewood*5;Vienna House*4;NH Hotel*4;Holiday Inn*4;Mercure*4;citizenM*3;Holiday Inn Express*3
+Кемерово|Le Méridien*5;St. Regis*5;Sheraton Grand*5;Vienna House*4;Mercure*4;Radisson Blu*4;Holiday Inn*4;Motel One*3;Comfort Inn*3
+Томск|Shangri-La*5;Rixos*5;Kempinski*5;Vienna House*4;Scandic*4;Radisson Blu*4;NH Hotel*4;Comfort Inn*3;Days Inn*3
+Омск|St. Regis*5;Mandarin Oriental*5;JW Marriott*5;Ramada*4;Park Inn*4;Golden Tulip*4;Mercure*4;citizenM*3;Holiday Inn Express*3
+Саратов|Park Hyatt*5;Rixos*5;Sofitel*5;NH Hotel*4;Mercure*4;Hyatt Place*4;Tryp*4;Premier Inn*3;Comfort Inn*3
+Оренбург|Mandarin Oriental*5;W Hotel*5;Park Hyatt*5;Golden Tulip*4;Novotel*4;Holiday Inn*4;Tryp*4;Super 8*3;B&B Hotel*3
+Пенза|Kempinski*5;Conrad*5;Swissôtel*5;Radisson Blu*4;DoubleTree by Hilton*4;Azimut*4;Wyndham Garden*4;Days Inn*3;Holiday Inn Express*3
+Ставрополь|JW Marriott*5;Radisson Collection*5;Fairmont*5;Best Western Plus*4;Courtyard Marriott*4;Wyndham Garden*4;Golden Tulip*4;Super 8*3;Ibis Styles*3
+Махачкала|St. Regis*5;Hyatt Regency*5;Swissôtel*5;AC Hotel*4;Courtyard Marriott*4;Tryp*4;Scandic*4;Motel One*3;Days Inn*3
+Грозный|W Hotel*5;St. Regis*5;Waldorf Astoria*5;Courtyard Marriott*4;Best Western Plus*4;Golden Tulip*4;Crowne Plaza*4;Ibis Styles*3;Holiday Inn Express*3
+Улан-Удэ|Shangri-La*5;Le Méridien*5;Kempinski*5;Mercure*4;Best Western Plus*4;Scandic*4;Holiday Inn*4;Days Inn*3;B&B Hotel*3
+Хабаровск|Le Méridien*5;Kempinski*5;Hilton*5;Scandic*4;Four Points*4;Hyatt Place*4;Courtyard Marriott*4;Travelodge*3;Holiday Inn Express*3
+Якутск|Radisson Collection*5;Raffles*5;Conrad*5;Holiday Inn*4;Novotel*4;Vienna House*4;DoubleTree by Hilton*4;Days Inn*3;citizenM*3
+Архангельск|Park Hyatt*5;Le Méridien*5;Hilton*5;Scandic*4;Golden Tulip*4;Radisson Blu*4;Hyatt Place*4;Hampton by Hilton*3;Days Inn*3
+Петрозаводск|Shangri-La*5;Hyatt Regency*5;Marriott*5;Best Western Plus*4;Tryp*4;Mercure*4;Park Inn*4;Ibis Styles*3;Motel One*3
+Псков|JW Marriott*5;InterContinental*5;Hilton*5;Holiday Inn*4;Best Western Plus*4;Radisson Blu*4;DoubleTree by Hilton*4;Premier Inn*3;Travelodge*3
+Смоленск|Fairmont*5;JW Marriott*5;Le Méridien*5;Courtyard Marriott*4;Ramada*4;DoubleTree by Hilton*4;Azimut*4;Days Inn*3;Motel One*3
+Брест|Sheraton Grand*5;Park Hyatt*5;Four Seasons*5;Vienna House*4;Tryp*4;DoubleTree by Hilton*4;Hyatt Place*4;citizenM*3;B&B Hotel*3
+Гродно|Park Hyatt*5;Fairmont*5;Radisson Collection*5;Vienna House*4;NH Hotel*4;Courtyard Marriott*4;Ramada*4;Holiday Inn Express*3;Hampton by Hilton*3
+Витебск|Waldorf Astoria*5;W Hotel*5;Marriott*5;Azimut*4;Vienna House*4;Courtyard Marriott*4;DoubleTree by Hilton*4;Hampton by Hilton*3;Comfort Inn*3
+Гомель|Grand Hyatt*5;Hyatt Regency*5;Hilton*5;Golden Tulip*4;Vienna House*4;Courtyard Marriott*4;NH Hotel*4;Comfort Inn*3;Motel One*3
+Харьков|Sofitel*5;Rixos*5;Shangri-La*5;Four Points*4;Crowne Plaza*4;Scandic*4;DoubleTree by Hilton*4;Travelodge*3;Holiday Inn Express*3
+Днепр|Rosewood*5;Mandarin Oriental*5;W Hotel*5;DoubleTree by Hilton*4;AC Hotel*4;Park Inn*4;NH Hotel*4;Ibis*3;Premier Inn*3
+Караганда|Radisson Collection*5;Hyatt Regency*5;Pullman*5;AC Hotel*4;Ramada*4;Hyatt Place*4;Wyndham Garden*4;Days Inn*3;citizenM*3
+Шымкент|Hyatt Regency*5;Marriott*5;Waldorf Astoria*5;Four Points*4;Park Inn*4;Vienna House*4;Ramada*4;Ibis Styles*3;Travelodge*3
+Актау|St. Regis*5;Raffles*5;Swissôtel*5;Radisson Blu*4;NH Hotel*4;Novotel*4;Courtyard Marriott*4;Comfort Inn*3;Ibis Styles*3
+Атырау|Waldorf Astoria*5;Hyatt Regency*5;Sofitel*5;Vienna House*4;Crowne Plaza*4;Mercure*4;Radisson Blu*4;Holiday Inn Express*3;Ibis*3
+Бухара|Grand Hyatt*5;Mandarin Oriental*5;Sheraton Grand*5;Vienna House*4;Hyatt Place*4;Holiday Inn*4;Courtyard Marriott*4;Premier Inn*3;Holiday Inn Express*3
+Кутаиси|Shangri-La*5;Conrad*5;InterContinental*5;Park Inn*4;Crowne Plaza*4;AC Hotel*4;Tryp*4;Premier Inn*3;Ibis*3
+Гянджа|Rosewood*5;Le Méridien*5;Rixos*5;Tryp*4;Azimut*4;Golden Tulip*4;DoubleTree by Hilton*4;Ibis Styles*3;Travelodge*3
+Габала|Grand Hyatt*5;Four Seasons*5;St. Regis*5;Courtyard Marriott*4;NH Hotel*4;Tryp*4;Novotel*4;Premier Inn*3;Ibis*3
+Ош|Park Hyatt*5;Grand Hyatt*5;Hilton*5;Azimut*4;Four Points*4;Radisson Blu*4;Novotel*4;citizenM*3;Ibis Styles*3
+Худжанд|Rixos*5;Waldorf Astoria*5;JW Marriott*5;Ramada*4;Best Western Plus*4;Vienna House*4;Golden Tulip*4;Hampton by Hilton*3;citizenM*3
+Ашхабад|JW Marriott*5;Ritz-Carlton*5;Radisson Collection*5;Ramada*4;Park Inn*4;Mercure*4;Vienna House*4;Travelodge*3;citizenM*3
+Улан-Батор|Sheraton Grand*5;Swissôtel*5;Hyatt Regency*5;Wyndham Garden*4;Ramada*4;Best Western Plus*4;DoubleTree by Hilton*4;Hampton by Hilton*3;Holiday Inn Express*3
+Сиде|InterContinental*5;Mandarin Oriental*5;Sofitel*5;Four Points*4;Golden Tulip*4;Holiday Inn*4;Mercure*4;Hampton by Hilton*3;Travelodge*3
+Аланья|Mandarin Oriental*5;Swissôtel*5;Radisson Collection*5;Four Points*4;Ramada*4;Wyndham Garden*4;Holiday Inn*4;Ibis*3;Premier Inn*3
+Мармарис|W Hotel*5;Park Hyatt*5;Hyatt Regency*5;Vienna House*4;Radisson Blu*4;Tryp*4;Scandic*4;Holiday Inn Express*3;Premier Inn*3
+Фетхие|Rixos*5;Swissôtel*5;InterContinental*5;Golden Tulip*4;Holiday Inn*4;Scandic*4;NH Hotel*4;Travelodge*3;Comfort Inn*3
+Каппадокия|Marriott*5;Mandarin Oriental*5;Le Méridien*5;Novotel*4;Mercure*4;Hyatt Place*4;Tryp*4;Premier Inn*3;Ibis Styles*3
+Трабзон|Kempinski*5;Grand Hyatt*5;Park Hyatt*5;Radisson Blu*4;Holiday Inn*4;DoubleTree by Hilton*4;Hyatt Place*4;Hampton by Hilton*3;citizenM*3
+Газиантеп|Conrad*5;Park Hyatt*5;Rixos*5;Golden Tulip*4;Mercure*4;Holiday Inn*4;Ramada*4;Holiday Inn Express*3;Days Inn*3
+Конья|InterContinental*5;Marriott*5;Swissôtel*5;Wyndham Garden*4;Vienna House*4;Tryp*4;Courtyard Marriott*4;Motel One*3;Holiday Inn Express*3
+Бурса|Mandarin Oriental*5;Grand Hyatt*5;Marriott*5;Vienna House*4;Mercure*4;Courtyard Marriott*4;NH Hotel*4;citizenM*3;Holiday Inn Express*3
+Тулуза|Ritz-Carlton*5;InterContinental*5;Kempinski*5;Hyatt Place*4;Radisson Blu*4;Wyndham Garden*4;Novotel*4;Holiday Inn Express*3;citizenM*3
+Монпелье|Shangri-La*5;Rosewood*5;Marriott*5;Golden Tulip*4;DoubleTree by Hilton*4;Vienna House*4;Crowne Plaza*4;Comfort Inn*3;Super 8*3
+Турин|Rosewood*5;Kempinski*5;W Hotel*5;Tryp*4;Wyndham Garden*4;Park Inn*4;Golden Tulip*4;B&B Hotel*3;Hampton by Hilton*3
+Болонья|Swissôtel*5;Rosewood*5;Grand Hyatt*5;Wyndham Garden*4;Four Points*4;AC Hotel*4;NH Hotel*4;Holiday Inn Express*3;citizenM*3
+Генуя|InterContinental*5;W Hotel*5;Raffles*5;Scandic*4;DoubleTree by Hilton*4;Golden Tulip*4;NH Hotel*4;Days Inn*3;Ibis Styles*3
+Верона|Pullman*5;Swissôtel*5;Ritz-Carlton*5;Vienna House*4;Hyatt Place*4;AC Hotel*4;Courtyard Marriott*4;B&B Hotel*3;Travelodge*3
+Палермо|Pullman*5;JW Marriott*5;Swissôtel*5;Novotel*4;Hyatt Place*4;Scandic*4;Park Inn*4;B&B Hotel*3;Comfort Inn*3
+Катания|Pullman*5;Raffles*5;Fairmont*5;Mercure*4;Radisson Blu*4;Golden Tulip*4;Hyatt Place*4;Days Inn*3;B&B Hotel*3
+Бари|Four Seasons*5;Pullman*5;Park Hyatt*5;Novotel*4;Park Inn*4;AC Hotel*4;Wyndham Garden*4;Ibis*3;Ibis Styles*3
+Римини|Shangri-La*5;Rixos*5;Four Seasons*5;Ramada*4;Tryp*4;Scandic*4;Mercure*4;Motel One*3;Hampton by Hilton*3
+Пиза|Pullman*5;Sheraton Grand*5;St. Regis*5;Best Western Plus*4;Vienna House*4;AC Hotel*4;Mercure*4;Ibis Styles*3;B&B Hotel*3
+Сиена|Le Méridien*5;Park Hyatt*5;Sofitel*5;Golden Tulip*4;Four Points*4;Tryp*4;Azimut*4;Hampton by Hilton*3;Days Inn*3
+Аликанте|Waldorf Astoria*5;Hilton*5;Fairmont*5;NH Hotel*4;Crowne Plaza*4;Ramada*4;Park Inn*4;Motel One*3;Holiday Inn Express*3
+Бильбао|St. Regis*5;Le Méridien*5;Sofitel*5;Ramada*4;Mercure*4;Novotel*4;Four Points*4;Days Inn*3;citizenM*3;Mandarin Oriental*5;Ritz-Carlton*5;AC Hotel*4;DoubleTree by Hilton*4;Vienna House*4;Holiday Inn*4;Premier Inn*3;Motel One*3
+Гранада|Le Méridien*5;Rixos*5;Pullman*5;Azimut*4;Scandic*4;Radisson Blu*4;DoubleTree by Hilton*4;Ibis Styles*3;Motel One*3
+Ганновер|Shangri-La*5;Hilton*5;Grand Hyatt*5;Novotel*4;Park Inn*4;Courtyard Marriott*4;Golden Tulip*4;citizenM*3;Ibis*3
+Нюрнберг|Ritz-Carlton*5;Sofitel*5;W Hotel*5;Tryp*4;NH Hotel*4;Wyndham Garden*4;Mercure*4;citizenM*3;Ibis Styles*3
+Лейпциг|Shangri-La*5;Waldorf Astoria*5;Sheraton Grand*5;Hyatt Place*4;Radisson Blu*4;Mercure*4;Courtyard Marriott*4;Super 8*3;Travelodge*3
+Бремен|Four Seasons*5;Le Méridien*5;Radisson Collection*5;Four Points*4;Ramada*4;NH Hotel*4;Holiday Inn*4;Comfort Inn*3;citizenM*3
+Эссен|InterContinental*5;Kempinski*5;Conrad*5;Scandic*4;Radisson Blu*4;Golden Tulip*4;Mercure*4;citizenM*3;Motel One*3
+Дортмунд|Sheraton Grand*5;Pullman*5;W Hotel*5;Best Western Plus*4;Holiday Inn*4;Azimut*4;Ramada*4;B&B Hotel*3;Ibis Styles*3
+Грац|Kempinski*5;Ritz-Carlton*5;Sheraton Grand*5;Radisson Blu*4;Holiday Inn*4;DoubleTree by Hilton*4;Mercure*4;Comfort Inn*3;Holiday Inn Express*3
+Линц|Grand Hyatt*5;W Hotel*5;Shangri-La*5;Tryp*4;Golden Tulip*4;Park Inn*4;Mercure*4;Super 8*3;Ibis*3
+Пльзень|Fairmont*5;Four Seasons*5;Kempinski*5;Courtyard Marriott*4;Hyatt Place*4;Holiday Inn*4;Park Inn*4;Ibis*3;Travelodge*3
+Острава|Mandarin Oriental*5;Ritz-Carlton*5;Shangri-La*5;Wyndham Garden*4;Azimut*4;Crowne Plaza*4;Best Western Plus*4;B&B Hotel*3;Comfort Inn*3
+Вроцлав|Park Hyatt*5;InterContinental*5;Four Seasons*5;Tryp*4;Hyatt Place*4;Scandic*4;Novotel*4;Premier Inn*3;Ibis Styles*3
+Познань|Marriott*5;JW Marriott*5;Fairmont*5;Azimut*4;Courtyard Marriott*4;Holiday Inn*4;Ramada*4;Super 8*3;B&B Hotel*3
+Лодзь|Raffles*5;Conrad*5;Pullman*5;Courtyard Marriott*4;Golden Tulip*4;NH Hotel*4;Novotel*4;Hampton by Hilton*3;Travelodge*3
+Дебрецен|Raffles*5;Kempinski*5;Marriott*5;Scandic*4;Holiday Inn*4;Park Inn*4;Mercure*4;Ibis Styles*3;Motel One*3
+Констанца|Fairmont*5;Waldorf Astoria*5;Hyatt Regency*5;Best Western Plus*4;Holiday Inn*4;Wyndham Garden*4;Azimut*4;citizenM*3;Hampton by Hilton*3
+Брашов|Rosewood*5;Ritz-Carlton*5;Kempinski*5;NH Hotel*4;Radisson Blu*4;Wyndham Garden*4;Hyatt Place*4;Days Inn*3;Travelodge*3
+Варна|Fairmont*5;Swissôtel*5;JW Marriott*5;Four Points*4;Scandic*4;Radisson Blu*4;Ramada*4;Motel One*3;Hampton by Hilton*3
+Бургас|Marriott*5;Rosewood*5;Pullman*5;Wyndham Garden*4;Best Western Plus*4;Holiday Inn*4;NH Hotel*4;Hampton by Hilton*3;Comfort Inn*3
+Пловдив|Radisson Collection*5;Mandarin Oriental*5;W Hotel*5;Tryp*4;Golden Tulip*4;Scandic*4;Novotel*4;Premier Inn*3;citizenM*3
+Нови-Сад|Radisson Collection*5;Kempinski*5;Shangri-La*5;Radisson Blu*4;Scandic*4;Ramada*4;Tryp*4;Motel One*3;Hampton by Hilton*3
+Задар|W Hotel*5;Kempinski*5;Grand Hyatt*5;Novotel*4;Crowne Plaza*4;Golden Tulip*4;Four Points*4;Ibis*3;Motel One*3
+Риека|Radisson Collection*5;Raffles*5;Conrad*5;Four Points*4;Hyatt Place*4;Golden Tulip*4;DoubleTree by Hilton*4;Days Inn*3;B&B Hotel*3
+Фару|Sheraton Grand*5;W Hotel*5;Fairmont*5;Tryp*4;Novotel*4;NH Hotel*4;Vienna House*4;Premier Inn*3;Ibis*3
+Мальме|Park Hyatt*5;Hyatt Regency*5;Raffles*5;AC Hotel*4;Four Points*4;Novotel*4;Vienna House*4;Premier Inn*3;Days Inn*3
+Гётеборг|JW Marriott*5;Park Hyatt*5;Rixos*5;NH Hotel*4;Ramada*4;Holiday Inn*4;DoubleTree by Hilton*4;Ibis*3;Ibis Styles*3
+Ставангер|Hilton*5;Raffles*5;Ritz-Carlton*5;NH Hotel*4;Golden Tulip*4;Holiday Inn*4;Vienna House*4;Super 8*3;citizenM*3
+Тампере|Conrad*5;Rixos*5;Waldorf Astoria*5;Hyatt Place*4;Golden Tulip*4;Novotel*4;Wyndham Garden*4;Comfort Inn*3;Motel One*3
+Турку|Rosewood*5;Sheraton Grand*5;Hyatt Regency*5;Ramada*4;AC Hotel*4;Azimut*4;Golden Tulip*4;Holiday Inn Express*3;Days Inn*3
+Тарту|Conrad*5;Rixos*5;Fairmont*5;Best Western Plus*4;DoubleTree by Hilton*4;Tryp*4;AC Hotel*4;B&B Hotel*3;citizenM*3
+Каунас|Rosewood*5;Hilton*5;Hyatt Regency*5;Holiday Inn*4;Golden Tulip*4;Ramada*4;Hyatt Place*4;citizenM*3;Ibis*3
+Клайпеда|InterContinental*5;Le Méridien*5;Hilton*5;Mercure*4;Radisson Blu*4;AC Hotel*4;Novotel*4;Ibis Styles*3;citizenM*3
+Базель|Four Seasons*5;Raffles*5;Hyatt Regency*5;Hyatt Place*4;AC Hotel*4;Scandic*4;Radisson Blu*4;Ibis Styles*3;Premier Inn*3
+Берн|Ritz-Carlton*5;Hilton*5;Rosewood*5;DoubleTree by Hilton*4;AC Hotel*4;Park Inn*4;Mercure*4;Days Inn*3;Holiday Inn Express*3
+Лугано|Hilton*5;Swissôtel*5;Conrad*5;Mercure*4;Wyndham Garden*4;NH Hotel*4;Ramada*4;Travelodge*3;Ibis*3
+Лозанна|Hyatt Regency*5;InterContinental*5;Ritz-Carlton*5;Ramada*4;NH Hotel*4;Tryp*4;Park Inn*4;Ibis*3;Super 8*3
+Корк|Hyatt Regency*5;Sofitel*5;Kempinski*5;Tryp*4;DoubleTree by Hilton*4;Park Inn*4;Azimut*4;Ibis Styles*3;Holiday Inn Express*3
+Голуэй|St. Regis*5;Le Méridien*5;Swissôtel*5;Four Points*4;Holiday Inn*4;NH Hotel*4;Wyndham Garden*4;Super 8*3;Travelodge*3
+Белфаст|InterContinental*5;Kempinski*5;JW Marriott*5;Vienna House*4;Four Points*4;Park Inn*4;Wyndham Garden*4;B&B Hotel*3;Travelodge*3
+Глазго|Raffles*5;W Hotel*5;Rixos*5;Ramada*4;NH Hotel*4;Novotel*4;Tryp*4;Motel One*3;Premier Inn*3
+Бирмингем|Four Seasons*5;Pullman*5;Rixos*5;Mercure*4;Wyndham Garden*4;NH Hotel*4;Four Points*4;Hampton by Hilton*3;citizenM*3
+Лидс|W Hotel*5;Swissôtel*5;Fairmont*5;Vienna House*4;Wyndham Garden*4;Radisson Blu*4;Scandic*4;Travelodge*3;Super 8*3
+Ливерпуль|InterContinental*5;Raffles*5;Pullman*5;Holiday Inn*4;Radisson Blu*4;Courtyard Marriott*4;Ramada*4;Travelodge*3;citizenM*3
+Бристоль|W Hotel*5;Kempinski*5;Sheraton Grand*5;AC Hotel*4;NH Hotel*4;Mercure*4;Tryp*4;Travelodge*3;citizenM*3
+Ньюкасл|Mandarin Oriental*5;W Hotel*5;St. Regis*5;Novotel*4;Crowne Plaza*4;Scandic*4;Courtyard Marriott*4;B&B Hotel*3;Travelodge*3
+Ираклион|Kempinski*5;Raffles*5;Radisson Collection*5;AC Hotel*4;Tryp*4;Mercure*4;DoubleTree by Hilton*4;Ibis Styles*3;B&B Hotel*3
+Патры|W Hotel*5;Sheraton Grand*5;St. Regis*5;DoubleTree by Hilton*4;Park Inn*4;Holiday Inn*4;Ramada*4;Holiday Inn Express*3;Ibis*3
+Шарджа|Hyatt Regency*5;Four Seasons*5;Marriott*5;Crowne Plaza*4;Holiday Inn*4;Novotel*4;DoubleTree by Hilton*4;B&B Hotel*3;Days Inn*3
+Александрия|Four Seasons*5;St. Regis*5;Ritz-Carlton*5;Vienna House*4;Azimut*4;AC Hotel*4;Golden Tulip*4;Premier Inn*3;Holiday Inn Express*3
+Хайфа|Raffles*5;Pullman*5;Rosewood*5;DoubleTree by Hilton*4;Holiday Inn*4;Four Points*4;Novotel*4;B&B Hotel*3;Days Inn*3
+Инчхон|Grand Hyatt*5;W Hotel*5;Rixos*5;Scandic*4;Best Western Plus*4;Crowne Plaza*4;Azimut*4;Comfort Inn*3;Travelodge*3
+Тэгу|St. Regis*5;JW Marriott*5;Ritz-Carlton*5;Hyatt Place*4;NH Hotel*4;Mercure*4;Novotel*4;Hampton by Hilton*3;citizenM*3
+Чеджу|Ritz-Carlton*5;Kempinski*5;Rixos*5;Tryp*4;Scandic*4;NH Hotel*4;AC Hotel*4;Days Inn*3;Holiday Inn Express*3
+Циндао|Grand Hyatt*5;JW Marriott*5;Rixos*5;Vienna House*4;Courtyard Marriott*4;Mercure*4;Park Inn*4;Motel One*3;Super 8*3
+Далянь|Sofitel*5;InterContinental*5;Radisson Collection*5;Courtyard Marriott*4;DoubleTree by Hilton*4;Scandic*4;Golden Tulip*4;Motel One*3;Ibis Styles*3
+Ханчжоу|W Hotel*5;St. Regis*5;Marriott*5;Best Western Plus*4;Vienna House*4;Park Inn*4;Ramada*4;B&B Hotel*3;Days Inn*3
+Сучжоу|Shangri-La*5;Raffles*5;Park Hyatt*5;Park Inn*4;Scandic*4;Hyatt Place*4;Radisson Blu*4;Holiday Inn Express*3;Days Inn*3
+Сиань|Four Seasons*5;Kempinski*5;Pullman*5;Tryp*4;Park Inn*4;Holiday Inn*4;Golden Tulip*4;Comfort Inn*3;Premier Inn*3
+Чэнду|Waldorf Astoria*5;Shangri-La*5;Fairmont*5;Novotel*4;Park Inn*4;DoubleTree by Hilton*4;Vienna House*4;Travelodge*3;Comfort Inn*3
+Чунцин|Waldorf Astoria*5;W Hotel*5;Shangri-La*5;Holiday Inn*4;Scandic*4;AC Hotel*4;Golden Tulip*4;Super 8*3;Ibis*3
+Ухань|St. Regis*5;Ritz-Carlton*5;Hilton*5;Novotel*4;Golden Tulip*4;Park Inn*4;Hyatt Place*4;Travelodge*3;Days Inn*3
+Куньмин|W Hotel*5;Swissôtel*5;Rosewood*5;Crowne Plaza*4;Holiday Inn*4;Azimut*4;DoubleTree by Hilton*4;Days Inn*3;Ibis*3
+Харбин|Kempinski*5;Grand Hyatt*5;W Hotel*5;Holiday Inn*4;Tryp*4;Vienna House*4;Mercure*4;citizenM*3;Ibis Styles*3
+Джохор-Бару|Mandarin Oriental*5;Grand Hyatt*5;W Hotel*5;Vienna House*4;Crowne Plaza*4;Radisson Blu*4;Azimut*4;Ibis Styles*3;citizenM*3
+Сурабая|Swissôtel*5;Pullman*5;Marriott*5;Vienna House*4;Best Western Plus*4;AC Hotel*4;Ramada*4;Ibis*3;Days Inn*3
+Медан|W Hotel*5;Conrad*5;Sofitel*5;Wyndham Garden*4;NH Hotel*4;Best Western Plus*4;Azimut*4;Hampton by Hilton*3;Ibis*3
+Богор|Fairmont*5;Le Méridien*5;Shangri-La*5;Hyatt Place*4;Four Points*4;DoubleTree by Hilton*4;Tryp*4;Motel One*3;Ibis*3
+Бандунг|W Hotel*5;Park Hyatt*5;Hyatt Regency*5;Azimut*4;Vienna House*4;Courtyard Marriott*4;NH Hotel*4;Ibis Styles*3;B&B Hotel*3
+Давао|Rosewood*5;Sheraton Grand*5;Kempinski*5;Park Inn*4;Scandic*4;Hyatt Place*4;Tryp*4;Days Inn*3;B&B Hotel*3
+Илоило|Hyatt Regency*5;Mandarin Oriental*5;St. Regis*5;Mercure*4;Scandic*4;AC Hotel*4;Radisson Blu*4;Days Inn*3;Holiday Inn Express*3
+Хайфон|Fairmont*5;Park Hyatt*5;Raffles*5;Best Western Plus*4;Courtyard Marriott*4;Ramada*4;Crowne Plaza*4;B&B Hotel*3;Days Inn*3
+Хюэ|Sofitel*5;Hyatt Regency*5;JW Marriott*5;Holiday Inn*4;Novotel*4;Tryp*4;DoubleTree by Hilton*4;B&B Hotel*3;Holiday Inn Express*3
+Кантхо|Park Hyatt*5;Grand Hyatt*5;St. Regis*5;Radisson Blu*4;Tryp*4;Crowne Plaza*4;Holiday Inn*4;citizenM*3;B&B Hotel*3
+Пуна|Grand Hyatt*5;Rosewood*5;Four Seasons*5;NH Hotel*4;Mercure*4;Golden Tulip*4;Crowne Plaza*4;Premier Inn*3;Ibis Styles*3
+Хайдарабад|St. Regis*5;W Hotel*5;Four Seasons*5;Golden Tulip*4;Hyatt Place*4;Scandic*4;Holiday Inn*4;Ibis*3;Comfort Inn*3
+Ахмадабад|Grand Hyatt*5;Le Méridien*5;Sofitel*5;NH Hotel*4;Best Western Plus*4;Holiday Inn*4;Radisson Blu*4;Premier Inn*3;Holiday Inn Express*3
+Кочин|Conrad*5;Grand Hyatt*5;Rosewood*5;Park Inn*4;Ramada*4;Golden Tulip*4;Best Western Plus*4;Super 8*3;Hampton by Hilton*3
+Канди|Le Méridien*5;Pullman*5;Hyatt Regency*5;Holiday Inn*4;Vienna House*4;Radisson Blu*4;DoubleTree by Hilton*4;Hampton by Hilton*3;Comfort Inn*3
+Порт-Луи|Rosewood*5;InterContinental*5;Park Hyatt*5;Radisson Blu*4;Four Points*4;Tryp*4;Best Western Plus*4;Premier Inn*3;Hampton by Hilton*3
+Виктория|Pullman*5;Hyatt Regency*5;Kempinski*5;Vienna House*4;Courtyard Marriott*4;Park Inn*4;Azimut*4;B&B Hotel*3;citizenM*3
+Денвер|Conrad*5;Raffles*5;St. Regis*5;DoubleTree by Hilton*4;NH Hotel*4;Scandic*4;Courtyard Marriott*4;Super 8*3;Holiday Inn Express*3
+Атланта|Pullman*5;Sheraton Grand*5;Mandarin Oriental*5;AC Hotel*4;Park Inn*4;Hyatt Place*4;Ramada*4;Ibis Styles*3;Super 8*3
+Даллас|Hyatt Regency*5;Hilton*5;Le Méridien*5;Holiday Inn*4;NH Hotel*4;Best Western Plus*4;Park Inn*4;Motel One*3;B&B Hotel*3
+Хьюстон|Ritz-Carlton*5;Waldorf Astoria*5;Pullman*5;Tryp*4;Golden Tulip*4;Hyatt Place*4;Holiday Inn*4;Ibis*3;Ibis Styles*3
+Финикс|Kempinski*5;Mandarin Oriental*5;Rixos*5;Azimut*4;AC Hotel*4;Novotel*4;Ramada*4;B&B Hotel*3;Super 8*3
+Филадельфия|Rosewood*5;Le Méridien*5;Conrad*5;Golden Tulip*4;Mercure*4;Four Points*4;Best Western Plus*4;B&B Hotel*3;citizenM*3
+Детройт|Shangri-La*5;Park Hyatt*5;Hyatt Regency*5;Azimut*4;Tryp*4;Courtyard Marriott*4;Crowne Plaza*4;citizenM*3;Days Inn*3
+Миннеаполис|Mandarin Oriental*5;Grand Hyatt*5;W Hotel*5;Courtyard Marriott*4;Four Points*4;Radisson Blu*4;DoubleTree by Hilton*4;Premier Inn*3;Comfort Inn*3
+Портленд|Grand Hyatt*5;Sofitel*5;Conrad*5;Tryp*4;NH Hotel*4;Azimut*4;Radisson Blu*4;B&B Hotel*3;Days Inn*3
+Орландо|Four Seasons*5;Le Méridien*5;Park Hyatt*5;Golden Tulip*4;Courtyard Marriott*4;DoubleTree by Hilton*4;Four Points*4;Travelodge*3;Premier Inn*3
+Тампа|Rixos*5;Sheraton Grand*5;Marriott*5;Azimut*4;Tryp*4;Wyndham Garden*4;Radisson Blu*4;Holiday Inn Express*3;Ibis*3
+Новый|Grand Hyatt*5;Radisson Collection*5;Sofitel*5;Courtyard Marriott*4;Wyndham Garden*4;Crowne Plaza*4;Tryp*4;Holiday Inn Express*3;Comfort Inn*3
+Орлеан|Raffles*5;Shangri-La*5;Pullman*5;Azimut*4;Golden Tulip*4;Courtyard Marriott*4;Tryp*4;Premier Inn*3;Ibis*3
+Нэшвилл|Le Méridien*5;W Hotel*5;JW Marriott*5;Radisson Blu*4;Holiday Inn*4;Azimut*4;Vienna House*4;Motel One*3;Days Inn*3
+Остин|Radisson Collection*5;Swissôtel*5;Raffles*5;DoubleTree by Hilton*4;Best Western Plus*4;Golden Tulip*4;Four Points*4;Days Inn*3;Hampton by Hilton*3
+Солт-Лейк-Сити|Rosewood*5;Waldorf Astoria*5;Raffles*5;AC Hotel*4;Azimut*4;Hyatt Place*4;Novotel*4;Hampton by Hilton*3;Days Inn*3
+Калгари|JW Marriott*5;Pullman*5;Grand Hyatt*5;Hyatt Place*4;Wyndham Garden*4;DoubleTree by Hilton*4;Azimut*4;Comfort Inn*3;Hampton by Hilton*3
+Оттава|Pullman*5;St. Regis*5;Hyatt Regency*5;DoubleTree by Hilton*4;Best Western Plus*4;Ramada*4;Radisson Blu*4;Ibis*3;B&B Hotel*3
+Виннипег|Ritz-Carlton*5;Fairmont*5;Radisson Collection*5;Vienna House*4;Wyndham Garden*4;Four Points*4;Golden Tulip*4;Comfort Inn*3;Holiday Inn Express*3
+Гвадалахара|Park Hyatt*5;Four Seasons*5;Sheraton Grand*5;Scandic*4;Tryp*4;Vienna House*4;Mercure*4;Travelodge*3;Ibis Styles*3
+Монтеррей|Kempinski*5;Swissôtel*5;InterContinental*5;Vienna House*4;Novotel*4;Radisson Blu*4;Golden Tulip*4;Hampton by Hilton*3;citizenM*3
+Пуэбла|St. Regis*5;Sofitel*5;Rixos*5;Crowne Plaza*4;Mercure*4;Scandic*4;Golden Tulip*4;Holiday Inn Express*3;Super 8*3
+Тихуана|St. Regis*5;Conrad*5;Ritz-Carlton*5;Wyndham Garden*4;Ramada*4;DoubleTree by Hilton*4;Radisson Blu*4;Hampton by Hilton*3;Super 8*3
+Медельин|Mandarin Oriental*5;Le Méridien*5;St. Regis*5;Park Inn*4;Radisson Blu*4;NH Hotel*4;Golden Tulip*4;Travelodge*3;Ibis Styles*3
+Гуаякиль|Raffles*5;Swissôtel*5;Conrad*5;Holiday Inn*4;Radisson Blu*4;Best Western Plus*4;Four Points*4;Ibis*3;Super 8*3
+Ла-Пас|Sofitel*5;Rixos*5;Kempinski*5;Scandic*4;Radisson Blu*4;Best Western Plus*4;Tryp*4;Premier Inn*3;Hampton by Hilton*3
+Асунсьон|JW Marriott*5;Marriott*5;Rosewood*5;Golden Tulip*4;Wyndham Garden*4;Ramada*4;Hyatt Place*4;Ibis Styles*3;Ibis*3
+Кордова|Fairmont*5;Swissôtel*5;Four Seasons*5;Golden Tulip*4;Tryp*4;Hyatt Place*4;Scandic*4;Ibis Styles*3;Motel One*3
+Росарио|Rosewood*5;Four Seasons*5;Ritz-Carlton*5;NH Hotel*4;Azimut*4;DoubleTree by Hilton*4;Courtyard Marriott*4;Hampton by Hilton*3;Ibis*3
+Бразилиа|Rixos*5;Le Méridien*5;Rosewood*5;Novotel*4;Azimut*4;Vienna House*4;Tryp*4;B&B Hotel*3;Travelodge*3
+Салвадор|Sheraton Grand*5;Grand Hyatt*5;Ritz-Carlton*5;Best Western Plus*4;Courtyard Marriott*4;Scandic*4;Hyatt Place*4;Ibis Styles*3;citizenM*3
+Форталеза|JW Marriott*5;Radisson Collection*5;Shangri-La*5;Four Points*4;Scandic*4;Crowne Plaza*4;NH Hotel*4;B&B Hotel*3;Travelodge*3
+Ресифи|Raffles*5;Sheraton Grand*5;Four Seasons*5;Azimut*4;AC Hotel*4;Tryp*4;Mercure*4;Comfort Inn*3;B&B Hotel*3
+Куритиба|Park Hyatt*5;JW Marriott*5;Ritz-Carlton*5;Tryp*4;DoubleTree by Hilton*4;Park Inn*4;Crowne Plaza*4;B&B Hotel*3;Ibis Styles*3
+Порту-Алегри|Marriott*5;Pullman*5;Sofitel*5;Best Western Plus*4;Novotel*4;Golden Tulip*4;Ramada*4;Super 8*3;Premier Inn*3
+Аделаида|Hilton*5;Radisson Collection*5;Shangri-La*5;Radisson Blu*4;Best Western Plus*4;Wyndham Garden*4;Mercure*4;Comfort Inn*3;Travelodge*3
+Канберра|Mandarin Oriental*5;Four Seasons*5;Fairmont*5;Hyatt Place*4;Ramada*4;Golden Tulip*4;DoubleTree by Hilton*4;Ibis Styles*3;Comfort Inn*3
+Дарвин|Sofitel*5;Ritz-Carlton*5;Marriott*5;Four Points*4;Ramada*4;Tryp*4;Holiday Inn*4;B&B Hotel*3;Days Inn*3
+Претория|Grand Hyatt*5;InterContinental*5;Marriott*5;Courtyard Marriott*4;Mercure*4;Best Western Plus*4;Golden Tulip*4;Comfort Inn*3;Days Inn*3
+Дар-эс-Салам|Four Seasons*5;Raffles*5;Swissôtel*5;Wyndham Garden*4;Holiday Inn*4;Golden Tulip*4;Best Western Plus*4;citizenM*3;Ibis*3
+Аддис-Абеба|Pullman*5;Mandarin Oriental*5;Radisson Collection*5;Scandic*4;Azimut*4;Wyndham Garden*4;Holiday Inn*4;Holiday Inn Express*3;B&B Hotel*3
+Аккра|Fairmont*5;Swissôtel*5;W Hotel*5;Courtyard Marriott*4;DoubleTree by Hilton*4;Novotel*4;Scandic*4;Hampton by Hilton*3;Super 8*3
+Абиджан|Park Hyatt*5;InterContinental*5;Kempinski*5;Tryp*4;Crowne Plaza*4;Novotel*4;DoubleTree by Hilton*4;Super 8*3;Motel One*3
+Дакар|Rosewood*5;Grand Hyatt*5;Hyatt Regency*5;Radisson Blu*4;Golden Tulip*4;Azimut*4;Vienna House*4;Days Inn*3;Ibis*3
+Алжир|Swissôtel*5;W Hotel*5;Four Seasons*5;Wyndham Garden*4;Hyatt Place*4;Radisson Blu*4;Azimut*4;B&B Hotel*3;Ibis*3
+Рабат|Rosewood*5;Pullman*5;Grand Hyatt*5;Azimut*4;Vienna House*4;Tryp*4;Mercure*4;Ibis*3;Days Inn*3
+Сусс|Mandarin Oriental*5;Rosewood*5;Sheraton Grand*5;Best Western Plus*4;Vienna House*4;Mercure*4;Golden Tulip*4;Comfort Inn*3;Days Inn*3
+Джерба|Kempinski*5;Hilton*5;Sofitel*5;Golden Tulip*4;Hyatt Place*4;Four Points*4;Park Inn*4;Super 8*3;Travelodge*3
