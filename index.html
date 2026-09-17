@@ -78,72 +78,6 @@
 </script>
 <script>
 "use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
-"use strict";
 const { useState, useEffect, useMemo, useRef, useCallback } = React;
 /* ================================================================== */
 /*  Справочник стран: A2 | A3 | название | континент | шир. | долг.    */
@@ -1296,7 +1230,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "17.3";
+const APP_VERSION = "17.4";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -2606,7 +2540,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
             const vh = ((_e = window.visualViewport) === null || _e === void 0 ? void 0 : _e.height) || window.innerHeight || 640;
             // в горизонтальном положении экран низкий — ограничиваем по высоте
             const land = window.matchMedia("(orientation:landscape) and (max-height:600px)").matches;
-            const roomH = Math.round(vh - (land ? 120 : 250));
+            const roomH = Math.round(vh - (land ? 165 : 250));
             if (w > 140) {
                 setSize(Math.max(200, Math.min(w - 16, 560, Math.max(200, roomH))));
             }
@@ -8160,8 +8094,9 @@ body > div{max-width:100%;}
   .top{margin-bottom:8px; padding-left:2px;}
   .brand{font-size:1.2rem;}
 
-  .cols{flex-direction:row; align-items:flex-start; gap:14px;}
-  .col-map{flex:0 0 50%; min-width:0;}
+  .cols{display:flex; flex-direction:row; align-items:flex-start; gap:14px;}
+  /* глобус слева и не уезжает при прокрутке карточек справа */
+  .col-map{flex:0 0 50%; min-width:0; position:sticky; top:0; align-self:flex-start;}
   .col-side{flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:10px;}
   .foot{display:none;}
 
@@ -8201,7 +8136,7 @@ body > div{max-width:100%;}
   .pad{max-width:210px; gap:7px;}
   .key{max-height:48px; border-radius:12px; font-size:1.05rem;}
   .flip-in{height:230px;}
-  .globe-controls{padding:2px 0 6px;}
+  .globe-controls{padding:2px 10px 10px;}
 }
 
 `;
