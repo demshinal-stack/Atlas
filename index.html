@@ -1230,7 +1230,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "17.4";
+const APP_VERSION = "17.5";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -2540,7 +2540,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
             const vh = ((_e = window.visualViewport) === null || _e === void 0 ? void 0 : _e.height) || window.innerHeight || 640;
             // в горизонтальном положении экран низкий — ограничиваем по высоте
             const land = window.matchMedia("(orientation:landscape) and (max-height:600px)").matches;
-            const roomH = Math.round(vh - (land ? 165 : 250));
+            const roomH = Math.round(vh - (land ? 118 : 205));
             if (w > 140) {
                 setSize(Math.max(200, Math.min(w - 16, 560, Math.max(200, roomH))));
             }
@@ -7148,10 +7148,6 @@ function Atlas() {
                 React.createElement("div", { className: "brand" }, "\u0410\u0442\u043B\u0430\u0441")),
             React.createElement("div", { className: "cols" },
                 React.createElement("div", { className: "col-map" },
-                    React.createElement("button", { className: "filter-chip", onClick: openFilters },
-                        React.createElement("svg", { viewBox: "0 0 24 24", width: "15", height: "15" },
-                            React.createElement("path", { d: "M4 7h16M7 12h10M10 17h4", fill: "none", stroke: "currentColor", strokeWidth: "1.9", strokeLinecap: "round" })),
-                        yearFilter === "all" ? "Все годы" : yearFilter),
                     React.createElement(Globe, { geo: geo, isOn: isOn, onPick: (a3) => {
                             setSelected(BY_A3[a3] ? a3 : null);
                             setEditId(null);
