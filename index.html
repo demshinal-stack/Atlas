@@ -139,6 +139,7 @@ BN|BRN|Бруней|AS|4.5|114.7
 KH|KHM|Камбоджа|AS|12.6|104.9
 CN|CHN|Китай|AS|35.0|103.0
 GE|GEO|Грузия|AS|42.0|43.5
+AB|ABH|Абхазия|AS|43.05|41.0
 HK|HKG|Гонконг|AS|22.32|114.17
 MO|MAC|Макао|AS|22.19|113.55
 IN|IND|Индия|AS|22.0|79.0
@@ -289,7 +290,7 @@ VU|VUT|Вануату|OC|-16.3|167.5
 /* справочники живут отдельно: на сервере, а по желанию — на устройстве */
 const K_BOOKS = "atlas:books";
 /* версия справочников: меняется, когда данные обновились на сервере */
-const BOOKS_VER = 6;
+const BOOKS_VER = 9;
 const BOOKS = [
     { id: "cities", file: "cities.txt", title: "Города" },
     { id: "regions", file: "regions.txt", title: "Регионы" },
@@ -484,7 +485,11 @@ const MONTHS = [
     "январь", "февраль", "март", "апрель", "май", "июнь",
     "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь",
 ];
+/* у Абхазии нет эмодзи-флага: буквы AB дали бы пустые квадраты */
+const FLAG_EMOJI = { AB: "🏳️" };
 const flag = (a2) => {
+    if (FLAG_EMOJI[a2])
+        return FLAG_EMOJI[a2];
     try {
         return String.fromCodePoint(...[...a2].map((c) => 0x1f1e6 + c.charCodeAt(0) - 65));
     }
@@ -1230,7 +1235,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "17.6";
+const APP_VERSION = "17.9";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -1362,6 +1367,29 @@ const LAND = {
         return f;
     }),
 };
+/* Абхазии нет в наборах границ — она входит в Грузию.
+   Добавляем свой контур и при отрисовке вырезаем его из Грузии. */
+const ABH_RING = [
+    [39.95, 43.4], [40.1, 43.55], [40.3, 43.6], [40.55, 43.52], [40.85, 43.48],
+    [41.1, 43.4], [41.4, 43.33], [41.62, 43.25], [41.85, 43.22], [42.12, 43.2],
+    [42.0, 42.95], [41.95, 42.8], [41.85, 42.7], [41.75, 42.58], [41.7, 42.48],
+    [41.58, 42.38], [41.42, 42.45], [41.35, 42.7], [41.15, 42.85], [40.95, 42.93],
+    [40.78, 43.05], [40.58, 43.06], [40.25, 43.12], [40.2, 43.3],
+];
+const ABH_FEATURE = (() => {
+    const f = {
+        type: "Feature",
+        id: "ABH",
+        properties: {},
+        geometry: { type: "Polygon", coordinates: [[...ABH_RING, ABH_RING[0]]] },
+    };
+    if (d3.geoArea(f) > 2 * Math.PI)
+        f.geometry.coordinates[0].reverse();
+    return f;
+})();
+const withExtraShapes = (geo) => !(geo === null || geo === void 0 ? void 0 : geo.features) || geo.features.some((f) => f.id === "ABH")
+    ? geo
+    : { ...geo, features: [...geo.features, ABH_FEATURE] };
 const GEO_SOURCES = [
     "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json",
     "https://unpkg.com/world-atlas@2/countries-110m.json",
@@ -1512,7 +1540,7 @@ const COUNTRY_R = {
     GRC: 2.6, BGR: 2.4, HUN: 2.2, PRT: 2.4, ISL: 2.6, IRL: 2.2, NZL: 4,
     KOR: 2, PRK: 2.2, LKA: 1.8, CUB: 2.2, DOM: 1.4, GTM: 1.6, HND: 1.8,
     NIC: 1.8, CRI: 1.4, PAN: 1.6, ECU: 3, URY: 2.6, GUY: 2.6, SUR: 2,
-    ARE: 1.8, KWT: 1, QAT: 0.7, ISR: 1, LBN: 0.7, JOR: 1.8, GEO: 1.6,
+    ARE: 1.8, KWT: 1, QAT: 0.7, ISR: 1, LBN: 0.7, JOR: 1.8, GEO: 1.6, ABH: 0.7,
     HKG: 0.45, MAC: 0.32, ARM: 1.1, AZE: 1.6, KGZ: 2.4, TJK: 1.8, BTN: 1.2, MDV: 1, SGP: 0.4,
     BHR: 0.4, MLT: 0.3, MCO: 0.15, SMR: 0.15, LIE: 0.2, AND: 0.3, VAT: 0.1,
     LUX: 0.5, CYP: 0.7, EST: 1.4, LVA: 1.4, LTU: 1.4, SVK: 1.4, SVN: 0.9,
@@ -1522,7 +1550,7 @@ const COUNTRY_R = {
 const countryR = (a3) => COUNTRY_R[a3] || 1.9;
 /* основной цвет флага страны */
 const FLAG_RAW = "ALB#E41E20 AND#0018A8 AUT#ED2939 BLR#D22730 BEL#FDDA24 BIH#002395 BGR#00966E HRV#FF0000 CYP#D57800 CZE#11457E DNK#C60C30 EST#0072CE FIN#003580 FRA#0055A4 DEU#DD0000 GRC#0D5EAF HUN#CD2A3E ISL#02529C IRL#169B62 ITA#008C45 XKX#244AA5 LVA#9E3039 LIE#002B7F LTU#FDB913 LUX#00A1DE MLT#CF142B MDA#0046AE MCO#CE1126 MNE#C40308 NLD#AE1C28 MKD#D20000 NOR#BA0C2F POL#DC143C PRT#046A38 ROU#002B7F RUS#0039A6 SMR#5EB6E4 SRB#C6363C SVK#0B4EA2 SVN#005DA4 ESP#C60B1E SWE#006AA7 CHE#FF0000 UKR#0057B7 GBR#012169 VAT#FFE000 " +
-    "AFG#007A36 ARM#D90012 AZE#00B5E2 BHR#CE1126 BGD#006A4E BTN#FFD520 BRN#F7E017 KHM#032EA1 CHN#EE1C25 GEO#FF0000 HKG#DE2910 MAC#00785E IND#FF9933 IDN#CE1126 IRN#239F40 IRQ#CE1126 ISR#0038B8 JPN#BC002D JOR#007A3D KAZ#00AFCA KWT#007A3D KGZ#E8112D LAO#002868 LBN#ED1C24 MYS#010066 MDV#D21034 MNG#C4272F MMR#FECB00 NPL#DC143C PRK#024FA2 OMN#C8102E PAK#01411C PSE#007A3D PHL#0038A8 QAT#8A1538 SAU#006C35 SGP#EF3340 KOR#003478 LKA#8D153A SYR#CE1126 TWN#000095 TJK#CC0000 THA#A51931 TLS#DC241F TUR#E30A17 TKM#28AE66 ARE#00732F UZB#0099B5 VNM#DA251D YEM#CE1126 " +
+    "AFG#007A36 ABH#00A551 ARM#D90012 AZE#00B5E2 BHR#CE1126 BGD#006A4E BTN#FFD520 BRN#F7E017 KHM#032EA1 CHN#EE1C25 GEO#FF0000 HKG#DE2910 MAC#00785E IND#FF9933 IDN#CE1126 IRN#239F40 IRQ#CE1126 ISR#0038B8 JPN#BC002D JOR#007A3D KAZ#00AFCA KWT#007A3D KGZ#E8112D LAO#002868 LBN#ED1C24 MYS#010066 MDV#D21034 MNG#C4272F MMR#FECB00 NPL#DC143C PRK#024FA2 OMN#C8102E PAK#01411C PSE#007A3D PHL#0038A8 QAT#8A1538 SAU#006C35 SGP#EF3340 KOR#003478 LKA#8D153A SYR#CE1126 TWN#000095 TJK#CC0000 THA#A51931 TLS#DC241F TUR#E30A17 TKM#28AE66 ARE#00732F UZB#0099B5 VNM#DA251D YEM#CE1126 " +
     "DZA#006233 AGO#CE1126 BEN#008751 BWA#6DA9D2 BFA#EF2B2D BDI#CE1126 CPV#003893 CMR#007A5E CAF#003082 TCD#002664 COM#3A75C4 COG#009543 COD#007FFF CIV#F77F00 DJI#6AB2E7 EGY#CE1126 GNQ#3E9A00 ERI#4189DD SWZ#3E5EB9 ETH#078930 GAB#009E60 GMB#CE1126 GHA#006B3F GIN#CE1126 GNB#CE1126 KEN#006600 LSO#00209F LBR#002868 LBY#239E46 MDG#FC3D32 MWI#21873B MLI#14B53A MRT#006233 MUS#EA2839 MAR#C1272D MOZ#007168 NAM#003580 NER#E05206 NGA#008751 RWA#00A1DE STP#12AD2B SEN#00853F SYC#003F87 SLE#1EB53A SOM#4189DD ZAF#007A4D SSD#078930 SDN#D21034 TZA#1EB53A TGO#006A4E TUN#E70013 UGA#FCDC04 ZMB#198A00 ZWE#319208 " +
     "ATG#CE1126 BHS#00778B BRB#00267F BLZ#003F87 CAN#FF0000 CRI#002B7F CUB#002A8F DMA#006B3F DOM#002D62 SLV#0F47AF GRD#CE1126 GTM#4997D0 HTI#00209F HND#0073CF JAM#009B3A MEX#006847 NIC#0067C6 PAN#005293 KNA#009E49 LCA#66CCFF VCT#009E60 TTO#CE1126 USA#3C3B6E " +
     "ARG#74ACDF BOL#D52B1E BRA#009C3B CHL#0039A6 COL#FCD116 ECU#FFDD00 GUY#009E49 PRY#D52B1E PER#D91023 SUR#377E3F URY#0038A8 VEN#FFCC00 " +
@@ -1533,6 +1561,7 @@ const flagColor = (a3) => FLAG_COLOR[a3] || "#e8b84b";
 const FLAG_BANDS = {
     AND: { dir: "v", colors: ["#10069F", "#FEDF00", "#D0103A"] },
     AUT: { dir: "h", colors: ["#ED2939", "#FFFFFF", "#ED2939"] },
+    ABH: { dir: "h", colors: ["#00A551", "#FFFFFF", "#00A551", "#FFFFFF", "#00A551", "#FFFFFF", "#00A551"] },
     BLR: { dir: "h", colors: ["#CE1720", "#007C30"] },
     BEL: { dir: "v", colors: ["#000000", "#FDDA24", "#EF3340"] },
     BIH: { dir: "v", colors: ["#002395", "#FECB00"] },
@@ -1821,6 +1850,15 @@ const CITY_XY_RAW = `
 Памуккале|37.9|29.1
 Тбилиси|41.7|44.8
 Батуми|41.65|41.6
+Сухум|43.0|41.02
+Гагра|43.28|40.27
+Пицунда|43.16|40.34
+Новый Афон|43.09|40.81
+Гудаута|43.1|40.63
+Очамчира|42.71|41.47
+Ткуарчал|42.84|41.68
+Гал|42.63|41.73
+Рица|43.47|40.54
 Кутаиси|42.3|42.7
 Гудаури|42.5|44.5
 Ереван|40.2|44.5
@@ -2086,9 +2124,9 @@ function cityPoint(a3, city) {
 /* ------------------------------------------------------------------ */
 /*  Про страну: валюта, язык, фразы, практическая справка             */
 /* ------------------------------------------------------------------ */
-const CURRENCY_RAW = "AFG:AFN ALB:ALL DZA:DZD AND:EUR AGO:AOA ATG:XCD ARG:ARS ARM:AMD AUS:AUD AUT:EUR AZE:AZN BHS:BSD BHR:BHD BGD:BDT BRB:BBD BLR:BYN BEL:EUR BLZ:BZD BEN:XOF BTN:BTN BOL:BOB BIH:BAM BWA:BWP BRA:BRL BRN:BND BGR:BGN BFA:XOF BDI:BIF CPV:CVE KHM:KHR CMR:XAF CAN:CAD CAF:XAF TCD:XAF CHL:CLP CHN:CNY COL:COP COM:KMF COG:XAF COD:CDF CRI:CRC CIV:XOF HRV:EUR CUB:CUP CYP:EUR CZE:CZK DNK:DKK DJI:DJF DMA:XCD DOM:DOP ECU:USD EGY:EGP SLV:USD GNQ:XAF ERI:ERN EST:EUR SWZ:SZL ETH:ETB FJI:FJD FIN:EUR FRA:EUR GAB:XAF GMB:GMD GEO:GEL DEU:EUR GHA:GHS GRC:EUR GRD:XCD GTM:GTQ GIN:GNF GNB:XOF GUY:GYD HTI:HTG HND:HNL HKG:HKD MAC:MOP HUN:HUF ISL:ISK IND:INR IDN:IDR IRN:IRR IRQ:IQD IRL:EUR ISR:ILS ITA:EUR JAM:JMD JPN:JPY JOR:JOD KAZ:KZT KEN:KES KIR:AUD PRK:KPW KOR:KRW KWT:KWD KGZ:KGS LAO:LAK LVA:EUR LBN:LBP LSO:LSL LBR:LRD LBY:LYD LIE:CHF LTU:EUR LUX:EUR MDG:MGA MWI:MWK MYS:MYR MDV:MVR MLI:XOF MLT:EUR MHL:USD MRT:MRU MUS:MUR MEX:MXN FSM:USD MDA:MDL MCO:EUR MNG:MNT MNE:EUR MAR:MAD MOZ:MZN MMR:MMK NAM:NAD NRU:AUD NPL:NPR NLD:EUR NZL:NZD NIC:NIO NER:XOF NGA:NGN MKD:MKD NOR:NOK OMN:OMR PAK:PKR PLW:USD PSE:ILS PAN:PAB PNG:PGK PRY:PYG PER:PEN PHL:PHP POL:PLN PRT:EUR QAT:QAR ROU:RON RUS:RUB RWA:RWF KNA:XCD LCA:XCD VCT:XCD WSM:WST SMR:EUR STP:STN SAU:SAR SEN:XOF SRB:RSD SYC:SCR SLE:SLE SGP:SGD SVK:EUR SVN:EUR SLB:SBD SOM:SOS ZAF:ZAR SSD:SSP ESP:EUR LKA:LKR SDN:SDG SUR:SRD SWE:SEK CHE:CHF SYR:SYP TWN:TWD TJK:TJS TZA:TZS THA:THB TLS:USD TGO:XOF TON:TOP TTO:TTD TUN:TND TUR:TRY TKM:TMT TUV:AUD UGA:UGX UKR:UAH ARE:AED GBR:GBP USA:USD URY:UYU UZB:UZS VUT:VUV VAT:EUR VEN:VES VNM:VND YEM:YER ZMB:ZMW ZWE:ZWG XKX:EUR";
+const CURRENCY_RAW = "AFG:AFN ALB:ALL DZA:DZD AND:EUR AGO:AOA ATG:XCD ARG:ARS ARM:AMD AUS:AUD AUT:EUR AZE:AZN BHS:BSD BHR:BHD BGD:BDT BRB:BBD BLR:BYN BEL:EUR BLZ:BZD BEN:XOF BTN:BTN BOL:BOB BIH:BAM BWA:BWP BRA:BRL BRN:BND BGR:BGN BFA:XOF BDI:BIF CPV:CVE KHM:KHR CMR:XAF CAN:CAD CAF:XAF TCD:XAF CHL:CLP CHN:CNY COL:COP COM:KMF COG:XAF COD:CDF CRI:CRC CIV:XOF HRV:EUR CUB:CUP CYP:EUR CZE:CZK DNK:DKK DJI:DJF DMA:XCD DOM:DOP ECU:USD EGY:EGP SLV:USD GNQ:XAF ERI:ERN EST:EUR SWZ:SZL ETH:ETB FJI:FJD FIN:EUR FRA:EUR GAB:XAF GMB:GMD GEO:GEL ABH:RUB DEU:EUR GHA:GHS GRC:EUR GRD:XCD GTM:GTQ GIN:GNF GNB:XOF GUY:GYD HTI:HTG HND:HNL HKG:HKD MAC:MOP HUN:HUF ISL:ISK IND:INR IDN:IDR IRN:IRR IRQ:IQD IRL:EUR ISR:ILS ITA:EUR JAM:JMD JPN:JPY JOR:JOD KAZ:KZT KEN:KES KIR:AUD PRK:KPW KOR:KRW KWT:KWD KGZ:KGS LAO:LAK LVA:EUR LBN:LBP LSO:LSL LBR:LRD LBY:LYD LIE:CHF LTU:EUR LUX:EUR MDG:MGA MWI:MWK MYS:MYR MDV:MVR MLI:XOF MLT:EUR MHL:USD MRT:MRU MUS:MUR MEX:MXN FSM:USD MDA:MDL MCO:EUR MNG:MNT MNE:EUR MAR:MAD MOZ:MZN MMR:MMK NAM:NAD NRU:AUD NPL:NPR NLD:EUR NZL:NZD NIC:NIO NER:XOF NGA:NGN MKD:MKD NOR:NOK OMN:OMR PAK:PKR PLW:USD PSE:ILS PAN:PAB PNG:PGK PRY:PYG PER:PEN PHL:PHP POL:PLN PRT:EUR QAT:QAR ROU:RON RUS:RUB RWA:RWF KNA:XCD LCA:XCD VCT:XCD WSM:WST SMR:EUR STP:STN SAU:SAR SEN:XOF SRB:RSD SYC:SCR SLE:SLE SGP:SGD SVK:EUR SVN:EUR SLB:SBD SOM:SOS ZAF:ZAR SSD:SSP ESP:EUR LKA:LKR SDN:SDG SUR:SRD SWE:SEK CHE:CHF SYR:SYP TWN:TWD TJK:TJS TZA:TZS THA:THB TLS:USD TGO:XOF TON:TOP TTO:TTD TUN:TND TUR:TRY TKM:TMT TUV:AUD UGA:UGX UKR:UAH ARE:AED GBR:GBP USA:USD URY:UYU UZB:UZS VUT:VUV VAT:EUR VEN:VES VNM:VND YEM:YER ZMB:ZMW ZWE:ZWG XKX:EUR";
 const CURRENCY = Object.fromEntries(CURRENCY_RAW.split(" ").map((t) => t.split(":")));
-const LANG_RAW = "AFG:fa ALB:sq DZA:ar AND:ca AGO:pt ARG:es ARM:hy AUS:en AUT:de AZE:az BHR:ar BGD:bn BLR:be BEL:nl BOL:es BIH:bs BRA:pt BGR:bg KHM:km CAN:en CHL:es CHN:zh COL:es CRI:es HRV:hr CUB:es CYP:el CZE:cs DNK:da DOM:es ECU:es EGY:ar SLV:es EST:et ETH:am FIN:fi FRA:fr GEO:ka DEU:de GRC:el GTM:es HKG:zh MAC:zh HUN:hu ISL:is IND:hi IDN:id IRN:fa IRQ:ar IRL:en ISR:he ITA:it JAM:en JPN:ja JOR:ar KAZ:kk KEN:sw KOR:ko KWT:ar KGZ:ky LAO:lo LVA:lv LBN:ar LTU:lt LUX:fr MYS:ms MDV:dv MLT:mt MEX:es MDA:ro MCO:fr MNG:mn MNE:sr MAR:ar MMR:my NAM:en NPL:ne NLD:nl NZL:en NIC:es MKD:mk NOR:no OMN:ar PAK:ur PSE:ar PAN:es PRY:es PER:es PHL:tl POL:pl PRT:pt QAT:ar ROU:ro RUS:ru SAU:ar SRB:sr SGP:en SVK:sk SVN:sl ZAF:en ESP:es LKA:si SWE:sv CHE:de SYR:ar TWN:zh TJK:tg TZA:sw THA:th TUN:ar TUR:tr TKM:tk UKR:uk ARE:ar GBR:en USA:en URY:es UZB:uz VAT:it VEN:es VNM:vi ZWE:en XKX:sq SYC:fr MUS:fr MDG:fr SEN:fr CIV:fr CMR:fr COD:fr GAB:fr BEN:fr BFA:fr MLI:fr NER:fr TCD:fr GIN:fr RWA:fr BDI:fr DJI:fr COM:fr MOZ:pt CPV:pt STP:pt GNB:pt TLS:pt SUR:nl BRN:ms FJI:en PNG:en SLB:en VUT:fr WSM:en TON:en TUV:en KIR:en NRU:en MHL:en FSM:en PLW:en BHS:en BRB:en BLZ:en ATG:en DMA:en GRD:en KNA:en LCA:en VCT:en TTO:en GUY:en JPN2:ja";
+const LANG_RAW = "AFG:fa ALB:sq DZA:ar AND:ca AGO:pt ARG:es ARM:hy AUS:en AUT:de AZE:az BHR:ar BGD:bn BLR:be BEL:nl BOL:es BIH:bs BRA:pt BGR:bg KHM:km CAN:en CHL:es CHN:zh COL:es CRI:es HRV:hr CUB:es CYP:el CZE:cs DNK:da DOM:es ECU:es EGY:ar SLV:es EST:et ETH:am FIN:fi FRA:fr GEO:ka ABH:ru DEU:de GRC:el GTM:es HKG:zh MAC:zh HUN:hu ISL:is IND:hi IDN:id IRN:fa IRQ:ar IRL:en ISR:he ITA:it JAM:en JPN:ja JOR:ar KAZ:kk KEN:sw KOR:ko KWT:ar KGZ:ky LAO:lo LVA:lv LBN:ar LTU:lt LUX:fr MYS:ms MDV:dv MLT:mt MEX:es MDA:ro MCO:fr MNG:mn MNE:sr MAR:ar MMR:my NAM:en NPL:ne NLD:nl NZL:en NIC:es MKD:mk NOR:no OMN:ar PAK:ur PSE:ar PAN:es PRY:es PER:es PHL:tl POL:pl PRT:pt QAT:ar ROU:ro RUS:ru SAU:ar SRB:sr SGP:en SVK:sk SVN:sl ZAF:en ESP:es LKA:si SWE:sv CHE:de SYR:ar TWN:zh TJK:tg TZA:sw THA:th TUN:ar TUR:tr TKM:tk UKR:uk ARE:ar GBR:en USA:en URY:es UZB:uz VAT:it VEN:es VNM:vi ZWE:en XKX:sq SYC:fr MUS:fr MDG:fr SEN:fr CIV:fr CMR:fr COD:fr GAB:fr BEN:fr BFA:fr MLI:fr NER:fr TCD:fr GIN:fr RWA:fr BDI:fr DJI:fr COM:fr MOZ:pt CPV:pt STP:pt GNB:pt TLS:pt SUR:nl BRN:ms FJI:en PNG:en SLB:en VUT:fr WSM:en TON:en TUV:en KIR:en NRU:en MHL:en FSM:en PLW:en BHS:en BRB:en BLZ:en ATG:en DMA:en GRD:en KNA:en LCA:en VCT:en TTO:en GUY:en JPN2:ja";
 const COUNTRY_LANG = Object.fromEntries(LANG_RAW.split(" ").map((t) => t.split(":")));
 /* шесть фраз: здравствуйте, до свидания, спасибо, пожалуйста, сколько стоит, помогите */
 const PHRASE_LABELS = [
@@ -2148,6 +2186,7 @@ const TIPS = {
     TUR: { plug: "C/F, 230 В", water: "Только бутилированная", tip: "5–10%", sos: "112" },
     EGY: { plug: "C/F, 220 В", water: "Только бутилированная", tip: "10%", sos: "122 / 123" },
     RUS: { plug: "C/F, 220 В", water: "Лучше фильтрованная", tip: "10% по желанию", sos: "112" },
+    ABH: { plug: "C/F, 220 В", water: "Лучше бутилированная", tip: "По желанию", sos: "102 / 103" },
     GEO: { plug: "C/F, 220 В", water: "Можно пить из-под крана", tip: "10% в счёте", sos: "112" },
     ARM: { plug: "C/F, 220 В", water: "Можно пить из-под крана", tip: "10%", sos: "911" },
     AZE: { plug: "C/F, 220 В", water: "Лучше бутилированная", tip: "10% в счёте", sos: "112" },
@@ -2340,6 +2379,7 @@ const TZ = {
     EGY: "UTC+2",
     ISR: "UTC+2",
     GEO: "UTC+4",
+    ABH: "UTC+3",
     ARM: "UTC+4",
     AZE: "UTC+4",
     KAZ: "UTC+5…+6",
@@ -2725,6 +2765,14 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                 if (!mine(f.id))
                     return;
                 const visited = on(f.id);
+                const cutAbh = f.id === "GEO";
+                if (cutAbh) {
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.rect(-1e4, -1e4, 2e4, 2e4);
+                    path(ABH_FEATURE);
+                    ctx.clip("evenodd");
+                }
                 ctx.beginPath();
                 path(f);
                 const wished = !visited && wish(f.id);
@@ -2763,6 +2811,8 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                 if (sel === f.id)
                     ctx.strokeStyle = "#eef3f8";
                 ctx.stroke();
+                if (cutAbh)
+                    ctx.restore();
             });
             // мелкие страны и территории, которых нет в наборе границ,
             // подсвечиваем кругом — иначе их не видно
@@ -4107,7 +4157,25 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, mode, quality,
             if (BY_A3[a3])
                 byCity.push({ c: BY_A3[a3], via: city });
         });
-        return [...byCountry, ...byCity].sort((a, b) => a.c.name.localeCompare(b.c.name, "ru"));
+        // город с тем же именем, что и страна (Макао, Сингапур), не подписываем
+        byCountry.forEach((r) => {
+            if (r.via && r.via.toLowerCase() === r.c.name.toLowerCase())
+                r.via = null;
+        });
+        // сначала страны, чьё название начинается с запроса, потом прочие
+        // совпадения по стране, потом города — от начала слова к середине
+        const rank = (r) => {
+            const n = r.c.name.toLowerCase();
+            if (!r.via || byCountry.includes(r)) {
+                if (n.startsWith(s))
+                    return 0;
+                if (n.includes(s))
+                    return 1;
+            }
+            const v = (r.via || "").toLowerCase();
+            return v.startsWith(s) ? 2 : 3;
+        };
+        return [...byCountry, ...byCity].sort((a, b) => rank(a) - rank(b) || a.c.name.localeCompare(b.c.name, "ru"));
     }, [q]);
     const country = draft ? BY_A3[draft.a3] : null;
     const patch = (p) => setDraft((d) => {
@@ -6456,7 +6524,7 @@ function Atlas() {
             if (okCache) {
                 if (dead)
                     return;
-                setGeo(cached);
+                setGeo(withExtraShapes(cached));
                 return;
             }
             for (const url of GEO_SOURCES) {
@@ -6470,7 +6538,7 @@ function Atlas() {
                         continue;
                     if (dead)
                         return;
-                    setGeo(geo);
+                    setGeo(withExtraShapes(geo));
                     store.set(K_GEO, geo);
                     return;
                 }
