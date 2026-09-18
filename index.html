@@ -1238,7 +1238,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "20.0";
+const APP_VERSION = "20.2";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -2108,6 +2108,45 @@ CITY_XY_RAW.split("\n").forEach((l) => {
         CITY_XY[name.trim()] = [+lon, +lat];
 });
 /* если координат города нет — ставим рядом с центром страны, но вразброс */
+/* столицы: для расчёта расстояний у крупных стран центр страны
+   сильно врёт (у России это Сибирь), поэтому берём столицу */
+const CAPITAL_RAW = `
+RUS|55.75|37.62 UKR|50.45|30.52 BLR|53.9|27.57 KAZ|51.17|71.43 UZB|41.31|69.28
+CHN|39.9|116.4 MNG|47.92|106.92 IND|28.61|77.21 PAK|33.69|73.05 IRN|35.69|51.39
+SAU|24.71|46.68 TUR|39.93|32.86 EGY|30.04|31.24 DZA|36.75|3.06 LBY|32.89|13.19
+SDN|15.5|32.56 TCD|12.11|15.04 NER|13.51|2.11 MLI|12.65|-8.0 MRT|18.08|-15.98
+NGA|9.06|7.49 COD|-4.44|15.27 AGO|-8.84|13.23 ZAF|-25.75|28.19 NAM|-22.56|17.08
+BWA|-24.63|25.91 MOZ|-25.97|32.58 TZA|-6.79|39.21 KEN|-1.29|36.82 ETH|9.03|38.74
+SOM|2.04|45.34 CAF|4.39|18.56 ZMB|-15.42|28.28 ZWE|-17.83|31.05 MDG|-18.88|47.51
+USA|38.9|-77.04 CAN|45.42|-75.7 MEX|19.43|-99.13 BRA|-15.79|-47.88 ARG|-34.6|-58.38
+PER|-12.05|-77.04 BOL|-16.5|-68.15 CHL|-33.45|-70.67 COL|4.71|-74.07 VEN|10.49|-66.88
+PRY|-25.28|-57.63 URY|-34.9|-56.16 GUY|6.8|-58.16 SUR|5.85|-55.2 ECU|-0.18|-78.47
+AUS|-35.28|149.13 NZL|-41.29|174.78 IDN|-6.21|106.85 PNG|-9.44|147.18 PHL|14.6|120.98
+MMR|19.75|96.1 THA|13.75|100.5 VNM|21.03|105.85 MYS|3.14|101.69 LAO|17.97|102.6
+JPN|35.68|139.69 KOR|37.57|126.98 PRK|39.03|125.75 AFG|34.53|69.17 IRQ|33.31|44.37
+NOR|59.91|10.75 SWE|59.33|18.07 FIN|60.17|24.94 FRA|48.86|2.35 ESP|40.42|-3.7
+DEU|52.52|13.4 ITA|41.9|12.5 GBR|51.51|-0.13 POL|52.23|21.01 ROU|44.43|26.1
+TKM|37.95|58.38 KGZ|42.87|74.59 TJK|38.56|68.79 GRL|64.18|-51.69 MAR|34.02|-6.83
+`;
+const CAPITAL = {};
+CAPITAL_RAW.trim()
+    .split(/\s+/)
+    .forEach((t) => {
+    const [a3, lat, lon] = t.split("|");
+    if (a3 && lat && lon)
+        CAPITAL[a3] = [+lon, +lat];
+});
+/* точка для расчёта расстояний: город из справочника, иначе столица,
+   иначе центр страны — без случайного разброса */
+function distPoint(a3, city) {
+    const exact = city && CITY_XY[city];
+    if (exact)
+        return exact;
+    if (CAPITAL[a3])
+        return CAPITAL[a3];
+    const c = BY_A3[a3];
+    return c ? [c.lon, c.lat] : null;
+}
 function cityPoint(a3, city) {
     const exact = CITY_XY[city];
     if (exact)
@@ -5363,15 +5402,26 @@ function crewReport(visits, people, order) {
                 cities: (t.cities || []).join(", "),
                 cont: c ? c.cont : "",
             });
-            const names = (t.cities || []).filter(Boolean);
-            if (names.length)
-                names.forEach((city) => {
-                    const xy = cityPoint(a3, city);
-                    if (xy)
-                        r.points.push({ lon: xy[0], lat: xy[1], name: city, a3 });
-                });
-            else if (c)
-                r.points.push({ lon: c.lon, lat: c.lat, name: c.name, a3 });
+            /* координаты города, а если города нет в справочнике —
+               берём точку страны, иначе поездка выпадала из расчёта */
+            let got = 0;
+            (t.cities || []).filter(Boolean).forEach((city) => {
+                const xy = distPoint(a3, city);
+                if (xy) {
+                    got += 1;
+                    r.points.push({
+                        lon: xy[0],
+                        lat: xy[1],
+                        name: CITY_XY[city] ? city : (c === null || c === void 0 ? void 0 : c.name) || a3,
+                        a3,
+                    });
+                }
+            });
+            if (!got) {
+                const xy = distPoint(a3, null);
+                if (xy)
+                    r.points.push({ lon: xy[0], lat: xy[1], name: (c === null || c === void 0 ? void 0 : c.name) || a3, a3 });
+            }
             if (y) {
                 const cell = r.byYear[y] || { n: 0, conts: {} };
                 cell.n += 1;
@@ -6596,6 +6646,7 @@ function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], o
             React.createElement(Reveal, { className: "rep" },
                 React.createElement("b", null, "\u0421\u0430\u043C\u0430\u044F \u0434\u043B\u0438\u043D\u043D\u0430\u044F \u0434\u0443\u0433\u0430"),
                 React.createElement("em", null, "\u0434\u0432\u0435 \u0441\u0430\u043C\u044B\u0435 \u0443\u0434\u0430\u043B\u0451\u043D\u043D\u044B\u0435 \u0442\u043E\u0447\u043A\u0438 \u043F\u043E\u0435\u0437\u0434\u043E\u043A \u00B7 \u0434\u0432\u043E\u0439\u043D\u043E\u0435 \u043A\u0430\u0441\u0430\u043D\u0438\u0435 \u2014 \u0433\u043B\u043E\u0431\u0443\u0441"),
+                React.createElement("p", { className: "hint small" }, "\u0421\u0447\u0438\u0442\u0430\u0435\u043C \u043F\u043E \u043A\u043E\u043E\u0440\u0434\u0438\u043D\u0430\u0442\u0430\u043C \u0433\u043E\u0440\u043E\u0434\u043E\u0432. \u0415\u0441\u043B\u0438 \u0433\u043E\u0440\u043E\u0434\u0430 \u043D\u0435\u0442 \u0432 \u0441\u043F\u0440\u0430\u0432\u043E\u0447\u043D\u0438\u043A\u0435, \u0431\u0435\u0440\u0451\u043C \u0441\u0442\u043E\u043B\u0438\u0446\u0443 \u0441\u0442\u0440\u0430\u043D\u044B."),
                 React.createElement(SpanChart, { rows: crewR.rows, geo: geo, home: home })),
             diff && (React.createElement(Reveal, { className: "rep cmp" },
                 React.createElement("b", null, "\u0414\u0432\u043E\u0435: \u0442\u043E\u043B\u044C\u043A\u043E \u0440\u0430\u0437\u043D\u0438\u0446\u0430"),
