@@ -1235,7 +1235,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "18.4";
+const APP_VERSION = "18.5";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -5452,6 +5452,43 @@ function crewReport(visits, people, order) {
             .sort((a, b) => b.trips - a.trips),
     };
 }
+/* поездки человека деревом: год → часть света → страна с городами */
+function crewTree(list) {
+    const years = new Map();
+    (list || []).forEach((t) => {
+        const y = t.y || 0;
+        const yr = years.get(y) || { y, n: 0, conts: new Map(), countries: new Set() };
+        yr.n += 1;
+        yr.countries.add(t.a3);
+        const ck = t.cont || "ZZ";
+        const cn = yr.conts.get(ck) || { k: ck, n: 0, items: new Map() };
+        cn.n += 1;
+        const it = cn.items.get(t.a3) || { a3: t.a3, n: 0, cities: new Set() };
+        it.n += 1;
+        String(t.cities || "")
+            .split(",")
+            .map((x) => x.trim())
+            .filter(Boolean)
+            .forEach((x) => it.cities.add(x));
+        cn.items.set(t.a3, it);
+        yr.conts.set(ck, cn);
+        years.set(y, yr);
+    });
+    return [...years.values()]
+        .sort((a, b) => b.y - a.y)
+        .map((yr) => ({
+        y: yr.y,
+        n: yr.n,
+        countries: yr.countries.size,
+        conts: [...yr.conts.values()]
+            .sort((a, b) => b.n - a.n || CONT_ORDER.indexOf(a.k) - CONT_ORDER.indexOf(b.k))
+            .map((c) => ({
+            k: c.k,
+            n: c.n,
+            items: [...c.items.values()].sort((a, b) => { var _c, _d; return (((_c = BY_A3[a.a3]) === null || _c === void 0 ? void 0 : _c.name) || a.a3).localeCompare(((_d = BY_A3[b.a3]) === null || _d === void 0 ? void 0 : _d.name) || b.a3, "ru"); }),
+        })),
+    }));
+}
 /* дорожки: строка на человека, кружок на год, цвет — где были чаще */
 function LanesChart({ rows, years }) {
     const yy = years.slice(-10);
@@ -6055,15 +6092,27 @@ function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], o
                             React.createElement("b", null, p.trips),
                             pw(p.trips, "trip"))),
                     open && (React.createElement("div", { className: "crew-trips" },
-                        trips.map((t, n) => {
-                            var _c;
-                            return (React.createElement("div", { key: t.id + n, className: "crew-trip" },
-                                React.createElement("span", { className: "ct-y" }, t.y || "—"),
-                                React.createElement("span", { className: "ct-c" },
-                                    ((_c = BY_A3[t.a3]) === null || _c === void 0 ? void 0 : _c.name) || t.a3,
-                                    t.cities && React.createElement("em", null, t.cities)),
-                                React.createElement("span", { className: "ct-k" }, CONT_MINI[t.cont] || "")));
-                        }),
+                        crewTree(trips).map((yr) => (React.createElement("div", { key: yr.y, className: "ct-year" },
+                            React.createElement("div", { className: "ct-yhead" },
+                                React.createElement("b", null, yr.y || "без года"),
+                                React.createElement("em", null,
+                                    np(yr.n, "trip"),
+                                    " \u00B7 ",
+                                    np(yr.countries, "country"))),
+                            yr.conts.map((c) => (React.createElement("div", { key: c.k, className: "ct-cont" },
+                                React.createElement("div", { className: "ct-chead" },
+                                    React.createElement("i", { style: { background: CONT_COLORS[c.k] || C_DIM } }),
+                                    CONT_MINI[c.k] || "—"),
+                                React.createElement("div", { className: "ct-items" }, c.items.map((it) => {
+                                    var _c;
+                                    return (React.createElement("div", { key: it.a3, className: "ct-row" },
+                                        React.createElement("span", { className: "ct-cn" },
+                                            ((_c = BY_A3[it.a3]) === null || _c === void 0 ? void 0 : _c.name) || it.a3,
+                                            it.n > 1 && React.createElement("u", null,
+                                                "\u00D7",
+                                                it.n)),
+                                        it.cities.size > 0 && (React.createElement("em", null, [...it.cities].join(", ")))));
+                                })))))))),
                         !trips.length && (React.createElement("p", { className: "hint small" }, "\u041F\u043E\u0435\u0437\u0434\u043E\u043A \u043D\u0435\u0442."))))));
             })),
             React.createElement("p", { className: "hint small" }, "\u041F\u043E\u043B\u043E\u0441\u0430 \u2014 \u0434\u043E\u043B\u044F \u043E\u0442 \u043B\u0438\u0434\u0435\u0440\u0430 \u043F\u043E \u0441\u0442\u0440\u0430\u043D\u0430\u043C. \u0421\u0447\u0438\u0442\u0430\u044E\u0442\u0441\u044F \u0442\u043E\u043B\u044C\u043A\u043E \u0441\u043E\u0441\u0442\u043E\u044F\u0432\u0448\u0438\u0435\u0441\u044F \u043F\u043E\u0435\u0437\u0434\u043A\u0438, \u0433\u0434\u0435 \u0447\u0435\u043B\u043E\u0432\u0435\u043A \u043E\u0442\u043C\u0435\u0447\u0435\u043D \u0432 \u0441\u043E\u0441\u0442\u0430\u0432\u0435."))),
@@ -8268,12 +8317,19 @@ body > div{max-width:100%;}
 .crew-top{width:100%; background:none; border:none; padding:0; cursor:pointer; color:inherit; text-align:left;}
 .crew-caret{flex:none; margin-left:8px; color:var(--dim); font-size:0.7rem; transition:transform .18s;}
 .crew-caret.on{transform:rotate(180deg); color:var(--gold);}
-.crew-trips{margin-top:9px; border-top:1px solid var(--line); padding-top:7px; display:flex; flex-direction:column; gap:5px;}
-.crew-trip{display:flex; align-items:baseline; gap:8px; font-size:0.68rem;}
-.ct-y{flex:none; width:34px; color:var(--dim); font-size:0.64rem;}
-.ct-c{flex:1 1 auto; min-width:0; display:flex; flex-direction:column;}
-.ct-c em{font-style:normal; font-size:0.6rem; color:var(--dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-.ct-k{flex:none; color:var(--dim); font-size:0.6rem;}
+.crew-trips{margin-top:9px; border-top:1px solid var(--line); padding-top:8px; display:flex; flex-direction:column; gap:10px;}
+.ct-year{display:flex; flex-direction:column; gap:5px;}
+.ct-yhead{display:flex; align-items:baseline; gap:8px;}
+.ct-yhead b{font-size:0.82rem; color:var(--gold);}
+.ct-yhead em{font-style:normal; font-size:0.6rem; color:var(--dim);}
+.ct-cont{display:flex; gap:8px; padding-left:2px;}
+.ct-chead{flex:none; width:44px; display:flex; align-items:center; gap:5px; font-size:0.6rem; color:var(--dim); padding-top:2px;}
+.ct-chead i{flex:none; width:8px; height:8px; border-radius:3px;}
+.ct-items{flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:3px; border-left:1px solid var(--line); padding-left:9px;}
+.ct-row{display:flex; flex-direction:column; min-width:0;}
+.ct-cn{font-size:0.72rem;}
+.ct-cn u{text-decoration:none; color:var(--dim); font-size:0.6rem; margin-left:5px;}
+.ct-row em{font-style:normal; font-size:0.6rem; color:var(--dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .reveal{-webkit-user-select:none; user-select:none;}
 .zoom-layer{position:fixed; inset:0; z-index:200; background:rgba(6,12,20,.92); display:flex; align-items:center; justify-content:center; padding:14px;}
 .zoom-box{position:relative; width:100%; max-width:760px; max-height:92vh; overflow:auto; border-radius:16px;
@@ -8283,6 +8339,11 @@ body > div{max-width:100%;}
 .zoom-body>.reveal{opacity:1; transform:none;}
 .zoom-body .radar{max-width:min(86vw, 560px);}
 .zoom-body .lane-c{height:30px;}
+.zoom-body .donut-row{flex-direction:column; gap:16px;}
+.zoom-body .donut{width:100%; max-width:min(78vw, 430px); height:auto;}
+.zoom-body .donut-legend{width:100%; display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px 18px; font-size:0.8rem;}
+.zoom-body .donut-legend div{min-width:0;}
+.zoom-body .center .season,.zoom-body .season{width:100%; max-width:min(82vw, 470px); height:auto;}
 .zoom-body{font-size:1.05rem; border:none; padding:0; margin:0; background:none;}
 .zoom-body>b{display:block; margin-right:34px;}
 .crew-warn{margin-top:10px; padding:11px 12px; border-radius:12px; border:1px solid rgba(232,184,75,.35); background:rgba(232,184,75,.06);}
