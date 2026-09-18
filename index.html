@@ -1235,7 +1235,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "18.0";
+const APP_VERSION = "18.2";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -5156,6 +5156,306 @@ function travelerStats(visits, people) {
         .filter((r) => r.trips > 0)
         .sort((a, b) => b.countries - a.countries || b.trips - a.trips);
 }
+/* разбор по людям: дорожки, пары, свои страны, первооткрыватели, широты */
+const CONT_COLORS = {
+    EU: "#e2b551",
+    AS: "#7fb3d5",
+    AF: "#c98f6a",
+    NA: "#9ec7a3",
+    SA: "#b6a2d6",
+    OC: "#d3d8de",
+};
+const CREW_COLORS = ["#e2b551", "#7fb3d5", "#c98f6a", "#9ec7a3", "#b6a2d6", "#d3d8de"];
+function crewReport(visits, people, order) {
+    const who = (w) => {
+        const p = (people || []).find((x) => x.id === w || x.name === w);
+        return {
+            id: p ? p.id : w,
+            name: p ? p.name : w === ME ? "Я" : w,
+        };
+    };
+    const P = new Map();
+    const touch = (w) => {
+        const { id, name } = who(w);
+        if (!P.has(id))
+            P.set(id, {
+                id,
+                name,
+                trips: 0,
+                byYear: {},
+                firstYear: {},
+                conts: {},
+                countries: new Set(),
+            });
+        return P.get(id);
+    };
+    const pairs = new Map();
+    const solo = new Map();
+    const globalFirst = {};
+    Object.entries(visits || {}).forEach(([a3, arr]) => (arr || []).forEach((t) => {
+        if (t.plan)
+            return;
+        const c = BY_A3[a3];
+        const y = yearsOf(t)[0] || t.y || null;
+        const ids = [...new Set((t.who || []).map((w) => who(w).id))];
+        if (!ids.length)
+            return;
+        if (y && (!globalFirst[a3] || y < globalFirst[a3]))
+            globalFirst[a3] = y;
+        ids.forEach((id) => {
+            const r = touch(id);
+            r.trips += 1;
+            r.countries.add(a3);
+            if (y) {
+                const cell = r.byYear[y] || { n: 0, conts: {} };
+                cell.n += 1;
+                if (c)
+                    cell.conts[c.cont] = (cell.conts[c.cont] || 0) + 1;
+                r.byYear[y] = cell;
+                if (!r.firstYear[a3] || y < r.firstYear[a3])
+                    r.firstYear[a3] = y;
+            }
+        });
+        if (ids.length === 1)
+            solo.set(ids[0], (solo.get(ids[0]) || 0) + 1);
+        for (let i = 0; i < ids.length; i++)
+            for (let j = i + 1; j < ids.length; j++) {
+                const k = [ids[i], ids[j]].sort().join("|");
+                const pv = pairs.get(k) || { ids: [ids[i], ids[j]], trips: 0, countries: new Set() };
+                pv.trips += 1;
+                pv.countries.add(a3);
+                pairs.set(k, pv);
+            }
+    }));
+    // сколько человек побывало в стране — для «своих» и «общих»
+    const byCountry = {};
+    P.forEach((r) => r.countries.forEach((a3) => (byCountry[a3] = (byCountry[a3] || 0) + 1)));
+    // сколько человек попали в страну в самый первый её год
+    const firstCrowd = {};
+    P.forEach((r) => Object.entries(r.firstYear).forEach(([a3, y]) => {
+        if (y === globalFirst[a3])
+            firstCrowd[a3] = (firstCrowd[a3] || 0) + 1;
+    }));
+    const rank = (id) => {
+        const i = (order || []).indexOf(id);
+        return i < 0 ? 99 : i;
+    };
+    const rows = [...P.values()]
+        .sort((a, b) => rank(a.id) - rank(b.id) || b.trips - a.trips)
+        .map((r, i) => {
+        const list = [...r.countries];
+        const conts = {};
+        list.forEach((a3) => {
+            const c = BY_A3[a3];
+            if (c)
+                conts[c.cont] = (conts[c.cont] || 0) + 1;
+        });
+        const lats = list
+            .map((a3) => BY_A3[a3])
+            .filter((c) => c && isFinite(c.lat))
+            .sort((a, b) => a.lat - b.lat);
+        return {
+            id: r.id,
+            name: r.name,
+            color: CREW_COLORS[i % CREW_COLORS.length],
+            trips: r.trips,
+            byYear: r.byYear,
+            conts,
+            countries: list.length,
+            own: list.filter((a3) => byCountry[a3] === 1).length,
+            shared: list.filter((a3) => byCountry[a3] > 1).length,
+            firsts: list.filter((a3) => r.firstYear[a3] &&
+                r.firstYear[a3] === globalFirst[a3] &&
+                firstCrowd[a3] === 1).length,
+            firstsJoint: list.filter((a3) => r.firstYear[a3] &&
+                r.firstYear[a3] === globalFirst[a3] &&
+                firstCrowd[a3] > 1).length,
+            south: lats[0] || null,
+            north: lats[lats.length - 1] || null,
+        };
+    });
+    const nameOf = (id) => { var _c; return ((_c = rows.find((r) => r.id === id)) === null || _c === void 0 ? void 0 : _c.name) || id; };
+    const years = [
+        ...new Set(rows.flatMap((r) => Object.keys(r.byYear).map(Number))),
+    ].sort((a, b) => a - b);
+    return {
+        rows,
+        years,
+        pairs: [...pairs.values()]
+            .map((v) => ({
+            key: v.ids.join("|"),
+            name: `${nameOf(v.ids[0])} и ${nameOf(v.ids[1])}`,
+            trips: v.trips,
+            countries: v.countries.size,
+        }))
+            .sort((a, b) => b.trips - a.trips)
+            .slice(0, 6),
+        solo: rows
+            .map((r) => ({ id: r.id, name: r.name, trips: solo.get(r.id) || 0 }))
+            .filter((r) => r.trips > 0)
+            .sort((a, b) => b.trips - a.trips),
+    };
+}
+/* дорожки: строка на человека, кружок на год, цвет — где были чаще */
+function LanesChart({ rows, years }) {
+    const yy = years.slice(-10);
+    const max = Math.max(1, ...rows.flatMap((r) => Object.values(r.byYear).map((c) => c.n)));
+    const used = new Set();
+    rows.forEach((r) => Object.values(r.byYear).forEach((c) => {
+        const top = Object.entries(c.conts).sort((a, b) => b[1] - a[1])[0];
+        if (top)
+            used.add(top[0]);
+    }));
+    return (React.createElement("div", { className: "lanes" },
+        React.createElement("div", { className: "lane-row head" },
+            React.createElement("span", { className: "lane-n" }),
+            yy.map((y) => (React.createElement("span", { key: y, className: "lane-y" }, String(y).slice(2))))),
+        rows.map((r) => (React.createElement("div", { key: r.id, className: "lane-row" },
+            React.createElement("span", { className: "lane-n" }, r.name),
+            yy.map((y) => {
+                const c = r.byYear[y];
+                const top = c
+                    ? Object.entries(c.conts).sort((a, b) => b[1] - a[1])[0]
+                    : null;
+                const d = c ? 7 + Math.round((c.n / max) * 11) : 0;
+                return (React.createElement("span", { key: y, className: "lane-c" }, c ? (React.createElement("i", { style: {
+                        width: d,
+                        height: d,
+                        background: top ? CONT_COLORS[top[0]] : C_SILVER,
+                    }, title: `${y}: ${c.n}` })) : (React.createElement("u", null))));
+            })))),
+        React.createElement("div", { className: "grid-legend" }, CONT_ORDER.filter((k) => used.has(k)).map((k) => (React.createElement("span", { key: k, className: "lg" },
+            React.createElement("i", { style: { background: CONT_COLORS[k] } }),
+            CONTINENTS[k]))))));
+}
+/* пары: сколько поездок вместе, и сколько в одиночку */
+function PairsChart({ pairs, solo }) {
+    const max = Math.max(1, ...pairs.map((p) => p.trips), ...solo.map((s) => s.trips));
+    return (React.createElement("div", { className: "pairs" },
+        pairs.map((p, i) => (React.createElement("div", { key: p.key, className: "pair-row" },
+            React.createElement("span", { className: "pair-n" }, p.name),
+            React.createElement("span", { className: "pair-bar" },
+                React.createElement("i", { style: {
+                        width: `${(p.trips / max) * 100}%`,
+                        background: i === 0 ? C_GOLD : C_BLUE,
+                    } })),
+            React.createElement("span", { className: "pair-v" },
+                p.trips,
+                " \u00B7 ",
+                p.countries,
+                " \u0441\u0442\u0440.")))),
+        solo.map((s) => (React.createElement("div", { key: s.id, className: "pair-row solo" },
+            React.createElement("span", { className: "pair-n" },
+                s.name,
+                ", \u043E\u0434\u0438\u043D"),
+            React.createElement("span", { className: "pair-bar" },
+                React.createElement("i", { style: { width: `${(s.trips / max) * 100}%`, background: C_DIM } })),
+            React.createElement("span", { className: "pair-v" }, s.trips))))));
+}
+/* свои и общие страны одной полосой */
+function SplitChart({ rows }) {
+    const max = Math.max(1, ...rows.map((r) => r.countries));
+    return (React.createElement("div", { className: "split" },
+        rows.map((r) => (React.createElement("div", { key: r.id, className: "split-row" },
+            React.createElement("span", { className: "split-n" }, r.name),
+            React.createElement("span", { className: "split-bar" },
+                React.createElement("i", { className: "sh", style: { width: `${(r.shared / max) * 100}%` }, title: "\u043E\u0431\u0449\u0438\u0435" }),
+                React.createElement("i", { className: "ow", style: { width: `${(r.own / max) * 100}%` }, title: "\u0442\u043E\u043B\u044C\u043A\u043E \u0435\u0433\u043E" })),
+            React.createElement("span", { className: "split-v" },
+                r.own,
+                " / ",
+                r.shared)))),
+        React.createElement("div", { className: "grid-legend" },
+            React.createElement("span", { className: "lg" },
+                React.createElement("i", { style: { background: C_GOLD } }),
+                "\u0442\u043E\u043B\u044C\u043A\u043E \u0435\u0433\u043E"),
+            React.createElement("span", { className: "lg" },
+                React.createElement("i", { style: { background: C_BLUE } }),
+                "\u0432\u043C\u0435\u0441\u0442\u0435 \u0441 \u043A\u0435\u043C-\u0442\u043E"))));
+}
+/* кто открыл страну раньше всех в компании */
+function FirstsChart({ rows }) {
+    const max = Math.max(1, ...rows.map((r) => r.firsts));
+    return (React.createElement("div", { className: "firsts" },
+        rows
+            .slice()
+            .sort((a, b) => b.firsts - a.firsts || b.firstsJoint - a.firstsJoint)
+            .map((r) => (React.createElement("div", { key: r.id, className: "first-row" },
+            React.createElement("span", { className: "first-pill", style: { opacity: 0.35 + (r.firsts / max) * 0.65 } }, r.firsts),
+            React.createElement("span", { className: "first-n" },
+                r.name,
+                React.createElement("em", null,
+                    "\u043E\u0442\u043A\u0440\u044B\u043B \u043E\u0434\u0438\u043D \u00B7 \u0432\u043C\u0435\u0441\u0442\u0435 ",
+                    r.firstsJoint,
+                    " \u00B7 \u0432\u0441\u0435\u0433\u043E \u0431\u044B\u043B \u0432",
+                    " ",
+                    r.countries))))),
+        React.createElement("p", { className: "hint small" }, "\u0421\u0442\u0440\u0430\u043D\u0430 \u0437\u0430\u0441\u0447\u0438\u0442\u044B\u0432\u0430\u0435\u0442\u0441\u044F \u0442\u043E\u043C\u0443, \u043A\u0442\u043E \u043F\u043E\u0431\u044B\u0432\u0430\u043B \u0432 \u043D\u0435\u0439 \u0432 \u0441\u0430\u043C\u044B\u0439 \u0440\u0430\u043D\u043D\u0438\u0439 \u0433\u043E\u0434. \u0415\u0441\u043B\u0438 \u0432 \u044D\u0442\u043E\u0442 \u0433\u043E\u0434 \u0442\u0443\u0434\u0430 \u0435\u0437\u0434\u0438\u043B\u0438 \u043D\u0435\u0441\u043A\u043E\u043B\u044C\u043A\u043E \u0447\u0435\u043B\u043E\u0432\u0435\u043A, \u0441\u0442\u0440\u0430\u043D\u0430 \u0441\u0447\u0438\u0442\u0430\u0435\u0442\u0441\u044F \u043E\u0442\u043A\u0440\u044B\u0442\u043E\u0439 \u0432\u043C\u0435\u0441\u0442\u0435 \u0438 \u043D\u0438\u043A\u043E\u043C\u0443 \u0432 \u0441\u0447\u0451\u0442 \u043D\u0435 \u0438\u0434\u0451\u0442.")));
+}
+/* размах широт: от самой южной до самой северной страны */
+function SpanChart({ rows }) {
+    const list = rows.filter((r) => r.south && r.north);
+    if (!list.length)
+        return null;
+    const lo = Math.min(-40, ...list.map((r) => r.south.lat)) - 5;
+    const hi = Math.max(60, ...list.map((r) => r.north.lat)) + 5;
+    const pos = (v) => ((v - lo) / (hi - lo)) * 100;
+    return (React.createElement("div", { className: "span-chart" },
+        React.createElement("div", { className: "span-axis" },
+            React.createElement("i", { style: { left: `${pos(0)}%` } }),
+            React.createElement("span", { style: { left: `${pos(0)}%` } }, "\u044D\u043A\u0432\u0430\u0442\u043E\u0440")),
+        list.map((r) => (React.createElement("div", { key: r.id, className: "span-row" },
+            React.createElement("span", { className: "span-n" }, r.name),
+            React.createElement("span", { className: "span-line" },
+                React.createElement("i", { style: {
+                        left: `${pos(r.south.lat)}%`,
+                        width: `${pos(r.north.lat) - pos(r.south.lat)}%`,
+                        background: r.color,
+                    } }),
+                React.createElement("u", { className: "mark", style: { left: `${pos(0)}%` } })),
+            React.createElement("span", { className: "span-ends" },
+                r.south.name,
+                " \u2192 ",
+                r.north.name))))));
+}
+/* части света лепестками: профиль каждого поверх остальных */
+const CONT_SHORT = {
+    EU: "Европа",
+    AS: "Азия",
+    AF: "Африка",
+    NA: "С. Америка",
+    SA: "Ю. Америка",
+    OC: "Океания",
+};
+function RadarChart({ rows }) {
+    const W = 260;
+    const H = 200;
+    const cx = W / 2;
+    const cy = H / 2;
+    const R = 60;
+    const max = Math.max(1, ...rows.flatMap((r) => CONT_ORDER.map((k) => r.conts[k] || 0)));
+    const pt = (i, v) => {
+        const a = (i / CONT_ORDER.length) * Math.PI * 2 - Math.PI / 2;
+        const rr = (v / max) * R;
+        return [cx + Math.cos(a) * rr, cy + Math.sin(a) * rr];
+    };
+    return (React.createElement("div", { className: "radar-wrap" },
+        React.createElement("svg", { viewBox: `0 0 ${W} ${H}`, className: "radar" },
+            [0.34, 0.67, 1].map((k) => (React.createElement("polygon", { key: k, points: CONT_ORDER.map((_, i) => pt(i, max * k).join(",")).join(" "), fill: "none", stroke: C_LINE }))),
+            CONT_ORDER.map((k, i) => {
+                const [x, y] = pt(i, max);
+                return React.createElement("line", { key: k, x1: cx, y1: cy, x2: x, y2: y, stroke: C_LINE });
+            }),
+            rows.map((r) => (React.createElement("polygon", { key: r.id, points: CONT_ORDER.map((k, i) => pt(i, r.conts[k] || 0).join(",")).join(" "), fill: r.color, fillOpacity: "0.16", stroke: r.color, strokeWidth: "1.6" }))),
+            CONT_ORDER.map((k, i) => {
+                const [x, y] = pt(i, max * 1.28);
+                const anchor = x > cx + 6 ? "start" : x < cx - 6 ? "end" : "middle";
+                return (React.createElement("text", { key: k, x: x + (anchor === "start" ? 3 : anchor === "end" ? -3 : 0), y: y + (Math.abs(y - cy) < 4 ? 3 : y > cy ? 8 : -2), fill: C_DIM, fontSize: "8.5", textAnchor: anchor }, CONT_SHORT[k]));
+            })),
+        React.createElement("div", { className: "grid-legend" }, rows.map((r) => (React.createElement("span", { key: r.id, className: "lg" },
+            React.createElement("i", { style: { background: r.color } }),
+            r.name))))));
+}
 /* подтверждение перед удалением — чтобы не снести лишнее случайно */
 function Ask({ ask, onClose, box }) {
     if (!ask)
@@ -5529,6 +5829,7 @@ function GridChart({ grid, planGrid, vague, years, onOpen }) {
 function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], onOpenTrip }) {
     const r = useMemo(() => reportData(visits, since, people), [visits, since, people]);
     const crew = useMemo(() => travelerStats(visits, people), [visits, people]);
+    const crewR = useMemo(() => crewReport(visits, people, crew.map((p) => p.id)), [visits, people, crew]);
     const years = r.allYears.length ? r.allYears : [NOW.getFullYear()];
     return (React.createElement(Sheet, { open: open, onClose: onClose, title: "\u041E\u0442\u0447\u0451\u0442\u044B", box: box }, () => (React.createElement("div", { className: "sheet-body" }, r.trips.length === 0 ? (React.createElement("p", { className: "hint small" }, "\u041E\u0442\u0447\u0451\u0442\u044B \u043F\u043E\u044F\u0432\u044F\u0442\u0441\u044F, \u043A\u043E\u0433\u0434\u0430 \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u0435 \u043F\u0435\u0440\u0432\u0443\u044E \u043F\u043E\u0435\u0437\u0434\u043A\u0443.")) : (React.createElement(React.Fragment, null,
         React.createElement(Reveal, { className: "rep" },
@@ -5599,6 +5900,31 @@ function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], o
                             pw(p.trips, "trip")))));
             })),
             React.createElement("p", { className: "hint small" }, "\u041F\u043E\u043B\u043E\u0441\u0430 \u2014 \u0434\u043E\u043B\u044F \u043E\u0442 \u043B\u0438\u0434\u0435\u0440\u0430 \u043F\u043E \u0441\u0442\u0440\u0430\u043D\u0430\u043C. \u0421\u0447\u0438\u0442\u0430\u044E\u0442\u0441\u044F \u0442\u043E\u043B\u044C\u043A\u043E \u0441\u043E\u0441\u0442\u043E\u044F\u0432\u0448\u0438\u0435\u0441\u044F \u043F\u043E\u0435\u0437\u0434\u043A\u0438, \u0433\u0434\u0435 \u0447\u0435\u043B\u043E\u0432\u0435\u043A \u043E\u0442\u043C\u0435\u0447\u0435\u043D \u0432 \u0441\u043E\u0441\u0442\u0430\u0432\u0435."))),
+        crewR.rows.length > 1 && (React.createElement(React.Fragment, null,
+            React.createElement(Reveal, { className: "rep" },
+                React.createElement("b", null, "\u0414\u043E\u0440\u043E\u0436\u043A\u0438 \u043F\u043E \u0433\u043E\u0434\u0430\u043C"),
+                React.createElement("em", null, "\u043A\u0440\u0443\u0436\u043E\u043A \u2014 \u0433\u043E\u0434, \u043A\u0440\u0443\u043F\u043D\u0435\u0435 \u2014 \u0431\u043E\u043B\u044C\u0448\u0435 \u043F\u043E\u0435\u0437\u0434\u043E\u043A"),
+                React.createElement(LanesChart, { rows: crewR.rows, years: crewR.years })),
+            crewR.pairs.length > 0 && (React.createElement(Reveal, { className: "rep" },
+                React.createElement("b", null, "\u041A\u0442\u043E \u0441 \u043A\u0435\u043C \u0435\u0437\u0434\u0438\u0442"),
+                React.createElement("em", null, "\u043F\u043E\u0435\u0437\u0434\u043A\u0438 \u0432\u0434\u0432\u043E\u0451\u043C \u0438 \u0432 \u043E\u0434\u0438\u043D\u043E\u0447\u043A\u0443"),
+                React.createElement(PairsChart, { pairs: crewR.pairs, solo: crewR.solo }))),
+            React.createElement(Reveal, { className: "rep" },
+                React.createElement("b", null, "\u0421\u0432\u043E\u0438 \u0438 \u043E\u0431\u0449\u0438\u0435 \u0441\u0442\u0440\u0430\u043D\u044B"),
+                React.createElement("em", null, "\u043A\u0442\u043E \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u0435\u0442 \u043D\u043E\u0432\u043E\u0435, \u0430 \u043A\u0442\u043E \u0435\u0437\u0434\u0438\u0442 \u0432\u043C\u0435\u0441\u0442\u0435"),
+                React.createElement(SplitChart, { rows: crewR.rows })),
+            React.createElement(Reveal, { className: "rep" },
+                React.createElement("b", null, "\u041F\u0435\u0440\u0432\u043E\u043E\u0442\u043A\u0440\u044B\u0432\u0430\u0442\u0435\u043B\u0438"),
+                React.createElement("em", null, "\u043A\u0442\u043E \u043F\u043E\u043F\u0430\u043B \u0432 \u0441\u0442\u0440\u0430\u043D\u0443 \u0440\u0430\u043D\u044C\u0448\u0435 \u043E\u0441\u0442\u0430\u043B\u044C\u043D\u044B\u0445"),
+                React.createElement(FirstsChart, { rows: crewR.rows })),
+            React.createElement(Reveal, { className: "rep" },
+                React.createElement("b", null, "\u0420\u0430\u0437\u043C\u0430\u0445 \u0448\u0438\u0440\u043E\u0442"),
+                React.createElement("em", null, "\u043E\u0442 \u0441\u0430\u043C\u043E\u0439 \u044E\u0436\u043D\u043E\u0439 \u0441\u0442\u0440\u0430\u043D\u044B \u0434\u043E \u0441\u0430\u043C\u043E\u0439 \u0441\u0435\u0432\u0435\u0440\u043D\u043E\u0439"),
+                React.createElement(SpanChart, { rows: crewR.rows })),
+            React.createElement(Reveal, { className: "rep" },
+                React.createElement("b", null, "\u0427\u0430\u0441\u0442\u0438 \u0441\u0432\u0435\u0442\u0430 \u043B\u0435\u043F\u0435\u0441\u0442\u043A\u0430\u043C\u0438"),
+                React.createElement("em", null, "\u0443 \u043A\u043E\u0433\u043E \u043A\u0430\u043A\u043E\u0439 \u043F\u0435\u0440\u0435\u043A\u043E\u0441"),
+                React.createElement(RadarChart, { rows: crewR.rows })))),
         React.createElement(Reveal, { className: "rep" },
             React.createElement("b", null, "\u041A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u044C \u043F\u043E\u0435\u0437\u0434\u043E\u043A"),
             React.createElement("em", null, "\u0433\u043E\u0434 \u0438 \u043C\u0435\u0441\u044F\u0446, \u044F\u0440\u0447\u0435 \u2014 \u0434\u043E\u043B\u044C\u0448\u0435"),
@@ -7719,6 +8045,47 @@ body > div{max-width:100%;}
 .grid-row.vague{position:relative;}
 .grid-row.vague::after{content:""; position:absolute; left:33px; right:0; top:0; bottom:0; border-radius:4px; pointer-events:none;
   background:repeating-linear-gradient(135deg, rgba(232,184,75,.16) 0 5px, transparent 5px 10px);}
+/* дорожки, пары, свои/общие, первооткрыватели, широты */
+.lanes{display:flex; flex-direction:column; gap:5px;}
+.lane-row{display:flex; align-items:center; gap:3px;}
+.lane-n{flex:none; width:62px; font-size:0.66rem; color:var(--dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.lane-y{flex:1 1 0; text-align:center; font-size:0.55rem; color:var(--dim);}
+.lane-c{flex:1 1 0; height:20px; display:flex; align-items:center; justify-content:center;}
+.lane-c i{display:block; border-radius:50%;}
+.lane-c u{display:block; width:4px; height:4px; border-radius:50%; background:var(--track);}
+.grid-legend .lg{display:inline-flex; align-items:center; gap:4px; margin-right:8px;}
+.grid-legend .lg i{margin-left:0;}
+
+.pairs,.split,.firsts{display:flex; flex-direction:column; gap:8px;}
+.pair-row,.split-row{display:flex; align-items:center; gap:8px; font-size:0.68rem;}
+.pair-n,.split-n{flex:none; width:96px; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.pair-row.solo .pair-n{color:var(--dim);}
+.pair-bar,.split-bar{flex:1 1 auto; height:8px; border-radius:4px; background:var(--track); overflow:hidden; display:flex;}
+.pair-bar i{display:block; height:100%; border-radius:4px;}
+.split-bar i{display:block; height:100%;}
+.split-bar .sh{background:#4a7fb5;}
+.split-bar .ow{background:#e2b551;}
+.pair-v,.split-v{flex:none; min-width:54px; text-align:right; color:var(--dim); font-size:0.62rem;}
+
+.first-row{display:flex; align-items:center; gap:10px;}
+.first-pill{flex:none; width:38px; height:38px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+  background:var(--gold); color:#1a1206; font-weight:600; font-size:0.85rem;}
+.first-n{display:flex; flex-direction:column; font-size:0.74rem;}
+.first-n em{font-style:normal; font-size:0.6rem; color:var(--dim);}
+
+.span-chart{display:flex; flex-direction:column; gap:10px; padding-top:14px; position:relative;}
+.span-axis{position:relative; height:0;}
+.span-axis i{position:absolute; top:-10px; width:1px; height:8px; background:var(--line);}
+.span-axis span{position:absolute; top:-22px; transform:translateX(-50%); font-size:0.55rem; color:var(--dim);}
+.span-row{display:flex; flex-direction:column; gap:3px;}
+.span-n{font-size:0.68rem;}
+.span-line{position:relative; height:8px; border-radius:4px; background:var(--track);}
+.span-line i{position:absolute; top:0; height:100%; border-radius:4px; min-width:4px;}
+.span-line u{position:absolute; top:-2px; width:1px; height:12px; background:rgba(200,214,228,.35);}
+.span-ends{font-size:0.58rem; color:var(--dim);}
+
+.radar-wrap{display:flex; flex-direction:column; align-items:center;}
+.radar{width:100%; max-width:260px;}
 .grid-legend{display:flex; align-items:center; gap:6px; margin-top:8px; font-size:0.62rem; color:var(--dim); flex-wrap:wrap;}
 .grid-legend i{width:11px; height:11px; border-radius:3px; margin-left:8px;}
 .grid-legend i:first-child{margin-left:0;}
