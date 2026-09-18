@@ -1235,7 +1235,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "18.2";
+const APP_VERSION = "18.3";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -4372,13 +4372,15 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, onRemove, mode
                     React.createElement("path", { d: "M5 12.5l4.5 4.5L19 7.5", fill: "none", stroke: "currentColor", strokeWidth: "2.2", strokeLinecap: "round", strokeLinejoin: "round" })))))))));
 }
 /* шторка: профиль — вы и ваши данные */
-function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, since, onSince, people, onPeople, onReports, onShelf, onSettings, onFamily, familyOn, onExport, onImport, onRestore, restoreMsg, doubles, onDoubles, visits, }) {
+function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, since, onSince, people, onPeople, onReports, onShelf, onSettings, onFamily, familyOn, onExport, onImport, onRestore, restoreMsg, doubles, onDoubles, visits, onMergeWho, }) {
     const [showAll, setShowAll] = useState(false);
     const [addPerson, setAddPerson] = useState(false);
     const crew = useMemo(() => travelerStats(visits, people), [visits, people]);
     const [newName, setNewName] = useState("");
     const [newRole, setNewRole] = useState(ROLES[0]);
     const [ask, setAsk] = useState(null);
+    const [hidden, setHidden] = useState([]);
+    const issues = useMemo(() => crewIssues(visits, people, name).filter((x) => !hidden.includes(x.who)), [visits, people, name, hidden]);
     const addNow = () => {
         const name = newName.trim();
         if (!name)
@@ -4552,6 +4554,72 @@ function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, 
                     onYes: () => onPeople(people.filter((x) => x.id !== pr.id)),
                 }) }, "\u2715")))))),
         people.length > 0 && (React.createElement("p", { className: "hint small" }, "\u0417\u0432\u0451\u0437\u0434\u043E\u0447\u043A\u0430 \u2014 \u043F\u043E\u0441\u0442\u043E\u044F\u043D\u043D\u044B\u0439 \u0443\u0447\u0430\u0441\u0442\u043D\u0438\u043A: \u0435\u0433\u043E \u0434\u043E\u0431\u0430\u0432\u0438\u043C \u0432 \u043D\u043E\u0432\u0443\u044E \u043F\u043E\u0435\u0437\u0434\u043A\u0443 \u0441\u0440\u0430\u0437\u0443, \u0441\u043E\u0441\u0442\u0430\u0432 \u0432\u0441\u0435\u0433\u0434\u0430 \u043C\u043E\u0436\u043D\u043E \u043F\u043E\u043F\u0440\u0430\u0432\u0438\u0442\u044C.")),
+        issues.length > 0 && (React.createElement("div", { className: "crew-warn" },
+            React.createElement("b", null,
+                "\u041F\u0440\u043E\u0432\u0435\u0440\u043A\u0430 \u0441\u043E\u0441\u0442\u0430\u0432\u0430 \u00B7 ",
+                issues.length),
+            issues.map((it) => (React.createElement("div", { key: it.kind + it.who, className: "warn-row" },
+                React.createElement("span", { className: "warn-txt" },
+                    it.kind === "merge" && (React.createElement(React.Fragment, null,
+                        "\u0412 \u043F\u043E\u0435\u0437\u0434\u043A\u0430\u0445 \u0435\u0441\u0442\u044C ",
+                        React.createElement("i", null, it.who),
+                        ", \u0430 \u0432 \u043F\u0440\u043E\u0444\u0438\u043B\u0435",
+                        " ",
+                        React.createElement("i", null, it.target.name),
+                        ". \u041F\u043E\u0445\u043E\u0436\u0435, \u044D\u0442\u043E \u043E\u0434\u0438\u043D \u0447\u0435\u043B\u043E\u0432\u0435\u043A",
+                        it.trips ? ` · поездок: ${it.trips}` : "",
+                        ".")),
+                    it.kind === "me" && (React.createElement(React.Fragment, null,
+                        "\u0412 \u043F\u043E\u0435\u0437\u0434\u043A\u0430\u0445 \u0435\u0441\u0442\u044C ",
+                        React.createElement("i", null, it.who),
+                        " \u2014 \u043F\u043E\u0445\u043E\u0436\u0435 \u043D\u0430 \u0432\u0430\u0441",
+                        it.trips ? ` · поездок: ${it.trips}` : "",
+                        ".")),
+                    it.kind === "add" && (React.createElement(React.Fragment, null,
+                        React.createElement("i", null, it.who),
+                        " \u0435\u0441\u0442\u044C \u0432 \u043F\u043E\u0435\u0437\u0434\u043A\u0430\u0445, \u043D\u043E \u043D\u0435\u0442 \u0432 \u0441\u043F\u0438\u0441\u043A\u0435",
+                        it.trips ? ` · поездок: ${it.trips}` : "",
+                        ".")),
+                    it.kind === "dupe" && (React.createElement(React.Fragment, null,
+                        "\u0412 \u0441\u043F\u0438\u0441\u043A\u0435 \u0434\u0432\u043E\u0435 \u043F\u043E\u0445\u043E\u0436\u0438\u0445: ",
+                        React.createElement("i", null, it.pair[0].name),
+                        " \u0438",
+                        " ",
+                        React.createElement("i", null, it.pair[1].name),
+                        "."))),
+                React.createElement("span", { className: "warn-acts" },
+                    (it.kind === "merge" || it.kind === "dupe") && (React.createElement("button", { className: "warn-do", onClick: () => setAsk({
+                            title: "Объединить?",
+                            text: it.kind === "dupe"
+                                ? `${it.pair[1].name} станет ${it.pair[0].name} во всех поездках, из списка запись уберём.`
+                                : `${it.who} станет ${it.target.name} во всех поездках.`,
+                            yes: "Объединить",
+                            onYes: () => {
+                                if (it.kind === "dupe") {
+                                    onMergeWho([it.pair[1].id, it.pair[1].name], it.pair[0].id);
+                                    onPeople(people.filter((x) => x.id !== it.pair[1].id));
+                                }
+                                else {
+                                    onMergeWho([it.who], it.target.id);
+                                }
+                            },
+                        }) }, "\u041E\u0431\u044A\u0435\u0434\u0438\u043D\u0438\u0442\u044C")),
+                    it.kind === "me" && (React.createElement("button", { className: "warn-do", onClick: () => setAsk({
+                            title: "Это вы?",
+                            text: `${it.who} во всех поездках станет вами.`,
+                            yes: "Да, это я",
+                            onYes: () => onMergeWho([it.who], ME),
+                        }) }, "\u042D\u0442\u043E \u044F")),
+                    it.kind !== "dupe" && (React.createElement("button", { className: "warn-add", onClick: () => {
+                            const id = `p${Date.now()}`;
+                            onPeople([
+                                ...people,
+                                { id, name: it.who, role: ROLES[0], always: false },
+                            ]);
+                            onMergeWho([it.who], id);
+                        } }, "\u041E\u0442\u0434\u0435\u043B\u044C\u043D\u044B\u0439")),
+                    React.createElement("button", { className: "warn-skip", onClick: () => setHidden((h) => [...h, it.who]), "aria-label": "\u041F\u0440\u043E\u043F\u0443\u0441\u0442\u0438\u0442\u044C" }, "\u2715"))))),
+            React.createElement("p", { className: "hint small" }, "\u0421\u0432\u0435\u0440\u043A\u0430 \u043F\u043E \u0438\u043C\u0435\u043D\u0430\u043C: \u0442\u0435 \u0436\u0435 \u0441\u043B\u043E\u0432\u0430 \u0432 \u0434\u0440\u0443\u0433\u043E\u043C \u043F\u043E\u0440\u044F\u0434\u043A\u0435, \u0438\u043D\u0438\u0446\u0438\u0430\u043B \u0432\u043C\u0435\u0441\u0442\u043E \u0438\u043C\u0435\u043D\u0438 \u0438\u043B\u0438 \u043E\u043F\u0435\u0447\u0430\u0442\u043A\u0430 \u0432 \u043F\u0430\u0440\u0443 \u0431\u0443\u043A\u0432. \u041A\u0440\u0435\u0441\u0442\u0438\u043A \u0443\u0431\u0438\u0440\u0430\u0435\u0442 \u043F\u043E\u0434\u0441\u043A\u0430\u0437\u043A\u0443 \u0434\u043E \u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0435\u0433\u043E \u043E\u0442\u043A\u0440\u044B\u0442\u0438\u044F \u043F\u0440\u043E\u0444\u0438\u043B\u044F."))),
         addPerson ? (React.createElement("div", { className: "person-new" },
             React.createElement("div", { className: "person-add" },
                 React.createElement("input", { className: "name-input", value: newName, placeholder: "\u0418\u043C\u044F", autoFocus: true, onChange: (e) => setNewName(e.target.value), onKeyDown: (e) => {
@@ -5156,7 +5224,81 @@ function travelerStats(visits, people) {
         .filter((r) => r.trips > 0)
         .sort((a, b) => b.countries - a.countries || b.trips - a.trips);
 }
-/* разбор по людям: дорожки, пары, свои страны, первооткрыватели, широты */
+/* сверка состава: «Ольга Демшина» и «Демшина Ольга» — один человек */
+const nameKey = (v) => String(v || "")
+    .toLowerCase()
+    .replace(/ё/g, "е")
+    .replace(/[^a-zа-я0-9 ]/g, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+const sameKey = (a, b) => nameKey(a).sort().join(" ") === nameKey(b).sort().join(" ");
+const editDist = (a, b) => {
+    const m = a.length;
+    const n = b.length;
+    if (Math.abs(m - n) > 2)
+        return 9;
+    const d = Array.from({ length: m + 1 }, (_, i) => [i, ...new Array(n).fill(0)]);
+    for (let j = 0; j <= n; j++)
+        d[0][j] = j;
+    for (let i = 1; i <= m; i++)
+        for (let j = 1; j <= n; j++)
+            d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    return d[m][n];
+};
+/* очень похожи: те же слова в другом порядке, инициал вместо имени,
+   опечатка в одну-две буквы */
+const closeNames = (a, b) => {
+    const x = nameKey(a);
+    const y = nameKey(b);
+    if (!x.length || !y.length)
+        return false;
+    if (x.sort().join(" ") === y.sort().join(" "))
+        return true;
+    if (x.length === y.length) {
+        const sx = [...x].sort();
+        const sy = [...y].sort();
+        const initials = sx.every((w, i) => {
+            const v = sy[i];
+            return w === v || (w.length === 1 && v[0] === w) || (v.length === 1 && w[0] === v);
+        });
+        if (initials)
+            return true;
+    }
+    const ja = x.sort().join("");
+    const jb = y.sort().join("");
+    return Math.min(ja.length, jb.length) >= 5 && editDist(ja, jb) <= 2;
+};
+/* что не сходится: чужие имена в поездках и двойники в списке профиля */
+function crewIssues(visits, people, meName) {
+    const list = people || [];
+    const byId = new Set(list.map((p) => p.id));
+    const known = new Map();
+    list.forEach((p) => known.set(p.name, p));
+    const seen = new Map(); // незнакомое имя → сколько поездок
+    Object.values(visits || {}).forEach((arr) => (arr || []).forEach((t) => [...new Set(t.who || [])].forEach((w) => {
+        if (w === ME || byId.has(w) || known.has(w))
+            return;
+        seen.set(w, (seen.get(w) || 0) + 1);
+    })));
+    const out = [];
+    seen.forEach((n, w) => {
+        const near = list.find((p) => closeNames(p.name, w));
+        const isMe = meName && closeNames(meName, w);
+        out.push({
+            kind: near ? "merge" : isMe ? "me" : "add",
+            who: w,
+            trips: n,
+            target: near || null,
+        });
+    });
+    // двойники внутри самого списка профиля
+    for (let i = 0; i < list.length; i++)
+        for (let j = i + 1; j < list.length; j++)
+            if (closeNames(list[i].name, list[j].name))
+                out.push({ kind: "dupe", who: list[j].name, target: list[i], pair: [list[i], list[j]] });
+    return out;
+}
+/* разбор по людям: дорожки, свои страны, первооткрыватели, широты */
 const CONT_COLORS = {
     EU: "#e2b551",
     AS: "#7fb3d5",
@@ -5307,56 +5449,34 @@ function LanesChart({ rows, years }) {
             used.add(top[0]);
     }));
     return (React.createElement("div", { className: "lanes" },
-        React.createElement("div", { className: "lane-row head" },
+        React.createElement("div", { className: "lane-grid", style: {
+                gridTemplateColumns: `auto repeat(${yy.length}, minmax(0, 1fr))`,
+            } },
             React.createElement("span", { className: "lane-n" }),
-            yy.map((y) => (React.createElement("span", { key: y, className: "lane-y" }, String(y).slice(2))))),
-        rows.map((r) => (React.createElement("div", { key: r.id, className: "lane-row" },
-            React.createElement("span", { className: "lane-n" }, r.name),
-            yy.map((y) => {
-                const c = r.byYear[y];
-                const top = c
-                    ? Object.entries(c.conts).sort((a, b) => b[1] - a[1])[0]
-                    : null;
-                const d = c ? 7 + Math.round((c.n / max) * 11) : 0;
-                return (React.createElement("span", { key: y, className: "lane-c" }, c ? (React.createElement("i", { style: {
-                        width: d,
-                        height: d,
-                        background: top ? CONT_COLORS[top[0]] : C_SILVER,
-                    }, title: `${y}: ${c.n}` })) : (React.createElement("u", null))));
-            })))),
+            yy.map((y) => (React.createElement("span", { key: y, className: "lane-y" }, String(y).slice(2)))),
+            rows.map((r) => (React.createElement(React.Fragment, { key: r.id },
+                React.createElement("span", { className: "lane-n" }, r.name),
+                yy.map((y) => {
+                    const c = r.byYear[y];
+                    const top = c
+                        ? Object.entries(c.conts).sort((a, b) => b[1] - a[1])[0]
+                        : null;
+                    const d = c ? 7 + Math.round((c.n / max) * 11) : 0;
+                    return (React.createElement("span", { key: y, className: "lane-c" }, c ? (React.createElement("i", { style: {
+                            width: d,
+                            height: d,
+                            background: top ? CONT_COLORS[top[0]] : C_SILVER,
+                        }, title: `${y}: ${c.n}` })) : (React.createElement("u", null))));
+                }))))),
         React.createElement("div", { className: "grid-legend" }, CONT_ORDER.filter((k) => used.has(k)).map((k) => (React.createElement("span", { key: k, className: "lg" },
             React.createElement("i", { style: { background: CONT_COLORS[k] } }),
             CONTINENTS[k]))))));
-}
-/* пары: сколько поездок вместе, и сколько в одиночку */
-function PairsChart({ pairs, solo }) {
-    const max = Math.max(1, ...pairs.map((p) => p.trips), ...solo.map((s) => s.trips));
-    return (React.createElement("div", { className: "pairs" },
-        pairs.map((p, i) => (React.createElement("div", { key: p.key, className: "pair-row" },
-            React.createElement("span", { className: "pair-n" }, p.name),
-            React.createElement("span", { className: "pair-bar" },
-                React.createElement("i", { style: {
-                        width: `${(p.trips / max) * 100}%`,
-                        background: i === 0 ? C_GOLD : C_BLUE,
-                    } })),
-            React.createElement("span", { className: "pair-v" },
-                p.trips,
-                " \u00B7 ",
-                p.countries,
-                " \u0441\u0442\u0440.")))),
-        solo.map((s) => (React.createElement("div", { key: s.id, className: "pair-row solo" },
-            React.createElement("span", { className: "pair-n" },
-                s.name,
-                ", \u043E\u0434\u0438\u043D"),
-            React.createElement("span", { className: "pair-bar" },
-                React.createElement("i", { style: { width: `${(s.trips / max) * 100}%`, background: C_DIM } })),
-            React.createElement("span", { className: "pair-v" }, s.trips))))));
 }
 /* свои и общие страны одной полосой */
 function SplitChart({ rows }) {
     const max = Math.max(1, ...rows.map((r) => r.countries));
     return (React.createElement("div", { className: "split" },
-        rows.map((r) => (React.createElement("div", { key: r.id, className: "split-row" },
+        rows.map((r) => (React.createElement(React.Fragment, { key: r.id },
             React.createElement("span", { className: "split-n" }, r.name),
             React.createElement("span", { className: "split-bar" },
                 React.createElement("i", { className: "sh", style: { width: `${(r.shared / max) * 100}%` }, title: "\u043E\u0431\u0449\u0438\u0435" }),
@@ -5365,7 +5485,7 @@ function SplitChart({ rows }) {
                 r.own,
                 " / ",
                 r.shared)))),
-        React.createElement("div", { className: "grid-legend" },
+        React.createElement("div", { className: "grid-legend split-legend" },
             React.createElement("span", { className: "lg" },
                 React.createElement("i", { style: { background: C_GOLD } }),
                 "\u0442\u043E\u043B\u044C\u043A\u043E \u0435\u0433\u043E"),
@@ -5905,10 +6025,6 @@ function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], o
                 React.createElement("b", null, "\u0414\u043E\u0440\u043E\u0436\u043A\u0438 \u043F\u043E \u0433\u043E\u0434\u0430\u043C"),
                 React.createElement("em", null, "\u043A\u0440\u0443\u0436\u043E\u043A \u2014 \u0433\u043E\u0434, \u043A\u0440\u0443\u043F\u043D\u0435\u0435 \u2014 \u0431\u043E\u043B\u044C\u0448\u0435 \u043F\u043E\u0435\u0437\u0434\u043E\u043A"),
                 React.createElement(LanesChart, { rows: crewR.rows, years: crewR.years })),
-            crewR.pairs.length > 0 && (React.createElement(Reveal, { className: "rep" },
-                React.createElement("b", null, "\u041A\u0442\u043E \u0441 \u043A\u0435\u043C \u0435\u0437\u0434\u0438\u0442"),
-                React.createElement("em", null, "\u043F\u043E\u0435\u0437\u0434\u043A\u0438 \u0432\u0434\u0432\u043E\u0451\u043C \u0438 \u0432 \u043E\u0434\u0438\u043D\u043E\u0447\u043A\u0443"),
-                React.createElement(PairsChart, { pairs: crewR.pairs, solo: crewR.solo }))),
             React.createElement(Reveal, { className: "rep" },
                 React.createElement("b", null, "\u0421\u0432\u043E\u0438 \u0438 \u043E\u0431\u0449\u0438\u0435 \u0441\u0442\u0440\u0430\u043D\u044B"),
                 React.createElement("em", null, "\u043A\u0442\u043E \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u0435\u0442 \u043D\u043E\u0432\u043E\u0435, \u0430 \u043A\u0442\u043E \u0435\u0437\u0434\u0438\u0442 \u0432\u043C\u0435\u0441\u0442\u0435"),
@@ -7166,6 +7282,25 @@ function Atlas() {
         cur[i] = { ...cur[i], ...patch };
         save({ ...visits, [a3]: cur });
     };
+    /* сводим разные записи одного человека к одному id */
+    const mergeWho = (from, toId) => {
+        const set = new Set((from || []).filter(Boolean));
+        if (!set.size || !toId)
+            return;
+        let touched = false;
+        const next = {};
+        Object.entries(visits).forEach(([a3, arr]) => {
+            next[a3] = (arr || []).map((t) => {
+                if (!(t.who || []).some((w) => set.has(w)))
+                    return t;
+                touched = true;
+                const who = [...new Set((t.who || []).map((w) => (set.has(w) ? toId : w)))];
+                return { ...t, who, at: Date.now() };
+            });
+        });
+        if (touched)
+            save(next);
+    };
     const removeTrip = (a3, key) => {
         const arr = visits[a3] || [];
         const idx = typeof key === "number" ? key : arr.findIndex((t) => t.id === key);
@@ -7672,7 +7807,7 @@ function Atlas() {
                         }, onSettings: () => setSheet("settings"), onShelf: () => setSheet("shelf"), onFamily: () => setSheet("family"), familyOn: !!(family === null || family === void 0 ? void 0 : family.raw), onSince: async (v) => {
                             const prof = { ...profile, since: v };
                             await saveProfile(prof);
-                        }, onExport: exportData, onImport: importAsk, onRestore: restoreData, restoreMsg: restoreMsg, doubles: doubles.length, onDoubles: () => setSheet("doubles"), visits: visits }),
+                        }, onMergeWho: mergeWho, onExport: exportData, onImport: importAsk, onRestore: restoreData, restoreMsg: restoreMsg, doubles: doubles.length, onDoubles: () => setSheet("doubles"), visits: visits }),
                     React.createElement(SettingsSheet, { open: sheet === "settings", onClose: () => setSheet("profile"), box: box, visits: visits, theme: theme, onTheme: setTheme, quality: photoQuality, onQuality: (v) => {
                             setPhotoQuality(v);
                             setSheet("photomode");
@@ -8047,25 +8182,24 @@ body > div{max-width:100%;}
   background:repeating-linear-gradient(135deg, rgba(232,184,75,.16) 0 5px, transparent 5px 10px);}
 /* дорожки, пары, свои/общие, первооткрыватели, широты */
 .lanes{display:flex; flex-direction:column; gap:5px;}
-.lane-row{display:flex; align-items:center; gap:3px;}
-.lane-n{flex:none; width:62px; font-size:0.66rem; color:var(--dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-.lane-y{flex:1 1 0; text-align:center; font-size:0.55rem; color:var(--dim);}
-.lane-c{flex:1 1 0; height:20px; display:flex; align-items:center; justify-content:center;}
+.lane-grid{display:grid; align-items:center; gap:4px 3px;}
+.lane-n{font-size:0.66rem; color:var(--dim); white-space:nowrap; padding-right:6px;}
+.lane-y{text-align:center; font-size:0.55rem; color:var(--dim);}
+.lane-c{height:20px; display:flex; align-items:center; justify-content:center;}
 .lane-c i{display:block; border-radius:50%;}
 .lane-c u{display:block; width:4px; height:4px; border-radius:50%; background:var(--track);}
 .grid-legend .lg{display:inline-flex; align-items:center; gap:4px; margin-right:8px;}
 .grid-legend .lg i{margin-left:0;}
 
-.pairs,.split,.firsts{display:flex; flex-direction:column; gap:8px;}
-.pair-row,.split-row{display:flex; align-items:center; gap:8px; font-size:0.68rem;}
-.pair-n,.split-n{flex:none; width:96px; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-.pair-row.solo .pair-n{color:var(--dim);}
-.pair-bar,.split-bar{flex:1 1 auto; height:8px; border-radius:4px; background:var(--track); overflow:hidden; display:flex;}
-.pair-bar i{display:block; height:100%; border-radius:4px;}
+.firsts{display:flex; flex-direction:column; gap:8px;}
+.split{display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:9px 8px; font-size:0.68rem;}
+.split-n{color:var(--text); white-space:nowrap;}
+.split-bar{height:8px; border-radius:4px; background:var(--track); overflow:hidden; display:flex;}
 .split-bar i{display:block; height:100%;}
+.split-legend{grid-column:1 / -1;}
 .split-bar .sh{background:#4a7fb5;}
 .split-bar .ow{background:#e2b551;}
-.pair-v,.split-v{flex:none; min-width:54px; text-align:right; color:var(--dim); font-size:0.62rem;}
+.split-v{text-align:right; color:var(--dim); font-size:0.62rem; white-space:nowrap;}
 
 .first-row{display:flex; align-items:center; gap:10px;}
 .first-pill{flex:none; width:38px; height:38px; border-radius:50%; display:flex; align-items:center; justify-content:center;
@@ -8084,6 +8218,17 @@ body > div{max-width:100%;}
 .span-line u{position:absolute; top:-2px; width:1px; height:12px; background:rgba(200,214,228,.35);}
 .span-ends{font-size:0.58rem; color:var(--dim);}
 
+.crew-warn{margin-top:10px; padding:11px 12px; border-radius:12px; border:1px solid rgba(232,184,75,.35); background:rgba(232,184,75,.06);}
+.crew-warn>b{display:block; font-size:0.72rem; color:var(--gold); margin-bottom:8px;}
+.warn-row{display:flex; align-items:flex-start; gap:8px; padding:7px 0; border-top:1px solid var(--line);}
+.warn-row:first-of-type{border-top:none;}
+.warn-txt{flex:1 1 auto; font-size:0.68rem; line-height:1.35;}
+.warn-txt i{font-style:normal; color:var(--gold);}
+.warn-acts{flex:none; display:flex; align-items:center; gap:6px;}
+.warn-do,.warn-add,.warn-skip{border-radius:9px; border:1px solid var(--line); background:var(--field); color:var(--text);
+  font-size:0.62rem; padding:5px 8px; cursor:pointer; white-space:nowrap;}
+.warn-do{border-color:rgba(232,184,75,.5); color:var(--gold);}
+.warn-skip{padding:5px 7px; color:var(--dim);}
 .radar-wrap{display:flex; flex-direction:column; align-items:center;}
 .radar{width:100%; max-width:260px;}
 .grid-legend{display:flex; align-items:center; gap:6px; margin-top:8px; font-size:0.62rem; color:var(--dim); flex-wrap:wrap;}
