@@ -1235,7 +1235,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "18.5";
+const APP_VERSION = "18.8";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -5461,16 +5461,15 @@ function crewTree(list) {
         yr.n += 1;
         yr.countries.add(t.a3);
         const ck = t.cont || "ZZ";
-        const cn = yr.conts.get(ck) || { k: ck, n: 0, items: new Map() };
+        const cn = yr.conts.get(ck) || { k: ck, n: 0, m: 0, items: [] };
         cn.n += 1;
-        const it = cn.items.get(t.a3) || { a3: t.a3, n: 0, cities: new Set() };
-        it.n += 1;
-        String(t.cities || "")
-            .split(",")
-            .map((x) => x.trim())
-            .filter(Boolean)
-            .forEach((x) => it.cities.add(x));
-        cn.items.set(t.a3, it);
+        cn.m = Math.max(cn.m, t.m || 0);
+        cn.items.push({
+            key: `${t.a3}-${t.id || ""}-${cn.items.length}`,
+            a3: t.a3,
+            m: t.m || 0,
+            cities: t.cities || "",
+        });
         yr.conts.set(ck, cn);
         years.set(y, yr);
     });
@@ -5480,12 +5479,19 @@ function crewTree(list) {
         y: yr.y,
         n: yr.n,
         countries: yr.countries.size,
+        // внутри года — от поздних поездок к ранним, как и сами годы
         conts: [...yr.conts.values()]
-            .sort((a, b) => b.n - a.n || CONT_ORDER.indexOf(a.k) - CONT_ORDER.indexOf(b.k))
+            .sort((a, b) => b.m - a.m ||
+            b.n - a.n ||
+            CONT_ORDER.indexOf(a.k) - CONT_ORDER.indexOf(b.k))
             .map((c) => ({
             k: c.k,
             n: c.n,
-            items: [...c.items.values()].sort((a, b) => { var _c, _d; return (((_c = BY_A3[a.a3]) === null || _c === void 0 ? void 0 : _c.name) || a.a3).localeCompare(((_d = BY_A3[b.a3]) === null || _d === void 0 ? void 0 : _d.name) || b.a3, "ru"); }),
+            items: c.items.slice().sort((a, b) => {
+                var _c, _d;
+                return b.m - a.m ||
+                    (((_c = BY_A3[a.a3]) === null || _c === void 0 ? void 0 : _c.name) || a.a3).localeCompare(((_d = BY_A3[b.a3]) === null || _d === void 0 ? void 0 : _d.name) || b.a3, "ru");
+            }),
         })),
     }));
 }
@@ -6105,13 +6111,11 @@ function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], o
                                     CONT_MINI[c.k] || "—"),
                                 React.createElement("div", { className: "ct-items" }, c.items.map((it) => {
                                     var _c;
-                                    return (React.createElement("div", { key: it.a3, className: "ct-row" },
+                                    return (React.createElement("div", { key: it.key, className: "ct-row" },
                                         React.createElement("span", { className: "ct-cn" },
                                             ((_c = BY_A3[it.a3]) === null || _c === void 0 ? void 0 : _c.name) || it.a3,
-                                            it.n > 1 && React.createElement("u", null,
-                                                "\u00D7",
-                                                it.n)),
-                                        it.cities.size > 0 && (React.createElement("em", null, [...it.cities].join(", ")))));
+                                            it.m > 0 && (React.createElement("u", null, MONTHS[it.m - 1]))),
+                                        it.cities && React.createElement("em", null, it.cities)));
                                 })))))))),
                         !trips.length && (React.createElement("p", { className: "hint small" }, "\u041F\u043E\u0435\u0437\u0434\u043E\u043A \u043D\u0435\u0442."))))));
             })),
@@ -8328,6 +8332,7 @@ body > div{max-width:100%;}
 .ct-items{flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:3px; border-left:1px solid var(--line); padding-left:9px;}
 .ct-row{display:flex; flex-direction:column; min-width:0;}
 .ct-cn{font-size:0.72rem;}
+.ct-cn u{white-space:nowrap;}
 .ct-cn u{text-decoration:none; color:var(--dim); font-size:0.6rem; margin-left:5px;}
 .ct-row em{font-style:normal; font-size:0.6rem; color:var(--dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .reveal{-webkit-user-select:none; user-select:none;}
