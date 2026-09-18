@@ -1235,7 +1235,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "18.3";
+const APP_VERSION = "18.4";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -5308,6 +5308,8 @@ const CONT_COLORS = {
     OC: "#d3d8de",
 };
 const CREW_COLORS = ["#e2b551", "#7fb3d5", "#c98f6a", "#9ec7a3", "#b6a2d6", "#d3d8de"];
+/* сокращения частей света — полные названия в строку не влезают */
+const CONT_MINI = { EU: "Евр", AS: "Азия", AF: "Афр", NA: "С.Ам", SA: "Ю.Ам", OC: "Оке" };
 function crewReport(visits, people, order) {
     const who = (w) => {
         const p = (people || []).find((x) => x.id === w || x.name === w);
@@ -5328,6 +5330,7 @@ function crewReport(visits, people, order) {
                 firstYear: {},
                 conts: {},
                 countries: new Set(),
+                list: [],
             });
         return P.get(id);
     };
@@ -5348,6 +5351,14 @@ function crewReport(visits, people, order) {
             const r = touch(id);
             r.trips += 1;
             r.countries.add(a3);
+            r.list.push({
+                id: t.id,
+                a3,
+                y,
+                m: t.m || 0,
+                cities: (t.cities || []).join(", "),
+                cont: c ? c.cont : "",
+            });
             if (y) {
                 const cell = r.byYear[y] || { n: 0, conts: {} };
                 cell.n += 1;
@@ -5401,6 +5412,9 @@ function crewReport(visits, people, order) {
             name: r.name,
             color: CREW_COLORS[i % CREW_COLORS.length],
             trips: r.trips,
+            list: r.list
+                .slice()
+                .sort((a, b) => (b.y || 0) - (a.y || 0) || (b.m || 0) - (a.m || 0)),
             byYear: r.byYear,
             conts,
             countries: list.length,
@@ -5548,8 +5562,8 @@ const CONT_SHORT = {
     OC: "Океания",
 };
 function RadarChart({ rows }) {
-    const W = 260;
-    const H = 200;
+    const W = 250;
+    const H = 190;
     const cx = W / 2;
     const cy = H / 2;
     const R = 60;
@@ -5570,7 +5584,7 @@ function RadarChart({ rows }) {
             CONT_ORDER.map((k, i) => {
                 const [x, y] = pt(i, max * 1.28);
                 const anchor = x > cx + 6 ? "start" : x < cx - 6 ? "end" : "middle";
-                return (React.createElement("text", { key: k, x: x + (anchor === "start" ? 3 : anchor === "end" ? -3 : 0), y: y + (Math.abs(y - cy) < 4 ? 3 : y > cy ? 8 : -2), fill: C_DIM, fontSize: "8.5", textAnchor: anchor }, CONT_SHORT[k]));
+                return (React.createElement("text", { key: k, x: x + (anchor === "start" ? 3 : anchor === "end" ? -3 : 0), y: y + (Math.abs(y - cy) < 4 ? 3 : y > cy ? 8 : -2), fill: C_DIM, fontSize: "9.5", textAnchor: anchor }, CONT_SHORT[k]));
             })),
         React.createElement("div", { className: "grid-legend" }, rows.map((r) => (React.createElement("span", { key: r.id, className: "lg" },
             React.createElement("i", { style: { background: r.color } }),
@@ -5725,7 +5739,23 @@ function Reveal({ children, className = "" }) {
         io.observe(el);
         return () => io.disconnect();
     }, [seen]);
-    return (React.createElement("div", { ref: box, className: `reveal ${className}${seen ? " in" : ""}` }, children));
+    const [zoom, setZoom] = useState(false);
+    const tap = useRef(0);
+    const onTap = () => {
+        const t = Date.now();
+        if (t - tap.current < 400) {
+            tap.current = 0;
+            setZoom(true);
+        }
+        else
+            tap.current = t;
+    };
+    return (React.createElement("div", { ref: box, className: `reveal ${className}${seen ? " in" : ""}`, onDoubleClick: () => setZoom(true), onTouchEnd: onTap },
+        children,
+        zoom && (React.createElement("div", { className: "zoom-layer", onClick: () => setZoom(false), onTouchEnd: (e) => e.stopPropagation() },
+            React.createElement("div", { className: "zoom-box", onClick: (e) => e.stopPropagation() },
+                React.createElement("button", { className: "zoom-x", onClick: () => setZoom(false), "aria-label": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C" }, "\u2715"),
+                React.createElement("div", { className: "zoom-body rep" }, children))))));
 }
 /* столбики с линией тренда; неточные периоды — полупрозрачной частью */
 function BarsChart({ data, vague, labels }) {
@@ -5950,8 +5980,10 @@ function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], o
     const r = useMemo(() => reportData(visits, since, people), [visits, since, people]);
     const crew = useMemo(() => travelerStats(visits, people), [visits, people]);
     const crewR = useMemo(() => crewReport(visits, people, crew.map((p) => p.id)), [visits, people, crew]);
+    const [openCrew, setOpenCrew] = useState(null);
     const years = r.allYears.length ? r.allYears : [NOW.getFullYear()];
     return (React.createElement(Sheet, { open: open, onClose: onClose, title: "\u041E\u0442\u0447\u0451\u0442\u044B", box: box }, () => (React.createElement("div", { className: "sheet-body" }, r.trips.length === 0 ? (React.createElement("p", { className: "hint small" }, "\u041E\u0442\u0447\u0451\u0442\u044B \u043F\u043E\u044F\u0432\u044F\u0442\u0441\u044F, \u043A\u043E\u0433\u0434\u0430 \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u0435 \u043F\u0435\u0440\u0432\u0443\u044E \u043F\u043E\u0435\u0437\u0434\u043A\u0443.")) : (React.createElement(React.Fragment, null,
+        React.createElement("p", { className: "hint small" }, "\u0414\u0432\u043E\u0439\u043D\u043E\u0435 \u043A\u0430\u0441\u0430\u043D\u0438\u0435 \u0440\u0430\u0437\u0432\u043E\u0440\u0430\u0447\u0438\u0432\u0430\u0435\u0442 \u043B\u044E\u0431\u043E\u0439 \u0433\u0440\u0430\u0444\u0438\u043A \u043D\u0430 \u0432\u0435\u0441\u044C \u044D\u043A\u0440\u0430\u043D."),
         React.createElement(Reveal, { className: "rep" },
             React.createElement("b", null, "\u041F\u043E\u0435\u0437\u0434\u043A\u0438 \u043F\u043E \u0433\u043E\u0434\u0430\u043C"),
             React.createElement("em", null, "\u0441\u0442\u043E\u043B\u0431\u0438\u043A\u0438 \u0438 \u043B\u0438\u043D\u0438\u044F \u0442\u0440\u0435\u043D\u0434\u0430"),
@@ -5991,14 +6023,18 @@ function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], o
             React.createElement("b", null, "\u041A\u0442\u043E \u0441\u043A\u043E\u043B\u044C\u043A\u043E \u043F\u0440\u043E\u0435\u0445\u0430\u043B"),
             React.createElement("em", null, "\u0441\u0442\u0440\u0430\u043D\u044B, \u0447\u0430\u0441\u0442\u0438 \u0441\u0432\u0435\u0442\u0430, \u0433\u043E\u0440\u043E\u0434\u0430 \u0438 \u0433\u043E\u0434\u044B"),
             React.createElement("div", { className: "crew" }, crew.map((p, i) => {
+                var _c;
                 const lead = crew[0].countries || 1;
+                const trips = ((_c = crewR.rows.find((x) => x.id === p.id)) === null || _c === void 0 ? void 0 : _c.list) || [];
+                const open = openCrew === p.id;
                 return (React.createElement("div", { key: p.id, className: "crew-row" + (p.id === ME ? " me" : "") },
-                    React.createElement("div", { className: "crew-top" },
+                    React.createElement("button", { className: "crew-top", onClick: () => setOpenCrew(open ? null : p.id) },
                         React.createElement("span", { className: "crew-rank" }, i + 1),
                         React.createElement("span", { className: "crew-name" },
                             p.name,
                             p.role && React.createElement("i", null, p.role)),
-                        React.createElement("span", { className: "crew-big" }, p.countries)),
+                        React.createElement("span", { className: "crew-big" }, p.countries),
+                        React.createElement("span", { className: "crew-caret" + (open ? " on" : "") }, "\u25BE")),
                     React.createElement("span", { className: "crew-bar" },
                         React.createElement("i", { style: {
                                 "--w": `${(p.countries / lead) * 100}%`,
@@ -6017,7 +6053,18 @@ function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], o
                             pw(p.years, "year")),
                         React.createElement("span", null,
                             React.createElement("b", null, p.trips),
-                            pw(p.trips, "trip")))));
+                            pw(p.trips, "trip"))),
+                    open && (React.createElement("div", { className: "crew-trips" },
+                        trips.map((t, n) => {
+                            var _c;
+                            return (React.createElement("div", { key: t.id + n, className: "crew-trip" },
+                                React.createElement("span", { className: "ct-y" }, t.y || "—"),
+                                React.createElement("span", { className: "ct-c" },
+                                    ((_c = BY_A3[t.a3]) === null || _c === void 0 ? void 0 : _c.name) || t.a3,
+                                    t.cities && React.createElement("em", null, t.cities)),
+                                React.createElement("span", { className: "ct-k" }, CONT_MINI[t.cont] || "")));
+                        }),
+                        !trips.length && (React.createElement("p", { className: "hint small" }, "\u041F\u043E\u0435\u0437\u0434\u043E\u043A \u043D\u0435\u0442."))))));
             })),
             React.createElement("p", { className: "hint small" }, "\u041F\u043E\u043B\u043E\u0441\u0430 \u2014 \u0434\u043E\u043B\u044F \u043E\u0442 \u043B\u0438\u0434\u0435\u0440\u0430 \u043F\u043E \u0441\u0442\u0440\u0430\u043D\u0430\u043C. \u0421\u0447\u0438\u0442\u0430\u044E\u0442\u0441\u044F \u0442\u043E\u043B\u044C\u043A\u043E \u0441\u043E\u0441\u0442\u043E\u044F\u0432\u0448\u0438\u0435\u0441\u044F \u043F\u043E\u0435\u0437\u0434\u043A\u0438, \u0433\u0434\u0435 \u0447\u0435\u043B\u043E\u0432\u0435\u043A \u043E\u0442\u043C\u0435\u0447\u0435\u043D \u0432 \u0441\u043E\u0441\u0442\u0430\u0432\u0435."))),
         crewR.rows.length > 1 && (React.createElement(React.Fragment, null,
@@ -8207,10 +8254,10 @@ body > div{max-width:100%;}
 .first-n{display:flex; flex-direction:column; font-size:0.74rem;}
 .first-n em{font-style:normal; font-size:0.6rem; color:var(--dim);}
 
-.span-chart{display:flex; flex-direction:column; gap:10px; padding-top:14px; position:relative;}
-.span-axis{position:relative; height:0;}
-.span-axis i{position:absolute; top:-10px; width:1px; height:8px; background:var(--line);}
-.span-axis span{position:absolute; top:-22px; transform:translateX(-50%); font-size:0.55rem; color:var(--dim);}
+.span-chart{display:flex; flex-direction:column; gap:10px;}
+.span-axis{position:relative; height:20px;}
+.span-axis i{position:absolute; bottom:0; width:1px; height:7px; background:var(--line);}
+.span-axis span{position:absolute; top:0; transform:translateX(-50%); font-size:0.55rem; color:var(--dim); white-space:nowrap;}
 .span-row{display:flex; flex-direction:column; gap:3px;}
 .span-n{font-size:0.68rem;}
 .span-line{position:relative; height:8px; border-radius:4px; background:var(--track);}
@@ -8218,6 +8265,26 @@ body > div{max-width:100%;}
 .span-line u{position:absolute; top:-2px; width:1px; height:12px; background:rgba(200,214,228,.35);}
 .span-ends{font-size:0.58rem; color:var(--dim);}
 
+.crew-top{width:100%; background:none; border:none; padding:0; cursor:pointer; color:inherit; text-align:left;}
+.crew-caret{flex:none; margin-left:8px; color:var(--dim); font-size:0.7rem; transition:transform .18s;}
+.crew-caret.on{transform:rotate(180deg); color:var(--gold);}
+.crew-trips{margin-top:9px; border-top:1px solid var(--line); padding-top:7px; display:flex; flex-direction:column; gap:5px;}
+.crew-trip{display:flex; align-items:baseline; gap:8px; font-size:0.68rem;}
+.ct-y{flex:none; width:34px; color:var(--dim); font-size:0.64rem;}
+.ct-c{flex:1 1 auto; min-width:0; display:flex; flex-direction:column;}
+.ct-c em{font-style:normal; font-size:0.6rem; color:var(--dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.ct-k{flex:none; color:var(--dim); font-size:0.6rem;}
+.reveal{-webkit-user-select:none; user-select:none;}
+.zoom-layer{position:fixed; inset:0; z-index:200; background:rgba(6,12,20,.92); display:flex; align-items:center; justify-content:center; padding:14px;}
+.zoom-box{position:relative; width:100%; max-width:760px; max-height:92vh; overflow:auto; border-radius:16px;
+  border:1px solid var(--line); background:var(--el); padding:16px 14px;}
+.zoom-x{position:absolute; top:8px; right:8px; width:32px; height:32px; border-radius:50%; border:1px solid var(--line);
+  background:var(--field); color:var(--dim); cursor:pointer;}
+.zoom-body>.reveal{opacity:1; transform:none;}
+.zoom-body .radar{max-width:min(86vw, 560px);}
+.zoom-body .lane-c{height:30px;}
+.zoom-body{font-size:1.05rem; border:none; padding:0; margin:0; background:none;}
+.zoom-body>b{display:block; margin-right:34px;}
 .crew-warn{margin-top:10px; padding:11px 12px; border-radius:12px; border:1px solid rgba(232,184,75,.35); background:rgba(232,184,75,.06);}
 .crew-warn>b{display:block; font-size:0.72rem; color:var(--gold); margin-bottom:8px;}
 .warn-row{display:flex; align-items:flex-start; gap:8px; padding:7px 0; border-top:1px solid var(--line);}
@@ -8230,7 +8297,7 @@ body > div{max-width:100%;}
 .warn-do{border-color:rgba(232,184,75,.5); color:var(--gold);}
 .warn-skip{padding:5px 7px; color:var(--dim);}
 .radar-wrap{display:flex; flex-direction:column; align-items:center;}
-.radar{width:100%; max-width:260px;}
+.radar{width:100%; max-width:min(100%, 420px);}
 .grid-legend{display:flex; align-items:center; gap:6px; margin-top:8px; font-size:0.62rem; color:var(--dim); flex-wrap:wrap;}
 .grid-legend i{width:11px; height:11px; border-radius:3px; margin-left:8px;}
 .grid-legend i:first-child{margin-left:0;}
