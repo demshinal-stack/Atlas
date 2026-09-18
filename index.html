@@ -1238,7 +1238,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "19.8";
+const APP_VERSION = "20.0";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -5416,14 +5416,7 @@ function crewReport(visits, people, order) {
             if (c)
                 conts[c.cont] = (conts[c.cont] || 0) + 1;
         });
-        const pts = r.points.filter((q) => isFinite(q.lat) && isFinite(q.lon));
-        const sorted = pts.slice().sort((a, b) => a.lat - b.lat);
-        const pSouth = sorted[0] || null;
-        const pNorth = sorted[sorted.length - 1] || null;
-        const lats = list
-            .map((a3) => BY_A3[a3])
-            .filter((c) => c && isFinite(c.lat))
-            .sort((a, b) => a.lat - b.lat);
+        const far = farthestPair(r.points);
         return {
             id: r.id,
             name: r.name,
@@ -5443,9 +5436,9 @@ function crewReport(visits, people, order) {
             firstsJoint: list.filter((a3) => r.firstYear[a3] &&
                 r.firstYear[a3] === globalFirst[a3] &&
                 firstCrowd[a3] > 1).length,
-            south: pSouth || lats[0] || null,
-            north: pNorth || lats[lats.length - 1] || null,
-            km: pSouth && pNorth ? kmBetween(pSouth, pNorth) : 0,
+            south: far.a,
+            north: far.b,
+            km: far.km,
         };
     });
     const nameOf = (id) => { var _c; return ((_c = rows.find((r) => r.id === id)) === null || _c === void 0 ? void 0 : _c.name) || id; };
@@ -5524,6 +5517,28 @@ function kmBetween(a, b) {
     return Math.round(2 * R * Math.asin(Math.min(1, Math.sqrt(h))));
 }
 const kmText = (n) => `${n.toLocaleString("ru-RU")} км`;
+/* две самые удалённые точки из всех, где человек побывал */
+function farthestPair(points) {
+    const uniq = new Map();
+    (points || []).forEach((q) => {
+        if (!isFinite(q.lat) || !isFinite(q.lon))
+            return;
+        const k = `${q.lon.toFixed(1)}|${q.lat.toFixed(1)}`;
+        if (!uniq.has(k))
+            uniq.set(k, q);
+    });
+    const list = [...uniq.values()];
+    let best = { a: null, b: null, km: 0 };
+    for (let i = 0; i < list.length; i++)
+        for (let j = i + 1; j < list.length; j++) {
+            const km = kmBetween(list[i], list[j]);
+            if (km > best.km)
+                best = { a: list[i], b: list[j], km };
+        }
+    if (!best.a && list.length)
+        best = { a: list[0], b: list[0], km: 0 };
+    return best;
+}
 /* сравнение двоих: только разница — где был один и не был другой */
 function diffPair(rows, idA, idB) {
     const get = (id) => rows.find((r) => r.id === id);
@@ -5654,29 +5669,15 @@ function SpanGlobe({ rows, geo, home }) {
     const raf = useRef(0);
     const arcs = useMemo(() => {
         const list = rows.filter((r) => r.south && r.north && r.km > 0);
-        const groups = new Map();
-        list.forEach((r) => {
-            const k = [
-                r.south.lon.toFixed(1),
-                r.south.lat.toFixed(1),
-                r.north.lon.toFixed(1),
-                r.north.lat.toFixed(1),
-            ].join("|");
-            const g = groups.get(k) || [];
-            g.push(r);
-            groups.set(k, g);
-        });
-        // каждому путешественнику своя дуга: одинаковые пары разводим по высоте
-        const out = [];
-        [...groups.values()].forEach((g) => g.forEach((r, i) => out.push({
+        // у каждого своя высота — дуги не сливаются даже при общих точках
+        return list.map((r, i) => ({
             from: r.south,
             to: r.north,
             km: r.km,
             dh: Math.abs(tzHours(r.north) - tzHours(r.south)),
             who: r,
-            nest: i,
-        })));
-        return out.map((a, i) => ({ ...a, lift: 0.1 + (a.nest + i * 0.0001) * 0.07 }));
+            lift: 0.07 + i * 0.06,
+        }));
     }, [rows]);
     useEffect(() => {
         const box = wrap.current;
@@ -5721,46 +5722,6 @@ function SpanGlobe({ rows, geo, home }) {
             const hidden = z < 0 && Math.hypot(x, y) * (1 + lift) < 1;
             return { x: cx + x * k, y: cy + y * k, z, hidden };
         };
-        const pill = (x, y, label, color, opts = {}) => {
-            ctx.font = opts.font || "600 10.5px system-ui, -apple-system, sans-serif";
-            // подпись обязана поместиться в шар — иначе укорачиваем
-            let text = label;
-            const room = w - 18 - (opts.dot ? 12 : 0);
-            if (ctx.measureText(text).width > room) {
-                while (text.length > 4 && ctx.measureText(text + "…").width > room)
-                    text = text.slice(0, -1);
-                text += "…";
-            }
-            const tw = ctx.measureText(text).width;
-            const h = 20;
-            const pad = 8;
-            const bw = tw + pad * 2 + (opts.dot ? 12 : 0);
-            const bx = Math.max(4, Math.min(w - bw - 4, x - bw / 2));
-            const by = Math.max(4, y - h);
-            ctx.beginPath();
-            if (ctx.roundRect)
-                ctx.roundRect(bx, by, bw, h, 10);
-            else
-                ctx.rect(bx, by, bw, h);
-            ctx.fillStyle = "rgba(9,19,31,.86)";
-            ctx.fill();
-            ctx.strokeStyle = opts.border || "rgba(150,180,210,.22)";
-            ctx.lineWidth = 1;
-            ctx.stroke();
-            let tx = bx + pad;
-            if (opts.dot) {
-                ctx.beginPath();
-                ctx.arc(bx + pad + 3, by + h / 2, 3.4, 0, Math.PI * 2);
-                ctx.fillStyle = opts.dot;
-                ctx.fill();
-                tx += 12;
-            }
-            ctx.fillStyle = color;
-            ctx.textAlign = "left";
-            ctx.textBaseline = "middle";
-            ctx.fillText(text, tx, by + h / 2 + 0.5);
-            return { x: bx + bw / 2, y: by + h / 2, w: bw, h };
-        };
         const draw = (time) => {
             proj.rotate(rot.current);
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -5795,7 +5756,6 @@ function SpanGlobe({ rows, geo, home }) {
                 ctx.lineWidth = 0.4;
                 ctx.stroke();
             });
-            const labels = [];
             const marks = new Map();
             arcs.forEach((a) => {
                 const N = 96;
@@ -5806,21 +5766,14 @@ function SpanGlobe({ rows, geo, home }) {
                     const lift = a.lift * Math.sin(Math.PI * t);
                     pts.push({ ...place(inter(t), lift), t });
                 }
-                const seen = pts.filter((q) => !q.hidden);
-                if (!seen.length)
-                    return;
-                const g = ctx.createLinearGradient(seen[0].x, seen[0].y, seen[seen.length - 1].x, seen[seen.length - 1].y);
-                g.addColorStop(0, a.who.color);
-                g.addColorStop(0.5, "#f4efe2");
-                g.addColorStop(1, a.who.color);
                 ctx.save();
                 ctx.lineCap = "round";
                 ctx.lineJoin = "round";
+                // за шаром дуга прячется — как и положено при повороте
                 ctx.shadowColor = a.who.color;
-                ctx.shadowBlur = 10;
-                ctx.strokeStyle = g;
-                ctx.lineWidth = 2.4;
-                ctx.setLineDash([]);
+                ctx.shadowBlur = 12;
+                ctx.strokeStyle = a.who.color;
+                ctx.lineWidth = 5;
                 let open = false;
                 ctx.beginPath();
                 pts.forEach((q) => {
@@ -5836,20 +5789,37 @@ function SpanGlobe({ rows, geo, home }) {
                         ctx.lineTo(q.x, q.y);
                 });
                 ctx.stroke();
-                // бегущий блик вдоль дуги
-                ctx.setLineDash([10, 26]);
-                ctx.lineDashOffset = -((time / 22) % 36);
-                ctx.strokeStyle = "rgba(255,255,255,.65)";
-                ctx.lineWidth = 1.4;
-                ctx.shadowBlur = 6;
+                // бегущий блик вдоль видимой части
+                ctx.globalAlpha = 0.5;
+                ctx.setLineDash([12, 30]);
+                ctx.lineDashOffset = -((time / 22) % 42);
+                ctx.strokeStyle = "rgba(255,255,255,.8)";
+                ctx.lineWidth = 1.6;
+                ctx.shadowBlur = 0;
+                let open2 = false;
+                ctx.beginPath();
+                pts.forEach((q) => {
+                    if (q.hidden) {
+                        open2 = false;
+                        return;
+                    }
+                    if (!open2) {
+                        ctx.moveTo(q.x, q.y);
+                        open2 = true;
+                    }
+                    else
+                        ctx.lineTo(q.x, q.y);
+                });
                 ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.globalAlpha = 1;
                 ctx.restore();
                 // стрелки на концах, как у измерителя
                 const arrow = (q, prev) => {
                     if (!q || !prev || q.hidden || prev.hidden)
                         return;
                     const ang = Math.atan2(q.y - prev.y, q.x - prev.x);
-                    const L = 9;
+                    const L = 11;
                     ctx.beginPath();
                     ctx.moveTo(q.x, q.y);
                     ctx.lineTo(q.x - Math.cos(ang - 0.4) * L, q.y - Math.sin(ang - 0.4) * L);
@@ -5860,77 +5830,37 @@ function SpanGlobe({ rows, geo, home }) {
                 };
                 arrow(pts[0], pts[2]);
                 arrow(pts[N], pts[N - 2]);
-                // подпись дуги
-                const mid = pts[Math.round(N / 2)];
-                if (!mid.hidden)
-                    labels.push({
-                        x: mid.x,
-                        y: mid.y + 26,
-                        text: `${shortName(a.who.name)} · ${kmText(a.km)} · ${hoursText(a.dh)}`,
-                        color: "#eef3f8",
-                        dot: a.who.color,
-                        border: a.who.color + "66",
-                    });
                 [a.from, a.to].forEach((q) => {
                     const k = `${q.lon.toFixed(2)}|${q.lat.toFixed(2)}`;
                     if (!marks.has(k))
                         marks.set(k, q);
                 });
             });
-            // точки маршрутов: флаг страны и название
+            // концы дуг — только точки, без подписей
             marks.forEach((q) => {
-                var _c;
-                const s = place([q.lon, q.lat]);
+                const s = place([q.lon, q.lat], 0);
                 if (s.hidden)
                     return;
                 ctx.beginPath();
-                ctx.arc(s.x, s.y, 4.6, 0, Math.PI * 2);
+                ctx.arc(s.x, s.y, 4.4, 0, Math.PI * 2);
                 ctx.fillStyle = "#f4efe2";
                 ctx.fill();
                 ctx.strokeStyle = "rgba(9,19,31,.8)";
                 ctx.lineWidth = 1.4;
                 ctx.stroke();
-                labels.push({
-                    x: s.x,
-                    y: s.y + 34,
-                    text: `${flag(((_c = BY_A3[q.a3]) === null || _c === void 0 ? void 0 : _c.a2) || "")} ${q.name}`,
-                    color: "#dbe6f0",
-                    font: "500 11.5px system-ui, -apple-system, sans-serif",
-                    soft: true,
-                });
             });
-            // дом
             if (home) {
-                const s = place([home.lon, home.lat]);
+                const s = place([home.lon, home.lat], 0);
                 if (!s.hidden) {
                     ctx.beginPath();
-                    ctx.arc(s.x, s.y, 5.6, 0, Math.PI * 2);
+                    ctx.arc(s.x, s.y, 6, 0, Math.PI * 2);
                     ctx.fillStyle = C_GOLD;
                     ctx.fill();
-                    labels.push({
-                        x: s.x,
-                        y: s.y - 10,
-                        text: `${flag(home.a2)} дом · ${home.name}`,
-                        color: "#f1e2bd",
-                        border: "rgba(232,184,75,.55)",
-                    });
+                    ctx.strokeStyle = "rgba(9,19,31,.85)";
+                    ctx.lineWidth = 1.6;
+                    ctx.stroke();
                 }
             }
-            // подписи поверх всего, с разводкой
-            const placed = [];
-            labels.forEach((L) => {
-                let y = L.y;
-                let guard = 0;
-                while (guard++ < 14 &&
-                    placed.some((q) => Math.abs(q.y - y) < 23 && Math.abs(q.x - L.x) < q.w / 2 + 70))
-                    y -= 23;
-                const box2 = pill(L.x, y, L.text, L.color, {
-                    dot: L.dot,
-                    border: L.soft ? "rgba(150,180,210,.18)" : L.border,
-                    font: L.font,
-                });
-                placed.push(box2);
-            });
         };
         const tick = (t) => {
             fit();
@@ -5969,57 +5899,65 @@ function SpanGlobe({ rows, geo, home }) {
             c.removeEventListener("pointercancel", up);
         };
     }, [arcs, geo, home]);
+    const max = Math.max(1, ...rows.map((r) => r.km || 0));
     return (React.createElement("div", { className: "span-globe", ref: wrap },
         React.createElement("canvas", { ref: cv }),
         React.createElement("div", { className: "globe-legend" }, rows
             .filter((r) => r.km > 0)
             .map((r) => {
             var _c, _d;
-            return (React.createElement("div", { key: r.id },
-                React.createElement("i", { style: { background: r.color } }),
-                React.createElement("span", null, r.name),
-                React.createElement("em", null,
-                    flag(((_c = BY_A3[r.south.a3]) === null || _c === void 0 ? void 0 : _c.a2) || ""),
-                    " ",
-                    r.south.name,
-                    " \u2192",
-                    " ",
-                    flag(((_d = BY_A3[r.north.a3]) === null || _d === void 0 ? void 0 : _d.a2) || ""),
-                    " ",
-                    r.north.name),
-                React.createElement("b", null, kmText(r.km))));
+            return (React.createElement("div", { key: r.id, className: "gl-row" },
+                React.createElement("span", { className: "gl-fill", style: {
+                        width: `${(r.km / max) * 100}%`,
+                        background: r.color,
+                    } }),
+                React.createElement("i", { className: "gl-dot", style: { background: r.color } }),
+                React.createElement("span", { className: "gl-main" },
+                    React.createElement("b", null, r.name),
+                    React.createElement("em", null,
+                        flag(((_c = BY_A3[r.south.a3]) === null || _c === void 0 ? void 0 : _c.a2) || ""),
+                        " ",
+                        r.south.name,
+                        " \u2192",
+                        " ",
+                        flag(((_d = BY_A3[r.north.a3]) === null || _d === void 0 ? void 0 : _d.a2) || ""),
+                        " ",
+                        r.north.name)),
+                React.createElement("span", { className: "gl-num" },
+                    React.createElement("b", null, kmText(r.km)),
+                    React.createElement("u", null, hoursText(Math.abs(tzHours(r.north) - tzHours(r.south)))))));
         }))));
 }
-/* размах широт: от самой южной страны до самой северной */
+/* самая длинная дуга: две самые удалённые точки поездок */
 function SpanChart({ rows, geo, home }) {
     const zoomed = React.useContext(ZoomCtx);
-    const list = rows.filter((r) => r.south && r.north);
+    const list = rows.filter((r) => r.km > 0);
     if (!list.length)
         return null;
     if (zoomed)
         return React.createElement(SpanGlobe, { rows: list, geo: geo, home: home });
-    const lo = Math.min(-40, ...list.map((r) => r.south.lat)) - 5;
-    const hi = Math.max(60, ...list.map((r) => r.north.lat)) + 5;
-    const pos = (v) => ((v - lo) / (hi - lo)) * 100;
-    return (React.createElement("div", { className: "span-chart" },
-        React.createElement("div", { className: "span-axis" },
-            React.createElement("i", { style: { left: `${pos(0)}%` } }),
-            React.createElement("span", { style: { left: `${pos(0)}%` } }, "\u044D\u043A\u0432\u0430\u0442\u043E\u0440")),
-        list.map((r) => (React.createElement("div", { key: r.id, className: "span-row" },
-            React.createElement("div", { className: "span-head" },
-                React.createElement("span", { className: "span-n" }, r.name),
-                React.createElement("span", { className: "span-ends" },
-                    r.south.name,
-                    " \u2192 ",
-                    r.north.name,
-                    r.km ? ` · ${kmText(r.km)}` : "")),
-            React.createElement("span", { className: "span-line" },
-                React.createElement("i", { style: {
-                        left: `${pos(r.south.lat)}%`,
-                        width: `${pos(r.north.lat) - pos(r.south.lat)}%`,
-                        background: r.color,
-                    } }),
-                React.createElement("u", { className: "mark", style: { left: `${pos(0)}%` } })))))));
+    const max = Math.max(...list.map((r) => r.km));
+    return (React.createElement("div", { className: "dist-chart" }, list.map((r) => {
+        var _c, _d;
+        return (React.createElement("div", { key: r.id, className: "dist-row" },
+            React.createElement("div", { className: "dist-head" },
+                React.createElement("span", { className: "dist-n" }, r.name),
+                React.createElement("span", { className: "dist-km" }, kmText(r.km))),
+            React.createElement("span", { className: "dist-line" },
+                React.createElement("i", { style: { width: `${(r.km / max) * 100}%`, background: r.color } })),
+            React.createElement("span", { className: "dist-ends" },
+                flag(((_c = BY_A3[r.south.a3]) === null || _c === void 0 ? void 0 : _c.a2) || ""),
+                " ",
+                r.south.name,
+                " \u2192",
+                " ",
+                flag(((_d = BY_A3[r.north.a3]) === null || _d === void 0 ? void 0 : _d.a2) || ""),
+                " ",
+                r.north.name,
+                " \u00B7",
+                " ",
+                hoursText(Math.abs(tzHours(r.north) - tzHours(r.south))))));
+    })));
 }
 /* части света лепестками: профиль каждого поверх остальных */
 const CONT_SHORT = {
@@ -6656,8 +6594,8 @@ function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], o
                 React.createElement("em", null, "\u043A\u0442\u043E \u043F\u043E\u043F\u0430\u043B \u0432 \u0441\u0442\u0440\u0430\u043D\u0443 \u0440\u0430\u043D\u044C\u0448\u0435 \u043E\u0441\u0442\u0430\u043B\u044C\u043D\u044B\u0445"),
                 React.createElement(FirstsChart, { rows: crewR.rows })),
             React.createElement(Reveal, { className: "rep" },
-                React.createElement("b", null, "\u0420\u0430\u0437\u043C\u0430\u0445 \u0448\u0438\u0440\u043E\u0442"),
-                React.createElement("em", null, "\u043E\u0442 \u0441\u0430\u043C\u043E\u0439 \u044E\u0436\u043D\u043E\u0439 \u0442\u043E\u0447\u043A\u0438 \u0434\u043E \u0441\u0430\u043C\u043E\u0439 \u0441\u0435\u0432\u0435\u0440\u043D\u043E\u0439 \u00B7 \u0434\u0432\u043E\u0439\u043D\u043E\u0435 \u043A\u0430\u0441\u0430\u043D\u0438\u0435 \u2014 \u0433\u043B\u043E\u0431\u0443\u0441 \u0441 \u0434\u0443\u0433\u0430\u043C\u0438"),
+                React.createElement("b", null, "\u0421\u0430\u043C\u0430\u044F \u0434\u043B\u0438\u043D\u043D\u0430\u044F \u0434\u0443\u0433\u0430"),
+                React.createElement("em", null, "\u0434\u0432\u0435 \u0441\u0430\u043C\u044B\u0435 \u0443\u0434\u0430\u043B\u0451\u043D\u043D\u044B\u0435 \u0442\u043E\u0447\u043A\u0438 \u043F\u043E\u0435\u0437\u0434\u043E\u043A \u00B7 \u0434\u0432\u043E\u0439\u043D\u043E\u0435 \u043A\u0430\u0441\u0430\u043D\u0438\u0435 \u2014 \u0433\u043B\u043E\u0431\u0443\u0441"),
                 React.createElement(SpanChart, { rows: crewR.rows, geo: geo, home: home })),
             diff && (React.createElement(Reveal, { className: "rep cmp" },
                 React.createElement("b", null, "\u0414\u0432\u043E\u0435: \u0442\u043E\u043B\u044C\u043A\u043E \u0440\u0430\u0437\u043D\u0438\u0446\u0430"),
@@ -8869,17 +8807,6 @@ body > div{max-width:100%;}
 .first-n{display:flex; flex-direction:column; font-size:0.74rem;}
 .first-n em{font-style:normal; font-size:0.6rem; color:var(--dim);}
 
-.span-chart{display:flex; flex-direction:column; gap:10px;}
-.span-axis{position:relative; height:16px;}
-.span-axis i{position:absolute; bottom:0; width:1px; height:7px; background:var(--line);}
-.span-axis span{position:absolute; top:0; transform:translateX(-50%); font-size:0.55rem; color:var(--dim); white-space:nowrap;}
-.span-row{display:flex; flex-direction:column; gap:4px;}
-.span-head{display:flex; align-items:baseline; gap:8px;}
-.span-n{font-size:0.68rem; flex:none;}
-.span-line{position:relative; height:8px; border-radius:4px; background:var(--track);}
-.span-line i{position:absolute; top:0; height:100%; border-radius:4px; min-width:4px;}
-.span-line u{position:absolute; top:-2px; width:1px; height:12px; background:rgba(200,214,228,.35);}
-.span-ends{font-size:0.58rem; color:var(--dim); margin-left:auto; text-align:right; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 
 .crew-top{width:100%; background:none; border:none; padding:0; cursor:pointer; color:inherit; text-align:left;}
 .crew-caret{flex:none; margin-left:8px; color:var(--dim); font-size:0.7rem; transition:transform .18s;}
@@ -8918,15 +8845,29 @@ body > div{max-width:100%;}
 .cmp-year{display:flex; gap:9px; align-items:baseline; font-size:0.7rem;}
 .cmp-y{flex:none; width:36px; color:var(--dim); font-size:0.64rem;}
 .cmp-cs{flex:1 1 auto; min-width:0;}
-.span-globe{display:flex; flex-direction:column; align-items:center; gap:12px;}
+.span-globe{display:flex; flex-direction:column; align-items:center; gap:14px;}
 .span-globe canvas{display:block; touch-action:none; cursor:grab; border-radius:50%;}
 .span-globe canvas:active{cursor:grabbing;}
-.globe-legend{width:100%; display:flex; flex-direction:column; gap:6px; font-size:0.68rem;}
-.globe-legend div{display:flex; align-items:baseline; gap:8px; min-width:0;}
-.globe-legend i{flex:none; width:10px; height:10px; border-radius:3px;}
-.globe-legend span{flex:none;}
-.globe-legend em{flex:1 1 auto; min-width:0; font-style:normal; font-size:0.62rem; color:var(--dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-.globe-legend b{flex:none; font-weight:500;}
+.globe-legend{width:100%; display:flex; flex-direction:column; gap:7px;}
+.gl-row{position:relative; display:flex; align-items:center; gap:9px; padding:9px 11px; border-radius:12px;
+  border:1px solid var(--line); background:var(--field); overflow:hidden;}
+.gl-fill{position:absolute; left:0; top:0; bottom:0; opacity:.1;}
+.gl-dot{position:relative; flex:none; width:10px; height:10px; border-radius:50%;}
+.gl-main{position:relative; flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:1px;}
+.gl-main b{font-size:0.74rem; font-weight:500;}
+.gl-main em{font-style:normal; font-size:0.62rem; color:var(--dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.gl-num{position:relative; flex:none; display:flex; flex-direction:column; align-items:flex-end; gap:1px;}
+.gl-num b{font-size:0.74rem; font-weight:600;}
+.gl-num u{text-decoration:none; font-size:0.58rem; color:var(--dim);}
+
+.dist-chart{display:flex; flex-direction:column; gap:12px;}
+.dist-row{display:flex; flex-direction:column; gap:4px;}
+.dist-head{display:flex; align-items:baseline; gap:8px;}
+.dist-n{flex:none; font-size:0.7rem;}
+.dist-km{margin-left:auto; font-size:0.68rem; color:var(--ink);}
+.dist-line{height:8px; border-radius:4px; background:var(--track); overflow:hidden;}
+.dist-line i{display:block; height:100%; border-radius:4px;}
+.dist-ends{font-size:0.6rem; color:var(--dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .zoom-layer{position:fixed; -webkit-user-select:none; user-select:none; inset:0; z-index:200; background:rgba(6,12,20,.92); display:flex; align-items:center; justify-content:center; padding:14px;}
 .zoom-box{position:relative; width:100%; max-width:760px; max-height:92vh; overflow:auto; border-radius:16px;
   border:1px solid var(--line); background:var(--el); padding:16px 14px;}
