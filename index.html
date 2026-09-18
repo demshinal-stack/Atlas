@@ -1238,7 +1238,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "19.4";
+const APP_VERSION = "19.5";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -5618,18 +5618,19 @@ function SpanChart({ rows }) {
             React.createElement("i", { style: { left: `${pos(0)}%` } }),
             React.createElement("span", { style: { left: `${pos(0)}%` } }, "\u044D\u043A\u0432\u0430\u0442\u043E\u0440")),
         list.map((r) => (React.createElement("div", { key: r.id, className: "span-row" },
-            React.createElement("span", { className: "span-n" }, r.name),
+            React.createElement("div", { className: "span-head" },
+                React.createElement("span", { className: "span-n" }, r.name),
+                React.createElement("span", { className: "span-ends" },
+                    r.south.name,
+                    " \u2192 ",
+                    r.north.name)),
             React.createElement("span", { className: "span-line" },
                 React.createElement("i", { style: {
                         left: `${pos(r.south.lat)}%`,
                         width: `${pos(r.north.lat) - pos(r.south.lat)}%`,
                         background: r.color,
                     } }),
-                React.createElement("u", { className: "mark", style: { left: `${pos(0)}%` } })),
-            React.createElement("span", { className: "span-ends" },
-                r.south.name,
-                " \u2192 ",
-                r.north.name))))));
+                React.createElement("u", { className: "mark", style: { left: `${pos(0)}%` } })))))));
 }
 /* части света лепестками: профиль каждого поверх остальных */
 const CONT_SHORT = {
@@ -8458,15 +8459,16 @@ body > div{max-width:100%;}
 .first-n em{font-style:normal; font-size:0.6rem; color:var(--dim);}
 
 .span-chart{display:flex; flex-direction:column; gap:10px;}
-.span-axis{position:relative; height:20px;}
+.span-axis{position:relative; height:16px;}
 .span-axis i{position:absolute; bottom:0; width:1px; height:7px; background:var(--line);}
 .span-axis span{position:absolute; top:0; transform:translateX(-50%); font-size:0.55rem; color:var(--dim); white-space:nowrap;}
-.span-row{display:flex; flex-direction:column; gap:3px;}
-.span-n{font-size:0.68rem;}
+.span-row{display:flex; flex-direction:column; gap:4px;}
+.span-head{display:flex; align-items:baseline; gap:8px;}
+.span-n{font-size:0.68rem; flex:none;}
 .span-line{position:relative; height:8px; border-radius:4px; background:var(--track);}
 .span-line i{position:absolute; top:0; height:100%; border-radius:4px; min-width:4px;}
 .span-line u{position:absolute; top:-2px; width:1px; height:12px; background:rgba(200,214,228,.35);}
-.span-ends{font-size:0.58rem; color:var(--dim);}
+.span-ends{font-size:0.58rem; color:var(--dim); margin-left:auto; text-align:right; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 
 .crew-top{width:100%; background:none; border:none; padding:0; cursor:pointer; color:inherit; text-align:left;}
 .crew-caret{flex:none; margin-left:8px; color:var(--dim); font-size:0.7rem; transition:transform .18s;}
