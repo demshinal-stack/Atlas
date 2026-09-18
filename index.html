@@ -1238,7 +1238,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "19.5";
+const APP_VERSION = "19.7";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -5334,6 +5334,7 @@ function crewReport(visits, people, order) {
                 conts: {},
                 countries: new Set(),
                 list: [],
+                points: [],
             });
         return P.get(id);
     };
@@ -5362,6 +5363,15 @@ function crewReport(visits, people, order) {
                 cities: (t.cities || []).join(", "),
                 cont: c ? c.cont : "",
             });
+            const names = (t.cities || []).filter(Boolean);
+            if (names.length)
+                names.forEach((city) => {
+                    const xy = cityPoint(a3, city);
+                    if (xy)
+                        r.points.push({ lon: xy[0], lat: xy[1], name: city });
+                });
+            else if (c)
+                r.points.push({ lon: c.lon, lat: c.lat, name: c.name });
             if (y) {
                 const cell = r.byYear[y] || { n: 0, conts: {} };
                 cell.n += 1;
@@ -5406,6 +5416,10 @@ function crewReport(visits, people, order) {
             if (c)
                 conts[c.cont] = (conts[c.cont] || 0) + 1;
         });
+        const pts = r.points.filter((q) => isFinite(q.lat) && isFinite(q.lon));
+        const sorted = pts.slice().sort((a, b) => a.lat - b.lat);
+        const pSouth = sorted[0] || null;
+        const pNorth = sorted[sorted.length - 1] || null;
         const lats = list
             .map((a3) => BY_A3[a3])
             .filter((c) => c && isFinite(c.lat))
@@ -5429,8 +5443,9 @@ function crewReport(visits, people, order) {
             firstsJoint: list.filter((a3) => r.firstYear[a3] &&
                 r.firstYear[a3] === globalFirst[a3] &&
                 firstCrowd[a3] > 1).length,
-            south: lats[0] || null,
-            north: lats[lats.length - 1] || null,
+            south: pSouth || lats[0] || null,
+            north: pNorth || lats[lats.length - 1] || null,
+            km: pSouth && pNorth ? kmBetween(pSouth, pNorth) : 0,
         };
     });
     const nameOf = (id) => { var _c; return ((_c = rows.find((r) => r.id === id)) === null || _c === void 0 ? void 0 : _c.name) || id; };
@@ -5498,6 +5513,17 @@ function crewTree(list) {
         })),
     }));
 }
+/* расстояние по дуге большого круга, км */
+function kmBetween(a, b) {
+    const R = 6371;
+    const rad = Math.PI / 180;
+    const dLat = (b.lat - a.lat) * rad;
+    const dLon = (b.lon - a.lon) * rad;
+    const h = Math.sin(dLat / 2) ** 2 +
+        Math.cos(a.lat * rad) * Math.cos(b.lat * rad) * Math.sin(dLon / 2) ** 2;
+    return Math.round(2 * R * Math.asin(Math.min(1, Math.sqrt(h))));
+}
+const kmText = (n) => `${n.toLocaleString("ru-RU")} км`;
 /* сравнение двоих: только разница — где был один и не был другой */
 function diffPair(rows, idA, idB) {
     const get = (id) => rows.find((r) => r.id === id);
@@ -5605,11 +5631,205 @@ function FirstsChart({ rows }) {
                     r.countries))))),
         React.createElement("p", { className: "hint small" }, "\u0421\u0442\u0440\u0430\u043D\u0430 \u0437\u0430\u0441\u0447\u0438\u0442\u044B\u0432\u0430\u0435\u0442\u0441\u044F \u0442\u043E\u043C\u0443, \u043A\u0442\u043E \u043F\u043E\u0431\u044B\u0432\u0430\u043B \u0432 \u043D\u0435\u0439 \u0432 \u0441\u0430\u043C\u044B\u0439 \u0440\u0430\u043D\u043D\u0438\u0439 \u0433\u043E\u0434. \u0415\u0441\u043B\u0438 \u0432 \u044D\u0442\u043E\u0442 \u0433\u043E\u0434 \u0442\u0443\u0434\u0430 \u0435\u0437\u0434\u0438\u043B\u0438 \u043D\u0435\u0441\u043A\u043E\u043B\u044C\u043A\u043E \u0447\u0435\u043B\u043E\u0432\u0435\u043A, \u0441\u0442\u0440\u0430\u043D\u0430 \u0441\u0447\u0438\u0442\u0430\u0435\u0442\u0441\u044F \u043E\u0442\u043A\u0440\u044B\u0442\u043E\u0439 \u0432\u043C\u0435\u0441\u0442\u0435 \u0438 \u043D\u0438\u043A\u043E\u043C\u0443 \u0432 \u0441\u0447\u0451\u0442 \u043D\u0435 \u0438\u0434\u0451\u0442.")));
 }
-/* размах широт: от самой южной до самой северной страны */
-function SpanChart({ rows }) {
+/* глобус с дугами: у каждого своя дуга от южной точки к северной */
+function SpanGlobe({ rows, geo }) {
+    const wrap = useRef(null);
+    const cv = useRef(null);
+    const rot = useRef([20, -10]);
+    const drag = useRef(null);
+    const raf = useRef(0);
+    const arcs = useMemo(() => {
+        const list = rows.filter((r) => r.south && r.north && r.km > 0);
+        const groups = new Map();
+        list.forEach((r) => {
+            const k = [
+                r.south.lon.toFixed(1),
+                r.south.lat.toFixed(1),
+                r.north.lon.toFixed(1),
+                r.north.lat.toFixed(1),
+            ].join("|");
+            const g = groups.get(k) || [];
+            g.push(r);
+            groups.set(k, g);
+        });
+        return [...groups.values()].map((g) => ({
+            from: g[0].south,
+            to: g[0].north,
+            km: g[0].km,
+            who: g,
+        }));
+    }, [rows]);
+    useEffect(() => {
+        const box = wrap.current;
+        const c = cv.current;
+        if (!box || !c)
+            return;
+        const w = Math.max(240, Math.min(box.clientWidth, 520));
+        const dpr = Math.min(2, window.devicePixelRatio || 1);
+        c.width = w * dpr;
+        c.height = w * dpr;
+        c.style.width = w + "px";
+        c.style.height = w + "px";
+        const ctx = c.getContext("2d");
+        const proj = d3
+            .geoOrthographic()
+            .fitExtent([
+            [18, 18],
+            [w - 18, w - 18],
+        ], { type: "Sphere" })
+            .clipAngle(90);
+        const path = d3.geoPath(proj, ctx);
+        const grat = d3.geoGraticule10();
+        const far = (q) => d3.geoDistance(q, [-rot.current[0], -rot.current[1]]) > Math.PI / 2 - 0.05;
+        const draw = () => {
+            proj.rotate(rot.current);
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            ctx.clearRect(0, 0, w, w);
+            ctx.beginPath();
+            path({ type: "Sphere" });
+            ctx.fillStyle = "#0e2236";
+            ctx.fill();
+            ctx.beginPath();
+            path(grat);
+            ctx.strokeStyle = "rgba(120,150,180,.16)";
+            ctx.lineWidth = 0.5;
+            ctx.stroke();
+            ((geo === null || geo === void 0 ? void 0 : geo.features) || []).forEach((f) => {
+                ctx.beginPath();
+                path(f);
+                ctx.fillStyle = "rgba(120,150,180,.22)";
+                ctx.fill();
+                ctx.strokeStyle = "rgba(150,180,205,.25)";
+                ctx.lineWidth = 0.4;
+                ctx.stroke();
+            });
+            const labels = [];
+            arcs.forEach((a, ai) => {
+                const line = {
+                    type: "LineString",
+                    coordinates: [
+                        [a.from.lon, a.from.lat],
+                        [a.to.lon, a.to.lat],
+                    ],
+                };
+                const n = a.who.length;
+                a.who.forEach((r, i) => {
+                    ctx.beginPath();
+                    path(line);
+                    ctx.lineWidth = 2.6;
+                    ctx.strokeStyle = r.color;
+                    ctx.setLineDash(n > 1 ? [9, 9 * (n - 1)] : []);
+                    ctx.lineDashOffset = -i * 9;
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                });
+                [a.from, a.to].forEach((q) => {
+                    if (far([q.lon, q.lat]))
+                        return;
+                    const xy = proj([q.lon, q.lat]);
+                    ctx.beginPath();
+                    ctx.arc(xy[0], xy[1], 3.4, 0, Math.PI * 2);
+                    ctx.fillStyle = "#e8e3d6";
+                    ctx.fill();
+                });
+                const mid = d3.geoInterpolate([a.from.lon, a.from.lat], [a.to.lon, a.to.lat])(0.5);
+                if (!far(mid)) {
+                    const xy = proj(mid);
+                    const names = n > 2
+                        ? `${a.who[0].name} и ещё ${n - 1}`
+                        : a.who.map((r) => r.name).join(", ");
+                    ctx.font = "600 11px system-ui, sans-serif";
+                    ctx.textAlign = "center";
+                    let label = `${names} · ${kmText(a.km)}`;
+                    // подпись не должна вылезать за шар — сокращаем по месту
+                    if (ctx.measureText(label).width > w - 24)
+                        label = `${a.who[0].name} · ${kmText(a.km)}`;
+                    if (ctx.measureText(label).width > w - 24)
+                        label = kmText(a.km);
+                    const tw = ctx.measureText(label).width;
+                    const x = Math.max(tw / 2 + 8, Math.min(w - tw / 2 - 8, xy[0]));
+                    labels.push({
+                        label,
+                        tw,
+                        x,
+                        y: xy[1] - 14,
+                        color: n > 1 ? "#e8e3d6" : a.who[0].color,
+                    });
+                }
+            });
+            // подписи поверх дуг, с разводкой, чтобы не наезжали друг на друга
+            const placed = [];
+            labels.forEach((L) => {
+                let y = L.y;
+                let guard = 0;
+                while (guard++ < 12 &&
+                    placed.some((q) => Math.abs(q.y - y) < 19 &&
+                        Math.abs(q.x - L.x) < (q.tw + L.tw) / 2 + 6))
+                    y -= 19;
+                placed.push({ x: L.x, y, tw: L.tw });
+                ctx.fillStyle = "rgba(8,18,30,.82)";
+                ctx.fillRect(L.x - L.tw / 2 - 5, y - 12, L.tw + 10, 17);
+                ctx.fillStyle = L.color;
+                ctx.fillText(L.label, L.x, y);
+            });
+        };
+        const tick = () => {
+            if (!drag.current)
+                rot.current = [rot.current[0] + 0.12, rot.current[1]];
+            draw();
+            raf.current = requestAnimationFrame(tick);
+        };
+        raf.current = requestAnimationFrame(tick);
+        const down = (e) => {
+            var _c;
+            drag.current = { x: e.clientX, y: e.clientY, r: [...rot.current] };
+            (_c = c.setPointerCapture) === null || _c === void 0 ? void 0 : _c.call(c, e.pointerId);
+        };
+        const move = (e) => {
+            if (!drag.current)
+                return;
+            const k = 0.4;
+            rot.current = [
+                drag.current.r[0] + (e.clientX - drag.current.x) * k,
+                Math.max(-85, Math.min(85, drag.current.r[1] - (e.clientY - drag.current.y) * k)),
+            ];
+        };
+        const up = () => {
+            drag.current = null;
+        };
+        c.addEventListener("pointerdown", down);
+        c.addEventListener("pointermove", move);
+        c.addEventListener("pointerup", up);
+        c.addEventListener("pointercancel", up);
+        return () => {
+            cancelAnimationFrame(raf.current);
+            c.removeEventListener("pointerdown", down);
+            c.removeEventListener("pointermove", move);
+            c.removeEventListener("pointerup", up);
+            c.removeEventListener("pointercancel", up);
+        };
+    }, [arcs, geo]);
+    return (React.createElement("div", { className: "span-globe", ref: wrap },
+        React.createElement("canvas", { ref: cv }),
+        React.createElement("div", { className: "globe-legend" }, rows
+            .filter((r) => r.km > 0)
+            .map((r) => (React.createElement("div", { key: r.id },
+            React.createElement("i", { style: { background: r.color } }),
+            React.createElement("span", null, r.name),
+            React.createElement("em", null,
+                r.south.name,
+                " \u2192 ",
+                r.north.name),
+            React.createElement("b", null, kmText(r.km))))))));
+}
+/* размах широт: от самой южной страны до самой северной */
+function SpanChart({ rows, geo }) {
+    const zoomed = React.useContext(ZoomCtx);
     const list = rows.filter((r) => r.south && r.north);
     if (!list.length)
         return null;
+    if (zoomed)
+        return React.createElement(SpanGlobe, { rows: list, geo: geo });
     const lo = Math.min(-40, ...list.map((r) => r.south.lat)) - 5;
     const hi = Math.max(60, ...list.map((r) => r.north.lat)) + 5;
     const pos = (v) => ((v - lo) / (hi - lo)) * 100;
@@ -5623,7 +5843,8 @@ function SpanChart({ rows }) {
                 React.createElement("span", { className: "span-ends" },
                     r.south.name,
                     " \u2192 ",
-                    r.north.name)),
+                    r.north.name,
+                    r.km ? ` · ${kmText(r.km)}` : "")),
             React.createElement("span", { className: "span-line" },
                 React.createElement("i", { style: {
                         left: `${pos(r.south.lat)}%`,
@@ -5743,7 +5964,12 @@ function reportData(visits, since, people) {
             const k = `${y}:${t.m}`;
             const cell = grid[k] || { v: 0, items: [] };
             cell.v = Math.max(cell.v, tripDays(t) || 1);
-            cell.items.push({ a3, id: t.id, label: tripLabel(t) });
+            cell.items.push({
+                a3,
+                id: t.id,
+                label: tripLabel(t),
+                cities: (t.cities || []).join(", "),
+            });
             grid[k] = cell;
         }
         days[y] = (days[y] || 0) + tripDays(t);
@@ -5757,7 +5983,13 @@ function reportData(visits, since, people) {
         const k = `${y}:${t.m}`;
         const cell = planGrid[k] || { v: 0, items: [] };
         cell.v = Math.max(cell.v, tripDays(t) || 1);
-        cell.items.push({ a3: t.a3, id: t.id, label: tripLabel(t), plan: true });
+        cell.items.push({
+            a3: t.a3,
+            id: t.id,
+            label: tripLabel(t),
+            cities: (t.cities || []).join(", "),
+            plan: true,
+        });
         planGrid[k] = cell;
     });
     const known = Object.keys(years).map(Number);
@@ -5799,6 +6031,7 @@ function reportData(visits, since, people) {
     };
 }
 /* появление при прокрутке: строим график, когда он попал на экран */
+const ZoomCtx = React.createContext(false);
 function Reveal({ children, className = "" }) {
     const box = useRef(null);
     const [seen, setSeen] = useState(false);
@@ -5835,7 +6068,8 @@ function Reveal({ children, className = "" }) {
         zoom && (React.createElement("div", { className: "zoom-layer", onClick: () => setZoom(false), onTouchEnd: (e) => e.stopPropagation() },
             React.createElement("div", { className: "zoom-box", onClick: (e) => e.stopPropagation() },
                 React.createElement("button", { className: "zoom-x", onClick: () => setZoom(false), "aria-label": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C" }, "\u2715"),
-                React.createElement("div", { className: "zoom-body rep" }, children))))));
+                React.createElement("div", { className: "zoom-body rep" },
+                    React.createElement(ZoomCtx.Provider, { value: true }, children)))))));
 }
 /* столбики с линией тренда; неточные периоды — полупрозрачной частью */
 function BarsChart({ data, vague, labels }) {
@@ -6105,7 +6339,8 @@ function GridChart({ grid, planGrid, vague, years, onOpen }) {
                         ((_d = BY_A3[it.a3]) === null || _d === void 0 ? void 0 : _d.name) || it.a3),
                     React.createElement("em", null,
                         it.label,
-                        it.plan ? " · план" : ""),
+                        it.plan ? " · план" : "",
+                        it.cities && React.createElement("u", null, it.cities)),
                     React.createElement("i", null, "\u2192")));
             }))),
         React.createElement("div", { className: "grid-legend" },
@@ -6117,7 +6352,7 @@ function GridChart({ grid, planGrid, vague, years, onOpen }) {
             " \u043D\u0435\u0442\u043E\u0447\u043D\u0430\u044F \u0434\u0430\u0442\u0430")));
 }
 /* шторка отчётов */
-function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], onOpenTrip }) {
+function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], onOpenTrip, geo }) {
     const r = useMemo(() => reportData(visits, since, people), [visits, since, people]);
     const crew = useMemo(() => travelerStats(visits, people), [visits, people]);
     const crewR = useMemo(() => crewReport(visits, people, crew.map((p) => p.id)), [visits, people, crew]);
@@ -6246,8 +6481,8 @@ function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], o
                 React.createElement(FirstsChart, { rows: crewR.rows })),
             React.createElement(Reveal, { className: "rep" },
                 React.createElement("b", null, "\u0420\u0430\u0437\u043C\u0430\u0445 \u0448\u0438\u0440\u043E\u0442"),
-                React.createElement("em", null, "\u043E\u0442 \u0441\u0430\u043C\u043E\u0439 \u044E\u0436\u043D\u043E\u0439 \u0441\u0442\u0440\u0430\u043D\u044B \u0434\u043E \u0441\u0430\u043C\u043E\u0439 \u0441\u0435\u0432\u0435\u0440\u043D\u043E\u0439"),
-                React.createElement(SpanChart, { rows: crewR.rows })),
+                React.createElement("em", null, "\u043E\u0442 \u0441\u0430\u043C\u043E\u0439 \u044E\u0436\u043D\u043E\u0439 \u0442\u043E\u0447\u043A\u0438 \u0434\u043E \u0441\u0430\u043C\u043E\u0439 \u0441\u0435\u0432\u0435\u0440\u043D\u043E\u0439 \u00B7 \u0434\u0432\u043E\u0439\u043D\u043E\u0435 \u043A\u0430\u0441\u0430\u043D\u0438\u0435 \u2014 \u0433\u043B\u043E\u0431\u0443\u0441 \u0441 \u0434\u0443\u0433\u0430\u043C\u0438"),
+                React.createElement(SpanChart, { rows: crewR.rows, geo: geo })),
             diff && (React.createElement(Reveal, { className: "rep cmp" },
                 React.createElement("b", null, "\u0414\u0432\u043E\u0435: \u0442\u043E\u043B\u044C\u043A\u043E \u0440\u0430\u0437\u043D\u0438\u0446\u0430"),
                 React.createElement("em", null, "\u0441\u0442\u0440\u0430\u043D\u044B, \u0433\u0434\u0435 \u0431\u044B\u043B \u043E\u0434\u0438\u043D \u0438 \u043D\u0435 \u0431\u044B\u043B \u0434\u0440\u0443\u0433\u043E\u0439"),
@@ -8094,7 +8329,7 @@ function Atlas() {
                             setSheet(null);
                         } }),
                     React.createElement(DoublesSheet, { open: sheet === "doubles", onClose: () => setSheet("profile"), box: box, pairs: doubles, people: profile.people || [], onJoin: joinDouble }),
-                    React.createElement(ReportsSheet, { open: sheet === "reports", onClose: () => setSheet(sheetBack === "list" ? "list" : "profile"), box: box, visits: visits, since: profile.since, stats: stats, people: profile.people || [], onOpenTrip: (a3, id) => {
+                    React.createElement(ReportsSheet, { open: sheet === "reports", onClose: () => setSheet(sheetBack === "list" ? "list" : "profile"), box: box, visits: visits, since: profile.since, stats: stats, people: profile.people || [], geo: geo, onOpenTrip: (a3, id) => {
                             setSelected(a3);
                             setEditId(id || null);
                             setSheet(null);
@@ -8427,7 +8662,7 @@ body > div{max-width:100%;}
 .grid-head span,.grid-row .grid-cell{flex:1 1 0;}
 .grid-head span:first-child,.grid-y{flex:0 0 30px;}
 .grid-head span{text-align:center;}
-.grid-cell{height:16px; border-radius:4px; background:var(--field);}
+.grid-cell{height:16px; border-radius:4px; background:var(--field); transition:transform .18s;}
 .grid-row.vague{position:relative;}
 .grid-row.vague::after{content:""; position:absolute; left:33px; right:0; top:0; bottom:0; border-radius:4px; pointer-events:none;
   background:repeating-linear-gradient(135deg, rgba(232,184,75,.16) 0 5px, transparent 5px 10px);}
@@ -8507,7 +8742,16 @@ body > div{max-width:100%;}
 .cmp-year{display:flex; gap:9px; align-items:baseline; font-size:0.7rem;}
 .cmp-y{flex:none; width:36px; color:var(--dim); font-size:0.64rem;}
 .cmp-cs{flex:1 1 auto; min-width:0;}
-.zoom-layer{position:fixed; inset:0; z-index:200; background:rgba(6,12,20,.92); display:flex; align-items:center; justify-content:center; padding:14px;}
+.span-globe{display:flex; flex-direction:column; align-items:center; gap:12px;}
+.span-globe canvas{display:block; touch-action:none; cursor:grab; border-radius:50%;}
+.span-globe canvas:active{cursor:grabbing;}
+.globe-legend{width:100%; display:flex; flex-direction:column; gap:6px; font-size:0.68rem;}
+.globe-legend div{display:flex; align-items:baseline; gap:8px; min-width:0;}
+.globe-legend i{flex:none; width:10px; height:10px; border-radius:3px;}
+.globe-legend span{flex:none;}
+.globe-legend em{flex:1 1 auto; min-width:0; font-style:normal; font-size:0.62rem; color:var(--dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.globe-legend b{flex:none; font-weight:500;}
+.zoom-layer{position:fixed; -webkit-user-select:none; user-select:none; inset:0; z-index:200; background:rgba(6,12,20,.92); display:flex; align-items:center; justify-content:center; padding:14px;}
 .zoom-box{position:relative; width:100%; max-width:760px; max-height:92vh; overflow:auto; border-radius:16px;
   border:1px solid var(--line); background:var(--el); padding:16px 14px;}
 .zoom-x{position:absolute; top:8px; right:8px; width:32px; height:32px; border-radius:50%; border:1px solid var(--line);
@@ -8571,12 +8815,17 @@ body > div{max-width:100%;}
 .reveal.in .grid-row{opacity:1; transform:none;}
 
 .grid-cell.has{cursor:pointer;}
-.grid-cell.sel{outline:2px solid var(--gold); outline-offset:1px;}
+.grid-cell.sel{outline:2px solid var(--gold); outline-offset:2px; box-shadow:0 0 0 4px rgba(232,184,75,.18), 0 0 14px rgba(232,184,75,.45);
+  transform:scale(1.22); position:relative; z-index:2; animation:cellPulse 1.6s ease-in-out infinite;}
+@keyframes cellPulse{0%,100%{box-shadow:0 0 0 4px rgba(232,184,75,.18), 0 0 14px rgba(232,184,75,.4);}
+  50%{box-shadow:0 0 0 6px rgba(232,184,75,.1), 0 0 18px rgba(232,184,75,.65);}}
+.grid-row:has(.grid-cell.sel) .grid-y{color:var(--gold);}
 .grid-tip{margin-top:10px; padding:11px; border-radius:12px; border:1px solid var(--line); background:var(--el);}
 .grid-tip > b{display:block; font-size:0.8rem; margin-bottom:8px;}
 .grid-trip{display:flex; align-items:center; gap:9px; width:100%; padding:9px 10px; margin-bottom:6px; border-radius:10px; border:1px solid var(--line); background:var(--field); color:var(--ink); font-family:inherit; text-align:left; cursor:pointer;}
 .grid-trip span{flex:0 0 auto; font-size:0.78rem;}
-.grid-trip em{flex:1 1 auto; min-width:0; font-style:normal; font-size:0.68rem; color:var(--dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.grid-trip em{flex:1 1 auto; min-width:0; display:flex; flex-direction:column; font-style:normal; font-size:0.68rem; color:var(--dim); overflow:hidden;}
+.grid-trip em u{text-decoration:none; font-size:0.62rem; color:var(--silver, #9fb2c4); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .grid-trip i{flex:none; font-style:normal; color:var(--gold);}
 
 @media (prefers-reduced-motion: reduce){
