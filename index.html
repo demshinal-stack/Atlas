@@ -954,13 +954,16 @@ const normTrip = (t) => {
     if (!t)
         return t;
     const out = { ...t };
+    /* автора дописываем только старым записям: в новых состав правит
+       сам человек и может убрать себя из поездки */
+    const legacy = !t.id || !t.at || !Array.isArray(t.who);
     if (!out.id)
         out.id = uid();
     if (!out.at)
         out.at = Date.now();
     if (!Array.isArray(out.who))
         out.who = [];
-    if (!out.who.includes(ME))
+    if (legacy && !out.who.includes(ME))
         out.who = [ME, ...out.who];
     return out;
 };
@@ -1235,7 +1238,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "19.2";
+const APP_VERSION = "19.4";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -5935,18 +5938,79 @@ function DonutChart({ parts, total }) {
     const r = 58;
     const cx = size / 2;
     const cy = size / 2;
+    /* кольцо крутится: сначала само при появлении, потом пальцем */
+    const [rot, setRot] = useState(-320);
+    const [free, setFree] = useState(false);
+    const box = useRef(null);
+    const drag = useRef(null);
+    const spin = useRef(0);
+    const raf = useRef(0);
+    useEffect(() => {
+        const t = setTimeout(() => setRot(0), 60);
+        return () => clearTimeout(t);
+    }, []);
+    useEffect(() => () => cancelAnimationFrame(raf.current), []);
+    const angleAt = (e) => {
+        var _c;
+        const b = (_c = box.current) === null || _c === void 0 ? void 0 : _c.getBoundingClientRect();
+        if (!b)
+            return 0;
+        return ((Math.atan2(e.clientY - (b.top + b.height / 2), e.clientX - (b.left + b.width / 2)) *
+            180) /
+            Math.PI);
+    };
+    const glide = () => {
+        spin.current *= 0.95;
+        if (Math.abs(spin.current) < 0.05) {
+            setFree(false);
+            return;
+        }
+        setRot((v) => v + spin.current);
+        raf.current = requestAnimationFrame(glide);
+    };
+    const down = (e) => {
+        var _c, _d;
+        cancelAnimationFrame(raf.current);
+        spin.current = 0;
+        setFree(true);
+        drag.current = { a: angleAt(e), at: Date.now() };
+        (_d = (_c = e.currentTarget).setPointerCapture) === null || _d === void 0 ? void 0 : _d.call(_c, e.pointerId);
+    };
+    const move = (e) => {
+        if (!drag.current)
+            return;
+        const a = angleAt(e);
+        let d = a - drag.current.a;
+        if (d > 180)
+            d -= 360;
+        if (d < -180)
+            d += 360;
+        drag.current = { a, at: Date.now() };
+        spin.current = d;
+        setRot((v) => v + d);
+    };
+    const up = () => {
+        if (!drag.current)
+            return;
+        drag.current = null;
+        raf.current = requestAnimationFrame(glide);
+    };
     let acc = 0;
     const sum = parts.reduce((s, p) => s + p.v, 0) || 1;
     const colors = [C_GOLD, C_SILVER, C_BLUE, "#9a7b45", "#5d7d92", "#7a6b8f"];
     return (React.createElement("div", { className: "donut-row" },
-        React.createElement("svg", { viewBox: `0 0 ${size} ${size}`, className: "donut" },
-            parts.map((p, i) => {
+        React.createElement("svg", { viewBox: `0 0 ${size} ${size}`, className: "donut", ref: box, onPointerDown: down, onPointerMove: move, onPointerUp: up, onPointerCancel: up },
+            React.createElement("g", { className: "donut-ring", style: {
+                    transform: `rotate(${rot}deg)`,
+                    transformOrigin: `${cx}px ${cy}px`,
+                    transition: free ? "none" : undefined,
+                } }, parts.map((p, i) => {
                 const a0 = (acc / sum) * Math.PI * 2 - Math.PI / 2;
                 acc += p.v;
                 const a1 = (acc / sum) * Math.PI * 2 - Math.PI / 2 - 0.03;
                 const big = a1 - a0 > Math.PI ? 1 : 0;
                 return (React.createElement("path", { key: p.k, d: `M ${cx + Math.cos(a0) * r} ${cy + Math.sin(a0) * r} A ${r} ${r} 0 ${big} 1 ${cx + Math.cos(a1) * r} ${cy + Math.sin(a1) * r}`, stroke: colors[i % colors.length], strokeWidth: "20", fill: "none" }));
-            }),
+            })),
             React.createElement("text", { x: cx, y: cy - 2, fill: C_GOLD, fontSize: "20", textAnchor: "middle" }, total),
             React.createElement("text", { x: cx, y: cy + 14, fill: C_DIM, fontSize: "9", textAnchor: "middle" }, "\u0441\u0442\u0440\u0430\u043D")),
         React.createElement("div", { className: "donut-legend" }, parts.map((p, i) => (React.createElement("div", { key: p.k },
@@ -8317,7 +8381,9 @@ body > div{max-width:100%;}
 .center{display:flex; justify-content:center;}
 .season{width:200px; height:200px;}
 .donut-row{display:flex; align-items:center; gap:14px; min-width:0;}
-.donut{flex:none; width:150px; height:150px;}
+.donut{flex:none; width:150px; height:150px; touch-action:none; cursor:grab;}
+.donut:active{cursor:grabbing;}
+.donut-ring{transition:transform 1.1s cubic-bezier(.22,.68,.32,1);}
 .donut-legend{flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:6px; font-size:0.74rem; color:var(--dim);}
 .donut-legend div{display:flex; align-items:center; gap:8px; min-width:0;}
 .donut-legend i{flex:none; width:11px; height:11px; border-radius:3px;}
