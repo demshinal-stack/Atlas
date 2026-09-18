@@ -1235,7 +1235,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "18.8";
+const APP_VERSION = "18.9";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -5495,6 +5495,130 @@ function crewTree(list) {
         })),
     }));
 }
+/* сравнение двоих: только разница — где был один и не был другой */
+function diffPair(rows, idA, idB) {
+    const get = (id) => rows.find((r) => r.id === id);
+    const A = get(idA);
+    const B = get(idB);
+    const firsts = (r) => {
+        const m = new Map();
+        ((r === null || r === void 0 ? void 0 : r.list) || []).forEach((t) => {
+            const y = t.y || 0;
+            if (!m.has(t.a3) || y < m.get(t.a3).y)
+                m.set(t.a3, { a3: t.a3, y, cont: t.cont, cities: t.cities });
+        });
+        return m;
+    };
+    const fa = firsts(A);
+    const fb = firsts(B);
+    const only = (x, y) => [...x.values()]
+        .filter((v) => !y.has(v.a3))
+        .sort((p, q) => {
+        var _c, _d;
+        return (q.y || 0) - (p.y || 0) ||
+            (((_c = BY_A3[p.a3]) === null || _c === void 0 ? void 0 : _c.name) || "").localeCompare(((_d = BY_A3[q.a3]) === null || _d === void 0 ? void 0 : _d.name) || "", "ru");
+    });
+    return {
+        A,
+        B,
+        onlyA: only(fa, fb),
+        onlyB: only(fb, fa),
+        years: [
+            ...new Set([...only(fa, fb), ...only(fb, fa)].map((v) => v.y).filter(Boolean)),
+        ].sort((p, q) => q - p),
+    };
+}
+/* два крыла: площадь по числу стран, которых нет у другого */
+function WingsChart({ d }) {
+    const W = 300;
+    const H = 150;
+    const max = Math.max(1, d.onlyA.length, d.onlyB.length);
+    const r = (n) => (n ? 22 + Math.sqrt(n / max) * 46 : 0);
+    const ra = r(d.onlyA.length);
+    const rb = r(d.onlyB.length);
+    const arc = (rad, dir) => `M ${W / 2 + dir * 3} ${H / 2 - rad} A ${rad} ${rad} 0 0 ${dir > 0 ? 1 : 0} ${W / 2 + dir * 3} ${H / 2 + rad} Z`;
+    return (React.createElement("svg", { viewBox: `0 0 ${W} ${H}`, className: "wings" },
+        React.createElement("line", { x1: W / 2, y1: "12", x2: W / 2, y2: H - 12, stroke: C_LINE, strokeDasharray: "3 4" }),
+        ra > 0 && (React.createElement("path", { d: arc(ra, -1), fill: C_GOLD, fillOpacity: "0.16", stroke: C_GOLD })),
+        rb > 0 && (React.createElement("path", { d: arc(rb, 1), fill: C_BLUE, fillOpacity: "0.16", stroke: C_BLUE })),
+        React.createElement("text", { x: W / 2 - (ra ? ra / 2 + 6 : 16), y: H / 2 + 6, fill: ra ? C_GOLD : C_DIM, fontSize: "19", textAnchor: "middle" }, d.onlyA.length),
+        React.createElement("text", { x: W / 2 + (rb ? rb / 2 + 6 : 16), y: H / 2 + 6, fill: rb ? C_BLUE : C_DIM, fontSize: "19", textAnchor: "middle" }, d.onlyB.length)));
+}
+/* карта: золотом — страны только первого, синим — только второго */
+function DiffMap({ geo, a, b }) {
+    const ref = useRef(null);
+    const wrap = useRef(null);
+    useEffect(() => {
+        var _c;
+        const cv = ref.current;
+        const box = wrap.current;
+        if (!cv || !box || !((_c = geo === null || geo === void 0 ? void 0 : geo.features) === null || _c === void 0 ? void 0 : _c.length))
+            return;
+        const w = Math.max(240, box.clientWidth);
+        const h = Math.round(w * 0.52);
+        const dpr = Math.min(2, window.devicePixelRatio || 1);
+        cv.width = w * dpr;
+        cv.height = h * dpr;
+        cv.style.width = w + "px";
+        cv.style.height = h + "px";
+        const ctx = cv.getContext("2d");
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, w, h);
+        const proj = d3
+            .geoNaturalEarth1()
+            .fitExtent([
+            [4, 4],
+            [w - 4, h - 4],
+        ], { type: "Sphere" });
+        const path = d3.geoPath(proj, ctx);
+        geo.features.forEach((f) => {
+            ctx.beginPath();
+            path(f);
+            ctx.fillStyle = a.has(f.id)
+                ? C_GOLD
+                : b.has(f.id)
+                    ? C_BLUE
+                    : "rgba(120,146,172,.16)";
+            ctx.fill();
+            ctx.lineWidth = 0.4;
+            ctx.strokeStyle = "rgba(160,185,210,.25)";
+            ctx.stroke();
+        });
+    }, [geo, a, b]);
+    return (React.createElement("div", { className: "diff-map", ref: wrap },
+        React.createElement("canvas", { ref: ref })));
+}
+/* лента лет: слева страны одного, справа другого, в середине год */
+function DiffRibbon({ d }) {
+    if (!d.years.length)
+        return null;
+    return (React.createElement("div", { className: "ribbon" }, d.years.map((y) => (React.createElement("div", { key: y, className: "rib-row" },
+        React.createElement("div", { className: "rib-side left" }, d.onlyA
+            .filter((v) => v.y === y)
+            .map((v) => {
+            var _c;
+            return (React.createElement("span", { key: v.a3, className: "rib-tag a" }, ((_c = BY_A3[v.a3]) === null || _c === void 0 ? void 0 : _c.name) || v.a3));
+        })),
+        React.createElement("span", { className: "rib-y" }, y),
+        React.createElement("div", { className: "rib-side right" }, d.onlyB
+            .filter((v) => v.y === y)
+            .map((v) => {
+            var _c;
+            return (React.createElement("span", { key: v.a3, className: "rib-tag b" }, ((_c = BY_A3[v.a3]) === null || _c === void 0 ? void 0 : _c.name) || v.a3));
+        })))))));
+}
+/* полка: значки стран, которых нет у второго */
+function DiffShelf({ items, side }) {
+    if (!items.length)
+        return React.createElement("p", { className: "hint small" }, "\u0422\u0430\u043A\u0438\u0445 \u0441\u0442\u0440\u0430\u043D \u043D\u0435\u0442.");
+    return (React.createElement("div", { className: "diff-shelf " + side }, items.map((v) => {
+        const c = BY_A3[v.a3];
+        return (React.createElement("div", { key: v.a3, className: "ds-cell" },
+            badgeStyle(v.a3) ? (React.createElement("i", { style: badgeStyle(v.a3) })) : (React.createElement("i", { className: "ds-flag" }, flag((c === null || c === void 0 ? void 0 : c.a2) || ""))),
+            React.createElement("em", null, (c === null || c === void 0 ? void 0 : c.name) || v.a3),
+            React.createElement("u", null, v.y || "")));
+    })));
+}
 /* дорожки: строка на человека, кружок на год, цвет — где были чаще */
 function LanesChart({ rows, years }) {
     const yy = years.slice(-10);
@@ -6019,132 +6143,180 @@ function GridChart({ grid, planGrid, vague, years, onOpen }) {
             " \u043D\u0435\u0442\u043E\u0447\u043D\u0430\u044F \u0434\u0430\u0442\u0430")));
 }
 /* шторка отчётов */
-function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], onOpenTrip }) {
+function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], onOpenTrip, geo }) {
     const r = useMemo(() => reportData(visits, since, people), [visits, since, people]);
     const crew = useMemo(() => travelerStats(visits, people), [visits, people]);
     const crewR = useMemo(() => crewReport(visits, people, crew.map((p) => p.id)), [visits, people, crew]);
     const [openCrew, setOpenCrew] = useState(null);
+    const [cmp, setCmp] = useState([null, null]);
+    const pair = useMemo(() => {
+        const ids = crewR.rows.map((r) => r.id);
+        const a = ids.includes(cmp[0]) ? cmp[0] : ids[0];
+        const b = ids.includes(cmp[1]) && cmp[1] !== a ? cmp[1] : ids.find((x) => x !== a);
+        return [a, b];
+    }, [cmp, crewR]);
+    const diff = useMemo(() => (pair[0] && pair[1] ? diffPair(crewR.rows, pair[0], pair[1]) : null), [crewR, pair]);
+    const diffSets = useMemo(() => ({
+        a: new Set(((diff === null || diff === void 0 ? void 0 : diff.onlyA) || []).map((v) => v.a3)),
+        b: new Set(((diff === null || diff === void 0 ? void 0 : diff.onlyB) || []).map((v) => v.a3)),
+    }), [diff]);
     const years = r.allYears.length ? r.allYears : [NOW.getFullYear()];
-    return (React.createElement(Sheet, { open: open, onClose: onClose, title: "\u041E\u0442\u0447\u0451\u0442\u044B", box: box }, () => (React.createElement("div", { className: "sheet-body" }, r.trips.length === 0 ? (React.createElement("p", { className: "hint small" }, "\u041E\u0442\u0447\u0451\u0442\u044B \u043F\u043E\u044F\u0432\u044F\u0442\u0441\u044F, \u043A\u043E\u0433\u0434\u0430 \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u0435 \u043F\u0435\u0440\u0432\u0443\u044E \u043F\u043E\u0435\u0437\u0434\u043A\u0443.")) : (React.createElement(React.Fragment, null,
-        React.createElement("p", { className: "hint small" }, "\u0414\u0432\u043E\u0439\u043D\u043E\u0435 \u043A\u0430\u0441\u0430\u043D\u0438\u0435 \u0440\u0430\u0437\u0432\u043E\u0440\u0430\u0447\u0438\u0432\u0430\u0435\u0442 \u043B\u044E\u0431\u043E\u0439 \u0433\u0440\u0430\u0444\u0438\u043A \u043D\u0430 \u0432\u0435\u0441\u044C \u044D\u043A\u0440\u0430\u043D."),
-        React.createElement(Reveal, { className: "rep" },
-            React.createElement("b", null, "\u041F\u043E\u0435\u0437\u0434\u043A\u0438 \u043F\u043E \u0433\u043E\u0434\u0430\u043C"),
-            React.createElement("em", null, "\u0441\u0442\u043E\u043B\u0431\u0438\u043A\u0438 \u0438 \u043B\u0438\u043D\u0438\u044F \u0442\u0440\u0435\u043D\u0434\u0430"),
-            React.createElement(BarsChart, { data: years.map((y) => Math.round((r.years[y] || 0) * 10) / 10), vague: years.map((y) => r.vague[y] || 0), labels: years }),
-            Object.keys(r.vague).length > 0 && (React.createElement("p", { className: "hint small" }, "\u0411\u043B\u0435\u0434\u043D\u0430\u044F \u0447\u0430\u0441\u0442\u044C \u0441\u0442\u043E\u043B\u0431\u0438\u043A\u0430 \u2014 \u043F\u043E\u0435\u0437\u0434\u043A\u0438 \u0441 \u043D\u0435\u0442\u043E\u0447\u043D\u043E\u0439 \u0434\u0430\u0442\u043E\u0439, \u0440\u0430\u0437\u043B\u043E\u0436\u0435\u043D\u043D\u044B\u0435 \u043F\u043E\u0440\u043E\u0432\u043D\u0443 \u043F\u043E \u0433\u043E\u0434\u0430\u043C \u043F\u0435\u0440\u0438\u043E\u0434\u0430."))),
-        React.createElement(Reveal, { className: "rep" },
-            React.createElement("b", null, "\u0421\u0442\u0440\u0430\u043D\u044B \u043D\u0430\u0440\u0430\u0441\u0442\u0430\u044E\u0449\u0438\u043C \u0438\u0442\u043E\u0433\u043E\u043C"),
-            React.createElement("em", null, "\u043A\u0430\u043A \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u043B\u0441\u044F \u043C\u0438\u0440"),
-            React.createElement(AreaChart, { points: r.line })),
-        React.createElement(Reveal, { className: "rep" },
-            React.createElement("b", null, "\u0427\u0430\u0441\u0442\u0438 \u0441\u0432\u0435\u0442\u0430"),
-            React.createElement("em", null, "\u0441\u043A\u043E\u043B\u044C\u043A\u043E \u0441\u0442\u0440\u0430\u043D \u0432 \u043A\u0430\u0436\u0434\u043E\u0439"),
-            React.createElement(DonutChart, { parts: CONT_ORDER.filter((k) => r.conts[k]).map((k) => ({
-                    k,
-                    v: r.conts[k],
-                })), total: stats.countries })),
-        React.createElement(Reveal, { className: "rep" },
-            React.createElement("b", null, "\u0421\u0435\u0437\u043E\u043D\u043D\u043E\u0441\u0442\u044C"),
-            React.createElement("em", null, "\u0432 \u043A\u0430\u043A\u0438\u0435 \u043C\u0435\u0441\u044F\u0446\u044B \u0432\u044B \u0432 \u043F\u0443\u0442\u0438"),
-            React.createElement("div", { className: "center" },
-                React.createElement(SeasonChart, { months: r.months }))),
-        React.createElement(Reveal, { className: "rep" },
-            React.createElement("b", null, "\u0414\u043D\u0438 \u0432 \u043F\u0443\u0442\u0438"),
-            React.createElement("em", null, "\u043F\u043E \u0433\u043E\u0434\u0430\u043C, \u0433\u0434\u0435 \u0443\u043A\u0430\u0437\u0430\u043D\u044B \u0442\u043E\u0447\u043D\u044B\u0435 \u0434\u0430\u0442\u044B"),
-            Object.keys(r.days).length ? (React.createElement(RowsChart, { rows: years
-                    .filter((y) => r.days[y])
-                    .map((y) => [String(y), r.days[y]]), unit: "\u0434\u043D." })) : (React.createElement("p", { className: "hint small" }, "\u0423\u043A\u0430\u0436\u0438\u0442\u0435 \u0442\u043E\u0447\u043D\u044B\u0435 \u0434\u0430\u0442\u044B \u0445\u043E\u0442\u044F \u0431\u044B \u0432 \u043E\u0434\u043D\u043E\u0439 \u043F\u043E\u0435\u0437\u0434\u043A\u0435."))),
-        React.createElement(Reveal, { className: "rep" },
-            React.createElement("b", null, "\u0427\u0430\u0449\u0435 \u0432\u0441\u0435\u0433\u043E"),
-            React.createElement("em", null, "\u0433\u043E\u0440\u043E\u0434\u0430, \u043A\u0443\u0434\u0430 \u0432\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u0435\u0442\u0435\u0441\u044C"),
-            r.topCities.length ? (React.createElement(RowsChart, { rows: r.topCities })) : (React.createElement("p", { className: "hint small" }, "\u0413\u043E\u0440\u043E\u0434\u0430 \u043F\u043E\u043A\u0430 \u043D\u0435 \u043E\u0442\u043C\u0435\u0447\u0435\u043D\u044B."))),
-        r.topHotels.length > 0 && (React.createElement(Reveal, { className: "rep" },
-            React.createElement("b", null, "\u041B\u044E\u0431\u0438\u043C\u044B\u0435 \u043E\u0442\u0435\u043B\u0438"),
-            React.createElement("em", null, "\u0433\u0434\u0435 \u043E\u0441\u0442\u0430\u043D\u0430\u0432\u043B\u0438\u0432\u0430\u043B\u0438\u0441\u044C \u043D\u0435 \u0440\u0430\u0437"),
-            React.createElement(RowsChart, { rows: r.topHotels }))),
-        crew.length > 1 && (React.createElement(Reveal, { className: "rep" },
-            React.createElement("b", null, "\u041A\u0442\u043E \u0441\u043A\u043E\u043B\u044C\u043A\u043E \u043F\u0440\u043E\u0435\u0445\u0430\u043B"),
-            React.createElement("em", null, "\u0441\u0442\u0440\u0430\u043D\u044B, \u0447\u0430\u0441\u0442\u0438 \u0441\u0432\u0435\u0442\u0430, \u0433\u043E\u0440\u043E\u0434\u0430 \u0438 \u0433\u043E\u0434\u044B"),
-            React.createElement("div", { className: "crew" }, crew.map((p, i) => {
-                var _c;
-                const lead = crew[0].countries || 1;
-                const trips = ((_c = crewR.rows.find((x) => x.id === p.id)) === null || _c === void 0 ? void 0 : _c.list) || [];
-                const open = openCrew === p.id;
-                return (React.createElement("div", { key: p.id, className: "crew-row" + (p.id === ME ? " me" : "") },
-                    React.createElement("button", { className: "crew-top", onClick: () => setOpenCrew(open ? null : p.id) },
-                        React.createElement("span", { className: "crew-rank" }, i + 1),
-                        React.createElement("span", { className: "crew-name" },
-                            p.name,
-                            p.role && React.createElement("i", null, p.role)),
-                        React.createElement("span", { className: "crew-big" }, p.countries),
-                        React.createElement("span", { className: "crew-caret" + (open ? " on" : "") }, "\u25BE")),
-                    React.createElement("span", { className: "crew-bar" },
-                        React.createElement("i", { style: {
-                                "--w": `${(p.countries / lead) * 100}%`,
-                                width: `${(p.countries / lead) * 100}%`,
-                                background: i === 0 ? C_GOLD : C_SILVER,
-                            } })),
-                    React.createElement("div", { className: "crew-cells" },
-                        React.createElement("span", null,
-                            React.createElement("b", null, p.conts),
-                            pw(p.conts, "cont")),
-                        React.createElement("span", null,
-                            React.createElement("b", null, p.cities),
-                            pw(p.cities, "city")),
-                        React.createElement("span", null,
-                            React.createElement("b", null, p.years),
-                            pw(p.years, "year")),
-                        React.createElement("span", null,
-                            React.createElement("b", null, p.trips),
-                            pw(p.trips, "trip"))),
-                    open && (React.createElement("div", { className: "crew-trips" },
-                        crewTree(trips).map((yr) => (React.createElement("div", { key: yr.y, className: "ct-year" },
-                            React.createElement("div", { className: "ct-yhead" },
-                                React.createElement("b", null, yr.y || "без года"),
-                                React.createElement("em", null,
-                                    np(yr.n, "trip"),
-                                    " \u00B7 ",
-                                    np(yr.countries, "country"))),
-                            yr.conts.map((c) => (React.createElement("div", { key: c.k, className: "ct-cont" },
-                                React.createElement("div", { className: "ct-chead" },
-                                    React.createElement("i", { style: { background: CONT_COLORS[c.k] || C_DIM } }),
-                                    CONT_MINI[c.k] || "—"),
-                                React.createElement("div", { className: "ct-items" }, c.items.map((it) => {
-                                    var _c;
-                                    return (React.createElement("div", { key: it.key, className: "ct-row" },
-                                        React.createElement("span", { className: "ct-cn" },
-                                            ((_c = BY_A3[it.a3]) === null || _c === void 0 ? void 0 : _c.name) || it.a3,
-                                            it.m > 0 && (React.createElement("u", null, MONTHS[it.m - 1]))),
-                                        it.cities && React.createElement("em", null, it.cities)));
-                                })))))))),
-                        !trips.length && (React.createElement("p", { className: "hint small" }, "\u041F\u043E\u0435\u0437\u0434\u043E\u043A \u043D\u0435\u0442."))))));
-            })),
-            React.createElement("p", { className: "hint small" }, "\u041F\u043E\u043B\u043E\u0441\u0430 \u2014 \u0434\u043E\u043B\u044F \u043E\u0442 \u043B\u0438\u0434\u0435\u0440\u0430 \u043F\u043E \u0441\u0442\u0440\u0430\u043D\u0430\u043C. \u0421\u0447\u0438\u0442\u0430\u044E\u0442\u0441\u044F \u0442\u043E\u043B\u044C\u043A\u043E \u0441\u043E\u0441\u0442\u043E\u044F\u0432\u0448\u0438\u0435\u0441\u044F \u043F\u043E\u0435\u0437\u0434\u043A\u0438, \u0433\u0434\u0435 \u0447\u0435\u043B\u043E\u0432\u0435\u043A \u043E\u0442\u043C\u0435\u0447\u0435\u043D \u0432 \u0441\u043E\u0441\u0442\u0430\u0432\u0435."))),
-        crewR.rows.length > 1 && (React.createElement(React.Fragment, null,
+    return (React.createElement(Sheet, { open: open, onClose: onClose, title: "\u041E\u0442\u0447\u0451\u0442\u044B", box: box }, () => {
+        var _c, _d, _e, _f, _g, _h, _j;
+        return (React.createElement("div", { className: "sheet-body" }, r.trips.length === 0 ? (React.createElement("p", { className: "hint small" }, "\u041E\u0442\u0447\u0451\u0442\u044B \u043F\u043E\u044F\u0432\u044F\u0442\u0441\u044F, \u043A\u043E\u0433\u0434\u0430 \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u0435 \u043F\u0435\u0440\u0432\u0443\u044E \u043F\u043E\u0435\u0437\u0434\u043A\u0443.")) : (React.createElement(React.Fragment, null,
+            React.createElement("p", { className: "hint small" }, "\u0414\u0432\u043E\u0439\u043D\u043E\u0435 \u043A\u0430\u0441\u0430\u043D\u0438\u0435 \u0440\u0430\u0437\u0432\u043E\u0440\u0430\u0447\u0438\u0432\u0430\u0435\u0442 \u043B\u044E\u0431\u043E\u0439 \u0433\u0440\u0430\u0444\u0438\u043A \u043D\u0430 \u0432\u0435\u0441\u044C \u044D\u043A\u0440\u0430\u043D."),
             React.createElement(Reveal, { className: "rep" },
-                React.createElement("b", null, "\u0414\u043E\u0440\u043E\u0436\u043A\u0438 \u043F\u043E \u0433\u043E\u0434\u0430\u043C"),
-                React.createElement("em", null, "\u043A\u0440\u0443\u0436\u043E\u043A \u2014 \u0433\u043E\u0434, \u043A\u0440\u0443\u043F\u043D\u0435\u0435 \u2014 \u0431\u043E\u043B\u044C\u0448\u0435 \u043F\u043E\u0435\u0437\u0434\u043E\u043A"),
-                React.createElement(LanesChart, { rows: crewR.rows, years: crewR.years })),
+                React.createElement("b", null, "\u041F\u043E\u0435\u0437\u0434\u043A\u0438 \u043F\u043E \u0433\u043E\u0434\u0430\u043C"),
+                React.createElement("em", null, "\u0441\u0442\u043E\u043B\u0431\u0438\u043A\u0438 \u0438 \u043B\u0438\u043D\u0438\u044F \u0442\u0440\u0435\u043D\u0434\u0430"),
+                React.createElement(BarsChart, { data: years.map((y) => Math.round((r.years[y] || 0) * 10) / 10), vague: years.map((y) => r.vague[y] || 0), labels: years }),
+                Object.keys(r.vague).length > 0 && (React.createElement("p", { className: "hint small" }, "\u0411\u043B\u0435\u0434\u043D\u0430\u044F \u0447\u0430\u0441\u0442\u044C \u0441\u0442\u043E\u043B\u0431\u0438\u043A\u0430 \u2014 \u043F\u043E\u0435\u0437\u0434\u043A\u0438 \u0441 \u043D\u0435\u0442\u043E\u0447\u043D\u043E\u0439 \u0434\u0430\u0442\u043E\u0439, \u0440\u0430\u0437\u043B\u043E\u0436\u0435\u043D\u043D\u044B\u0435 \u043F\u043E\u0440\u043E\u0432\u043D\u0443 \u043F\u043E \u0433\u043E\u0434\u0430\u043C \u043F\u0435\u0440\u0438\u043E\u0434\u0430."))),
             React.createElement(Reveal, { className: "rep" },
-                React.createElement("b", null, "\u0421\u0432\u043E\u0438 \u0438 \u043E\u0431\u0449\u0438\u0435 \u0441\u0442\u0440\u0430\u043D\u044B"),
-                React.createElement("em", null, "\u043A\u0442\u043E \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u0435\u0442 \u043D\u043E\u0432\u043E\u0435, \u0430 \u043A\u0442\u043E \u0435\u0437\u0434\u0438\u0442 \u0432\u043C\u0435\u0441\u0442\u0435"),
-                React.createElement(SplitChart, { rows: crewR.rows })),
+                React.createElement("b", null, "\u0421\u0442\u0440\u0430\u043D\u044B \u043D\u0430\u0440\u0430\u0441\u0442\u0430\u044E\u0449\u0438\u043C \u0438\u0442\u043E\u0433\u043E\u043C"),
+                React.createElement("em", null, "\u043A\u0430\u043A \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u043B\u0441\u044F \u043C\u0438\u0440"),
+                React.createElement(AreaChart, { points: r.line })),
             React.createElement(Reveal, { className: "rep" },
-                React.createElement("b", null, "\u041F\u0435\u0440\u0432\u043E\u043E\u0442\u043A\u0440\u044B\u0432\u0430\u0442\u0435\u043B\u0438"),
-                React.createElement("em", null, "\u043A\u0442\u043E \u043F\u043E\u043F\u0430\u043B \u0432 \u0441\u0442\u0440\u0430\u043D\u0443 \u0440\u0430\u043D\u044C\u0448\u0435 \u043E\u0441\u0442\u0430\u043B\u044C\u043D\u044B\u0445"),
-                React.createElement(FirstsChart, { rows: crewR.rows })),
+                React.createElement("b", null, "\u0427\u0430\u0441\u0442\u0438 \u0441\u0432\u0435\u0442\u0430"),
+                React.createElement("em", null, "\u0441\u043A\u043E\u043B\u044C\u043A\u043E \u0441\u0442\u0440\u0430\u043D \u0432 \u043A\u0430\u0436\u0434\u043E\u0439"),
+                React.createElement(DonutChart, { parts: CONT_ORDER.filter((k) => r.conts[k]).map((k) => ({
+                        k,
+                        v: r.conts[k],
+                    })), total: stats.countries })),
             React.createElement(Reveal, { className: "rep" },
-                React.createElement("b", null, "\u0420\u0430\u0437\u043C\u0430\u0445 \u0448\u0438\u0440\u043E\u0442"),
-                React.createElement("em", null, "\u043E\u0442 \u0441\u0430\u043C\u043E\u0439 \u044E\u0436\u043D\u043E\u0439 \u0441\u0442\u0440\u0430\u043D\u044B \u0434\u043E \u0441\u0430\u043C\u043E\u0439 \u0441\u0435\u0432\u0435\u0440\u043D\u043E\u0439"),
-                React.createElement(SpanChart, { rows: crewR.rows })),
+                React.createElement("b", null, "\u0421\u0435\u0437\u043E\u043D\u043D\u043E\u0441\u0442\u044C"),
+                React.createElement("em", null, "\u0432 \u043A\u0430\u043A\u0438\u0435 \u043C\u0435\u0441\u044F\u0446\u044B \u0432\u044B \u0432 \u043F\u0443\u0442\u0438"),
+                React.createElement("div", { className: "center" },
+                    React.createElement(SeasonChart, { months: r.months }))),
             React.createElement(Reveal, { className: "rep" },
-                React.createElement("b", null, "\u0427\u0430\u0441\u0442\u0438 \u0441\u0432\u0435\u0442\u0430 \u043B\u0435\u043F\u0435\u0441\u0442\u043A\u0430\u043C\u0438"),
-                React.createElement("em", null, "\u0443 \u043A\u043E\u0433\u043E \u043A\u0430\u043A\u043E\u0439 \u043F\u0435\u0440\u0435\u043A\u043E\u0441"),
-                React.createElement(RadarChart, { rows: crewR.rows })))),
-        React.createElement(Reveal, { className: "rep" },
-            React.createElement("b", null, "\u041A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u044C \u043F\u043E\u0435\u0437\u0434\u043E\u043A"),
-            React.createElement("em", null, "\u0433\u043E\u0434 \u0438 \u043C\u0435\u0441\u044F\u0446, \u044F\u0440\u0447\u0435 \u2014 \u0434\u043E\u043B\u044C\u0448\u0435"),
-            React.createElement(GridChart, { grid: r.grid, planGrid: r.planGrid, vague: r.vague, years: years.slice(-8), onOpen: onOpenTrip }))))))));
+                React.createElement("b", null, "\u0414\u043D\u0438 \u0432 \u043F\u0443\u0442\u0438"),
+                React.createElement("em", null, "\u043F\u043E \u0433\u043E\u0434\u0430\u043C, \u0433\u0434\u0435 \u0443\u043A\u0430\u0437\u0430\u043D\u044B \u0442\u043E\u0447\u043D\u044B\u0435 \u0434\u0430\u0442\u044B"),
+                Object.keys(r.days).length ? (React.createElement(RowsChart, { rows: years
+                        .filter((y) => r.days[y])
+                        .map((y) => [String(y), r.days[y]]), unit: "\u0434\u043D." })) : (React.createElement("p", { className: "hint small" }, "\u0423\u043A\u0430\u0436\u0438\u0442\u0435 \u0442\u043E\u0447\u043D\u044B\u0435 \u0434\u0430\u0442\u044B \u0445\u043E\u0442\u044F \u0431\u044B \u0432 \u043E\u0434\u043D\u043E\u0439 \u043F\u043E\u0435\u0437\u0434\u043A\u0435."))),
+            React.createElement(Reveal, { className: "rep" },
+                React.createElement("b", null, "\u0427\u0430\u0449\u0435 \u0432\u0441\u0435\u0433\u043E"),
+                React.createElement("em", null, "\u0433\u043E\u0440\u043E\u0434\u0430, \u043A\u0443\u0434\u0430 \u0432\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u0435\u0442\u0435\u0441\u044C"),
+                r.topCities.length ? (React.createElement(RowsChart, { rows: r.topCities })) : (React.createElement("p", { className: "hint small" }, "\u0413\u043E\u0440\u043E\u0434\u0430 \u043F\u043E\u043A\u0430 \u043D\u0435 \u043E\u0442\u043C\u0435\u0447\u0435\u043D\u044B."))),
+            r.topHotels.length > 0 && (React.createElement(Reveal, { className: "rep" },
+                React.createElement("b", null, "\u041B\u044E\u0431\u0438\u043C\u044B\u0435 \u043E\u0442\u0435\u043B\u0438"),
+                React.createElement("em", null, "\u0433\u0434\u0435 \u043E\u0441\u0442\u0430\u043D\u0430\u0432\u043B\u0438\u0432\u0430\u043B\u0438\u0441\u044C \u043D\u0435 \u0440\u0430\u0437"),
+                React.createElement(RowsChart, { rows: r.topHotels }))),
+            crew.length > 1 && (React.createElement(Reveal, { className: "rep" },
+                React.createElement("b", null, "\u041A\u0442\u043E \u0441\u043A\u043E\u043B\u044C\u043A\u043E \u043F\u0440\u043E\u0435\u0445\u0430\u043B"),
+                React.createElement("em", null, "\u0441\u0442\u0440\u0430\u043D\u044B, \u0447\u0430\u0441\u0442\u0438 \u0441\u0432\u0435\u0442\u0430, \u0433\u043E\u0440\u043E\u0434\u0430 \u0438 \u0433\u043E\u0434\u044B"),
+                React.createElement("div", { className: "crew" }, crew.map((p, i) => {
+                    var _c;
+                    const lead = crew[0].countries || 1;
+                    const trips = ((_c = crewR.rows.find((x) => x.id === p.id)) === null || _c === void 0 ? void 0 : _c.list) || [];
+                    const open = openCrew === p.id;
+                    return (React.createElement("div", { key: p.id, className: "crew-row" + (p.id === ME ? " me" : "") },
+                        React.createElement("button", { className: "crew-top", onClick: () => setOpenCrew(open ? null : p.id) },
+                            React.createElement("span", { className: "crew-rank" }, i + 1),
+                            React.createElement("span", { className: "crew-name" },
+                                p.name,
+                                p.role && React.createElement("i", null, p.role)),
+                            React.createElement("span", { className: "crew-big" }, p.countries),
+                            React.createElement("span", { className: "crew-caret" + (open ? " on" : "") }, "\u25BE")),
+                        React.createElement("span", { className: "crew-bar" },
+                            React.createElement("i", { style: {
+                                    "--w": `${(p.countries / lead) * 100}%`,
+                                    width: `${(p.countries / lead) * 100}%`,
+                                    background: i === 0 ? C_GOLD : C_SILVER,
+                                } })),
+                        React.createElement("div", { className: "crew-cells" },
+                            React.createElement("span", null,
+                                React.createElement("b", null, p.conts),
+                                pw(p.conts, "cont")),
+                            React.createElement("span", null,
+                                React.createElement("b", null, p.cities),
+                                pw(p.cities, "city")),
+                            React.createElement("span", null,
+                                React.createElement("b", null, p.years),
+                                pw(p.years, "year")),
+                            React.createElement("span", null,
+                                React.createElement("b", null, p.trips),
+                                pw(p.trips, "trip"))),
+                        open && (React.createElement("div", { className: "crew-trips" },
+                            crewTree(trips).map((yr) => (React.createElement("div", { key: yr.y, className: "ct-year" },
+                                React.createElement("div", { className: "ct-yhead" },
+                                    React.createElement("b", null, yr.y || "без года"),
+                                    React.createElement("em", null,
+                                        np(yr.n, "trip"),
+                                        " \u00B7 ",
+                                        np(yr.countries, "country"))),
+                                yr.conts.map((c) => (React.createElement("div", { key: c.k, className: "ct-cont" },
+                                    React.createElement("div", { className: "ct-chead" },
+                                        React.createElement("i", { style: { background: CONT_COLORS[c.k] || C_DIM } }),
+                                        CONT_MINI[c.k] || "—"),
+                                    React.createElement("div", { className: "ct-items" }, c.items.map((it) => {
+                                        var _c;
+                                        return (React.createElement("div", { key: it.key, className: "ct-row" },
+                                            React.createElement("span", { className: "ct-cn" },
+                                                ((_c = BY_A3[it.a3]) === null || _c === void 0 ? void 0 : _c.name) || it.a3,
+                                                it.m > 0 && (React.createElement("u", null, MONTHS[it.m - 1]))),
+                                            it.cities && React.createElement("em", null, it.cities)));
+                                    })))))))),
+                            !trips.length && (React.createElement("p", { className: "hint small" }, "\u041F\u043E\u0435\u0437\u0434\u043E\u043A \u043D\u0435\u0442."))))));
+                })),
+                React.createElement("p", { className: "hint small" }, "\u041F\u043E\u043B\u043E\u0441\u0430 \u2014 \u0434\u043E\u043B\u044F \u043E\u0442 \u043B\u0438\u0434\u0435\u0440\u0430 \u043F\u043E \u0441\u0442\u0440\u0430\u043D\u0430\u043C. \u0421\u0447\u0438\u0442\u0430\u044E\u0442\u0441\u044F \u0442\u043E\u043B\u044C\u043A\u043E \u0441\u043E\u0441\u0442\u043E\u044F\u0432\u0448\u0438\u0435\u0441\u044F \u043F\u043E\u0435\u0437\u0434\u043A\u0438, \u0433\u0434\u0435 \u0447\u0435\u043B\u043E\u0432\u0435\u043A \u043E\u0442\u043C\u0435\u0447\u0435\u043D \u0432 \u0441\u043E\u0441\u0442\u0430\u0432\u0435."))),
+            crewR.rows.length > 1 && (React.createElement(React.Fragment, null,
+                React.createElement(Reveal, { className: "rep" },
+                    React.createElement("b", null, "\u0414\u043E\u0440\u043E\u0436\u043A\u0438 \u043F\u043E \u0433\u043E\u0434\u0430\u043C"),
+                    React.createElement("em", null, "\u043A\u0440\u0443\u0436\u043E\u043A \u2014 \u0433\u043E\u0434, \u043A\u0440\u0443\u043F\u043D\u0435\u0435 \u2014 \u0431\u043E\u043B\u044C\u0448\u0435 \u043F\u043E\u0435\u0437\u0434\u043E\u043A"),
+                    React.createElement(LanesChart, { rows: crewR.rows, years: crewR.years })),
+                React.createElement(Reveal, { className: "rep" },
+                    React.createElement("b", null, "\u0421\u0432\u043E\u0438 \u0438 \u043E\u0431\u0449\u0438\u0435 \u0441\u0442\u0440\u0430\u043D\u044B"),
+                    React.createElement("em", null, "\u043A\u0442\u043E \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u0435\u0442 \u043D\u043E\u0432\u043E\u0435, \u0430 \u043A\u0442\u043E \u0435\u0437\u0434\u0438\u0442 \u0432\u043C\u0435\u0441\u0442\u0435"),
+                    React.createElement(SplitChart, { rows: crewR.rows })),
+                React.createElement(Reveal, { className: "rep" },
+                    React.createElement("b", null, "\u041F\u0435\u0440\u0432\u043E\u043E\u0442\u043A\u0440\u044B\u0432\u0430\u0442\u0435\u043B\u0438"),
+                    React.createElement("em", null, "\u043A\u0442\u043E \u043F\u043E\u043F\u0430\u043B \u0432 \u0441\u0442\u0440\u0430\u043D\u0443 \u0440\u0430\u043D\u044C\u0448\u0435 \u043E\u0441\u0442\u0430\u043B\u044C\u043D\u044B\u0445"),
+                    React.createElement(FirstsChart, { rows: crewR.rows })),
+                React.createElement(Reveal, { className: "rep" },
+                    React.createElement("b", null, "\u0420\u0430\u0437\u043C\u0430\u0445 \u0448\u0438\u0440\u043E\u0442"),
+                    React.createElement("em", null, "\u043E\u0442 \u0441\u0430\u043C\u043E\u0439 \u044E\u0436\u043D\u043E\u0439 \u0441\u0442\u0440\u0430\u043D\u044B \u0434\u043E \u0441\u0430\u043C\u043E\u0439 \u0441\u0435\u0432\u0435\u0440\u043D\u043E\u0439"),
+                    React.createElement(SpanChart, { rows: crewR.rows })),
+                diff && (React.createElement(Reveal, { className: "rep cmp" },
+                    React.createElement("b", null, "\u0414\u0432\u043E\u0435: \u0442\u043E\u043B\u044C\u043A\u043E \u0440\u0430\u0437\u043D\u0438\u0446\u0430"),
+                    React.createElement("em", null, "\u0441\u0442\u0440\u0430\u043D\u044B, \u0433\u0434\u0435 \u0431\u044B\u043B \u043E\u0434\u0438\u043D \u0438 \u043D\u0435 \u0431\u044B\u043B \u0434\u0440\u0443\u0433\u043E\u0439"),
+                    React.createElement("div", { className: "cmp-pick" }, [0, 1].map((n) => (React.createElement("div", { key: n, className: "cmp-line" },
+                        React.createElement("span", { className: "cmp-dot " + (n ? "b" : "a") }),
+                        React.createElement("div", { className: "cmp-chips" }, crewR.rows.map((r) => (React.createElement("button", { key: r.id, className: "cmp-chip" + (pair[n] === r.id ? " on" : ""), disabled: pair[1 - n] === r.id, onClick: () => setCmp((c) => {
+                                const next = [...pair];
+                                next[n] = r.id;
+                                return next;
+                            }) }, r.name)))))))),
+                    React.createElement("div", { className: "cmp-heads" },
+                        React.createElement("span", { className: "a" }, (_c = diff.A) === null || _c === void 0 ? void 0 : _c.name),
+                        React.createElement("span", { className: "b" }, (_d = diff.B) === null || _d === void 0 ? void 0 : _d.name)),
+                    React.createElement(WingsChart, { d: diff }),
+                    React.createElement("p", { className: "hint small" },
+                        "\u0421\u043B\u0435\u0432\u0430 \u2014 \u0441\u0442\u0440\u0430\u043D\u044B, \u0433\u0434\u0435 \u0431\u044B\u043B \u0442\u043E\u043B\u044C\u043A\u043E ", (_e = diff.A) === null || _e === void 0 ? void 0 :
+                        _e.name,
+                        ", \u0441\u043F\u0440\u0430\u0432\u0430 \u2014 \u0442\u043E\u043B\u044C\u043A\u043E ", (_f = diff.B) === null || _f === void 0 ? void 0 :
+                        _f.name,
+                        ". \u041E\u0431\u0449\u0438\u0435 \u0441\u0442\u0440\u0430\u043D\u044B \u0432 \u0441\u0440\u0430\u0432\u043D\u0435\u043D\u0438\u0438 \u043D\u0435 \u0443\u0447\u0430\u0441\u0442\u0432\u0443\u044E\u0442."),
+                    ((_g = geo === null || geo === void 0 ? void 0 : geo.features) === null || _g === void 0 ? void 0 : _g.length) > 0 && (React.createElement(DiffMap, { geo: geo, a: diffSets.a, b: diffSets.b })),
+                    React.createElement(DiffRibbon, { d: diff }),
+                    React.createElement("div", { className: "cmp-shelves" },
+                        React.createElement("div", null,
+                            React.createElement("span", { className: "cmp-sub a" },
+                                "\u0442\u043E\u043B\u044C\u043A\u043E ", (_h = diff.A) === null || _h === void 0 ? void 0 :
+                                _h.name),
+                            React.createElement(DiffShelf, { items: diff.onlyA, side: "a" })),
+                        React.createElement("div", null,
+                            React.createElement("span", { className: "cmp-sub b" },
+                                "\u0442\u043E\u043B\u044C\u043A\u043E ", (_j = diff.B) === null || _j === void 0 ? void 0 :
+                                _j.name),
+                            React.createElement(DiffShelf, { items: diff.onlyB, side: "b" }))))),
+                React.createElement(Reveal, { className: "rep" },
+                    React.createElement("b", null, "\u0427\u0430\u0441\u0442\u0438 \u0441\u0432\u0435\u0442\u0430 \u043B\u0435\u043F\u0435\u0441\u0442\u043A\u0430\u043C\u0438"),
+                    React.createElement("em", null, "\u0443 \u043A\u043E\u0433\u043E \u043A\u0430\u043A\u043E\u0439 \u043F\u0435\u0440\u0435\u043A\u043E\u0441"),
+                    React.createElement(RadarChart, { rows: crewR.rows })))),
+            React.createElement(Reveal, { className: "rep" },
+                React.createElement("b", null, "\u041A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u044C \u043F\u043E\u0435\u0437\u0434\u043E\u043A"),
+                React.createElement("em", null, "\u0433\u043E\u0434 \u0438 \u043C\u0435\u0441\u044F\u0446, \u044F\u0440\u0447\u0435 \u2014 \u0434\u043E\u043B\u044C\u0448\u0435"),
+                React.createElement(GridChart, { grid: r.grid, planGrid: r.planGrid, vague: r.vague, years: years.slice(-8), onOpen: onOpenTrip }))))));
+    }));
 }
 /* шторка: семья — ключ, способ обмена, отправка и приём */
 function FamilySheet({ open, onClose, box, family, onFamily, visits, tombs, people, meName, onReceive, }) {
@@ -7945,7 +8117,7 @@ function Atlas() {
                             setSheet(null);
                         } }),
                     React.createElement(DoublesSheet, { open: sheet === "doubles", onClose: () => setSheet("profile"), box: box, pairs: doubles, people: profile.people || [], onJoin: joinDouble }),
-                    React.createElement(ReportsSheet, { open: sheet === "reports", onClose: () => setSheet(sheetBack === "list" ? "list" : "profile"), box: box, visits: visits, since: profile.since, stats: stats, people: profile.people || [], onOpenTrip: (a3, id) => {
+                    React.createElement(ReportsSheet, { open: sheet === "reports", onClose: () => setSheet(sheetBack === "list" ? "list" : "profile"), box: box, visits: visits, since: profile.since, stats: stats, people: profile.people || [], geo: geo, onOpenTrip: (a3, id) => {
                             setSelected(a3);
                             setEditId(id || null);
                             setSheet(null);
@@ -8336,6 +8508,37 @@ body > div{max-width:100%;}
 .ct-cn u{text-decoration:none; color:var(--dim); font-size:0.6rem; margin-left:5px;}
 .ct-row em{font-style:normal; font-size:0.6rem; color:var(--dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .reveal{-webkit-user-select:none; user-select:none;}
+.cmp-pick{display:flex; flex-direction:column; gap:7px; margin:4px 0 10px;}
+.cmp-line{display:flex; align-items:center; gap:8px;}
+.cmp-dot{flex:none; width:9px; height:9px; border-radius:50%;}
+.cmp-dot.a{background:var(--gold);} .cmp-dot.b{background:#4a7fb5;}
+.cmp-chips{flex:1 1 auto; display:flex; gap:6px; overflow-x:auto; padding-bottom:2px;}
+.cmp-chip{flex:none; border-radius:999px; border:1px solid var(--line); background:var(--field); color:var(--dim);
+  font-size:0.66rem; padding:5px 11px; cursor:pointer; white-space:nowrap;}
+.cmp-chip.on{color:var(--ink); border-color:rgba(232,184,75,.55);}
+.cmp-chip:disabled{opacity:.35;}
+.cmp-heads{display:flex; justify-content:space-between; font-size:0.72rem; margin-top:4px;}
+.cmp-heads .a{color:var(--gold);} .cmp-heads .b{color:#7fb3d5;}
+.wings{width:100%; max-width:420px; display:block; margin:0 auto;}
+.diff-map{margin-top:10px; border-radius:12px; overflow:hidden; border:1px solid var(--line);}
+.diff-map canvas{display:block; width:100%;}
+.ribbon{margin-top:12px; display:flex; flex-direction:column; gap:6px;}
+.rib-row{display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:8px;}
+.rib-side{display:flex; flex-wrap:wrap; gap:4px;}
+.rib-side.left{justify-content:flex-end;}
+.rib-y{font-size:0.62rem; color:var(--dim); min-width:30px; text-align:center;}
+.rib-tag{font-size:0.62rem; padding:3px 7px; border-radius:8px; white-space:nowrap;}
+.rib-tag.a{background:rgba(232,184,75,.16); color:var(--gold);}
+.rib-tag.b{background:rgba(74,127,181,.2); color:#9ec6e8;}
+.cmp-shelves{margin-top:12px; display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+.cmp-sub{display:block; font-size:0.64rem; margin-bottom:6px;}
+.cmp-sub.a{color:var(--gold);} .cmp-sub.b{color:#7fb3d5;}
+.diff-shelf{display:flex; flex-direction:column; gap:7px;}
+.ds-cell{display:flex; align-items:center; gap:7px; font-size:0.66rem;}
+.ds-cell i{flex:none; transform:scale(.5); transform-origin:left center; width:56px; height:56px; margin:-14px 0 -14px 0;}
+.ds-cell .ds-flag{display:flex; align-items:center; justify-content:center; font-size:1.4rem; transform:none; width:26px; height:26px; margin:0;}
+.ds-cell em{font-style:normal; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.ds-cell u{text-decoration:none; color:var(--dim); font-size:0.58rem; margin-left:auto;}
 .zoom-layer{position:fixed; inset:0; z-index:200; background:rgba(6,12,20,.92); display:flex; align-items:center; justify-content:center; padding:14px;}
 .zoom-box{position:relative; width:100%; max-width:760px; max-height:92vh; overflow:auto; border-radius:16px;
   border:1px solid var(--line); background:var(--el); padding:16px 14px;}
