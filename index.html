@@ -1238,7 +1238,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "19.7";
+const APP_VERSION = "19.8";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -5368,10 +5368,10 @@ function crewReport(visits, people, order) {
                 names.forEach((city) => {
                     const xy = cityPoint(a3, city);
                     if (xy)
-                        r.points.push({ lon: xy[0], lat: xy[1], name: city });
+                        r.points.push({ lon: xy[0], lat: xy[1], name: city, a3 });
                 });
             else if (c)
-                r.points.push({ lon: c.lon, lat: c.lat, name: c.name });
+                r.points.push({ lon: c.lon, lat: c.lat, name: c.name, a3 });
             if (y) {
                 const cell = r.byYear[y] || { n: 0, conts: {} };
                 cell.n += 1;
@@ -5631,11 +5631,25 @@ function FirstsChart({ rows }) {
                     r.countries))))),
         React.createElement("p", { className: "hint small" }, "\u0421\u0442\u0440\u0430\u043D\u0430 \u0437\u0430\u0441\u0447\u0438\u0442\u044B\u0432\u0430\u0435\u0442\u0441\u044F \u0442\u043E\u043C\u0443, \u043A\u0442\u043E \u043F\u043E\u0431\u044B\u0432\u0430\u043B \u0432 \u043D\u0435\u0439 \u0432 \u0441\u0430\u043C\u044B\u0439 \u0440\u0430\u043D\u043D\u0438\u0439 \u0433\u043E\u0434. \u0415\u0441\u043B\u0438 \u0432 \u044D\u0442\u043E\u0442 \u0433\u043E\u0434 \u0442\u0443\u0434\u0430 \u0435\u0437\u0434\u0438\u043B\u0438 \u043D\u0435\u0441\u043A\u043E\u043B\u044C\u043A\u043E \u0447\u0435\u043B\u043E\u0432\u0435\u043A, \u0441\u0442\u0440\u0430\u043D\u0430 \u0441\u0447\u0438\u0442\u0430\u0435\u0442\u0441\u044F \u043E\u0442\u043A\u0440\u044B\u0442\u043E\u0439 \u0432\u043C\u0435\u0441\u0442\u0435 \u0438 \u043D\u0438\u043A\u043E\u043C\u0443 \u0432 \u0441\u0447\u0451\u0442 \u043D\u0435 \u0438\u0434\u0451\u0442.")));
 }
+/* часовой пояс точки: из справочника, иначе по долготе */
+function tzHours(pt) {
+    const raw = TZ[pt === null || pt === void 0 ? void 0 : pt.a3];
+    const m = typeof raw === "string" && raw.match(/^UTC([+−-])(\d+(?:\.\d+)?)$/);
+    if (m)
+        return (m[1] === "+" ? 1 : -1) * parseFloat(m[2]);
+    return Math.round(((pt === null || pt === void 0 ? void 0 : pt.lon) || 0) / 15);
+}
+const hoursText = (n) => `${Math.abs(Math.round(n))} ч`;
+/* в подписи на глобусе длинное имя не помещается — берём одно слово */
+const shortName = (n) => {
+    const w = String(n || "").split(/\s+/).filter(Boolean);
+    return w.length > 1 && n.length > 11 ? w[w.length - 1] : n;
+};
 /* глобус с дугами: у каждого своя дуга от южной точки к северной */
-function SpanGlobe({ rows, geo }) {
+function SpanGlobe({ rows, geo, home }) {
     const wrap = useRef(null);
     const cv = useRef(null);
-    const rot = useRef([20, -10]);
+    const rot = useRef([20, -12]);
     const drag = useRef(null);
     const raf = useRef(0);
     const arcs = useMemo(() => {
@@ -5652,131 +5666,277 @@ function SpanGlobe({ rows, geo }) {
             g.push(r);
             groups.set(k, g);
         });
-        return [...groups.values()].map((g) => ({
-            from: g[0].south,
-            to: g[0].north,
-            km: g[0].km,
-            who: g,
-        }));
+        // каждому путешественнику своя дуга: одинаковые пары разводим по высоте
+        const out = [];
+        [...groups.values()].forEach((g) => g.forEach((r, i) => out.push({
+            from: r.south,
+            to: r.north,
+            km: r.km,
+            dh: Math.abs(tzHours(r.north) - tzHours(r.south)),
+            who: r,
+            nest: i,
+        })));
+        return out.map((a, i) => ({ ...a, lift: 0.1 + (a.nest + i * 0.0001) * 0.07 }));
     }, [rows]);
     useEffect(() => {
         const box = wrap.current;
         const c = cv.current;
         if (!box || !c)
             return;
-        const w = Math.max(240, Math.min(box.clientWidth, 520));
         const dpr = Math.min(2, window.devicePixelRatio || 1);
-        c.width = w * dpr;
-        c.height = w * dpr;
-        c.style.width = w + "px";
-        c.style.height = w + "px";
         const ctx = c.getContext("2d");
-        const proj = d3
-            .geoOrthographic()
-            .fitExtent([
-            [18, 18],
-            [w - 18, w - 18],
-        ], { type: "Sphere" })
-            .clipAngle(90);
+        let w = 0;
+        let cx = 0;
+        let cy = 0;
+        let R = 0;
+        const proj = d3.geoOrthographic().clipAngle(90);
         const path = d3.geoPath(proj, ctx);
+        /* ширина карточки меняется при открытии — пересчитываем на лету */
+        const fit = () => {
+            const want = Math.max(260, Math.min(box.clientWidth, 520));
+            if (want === w)
+                return;
+            w = want;
+            cx = w / 2;
+            cy = w / 2;
+            R = w / 2 - 26;
+            c.width = w * dpr;
+            c.height = w * dpr;
+            c.style.width = w + "px";
+            c.style.height = w + "px";
+            proj.scale(R).translate([cx, cy]);
+        };
+        fit();
         const grat = d3.geoGraticule10();
-        const far = (q) => d3.geoDistance(q, [-rot.current[0], -rot.current[1]]) > Math.PI / 2 - 0.05;
-        const draw = () => {
+        const rad = Math.PI / 180;
+        /* точка на шаре с подъёмом над поверхностью */
+        const place = ([lon, lat], lift = 0) => {
+            const p = d3.geoRotation(rot.current)([lon, lat]);
+            const la = p[1] * rad;
+            const lo = p[0] * rad;
+            const x = Math.cos(la) * Math.sin(lo);
+            const y = -Math.sin(la);
+            const z = Math.cos(la) * Math.cos(lo);
+            const k = R * (1 + lift);
+            const hidden = z < 0 && Math.hypot(x, y) * (1 + lift) < 1;
+            return { x: cx + x * k, y: cy + y * k, z, hidden };
+        };
+        const pill = (x, y, label, color, opts = {}) => {
+            ctx.font = opts.font || "600 10.5px system-ui, -apple-system, sans-serif";
+            // подпись обязана поместиться в шар — иначе укорачиваем
+            let text = label;
+            const room = w - 18 - (opts.dot ? 12 : 0);
+            if (ctx.measureText(text).width > room) {
+                while (text.length > 4 && ctx.measureText(text + "…").width > room)
+                    text = text.slice(0, -1);
+                text += "…";
+            }
+            const tw = ctx.measureText(text).width;
+            const h = 20;
+            const pad = 8;
+            const bw = tw + pad * 2 + (opts.dot ? 12 : 0);
+            const bx = Math.max(4, Math.min(w - bw - 4, x - bw / 2));
+            const by = Math.max(4, y - h);
+            ctx.beginPath();
+            if (ctx.roundRect)
+                ctx.roundRect(bx, by, bw, h, 10);
+            else
+                ctx.rect(bx, by, bw, h);
+            ctx.fillStyle = "rgba(9,19,31,.86)";
+            ctx.fill();
+            ctx.strokeStyle = opts.border || "rgba(150,180,210,.22)";
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            let tx = bx + pad;
+            if (opts.dot) {
+                ctx.beginPath();
+                ctx.arc(bx + pad + 3, by + h / 2, 3.4, 0, Math.PI * 2);
+                ctx.fillStyle = opts.dot;
+                ctx.fill();
+                tx += 12;
+            }
+            ctx.fillStyle = color;
+            ctx.textAlign = "left";
+            ctx.textBaseline = "middle";
+            ctx.fillText(text, tx, by + h / 2 + 0.5);
+            return { x: bx + bw / 2, y: by + h / 2, w: bw, h };
+        };
+        const draw = (time) => {
             proj.rotate(rot.current);
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
             ctx.clearRect(0, 0, w, w);
+            // атмосфера
+            const halo = ctx.createRadialGradient(cx, cy, R * 0.92, cx, cy, R * 1.18);
+            halo.addColorStop(0, "rgba(120,180,230,.20)");
+            halo.addColorStop(1, "rgba(120,180,230,0)");
+            ctx.fillStyle = halo;
+            ctx.beginPath();
+            ctx.arc(cx, cy, R * 1.18, 0, Math.PI * 2);
+            ctx.fill();
+            // сам шар
+            const ball = ctx.createRadialGradient(cx - R * 0.35, cy - R * 0.4, R * 0.1, cx, cy, R);
+            ball.addColorStop(0, "#16344f");
+            ball.addColorStop(1, "#091a2a");
             ctx.beginPath();
             path({ type: "Sphere" });
-            ctx.fillStyle = "#0e2236";
+            ctx.fillStyle = ball;
             ctx.fill();
             ctx.beginPath();
             path(grat);
-            ctx.strokeStyle = "rgba(120,150,180,.16)";
+            ctx.strokeStyle = "rgba(130,165,200,.13)";
             ctx.lineWidth = 0.5;
             ctx.stroke();
             ((geo === null || geo === void 0 ? void 0 : geo.features) || []).forEach((f) => {
                 ctx.beginPath();
                 path(f);
-                ctx.fillStyle = "rgba(120,150,180,.22)";
+                ctx.fillStyle = "rgba(125,160,195,.26)";
                 ctx.fill();
-                ctx.strokeStyle = "rgba(150,180,205,.25)";
+                ctx.strokeStyle = "rgba(160,195,225,.22)";
                 ctx.lineWidth = 0.4;
                 ctx.stroke();
             });
             const labels = [];
-            arcs.forEach((a, ai) => {
-                const line = {
-                    type: "LineString",
-                    coordinates: [
-                        [a.from.lon, a.from.lat],
-                        [a.to.lon, a.to.lat],
-                    ],
-                };
-                const n = a.who.length;
-                a.who.forEach((r, i) => {
-                    ctx.beginPath();
-                    path(line);
-                    ctx.lineWidth = 2.6;
-                    ctx.strokeStyle = r.color;
-                    ctx.setLineDash(n > 1 ? [9, 9 * (n - 1)] : []);
-                    ctx.lineDashOffset = -i * 9;
-                    ctx.stroke();
-                    ctx.setLineDash([]);
-                });
-                [a.from, a.to].forEach((q) => {
-                    if (far([q.lon, q.lat]))
+            const marks = new Map();
+            arcs.forEach((a) => {
+                const N = 96;
+                const inter = d3.geoInterpolate([a.from.lon, a.from.lat], [a.to.lon, a.to.lat]);
+                const pts = [];
+                for (let i = 0; i <= N; i++) {
+                    const t = i / N;
+                    const lift = a.lift * Math.sin(Math.PI * t);
+                    pts.push({ ...place(inter(t), lift), t });
+                }
+                const seen = pts.filter((q) => !q.hidden);
+                if (!seen.length)
+                    return;
+                const g = ctx.createLinearGradient(seen[0].x, seen[0].y, seen[seen.length - 1].x, seen[seen.length - 1].y);
+                g.addColorStop(0, a.who.color);
+                g.addColorStop(0.5, "#f4efe2");
+                g.addColorStop(1, a.who.color);
+                ctx.save();
+                ctx.lineCap = "round";
+                ctx.lineJoin = "round";
+                ctx.shadowColor = a.who.color;
+                ctx.shadowBlur = 10;
+                ctx.strokeStyle = g;
+                ctx.lineWidth = 2.4;
+                ctx.setLineDash([]);
+                let open = false;
+                ctx.beginPath();
+                pts.forEach((q) => {
+                    if (q.hidden) {
+                        open = false;
                         return;
-                    const xy = proj([q.lon, q.lat]);
-                    ctx.beginPath();
-                    ctx.arc(xy[0], xy[1], 3.4, 0, Math.PI * 2);
-                    ctx.fillStyle = "#e8e3d6";
-                    ctx.fill();
+                    }
+                    if (!open) {
+                        ctx.moveTo(q.x, q.y);
+                        open = true;
+                    }
+                    else
+                        ctx.lineTo(q.x, q.y);
                 });
-                const mid = d3.geoInterpolate([a.from.lon, a.from.lat], [a.to.lon, a.to.lat])(0.5);
-                if (!far(mid)) {
-                    const xy = proj(mid);
-                    const names = n > 2
-                        ? `${a.who[0].name} и ещё ${n - 1}`
-                        : a.who.map((r) => r.name).join(", ");
-                    ctx.font = "600 11px system-ui, sans-serif";
-                    ctx.textAlign = "center";
-                    let label = `${names} · ${kmText(a.km)}`;
-                    // подпись не должна вылезать за шар — сокращаем по месту
-                    if (ctx.measureText(label).width > w - 24)
-                        label = `${a.who[0].name} · ${kmText(a.km)}`;
-                    if (ctx.measureText(label).width > w - 24)
-                        label = kmText(a.km);
-                    const tw = ctx.measureText(label).width;
-                    const x = Math.max(tw / 2 + 8, Math.min(w - tw / 2 - 8, xy[0]));
+                ctx.stroke();
+                // бегущий блик вдоль дуги
+                ctx.setLineDash([10, 26]);
+                ctx.lineDashOffset = -((time / 22) % 36);
+                ctx.strokeStyle = "rgba(255,255,255,.65)";
+                ctx.lineWidth = 1.4;
+                ctx.shadowBlur = 6;
+                ctx.stroke();
+                ctx.restore();
+                // стрелки на концах, как у измерителя
+                const arrow = (q, prev) => {
+                    if (!q || !prev || q.hidden || prev.hidden)
+                        return;
+                    const ang = Math.atan2(q.y - prev.y, q.x - prev.x);
+                    const L = 9;
+                    ctx.beginPath();
+                    ctx.moveTo(q.x, q.y);
+                    ctx.lineTo(q.x - Math.cos(ang - 0.4) * L, q.y - Math.sin(ang - 0.4) * L);
+                    ctx.lineTo(q.x - Math.cos(ang + 0.4) * L, q.y - Math.sin(ang + 0.4) * L);
+                    ctx.closePath();
+                    ctx.fillStyle = a.who.color;
+                    ctx.fill();
+                };
+                arrow(pts[0], pts[2]);
+                arrow(pts[N], pts[N - 2]);
+                // подпись дуги
+                const mid = pts[Math.round(N / 2)];
+                if (!mid.hidden)
                     labels.push({
-                        label,
-                        tw,
-                        x,
-                        y: xy[1] - 14,
-                        color: n > 1 ? "#e8e3d6" : a.who[0].color,
+                        x: mid.x,
+                        y: mid.y + 26,
+                        text: `${shortName(a.who.name)} · ${kmText(a.km)} · ${hoursText(a.dh)}`,
+                        color: "#eef3f8",
+                        dot: a.who.color,
+                        border: a.who.color + "66",
+                    });
+                [a.from, a.to].forEach((q) => {
+                    const k = `${q.lon.toFixed(2)}|${q.lat.toFixed(2)}`;
+                    if (!marks.has(k))
+                        marks.set(k, q);
+                });
+            });
+            // точки маршрутов: флаг страны и название
+            marks.forEach((q) => {
+                var _c;
+                const s = place([q.lon, q.lat]);
+                if (s.hidden)
+                    return;
+                ctx.beginPath();
+                ctx.arc(s.x, s.y, 4.6, 0, Math.PI * 2);
+                ctx.fillStyle = "#f4efe2";
+                ctx.fill();
+                ctx.strokeStyle = "rgba(9,19,31,.8)";
+                ctx.lineWidth = 1.4;
+                ctx.stroke();
+                labels.push({
+                    x: s.x,
+                    y: s.y + 34,
+                    text: `${flag(((_c = BY_A3[q.a3]) === null || _c === void 0 ? void 0 : _c.a2) || "")} ${q.name}`,
+                    color: "#dbe6f0",
+                    font: "500 11.5px system-ui, -apple-system, sans-serif",
+                    soft: true,
+                });
+            });
+            // дом
+            if (home) {
+                const s = place([home.lon, home.lat]);
+                if (!s.hidden) {
+                    ctx.beginPath();
+                    ctx.arc(s.x, s.y, 5.6, 0, Math.PI * 2);
+                    ctx.fillStyle = C_GOLD;
+                    ctx.fill();
+                    labels.push({
+                        x: s.x,
+                        y: s.y - 10,
+                        text: `${flag(home.a2)} дом · ${home.name}`,
+                        color: "#f1e2bd",
+                        border: "rgba(232,184,75,.55)",
                     });
                 }
-            });
-            // подписи поверх дуг, с разводкой, чтобы не наезжали друг на друга
+            }
+            // подписи поверх всего, с разводкой
             const placed = [];
             labels.forEach((L) => {
                 let y = L.y;
                 let guard = 0;
-                while (guard++ < 12 &&
-                    placed.some((q) => Math.abs(q.y - y) < 19 &&
-                        Math.abs(q.x - L.x) < (q.tw + L.tw) / 2 + 6))
-                    y -= 19;
-                placed.push({ x: L.x, y, tw: L.tw });
-                ctx.fillStyle = "rgba(8,18,30,.82)";
-                ctx.fillRect(L.x - L.tw / 2 - 5, y - 12, L.tw + 10, 17);
-                ctx.fillStyle = L.color;
-                ctx.fillText(L.label, L.x, y);
+                while (guard++ < 14 &&
+                    placed.some((q) => Math.abs(q.y - y) < 23 && Math.abs(q.x - L.x) < q.w / 2 + 70))
+                    y -= 23;
+                const box2 = pill(L.x, y, L.text, L.color, {
+                    dot: L.dot,
+                    border: L.soft ? "rgba(150,180,210,.18)" : L.border,
+                    font: L.font,
+                });
+                placed.push(box2);
             });
         };
-        const tick = () => {
+        const tick = (t) => {
+            fit();
             if (!drag.current)
-                rot.current = [rot.current[0] + 0.12, rot.current[1]];
-            draw();
+                rot.current = [rot.current[0] + 0.1, rot.current[1]];
+            draw(t || 0);
             raf.current = requestAnimationFrame(tick);
         };
         raf.current = requestAnimationFrame(tick);
@@ -5808,28 +5968,36 @@ function SpanGlobe({ rows, geo }) {
             c.removeEventListener("pointerup", up);
             c.removeEventListener("pointercancel", up);
         };
-    }, [arcs, geo]);
+    }, [arcs, geo, home]);
     return (React.createElement("div", { className: "span-globe", ref: wrap },
         React.createElement("canvas", { ref: cv }),
         React.createElement("div", { className: "globe-legend" }, rows
             .filter((r) => r.km > 0)
-            .map((r) => (React.createElement("div", { key: r.id },
-            React.createElement("i", { style: { background: r.color } }),
-            React.createElement("span", null, r.name),
-            React.createElement("em", null,
-                r.south.name,
-                " \u2192 ",
-                r.north.name),
-            React.createElement("b", null, kmText(r.km))))))));
+            .map((r) => {
+            var _c, _d;
+            return (React.createElement("div", { key: r.id },
+                React.createElement("i", { style: { background: r.color } }),
+                React.createElement("span", null, r.name),
+                React.createElement("em", null,
+                    flag(((_c = BY_A3[r.south.a3]) === null || _c === void 0 ? void 0 : _c.a2) || ""),
+                    " ",
+                    r.south.name,
+                    " \u2192",
+                    " ",
+                    flag(((_d = BY_A3[r.north.a3]) === null || _d === void 0 ? void 0 : _d.a2) || ""),
+                    " ",
+                    r.north.name),
+                React.createElement("b", null, kmText(r.km))));
+        }))));
 }
 /* размах широт: от самой южной страны до самой северной */
-function SpanChart({ rows, geo }) {
+function SpanChart({ rows, geo, home }) {
     const zoomed = React.useContext(ZoomCtx);
     const list = rows.filter((r) => r.south && r.north);
     if (!list.length)
         return null;
     if (zoomed)
-        return React.createElement(SpanGlobe, { rows: list, geo: geo });
+        return React.createElement(SpanGlobe, { rows: list, geo: geo, home: home });
     const lo = Math.min(-40, ...list.map((r) => r.south.lat)) - 5;
     const hi = Math.max(60, ...list.map((r) => r.north.lat)) + 5;
     const pos = (v) => ((v - lo) / (hi - lo)) * 100;
@@ -6369,6 +6537,14 @@ function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], o
         return [a, b];
     }, [cmp, crewR]);
     const pickCmp = (id) => setCmp(() => (pair.includes(id) ? pair : [pair[1], id]));
+    const home = useMemo(() => {
+        const mine = crewR.rows.find((r) => r.id === ME) || crewR.rows[0];
+        const cnt = {};
+        ((mine === null || mine === void 0 ? void 0 : mine.list) || []).forEach((t) => (cnt[t.a3] = (cnt[t.a3] || 0) + 1));
+        const top = Object.entries(cnt).sort((a, b) => b[1] - a[1])[0];
+        const c = top && BY_A3[top[0]];
+        return c ? { lon: c.lon, lat: c.lat, name: c.name, a2: c.a2 } : null;
+    }, [crewR]);
     const diff = useMemo(() => (pair[0] && pair[1] ? diffPair(crewR.rows, pair[0], pair[1]) : null), [crewR, pair]);
     const years = r.allYears.length ? r.allYears : [NOW.getFullYear()];
     return (React.createElement(Sheet, { open: open, onClose: onClose, title: "\u041E\u0442\u0447\u0451\u0442\u044B", box: box }, () => (React.createElement("div", { className: "sheet-body" }, r.trips.length === 0 ? (React.createElement("p", { className: "hint small" }, "\u041E\u0442\u0447\u0451\u0442\u044B \u043F\u043E\u044F\u0432\u044F\u0442\u0441\u044F, \u043A\u043E\u0433\u0434\u0430 \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u0435 \u043F\u0435\u0440\u0432\u0443\u044E \u043F\u043E\u0435\u0437\u0434\u043A\u0443.")) : (React.createElement(React.Fragment, null,
@@ -6482,7 +6658,7 @@ function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], o
             React.createElement(Reveal, { className: "rep" },
                 React.createElement("b", null, "\u0420\u0430\u0437\u043C\u0430\u0445 \u0448\u0438\u0440\u043E\u0442"),
                 React.createElement("em", null, "\u043E\u0442 \u0441\u0430\u043C\u043E\u0439 \u044E\u0436\u043D\u043E\u0439 \u0442\u043E\u0447\u043A\u0438 \u0434\u043E \u0441\u0430\u043C\u043E\u0439 \u0441\u0435\u0432\u0435\u0440\u043D\u043E\u0439 \u00B7 \u0434\u0432\u043E\u0439\u043D\u043E\u0435 \u043A\u0430\u0441\u0430\u043D\u0438\u0435 \u2014 \u0433\u043B\u043E\u0431\u0443\u0441 \u0441 \u0434\u0443\u0433\u0430\u043C\u0438"),
-                React.createElement(SpanChart, { rows: crewR.rows, geo: geo })),
+                React.createElement(SpanChart, { rows: crewR.rows, geo: geo, home: home })),
             diff && (React.createElement(Reveal, { className: "rep cmp" },
                 React.createElement("b", null, "\u0414\u0432\u043E\u0435: \u0442\u043E\u043B\u044C\u043A\u043E \u0440\u0430\u0437\u043D\u0438\u0446\u0430"),
                 React.createElement("em", null, "\u0441\u0442\u0440\u0430\u043D\u044B, \u0433\u0434\u0435 \u0431\u044B\u043B \u043E\u0434\u0438\u043D \u0438 \u043D\u0435 \u0431\u044B\u043B \u0434\u0440\u0443\u0433\u043E\u0439"),
