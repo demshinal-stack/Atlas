@@ -1260,7 +1260,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "22.2";
+const APP_VERSION = "22.3";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -5859,7 +5859,7 @@ const shortName = (n) => {
 function SpanGlobe({ rows, geo, home }) {
     const wrap = useRef(null);
     const cv = useRef(null);
-    const rot = useRef([20, -12]);
+    const rot = useRef(homeRot(home));
     const drag = useRef(null);
     const raf = useRef(0);
     const arcs = useMemo(() => {
@@ -6206,12 +6206,19 @@ function SpanGlobe({ rows, geo, home }) {
                     React.createElement("u", null, hoursText(Math.abs(tzHours(r.north) - tzHours(r.south)))))));
         }))));
 }
+/* стартовый поворот: дом смотрит из верхней правой четверти шара */
+const homeRot = (home) => home && isFinite(home.lat) && isFinite(home.lon)
+    ? [
+        -(home.lon - 30),
+        Math.max(-80, Math.min(80, -(home.lat - 18))),
+    ]
+    : [20, -12];
 /* глобус одного человека: лучи из дома во все его точки */
 function PersonGlobe({ row, home, geo, onClose }) {
     var _c, _d, _e;
     const wrap = useRef(null);
     const cv = useRef(null);
-    const rot = useRef([20, -12]);
+    const rot = useRef(homeRot(home));
     const drag = useRef(null);
     const raf = useRef(0);
     const [sel, setSel] = useState(null);
