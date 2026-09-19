@@ -1260,7 +1260,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "20.9";
+const APP_VERSION = "21.0";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -6211,6 +6211,16 @@ function PersonGlobe({ row, home, geo, onClose }) {
     const rot = useRef([20, -12]);
     const drag = useRef(null);
     const raf = useRef(0);
+    const [sel, setSel] = useState(null);
+    const selRef = useRef(null);
+    const hitRef = useRef([]);
+    const listRef = useRef(null);
+    useEffect(() => {
+        var _c;
+        selRef.current = sel;
+        const el = (_c = listRef.current) === null || _c === void 0 ? void 0 : _c.querySelector('[data-on="1"]');
+        el === null || el === void 0 ? void 0 : el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }, [sel]);
     const rays = useMemo(() => {
         if (!home)
             return [];
@@ -6223,7 +6233,7 @@ function PersonGlobe({ row, home, geo, onClose }) {
             if (km < 1)
                 return;
             if (!uniq.has(k))
-                uniq.set(k, { ...q, km, n: 1 });
+                uniq.set(k, { ...q, km, n: 1, key: k });
             else
                 uniq.get(k).n += 1;
         });
@@ -6303,6 +6313,7 @@ function PersonGlobe({ row, home, geo, onClose }) {
                 ctx.stroke();
             });
             const far = Math.max(1, ...rays.map((q) => q.km));
+            const hits = [];
             rays.forEach((q, i) => {
                 const N = 64;
                 const inter = d3.geoInterpolate([home.lon, home.lat], [q.lon, q.lat]);
@@ -6312,13 +6323,15 @@ function PersonGlobe({ row, home, geo, onClose }) {
                     const t = k / N;
                     pts.push(place(inter(t), lift * Math.sin(Math.PI * t)));
                 }
+                const on = selRef.current === q.key;
+                hits.push({ key: q.key, pts });
                 ctx.save();
                 ctx.lineCap = "round";
-                ctx.strokeStyle = row.color;
-                ctx.shadowColor = row.color;
-                ctx.shadowBlur = 8;
-                ctx.globalAlpha = 0.55 + 0.45 * (q.km / far);
-                ctx.lineWidth = 1.6 + 1.8 * (q.km / far);
+                ctx.strokeStyle = on ? "#8fd4ff" : row.color;
+                ctx.shadowColor = on ? "#8fd4ff" : row.color;
+                ctx.shadowBlur = on ? 16 : 8;
+                ctx.globalAlpha = on ? 1 : selRef.current ? 0.3 : 0.55 + 0.45 * (q.km / far);
+                ctx.lineWidth = on ? 4.6 : 1.6 + 1.8 * (q.km / far);
                 let open = false;
                 ctx.beginPath();
                 pts.forEach((s2) => {
@@ -6338,11 +6351,12 @@ function PersonGlobe({ row, home, geo, onClose }) {
                 const end = place([q.lon, q.lat], 0);
                 if (!end.hidden) {
                     ctx.beginPath();
-                    ctx.arc(end.x, end.y, 2.6 + (q.n > 1 ? 1.4 : 0), 0, Math.PI * 2);
-                    ctx.fillStyle = "#f4efe2";
+                    ctx.arc(end.x, end.y, on ? 5 : 2.6 + (q.n > 1 ? 1.4 : 0), 0, Math.PI * 2);
+                    ctx.fillStyle = on ? "#8fd4ff" : "#f4efe2";
                     ctx.fill();
                 }
             });
+            hitRef.current = hits;
             const h = place([home.lon, home.lat], 0);
             if (!h.hidden) {
                 const pulse = 6 + Math.sin(time / 420) * 1.6;
@@ -6364,19 +6378,35 @@ function PersonGlobe({ row, home, geo, onClose }) {
         raf.current = requestAnimationFrame(tick);
         const down = (e) => {
             var _c;
-            drag.current = { x: e.clientX, y: e.clientY, r: [...rot.current] };
+            drag.current = { x: e.clientX, y: e.clientY, r: [...rot.current], moved: 0 };
             (_c = c.setPointerCapture) === null || _c === void 0 ? void 0 : _c.call(c, e.pointerId);
         };
         const move = (e) => {
             if (!drag.current)
                 return;
             const k = 0.4;
+            drag.current.moved = Math.max(drag.current.moved, Math.hypot(e.clientX - drag.current.x, e.clientY - drag.current.y));
             rot.current = [
                 drag.current.r[0] + (e.clientX - drag.current.x) * k,
                 Math.max(-85, Math.min(85, drag.current.r[1] - (e.clientY - drag.current.y) * k)),
             ];
         };
-        const up = () => {
+        const up = (e) => {
+            // короткое касание — выбор луча под пальцем
+            if (drag.current && drag.current.moved < 6) {
+                const b = c.getBoundingClientRect();
+                const px = e.clientX - b.left;
+                const py = e.clientY - b.top;
+                let best = null;
+                hitRef.current.forEach((h) => h.pts.forEach((s2) => {
+                    if (s2.hidden)
+                        return;
+                    const d = Math.hypot(s2.x - px, s2.y - py);
+                    if (d < 16 && (!best || d < best.d))
+                        best = { d, key: h.key };
+                }));
+                setSel((v) => (best ? (v === best.key ? null : best.key) : null));
+            }
             drag.current = null;
         };
         c.addEventListener("pointerdown", down);
@@ -6395,17 +6425,19 @@ function PersonGlobe({ row, home, geo, onClose }) {
         React.createElement("div", { className: "zoom-box", onClick: (e) => e.stopPropagation() },
             React.createElement("button", { className: "zoom-x", onClick: onClose, "aria-label": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C" }, "\u2715"),
             React.createElement("div", { className: "zoom-body rep" },
-                React.createElement("b", null, row.name),
-                React.createElement("em", null, home
-                    ? `лучи из дома · ${np(rays.length, "way")}`
-                    : "задайте дом в профиле"),
+                React.createElement("div", { className: "pg-head" },
+                    React.createElement("b", null, row.name),
+                    React.createElement("em", null, home
+                        ? `лучи из дома · ${np(rays.length, "way")}`
+                        : "задайте дом в профиле")),
                 React.createElement("div", { className: "span-globe", ref: wrap },
                     React.createElement("canvas", { ref: cv })),
-                home && rays.length > 0 && (React.createElement("div", { className: "ray-list" },
-                    rays.slice(0, 6).map((q) => {
+                home && rays.length > 0 && (React.createElement(React.Fragment, null,
+                    React.createElement("p", { className: "hint small" }, "\u041D\u0430\u0436\u043C\u0438\u0442\u0435 \u043D\u0430\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u0435 \u0432 \u0441\u043F\u0438\u0441\u043A\u0435 \u0438\u043B\u0438 \u0441\u0430\u043C \u043B\u0443\u0447 \u043D\u0430 \u0433\u043B\u043E\u0431\u0443\u0441\u0435 \u2014 \u043E\u043D\u0438 \u043F\u043E\u0434\u0441\u0432\u0435\u0442\u044F\u0442\u0441\u044F \u0434\u0440\u0443\u0433 \u0437\u0430 \u0434\u0440\u0443\u0433\u043E\u043C."),
+                    React.createElement("div", { className: "ray-list", ref: listRef }, rays.map((q) => {
                         var _c;
-                        return (React.createElement("div", { key: q.lon + "|" + q.lat },
-                            React.createElement("i", { style: { background: row.color } }),
+                        return (React.createElement("button", { key: q.key, "data-on": sel === q.key ? "1" : "0", className: "ray-row" + (sel === q.key ? " on" : ""), onClick: () => setSel(sel === q.key ? null : q.key) },
+                            React.createElement("i", { style: { background: sel === q.key ? "#8fd4ff" : row.color } }),
                             React.createElement("span", null,
                                 flag(((_c = BY_A3[q.a3]) === null || _c === void 0 ? void 0 : _c.a2) || ""),
                                 " ",
@@ -6414,11 +6446,7 @@ function PersonGlobe({ row, home, geo, onClose }) {
                                     "\u00D7",
                                     q.n)),
                             React.createElement("b", null, kmText(q.km))));
-                    }),
-                    rays.length > 6 && (React.createElement("p", { className: "hint small" },
-                        "\u0438 \u0435\u0449\u0451 ",
-                        np(rays.length - 6, "way"),
-                        " \u0431\u043B\u0438\u0436\u0435"))))))));
+                    }))))))));
 }
 /* самая длинная дуга: две самые удалённые точки поездок */
 function SpanChart({ rows, geo, home }) {
@@ -9334,8 +9362,15 @@ body > div{max-width:100%;}
 .crew-globe{display:flex; align-items:center; gap:6px; margin-top:8px; padding:6px 10px; border-radius:10px;
   border:1px solid var(--line); background:var(--field); color:var(--dim); font-size:0.64rem; cursor:pointer;}
 .crew-globe:active{color:var(--gold); border-color:rgba(232,184,75,.45);}
-.ray-list{width:100%; display:flex; flex-direction:column; gap:6px; margin-top:12px;}
-.ray-list div{display:flex; align-items:baseline; gap:8px; font-size:0.7rem;}
+.pg-head{position:sticky; top:-16px; z-index:3; padding:10px 34px 8px 0; margin:-10px 0 0;
+  background:linear-gradient(var(--el) 78%, rgba(0,0,0,0));}
+.pg-head b{display:block; font-size:0.9rem; font-weight:600;}
+.pg-head em{display:block; margin-top:3px; font-style:normal; font-size:0.7rem; color:var(--dim);}
+.ray-list{width:100%; display:flex; flex-direction:column; gap:4px; margin-top:10px;
+  max-height:260px; overflow-y:auto; -webkit-overflow-scrolling:touch;}
+.ray-row{display:flex; align-items:center; gap:8px; font-size:0.7rem; padding:7px 9px; border-radius:10px;
+  border:1px solid transparent; background:none; color:var(--text); cursor:pointer; text-align:left;}
+.ray-row.on{background:rgba(143,212,255,.12); border-color:rgba(143,212,255,.5);}
 .ray-list i{flex:none; width:8px; height:8px; border-radius:50%;}
 .ray-list span{flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .ray-list span u{text-decoration:none; color:var(--dim); font-size:0.6rem; margin-left:5px;}
