@@ -1260,7 +1260,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "21.3";
+const APP_VERSION = "21.4";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -9389,12 +9389,15 @@ body > div{max-width:100%;}
 .crew-globe{display:flex; align-items:center; gap:6px; margin-top:8px; padding:6px 10px; border-radius:10px;
   border:1px solid var(--line); background:var(--field); color:var(--dim); font-size:0.64rem; cursor:pointer;}
 .crew-globe:active{color:var(--gold); border-color:rgba(232,184,75,.45);}
-.pg-box{height:min(92vh, 900px); display:flex; flex-direction:column; overflow:hidden; padding:14px 12px 12px;}
-.pg-box .zoom-body{flex:1 1 auto; min-height:0; display:flex; flex-direction:column;}
-.pg-globe{flex:none; overflow:hidden; height:min(44vh, 380px); transition:height .28s ease, opacity .2s ease;}
+/* окно человека: само не прокручивается, листается только список */
+.zoom-box.pg-box{height:min(88vh, 900px); height:min(88dvh, 900px); max-height:none; display:flex; flex-direction:column;
+  overflow:hidden; padding:14px 12px 12px;}
+.zoom-box.pg-box .zoom-body{flex:1 1 auto; min-height:0; display:flex; flex-direction:column; overflow:hidden;}
+.pg-globe{flex:none; overflow:hidden; height:min(42vh, 370px); height:min(42dvh, 370px); transition:height .28s ease, opacity .2s ease;}
 .pg-globe.small{height:0; opacity:0;}
-.pg-box .span-globe{height:100%; justify-content:flex-start; gap:0; margin:0;}
-.pg-box .ray-list{flex:1 1 auto; max-height:none; min-height:96px;}
+.zoom-box.pg-box .span-globe{height:100%; justify-content:flex-start; gap:0; margin:0;}
+.zoom-box.pg-box .ray-list{flex:1 1 auto; max-height:none; min-height:96px;
+  overscroll-behavior:contain; touch-action:pan-y;}
 .pg-head{flex:none; display:flex; align-items:center; gap:8px; padding:0 34px 6px 0; border:0;
   background:none; color:inherit; text-align:left; cursor:pointer; width:100%;}
 .pg-head span{flex:1 1 auto; min-width:0;}
