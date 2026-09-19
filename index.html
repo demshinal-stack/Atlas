@@ -544,6 +544,7 @@ const WORD = {
     island: ["островная страна", "островные страны", "островных стран"],
     quarter: ["четверть света", "четверти света", "четвертей света"],
     sight: ["место", "места", "мест"],
+    way: ["направление", "направления", "направлений"],
 };
 const pw = (n, key) => plural(n, ...WORD[key]);
 const np = (n, key) => `${n} ${pw(n, key)}`;
@@ -1259,7 +1260,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "20.7";
+const APP_VERSION = "20.9";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -4448,11 +4449,32 @@ function HomePicker({ home, onHome }) {
         if (t.length < 2)
             return [];
         const out = [];
+        const seen = new Set();
+        /* сначала города с координатами */
         Object.entries(CITY_PT).forEach(([a3, m]) => Object.entries(m).forEach(([name, xy]) => {
-            if (out.length < 24 && name.toLowerCase().startsWith(t))
-                out.push({ a3, name, lon: xy[0], lat: xy[1], about: !!xy[2] });
+            if (name.toLowerCase().startsWith(t)) {
+                seen.add(a3 + "|" + name);
+                out.push({ a3, name, lon: xy[0], lat: xy[1] });
+            }
         }));
-        return out.sort((a, b) => a.name.localeCompare(b.name, "ru")).slice(0, 12);
+        /* затем города без координат и страны — точка по столице */
+        (CITIES || []).forEach(({ a3, city }) => {
+            if (!city.toLowerCase().startsWith(t) || seen.has(a3 + "|" + city))
+                return;
+            const xy = distPoint(a3, city);
+            if (xy)
+                out.push({ a3, name: city, lon: xy[0], lat: xy[1], about: true });
+        });
+        COUNTRIES.forEach((c) => {
+            if (!c.name.toLowerCase().startsWith(t))
+                return;
+            const xy = distPoint(c.a3, null);
+            if (xy)
+                out.push({ a3: c.a3, name: c.name, lon: xy[0], lat: xy[1], about: true });
+        });
+        return out
+            .sort((a, b) => (a.about ? 1 : 0) - (b.about ? 1 : 0) || a.name.localeCompare(b.name, "ru"))
+            .slice(0, 14);
     }, [q]);
     const byGeo = () => {
         if (!navigator.geolocation) {
@@ -4496,6 +4518,7 @@ function HomePicker({ home, onHome }) {
                 React.createElement("input", { className: "tf-input", value: q, onChange: (e) => setQ(e.target.value), placeholder: "\u0413\u043E\u0440\u043E\u0434, \u0433\u0434\u0435 \u0432\u044B \u0436\u0438\u0432\u0451\u0442\u0435" })),
             React.createElement("button", { className: "warn-do", onClick: byGeo }, "\u041C\u043E\u0451 \u043C\u0435\u0441\u0442\u043E")),
         busy && React.createElement("p", { className: "hint small" }, busy),
+        q.trim().length >= 2 && found.length === 0 && (React.createElement("p", { className: "hint small" }, "\u0422\u0430\u043A\u043E\u0433\u043E \u0433\u043E\u0440\u043E\u0434\u0430 \u0432 \u0441\u043F\u0440\u0430\u0432\u043E\u0447\u043D\u0438\u043A\u0435 \u043D\u0435\u0442. \u041D\u0430\u0436\u043C\u0438\u0442\u0435 \u00AB\u041C\u043E\u0451 \u043C\u0435\u0441\u0442\u043E\u00BB \u2014 \u0432\u043E\u0437\u044C\u043C\u0451\u043C \u0442\u043E\u0447\u043A\u0443 \u0441 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430, \u0438\u043B\u0438 \u0432\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0431\u043B\u0438\u0436\u0430\u0439\u0448\u0438\u0439 \u043A\u0440\u0443\u043F\u043D\u044B\u0439 \u0433\u043E\u0440\u043E\u0434.")),
         found.length > 0 && (React.createElement("div", { className: "home-list" }, found.map((c) => {
             var _c, _d;
             return (React.createElement("button", { key: c.a3 + c.name, onClick: () => {
@@ -4505,6 +4528,7 @@ function HomePicker({ home, onHome }) {
                 flag(((_c = BY_A3[c.a3]) === null || _c === void 0 ? void 0 : _c.a2) || ""),
                 " ",
                 c.name,
+                c.about && React.createElement("u", null, "\u2248"),
                 React.createElement("em", null, ((_d = BY_A3[c.a3]) === null || _d === void 0 ? void 0 : _d.name) || c.a3)));
         })))));
 }
@@ -5593,6 +5617,7 @@ function crewReport(visits, people, order, home) {
             south: far.a,
             north: far.b,
             km: far.km,
+            points: r.points,
         };
     });
     const nameOf = (id) => { var _c; return ((_c = rows.find((r) => r.id === id)) === null || _c === void 0 ? void 0 : _c.name) || id; };
@@ -6179,6 +6204,222 @@ function SpanGlobe({ rows, geo, home }) {
                     React.createElement("u", null, hoursText(Math.abs(tzHours(r.north) - tzHours(r.south)))))));
         }))));
 }
+/* глобус одного человека: лучи из дома во все его точки */
+function PersonGlobe({ row, home, geo, onClose }) {
+    const wrap = useRef(null);
+    const cv = useRef(null);
+    const rot = useRef([20, -12]);
+    const drag = useRef(null);
+    const raf = useRef(0);
+    const rays = useMemo(() => {
+        if (!home)
+            return [];
+        const uniq = new Map();
+        ((row === null || row === void 0 ? void 0 : row.points) || []).forEach((q) => {
+            if (!isFinite(q.lat) || !isFinite(q.lon))
+                return;
+            const k = `${q.lon.toFixed(1)}|${q.lat.toFixed(1)}`;
+            const km = kmBetween(home, q);
+            if (km < 1)
+                return;
+            if (!uniq.has(k))
+                uniq.set(k, { ...q, km, n: 1 });
+            else
+                uniq.get(k).n += 1;
+        });
+        return [...uniq.values()].sort((a, b) => b.km - a.km);
+    }, [row, home]);
+    useEffect(() => {
+        const box = wrap.current;
+        const c = cv.current;
+        if (!box || !c || !home)
+            return;
+        const dpr = Math.min(2, window.devicePixelRatio || 1);
+        const ctx = c.getContext("2d");
+        const rad = Math.PI / 180;
+        let w = 0;
+        let cx = 0;
+        let cy = 0;
+        let R = 0;
+        const proj = d3.geoOrthographic().clipAngle(90);
+        const path = d3.geoPath(proj, ctx);
+        const grat = d3.geoGraticule10();
+        const fit = () => {
+            const want = Math.max(260, Math.min(box.clientWidth, 560));
+            if (want === w)
+                return;
+            w = want;
+            cx = w / 2;
+            cy = w / 2;
+            R = w / 2 - 22;
+            c.width = w * dpr;
+            c.height = w * dpr;
+            c.style.width = w + "px";
+            c.style.height = w + "px";
+            proj.scale(R).translate([cx, cy]);
+        };
+        fit();
+        const place = ([lon, lat], lift = 0) => {
+            const p = d3.geoRotation(rot.current)([lon, lat]);
+            const la = p[1] * rad;
+            const lo = p[0] * rad;
+            const x = Math.cos(la) * Math.sin(lo);
+            const y = -Math.sin(la);
+            const z = Math.cos(la) * Math.cos(lo);
+            const k = R * (1 + lift);
+            return { x: cx + x * k, y: cy + y * k, hidden: z < 0 && Math.hypot(x, y) * (1 + lift) < 1 };
+        };
+        const draw = (time) => {
+            fit();
+            proj.rotate(rot.current);
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            ctx.clearRect(0, 0, w, w);
+            const halo = ctx.createRadialGradient(cx, cy, R * 0.92, cx, cy, R * 1.16);
+            halo.addColorStop(0, "rgba(120,180,230,.18)");
+            halo.addColorStop(1, "rgba(120,180,230,0)");
+            ctx.fillStyle = halo;
+            ctx.beginPath();
+            ctx.arc(cx, cy, R * 1.16, 0, Math.PI * 2);
+            ctx.fill();
+            const ball = ctx.createRadialGradient(cx - R * 0.35, cy - R * 0.4, R * 0.1, cx, cy, R);
+            ball.addColorStop(0, "#16344f");
+            ball.addColorStop(1, "#091a2a");
+            ctx.beginPath();
+            path({ type: "Sphere" });
+            ctx.fillStyle = ball;
+            ctx.fill();
+            ctx.beginPath();
+            path(grat);
+            ctx.strokeStyle = "rgba(130,165,200,.12)";
+            ctx.lineWidth = 0.5;
+            ctx.stroke();
+            ((geo === null || geo === void 0 ? void 0 : geo.features) || []).forEach((f) => {
+                ctx.beginPath();
+                path(f);
+                ctx.fillStyle = "rgba(125,160,195,.24)";
+                ctx.fill();
+                ctx.strokeStyle = "rgba(160,195,225,.2)";
+                ctx.lineWidth = 0.4;
+                ctx.stroke();
+            });
+            const far = Math.max(1, ...rays.map((q) => q.km));
+            rays.forEach((q, i) => {
+                const N = 64;
+                const inter = d3.geoInterpolate([home.lon, home.lat], [q.lon, q.lat]);
+                const lift = 0.05 + 0.1 * (q.km / far);
+                const pts = [];
+                for (let k = 0; k <= N; k++) {
+                    const t = k / N;
+                    pts.push(place(inter(t), lift * Math.sin(Math.PI * t)));
+                }
+                ctx.save();
+                ctx.lineCap = "round";
+                ctx.strokeStyle = row.color;
+                ctx.shadowColor = row.color;
+                ctx.shadowBlur = 8;
+                ctx.globalAlpha = 0.55 + 0.45 * (q.km / far);
+                ctx.lineWidth = 1.6 + 1.8 * (q.km / far);
+                let open = false;
+                ctx.beginPath();
+                pts.forEach((s2) => {
+                    if (s2.hidden) {
+                        open = false;
+                        return;
+                    }
+                    if (!open) {
+                        ctx.moveTo(s2.x, s2.y);
+                        open = true;
+                    }
+                    else
+                        ctx.lineTo(s2.x, s2.y);
+                });
+                ctx.stroke();
+                ctx.restore();
+                const end = place([q.lon, q.lat], 0);
+                if (!end.hidden) {
+                    ctx.beginPath();
+                    ctx.arc(end.x, end.y, 2.6 + (q.n > 1 ? 1.4 : 0), 0, Math.PI * 2);
+                    ctx.fillStyle = "#f4efe2";
+                    ctx.fill();
+                }
+            });
+            const h = place([home.lon, home.lat], 0);
+            if (!h.hidden) {
+                const pulse = 6 + Math.sin(time / 420) * 1.6;
+                ctx.beginPath();
+                ctx.arc(h.x, h.y, pulse, 0, Math.PI * 2);
+                ctx.fillStyle = C_GOLD;
+                ctx.shadowColor = C_GOLD;
+                ctx.shadowBlur = 12;
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+        };
+        const tick = (t) => {
+            if (!drag.current)
+                rot.current = [rot.current[0] + 0.1, rot.current[1]];
+            draw(t || 0);
+            raf.current = requestAnimationFrame(tick);
+        };
+        raf.current = requestAnimationFrame(tick);
+        const down = (e) => {
+            var _c;
+            drag.current = { x: e.clientX, y: e.clientY, r: [...rot.current] };
+            (_c = c.setPointerCapture) === null || _c === void 0 ? void 0 : _c.call(c, e.pointerId);
+        };
+        const move = (e) => {
+            if (!drag.current)
+                return;
+            const k = 0.4;
+            rot.current = [
+                drag.current.r[0] + (e.clientX - drag.current.x) * k,
+                Math.max(-85, Math.min(85, drag.current.r[1] - (e.clientY - drag.current.y) * k)),
+            ];
+        };
+        const up = () => {
+            drag.current = null;
+        };
+        c.addEventListener("pointerdown", down);
+        c.addEventListener("pointermove", move);
+        c.addEventListener("pointerup", up);
+        c.addEventListener("pointercancel", up);
+        return () => {
+            cancelAnimationFrame(raf.current);
+            c.removeEventListener("pointerdown", down);
+            c.removeEventListener("pointermove", move);
+            c.removeEventListener("pointerup", up);
+            c.removeEventListener("pointercancel", up);
+        };
+    }, [rays, geo, home, row]);
+    return (React.createElement("div", { className: "zoom-layer", onClick: onClose },
+        React.createElement("div", { className: "zoom-box", onClick: (e) => e.stopPropagation() },
+            React.createElement("button", { className: "zoom-x", onClick: onClose, "aria-label": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C" }, "\u2715"),
+            React.createElement("div", { className: "zoom-body rep" },
+                React.createElement("b", null, row.name),
+                React.createElement("em", null, home
+                    ? `лучи из дома · ${np(rays.length, "way")}`
+                    : "задайте дом в профиле"),
+                React.createElement("div", { className: "span-globe", ref: wrap },
+                    React.createElement("canvas", { ref: cv })),
+                home && rays.length > 0 && (React.createElement("div", { className: "ray-list" },
+                    rays.slice(0, 6).map((q) => {
+                        var _c;
+                        return (React.createElement("div", { key: q.lon + "|" + q.lat },
+                            React.createElement("i", { style: { background: row.color } }),
+                            React.createElement("span", null,
+                                flag(((_c = BY_A3[q.a3]) === null || _c === void 0 ? void 0 : _c.a2) || ""),
+                                " ",
+                                q.name,
+                                q.n > 1 && React.createElement("u", null,
+                                    "\u00D7",
+                                    q.n)),
+                            React.createElement("b", null, kmText(q.km))));
+                    }),
+                    rays.length > 6 && (React.createElement("p", { className: "hint small" },
+                        "\u0438 \u0435\u0449\u0451 ",
+                        np(rays.length - 6, "way"),
+                        " \u0431\u043B\u0438\u0436\u0435"))))))));
+}
 /* самая длинная дуга: две самые удалённые точки поездок */
 function SpanChart({ rows, geo, home }) {
     const zoomed = React.useContext(ZoomCtx);
@@ -6389,7 +6630,7 @@ function reportData(visits, since, people) {
 }
 /* появление при прокрутке: строим график, когда он попал на экран */
 const ZoomCtx = React.createContext(false);
-function Reveal({ children, className = "" }) {
+function Reveal({ children, className = "", zoomable = true }) {
     const box = useRef(null);
     const [seen, setSeen] = useState(false);
     useEffect(() => {
@@ -6405,9 +6646,17 @@ function Reveal({ children, className = "" }) {
                 setSeen(true);
                 io.disconnect();
             }
-        }, { threshold: 0.25 });
+        }, 
+        /* высокий блок в прокручиваемой шторке редко виден на четверть,
+           поэтому показываем его, едва он краем попал на экран */
+        { threshold: 0, rootMargin: "120px 0px" });
         io.observe(el);
-        return () => io.disconnect();
+        // страховка: если наблюдатель молчит, блок всё равно появится
+        const t = setTimeout(() => setSeen(true), 1200);
+        return () => {
+            clearTimeout(t);
+            io.disconnect();
+        };
     }, [seen]);
     const [zoom, setZoom] = useState(false);
     const tap = useRef(0);
@@ -6420,7 +6669,7 @@ function Reveal({ children, className = "" }) {
         else
             tap.current = t;
     };
-    return (React.createElement("div", { ref: box, className: `reveal ${className}${seen ? " in" : ""}`, onDoubleClick: () => setZoom(true), onTouchEnd: onTap },
+    return (React.createElement("div", { ref: box, className: `reveal ${className}${seen ? " in" : ""}`, onDoubleClick: () => zoomable && setZoom(true), onTouchEnd: zoomable ? onTap : undefined },
         children,
         zoom && (React.createElement("div", { className: "zoom-layer", onClick: () => setZoom(false), onTouchEnd: (e) => e.stopPropagation() },
             React.createElement("div", { className: "zoom-box", onClick: (e) => e.stopPropagation() },
@@ -6729,6 +6978,7 @@ function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], o
     }, [home, visits]);
     const crewR = useMemo(() => crewReport(visits, people, crew.map((p) => p.id), homePoint), [visits, people, crew, homePoint]);
     const [openCrew, setOpenCrew] = useState(null);
+    const [globeWho, setGlobeWho] = useState(null);
     const [cmp, setCmp] = useState([]);
     const [side, setSide] = useState(0);
     // выбираем любых двоих: новое имя вытесняет то, что выбрали раньше
@@ -6780,7 +7030,7 @@ function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], o
             React.createElement("b", null, "\u041B\u044E\u0431\u0438\u043C\u044B\u0435 \u043E\u0442\u0435\u043B\u0438"),
             React.createElement("em", null, "\u0433\u0434\u0435 \u043E\u0441\u0442\u0430\u043D\u0430\u0432\u043B\u0438\u0432\u0430\u043B\u0438\u0441\u044C \u043D\u0435 \u0440\u0430\u0437"),
             React.createElement(RowsChart, { rows: r.topHotels }))),
-        crew.length > 1 && (React.createElement(Reveal, { className: "rep" },
+        crew.length > 1 && (React.createElement(Reveal, { className: "rep", zoomable: false },
             React.createElement("b", null, "\u041A\u0442\u043E \u0441\u043A\u043E\u043B\u044C\u043A\u043E \u043F\u0440\u043E\u0435\u0445\u0430\u043B"),
             React.createElement("em", null, "\u0441\u0442\u0440\u0430\u043D\u044B, \u0447\u0430\u0441\u0442\u0438 \u0441\u0432\u0435\u0442\u0430, \u0433\u043E\u0440\u043E\u0434\u0430 \u0438 \u0433\u043E\u0434\u044B"),
             React.createElement("div", { className: "crew" }, crew.map((p, i) => {
@@ -6796,6 +7046,11 @@ function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], o
                             p.role && React.createElement("i", null, p.role)),
                         React.createElement("span", { className: "crew-big" }, p.countries),
                         React.createElement("span", { className: "crew-caret" + (open ? " on" : "") }, "\u25BE")),
+                    React.createElement("button", { className: "crew-globe", onClick: () => setGlobeWho(p.id), "aria-label": "\u041F\u043E\u043A\u0430\u0437\u0430\u0442\u044C \u043D\u0430 \u0433\u043B\u043E\u0431\u0443\u0441\u0435" },
+                        React.createElement("svg", { viewBox: "0 0 24 24", width: "18", height: "18" },
+                            React.createElement("circle", { cx: "12", cy: "12", r: "8.5", fill: "none", stroke: "currentColor", strokeWidth: "1.5" }),
+                            React.createElement("path", { d: "M3.5 12h17M12 3.5c2.6 2.4 2.6 14.6 0 17M12 3.5c-2.6 2.4-2.6 14.6 0 17", fill: "none", stroke: "currentColor", strokeWidth: "1.3" })),
+                        "\u043D\u0430 \u0433\u043B\u043E\u0431\u0443\u0441\u0435"),
                     React.createElement("span", { className: "crew-bar" },
                         React.createElement("i", { style: {
                                 "--w": `${(p.countries / lead) * 100}%`,
@@ -6838,6 +7093,7 @@ function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], o
                         !trips.length && (React.createElement("p", { className: "hint small" }, "\u041F\u043E\u0435\u0437\u0434\u043E\u043A \u043D\u0435\u0442."))))));
             })),
             React.createElement("p", { className: "hint small" }, "\u041F\u043E\u043B\u043E\u0441\u0430 \u2014 \u0434\u043E\u043B\u044F \u043E\u0442 \u043B\u0438\u0434\u0435\u0440\u0430 \u043F\u043E \u0441\u0442\u0440\u0430\u043D\u0430\u043C. \u0421\u0447\u0438\u0442\u0430\u044E\u0442\u0441\u044F \u0442\u043E\u043B\u044C\u043A\u043E \u0441\u043E\u0441\u0442\u043E\u044F\u0432\u0448\u0438\u0435\u0441\u044F \u043F\u043E\u0435\u0437\u0434\u043A\u0438, \u0433\u0434\u0435 \u0447\u0435\u043B\u043E\u0432\u0435\u043A \u043E\u0442\u043C\u0435\u0447\u0435\u043D \u0432 \u0441\u043E\u0441\u0442\u0430\u0432\u0435."))),
+        globeWho && (React.createElement(PersonGlobe, { row: crewR.rows.find((r) => r.id === globeWho), home: homePoint, geo: geo, onClose: () => setGlobeWho(null) })),
         crewR.rows.length > 1 && (React.createElement(React.Fragment, null,
             React.createElement(Reveal, { className: "rep" },
                 React.createElement("b", null, "\u0414\u043E\u0440\u043E\u0436\u043A\u0438 \u043F\u043E \u0433\u043E\u0434\u0430\u043C"),
@@ -9075,6 +9331,15 @@ body > div{max-width:100%;}
 .crew-top{width:100%; background:none; border:none; padding:0; cursor:pointer; color:inherit; text-align:left;}
 .crew-caret{flex:none; margin-left:8px; color:var(--dim); font-size:0.7rem; transition:transform .18s;}
 .crew-caret.on{transform:rotate(180deg); color:var(--gold);}
+.crew-globe{display:flex; align-items:center; gap:6px; margin-top:8px; padding:6px 10px; border-radius:10px;
+  border:1px solid var(--line); background:var(--field); color:var(--dim); font-size:0.64rem; cursor:pointer;}
+.crew-globe:active{color:var(--gold); border-color:rgba(232,184,75,.45);}
+.ray-list{width:100%; display:flex; flex-direction:column; gap:6px; margin-top:12px;}
+.ray-list div{display:flex; align-items:baseline; gap:8px; font-size:0.7rem;}
+.ray-list i{flex:none; width:8px; height:8px; border-radius:50%;}
+.ray-list span{flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.ray-list span u{text-decoration:none; color:var(--dim); font-size:0.6rem; margin-left:5px;}
+.ray-list b{flex:none; font-weight:500;}
 .crew-trips{margin-top:9px; border-top:1px solid var(--line); padding-top:8px; display:flex; flex-direction:column; gap:10px;}
 .ct-year{display:flex; flex-direction:column; gap:5px;}
 .ct-yhead{display:flex; align-items:baseline; gap:8px;}
@@ -9157,6 +9422,7 @@ body > div{max-width:100%;}
 .home-list{display:flex; flex-direction:column; gap:4px; max-height:190px; overflow:auto;}
 .home-list button{display:flex; align-items:center; gap:8px; padding:8px 10px; border-radius:10px; border:1px solid var(--line);
   background:var(--field); color:var(--text); font-size:0.72rem; cursor:pointer; text-align:left;}
+.home-list button u{text-decoration:none; color:var(--dim); font-size:0.62rem;}
 .home-list button em{margin-left:auto; font-style:normal; font-size:0.6rem; color:var(--dim);}
 .crew-warn{margin-top:10px; padding:11px 12px; border-radius:12px; border:1px solid rgba(232,184,75,.35); background:rgba(232,184,75,.06);}
 .crew-warn>b{display:block; font-size:0.72rem; color:var(--gold); margin-bottom:8px;}
