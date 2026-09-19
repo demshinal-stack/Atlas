@@ -1260,7 +1260,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "22.3";
+const APP_VERSION = "22.4";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -7084,18 +7084,20 @@ function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], o
                 const trips = ((_c = crewR.rows.find((x) => x.id === p.id)) === null || _c === void 0 ? void 0 : _c.list) || [];
                 const open = openCrew === p.id;
                 return (React.createElement("div", { key: p.id, className: "crew-row" + (p.id === ME ? " me" : "") },
-                    React.createElement("button", { className: "crew-top", onClick: () => setOpenCrew(open ? null : p.id) },
+                    React.createElement("div", { className: "crew-top", onClick: () => setOpenCrew(open ? null : p.id) },
                         React.createElement("span", { className: "crew-rank" }, i + 1),
                         React.createElement("span", { className: "crew-name" },
                             p.name,
                             p.role && React.createElement("i", null, p.role)),
+                        React.createElement("button", { className: "crew-globe", onClick: (e) => {
+                                e.stopPropagation();
+                                setGlobeWho(p.id);
+                            }, "aria-label": "\u041F\u043E\u043A\u0430\u0437\u0430\u0442\u044C \u043D\u0430 \u0433\u043B\u043E\u0431\u0443\u0441\u0435" },
+                            React.createElement("svg", { viewBox: "0 0 24 24", width: "18", height: "18" },
+                                React.createElement("circle", { cx: "12", cy: "12", r: "8.5", fill: "none", stroke: "currentColor", strokeWidth: "1.5" }),
+                                React.createElement("path", { d: "M3.5 12h17M12 3.5c2.6 2.4 2.6 14.6 0 17M12 3.5c-2.6 2.4-2.6 14.6 0 17", fill: "none", stroke: "currentColor", strokeWidth: "1.3" }))),
                         React.createElement("span", { className: "crew-big" }, p.countries),
                         React.createElement("span", { className: "crew-caret" + (open ? " on" : "") }, "\u25BE")),
-                    React.createElement("button", { className: "crew-globe", onClick: () => setGlobeWho(p.id), "aria-label": "\u041F\u043E\u043A\u0430\u0437\u0430\u0442\u044C \u043D\u0430 \u0433\u043B\u043E\u0431\u0443\u0441\u0435" },
-                        React.createElement("svg", { viewBox: "0 0 24 24", width: "18", height: "18" },
-                            React.createElement("circle", { cx: "12", cy: "12", r: "8.5", fill: "none", stroke: "currentColor", strokeWidth: "1.5" }),
-                            React.createElement("path", { d: "M3.5 12h17M12 3.5c2.6 2.4 2.6 14.6 0 17M12 3.5c-2.6 2.4-2.6 14.6 0 17", fill: "none", stroke: "currentColor", strokeWidth: "1.3" })),
-                        "\u043D\u0430 \u0433\u043B\u043E\u0431\u0443\u0441\u0435"),
                     React.createElement("span", { className: "crew-bar" },
                         React.createElement("i", { style: {
                                 "--w": `${(p.countries / lead) * 100}%`,
@@ -9320,7 +9322,7 @@ body > div{max-width:100%;}
 .crew{display:flex; flex-direction:column; gap:10px;}
 .crew-row{padding:11px 12px; border-radius:12px; border:1px solid var(--line); background:var(--field);}
 .crew-row.me{border-color:rgba(232,184,75,.45);}
-.crew-top{display:flex; align-items:baseline; gap:9px; min-width:0;}
+.crew-top{display:flex; align-items:center; gap:9px; min-width:0;}
 .crew-rank{flex:none; width:18px; font-size:0.7rem; color:var(--dim);}
 .crew-name{flex:1 1 auto; min-width:0; font-size:0.86rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .crew-name i{font-style:normal; margin-left:7px; font-size:0.64rem; color:var(--dim);}
@@ -9373,11 +9375,11 @@ body > div{max-width:100%;}
 .first-n em{font-style:normal; font-size:0.6rem; color:var(--dim);}
 
 
-.crew-top{width:100%; background:none; border:none; padding:0; cursor:pointer; color:inherit; text-align:left;}
+.crew-top{width:100%; cursor:pointer; text-align:left;}
 .crew-caret{flex:none; margin-left:8px; color:var(--dim); font-size:0.7rem; transition:transform .18s;}
 .crew-caret.on{transform:rotate(180deg); color:var(--gold);}
-.crew-globe{display:flex; align-items:center; gap:6px; margin-top:8px; padding:6px 10px; border-radius:10px;
-  border:1px solid var(--line); background:var(--field); color:var(--dim); font-size:0.64rem; cursor:pointer;}
+.crew-globe{flex:none; display:flex; align-items:center; justify-content:center; width:30px; height:30px;
+  padding:0; border-radius:9px; border:1px solid var(--line); background:var(--field); color:var(--dim); cursor:pointer;}
 .crew-globe:active{color:var(--gold); border-color:rgba(232,184,75,.45);}
 /* окно человека начинается сразу под шапкой шторки */
 .zoom-layer.pg-layer{align-items:flex-start; padding-top:calc(env(safe-area-inset-top) + 46px);
