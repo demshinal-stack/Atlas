@@ -1260,7 +1260,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "21.0";
+const APP_VERSION = "21.1";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -6255,7 +6255,7 @@ function PersonGlobe({ row, home, geo, onClose }) {
         const path = d3.geoPath(proj, ctx);
         const grat = d3.geoGraticule10();
         const fit = () => {
-            const want = Math.max(260, Math.min(box.clientWidth, 560));
+            const want = Math.max(220, Math.min(box.clientWidth, box.clientHeight || 9999, 520));
             if (want === w)
                 return;
             w = want;
@@ -6422,7 +6422,7 @@ function PersonGlobe({ row, home, geo, onClose }) {
         };
     }, [rays, geo, home, row]);
     return (React.createElement("div", { className: "zoom-layer", onClick: onClose },
-        React.createElement("div", { className: "zoom-box", onClick: (e) => e.stopPropagation() },
+        React.createElement("div", { className: "zoom-box pg-box", onClick: (e) => e.stopPropagation() },
             React.createElement("button", { className: "zoom-x", onClick: onClose, "aria-label": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C" }, "\u2715"),
             React.createElement("div", { className: "zoom-body rep" },
                 React.createElement("div", { className: "pg-head" },
@@ -6433,7 +6433,7 @@ function PersonGlobe({ row, home, geo, onClose }) {
                 React.createElement("div", { className: "span-globe", ref: wrap },
                     React.createElement("canvas", { ref: cv })),
                 home && rays.length > 0 && (React.createElement(React.Fragment, null,
-                    React.createElement("p", { className: "hint small" }, "\u041D\u0430\u0436\u043C\u0438\u0442\u0435 \u043D\u0430\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u0435 \u0432 \u0441\u043F\u0438\u0441\u043A\u0435 \u0438\u043B\u0438 \u0441\u0430\u043C \u043B\u0443\u0447 \u043D\u0430 \u0433\u043B\u043E\u0431\u0443\u0441\u0435 \u2014 \u043E\u043D\u0438 \u043F\u043E\u0434\u0441\u0432\u0435\u0442\u044F\u0442\u0441\u044F \u0434\u0440\u0443\u0433 \u0437\u0430 \u0434\u0440\u0443\u0433\u043E\u043C."),
+                    React.createElement("p", { className: "hint small pg-tip" }, "\u041D\u0430\u0436\u043C\u0438\u0442\u0435 \u043D\u0430\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u0435 \u0432 \u0441\u043F\u0438\u0441\u043A\u0435 \u0438\u043B\u0438 \u043B\u0443\u0447 \u043D\u0430 \u0433\u043B\u043E\u0431\u0443\u0441\u0435."),
                     React.createElement("div", { className: "ray-list", ref: listRef }, rays.map((q) => {
                         var _c;
                         return (React.createElement("button", { key: q.key, "data-on": sel === q.key ? "1" : "0", className: "ray-row" + (sel === q.key ? " on" : ""), onClick: () => setSel(sel === q.key ? null : q.key) },
@@ -9362,13 +9362,17 @@ body > div{max-width:100%;}
 .crew-globe{display:flex; align-items:center; gap:6px; margin-top:8px; padding:6px 10px; border-radius:10px;
   border:1px solid var(--line); background:var(--field); color:var(--dim); font-size:0.64rem; cursor:pointer;}
 .crew-globe:active{color:var(--gold); border-color:rgba(232,184,75,.45);}
-.pg-head{position:sticky; top:-16px; z-index:3; padding:10px 34px 8px 0; margin:-10px 0 0;
-  background:linear-gradient(var(--el) 78%, rgba(0,0,0,0));}
+.pg-box{height:min(92vh, 900px); display:flex; flex-direction:column; overflow:hidden; padding:14px 12px 12px;}
+.pg-box .zoom-body{flex:1 1 auto; min-height:0; display:flex; flex-direction:column;}
+.pg-box .span-globe{flex:none; height:min(46vh, 380px); min-height:0; justify-content:flex-start; gap:6px; margin:6px 0;}
+.pg-box .ray-list{flex:1 1 auto; max-height:none; min-height:96px;}
+.pg-head{flex:none; padding:0 34px 6px 0;}
 .pg-head b{display:block; font-size:0.9rem; font-weight:600;}
 .pg-head em{display:block; margin-top:3px; font-style:normal; font-size:0.7rem; color:var(--dim);}
 .ray-list{width:100%; display:flex; flex-direction:column; gap:4px; margin-top:10px;
   max-height:260px; overflow-y:auto; -webkit-overflow-scrolling:touch;}
-.ray-row{display:flex; align-items:center; gap:8px; font-size:0.7rem; padding:7px 9px; border-radius:10px;
+.pg-tip{flex:none; margin:2px 0 0;}
+.ray-row{flex:none; display:flex; align-items:center; gap:8px; font-size:0.7rem; padding:7px 9px; border-radius:10px;
   border:1px solid transparent; background:none; color:var(--text); cursor:pointer; text-align:left;}
 .ray-row.on{background:rgba(143,212,255,.12); border-color:rgba(143,212,255,.5);}
 .ray-list i{flex:none; width:8px; height:8px; border-radius:50%;}
