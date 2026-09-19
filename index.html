@@ -1260,7 +1260,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "21.8";
+const APP_VERSION = "21.9";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -6429,10 +6429,12 @@ function PersonGlobe({ row, home, geo, onClose }) {
                 React.createElement("em", null, home
                     ? `лучи из дома · ${np(rays.length, "way")}`
                     : "задайте дом в профиле"),
+                React.createElement("p", { className: "hint small" }, home
+                    ? "Нажмите направление в списке или луч на глобусе — они подсветятся друг за другом."
+                    : "Задайте дом в профиле, чтобы построить лучи."),
                 React.createElement("div", { className: "span-globe", ref: wrap },
                     React.createElement("canvas", { ref: cv })),
                 home && rays.length > 0 && (React.createElement(React.Fragment, null,
-                    React.createElement("p", { className: "hint small" }, "\u041D\u0430\u0436\u043C\u0438\u0442\u0435 \u043D\u0430\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u0435 \u0432 \u0441\u043F\u0438\u0441\u043A\u0435 \u0438\u043B\u0438 \u043B\u0443\u0447 \u043D\u0430 \u0433\u043B\u043E\u0431\u0443\u0441\u0435."),
                     React.createElement("div", { className: "ray-list", ref: listRef }, rays.map((q) => {
                         var _c;
                         return (React.createElement("button", { key: q.key, "data-on": sel === q.key ? "1" : "0", className: "ray-row" + (sel === q.key ? " on" : ""), onClick: () => setSel(sel === q.key ? null : q.key) },
@@ -9362,7 +9364,7 @@ body > div{max-width:100%;}
   border:1px solid var(--line); background:var(--field); color:var(--dim); font-size:0.64rem; cursor:pointer;}
 .crew-globe:active{color:var(--gold); border-color:rgba(232,184,75,.45);}
 .ray-list{margin-top:10px;}
-.ray-list{width:100%; display:flex; flex-direction:column; gap:4px;}
+.ray-list{width:100%; display:flex; flex-direction:column; gap:4px; margin-top:12px;}
 .pg-tip{flex:none; margin:2px 0 0;}
 .ray-row{flex:none; display:flex; align-items:center; gap:8px; font-size:0.7rem; padding:7px 9px; border-radius:10px;
   border:1px solid transparent; background:none; color:var(--text); cursor:pointer; text-align:left;}
