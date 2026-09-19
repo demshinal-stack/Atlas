@@ -1260,7 +1260,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "22.0";
+const APP_VERSION = "22.2";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -5537,6 +5537,7 @@ function crewReport(visits, people, order, home) {
                     name: rough ? (c === null || c === void 0 ? void 0 : c.name) || a3 : city,
                     about: !!xy[2],
                     a3,
+                    tid: t.id,
                 });
             });
             if (!got) {
@@ -5548,6 +5549,7 @@ function crewReport(visits, people, order, home) {
                         name: (c === null || c === void 0 ? void 0 : c.name) || a3,
                         about: true,
                         a3,
+                        tid: t.id,
                     });
             }
             if (y) {
@@ -6206,6 +6208,7 @@ function SpanGlobe({ rows, geo, home }) {
 }
 /* глобус одного человека: лучи из дома во все его точки */
 function PersonGlobe({ row, home, geo, onClose }) {
+    var _c, _d, _e;
     const wrap = useRef(null);
     const cv = useRef(null);
     const rot = useRef([20, -12]);
@@ -6233,9 +6236,12 @@ function PersonGlobe({ row, home, geo, onClose }) {
             if (km < 1)
                 return;
             if (!uniq.has(k))
-                uniq.set(k, { ...q, km, n: 1, key: k });
-            else
-                uniq.get(k).n += 1;
+                uniq.set(k, { ...q, km, n: 1, key: k, tids: [q.tid] });
+            else {
+                const v = uniq.get(k);
+                v.n += 1;
+                v.tids.push(q.tid);
+            }
         });
         return [...uniq.values()].sort((a, b) => b.km - a.km);
     }, [row, home]);
@@ -6421,6 +6427,17 @@ function PersonGlobe({ row, home, geo, onClose }) {
             c.removeEventListener("pointercancel", up);
         };
     }, [rays, geo, home, row]);
+    // под глобусом — последняя поездка, а при выборе луча поездка по нему
+    const trip = useMemo(() => {
+        const list = (row === null || row === void 0 ? void 0 : row.list) || [];
+        if (!list.length)
+            return null;
+        if (!sel)
+            return list[0];
+        const ray = rays.find((q) => q.key === sel);
+        const ids = new Set((ray === null || ray === void 0 ? void 0 : ray.tids) || []);
+        return list.find((t) => ids.has(t.id)) || list[0];
+    }, [row, rays, sel]);
     return (React.createElement("div", { className: "zoom-layer pg-layer", onClick: onClose },
         React.createElement("div", { className: "zoom-box", onClick: (e) => e.stopPropagation() },
             React.createElement("button", { className: "zoom-x", onClick: onClose, "aria-label": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C" }, "\u2715"),
@@ -6429,25 +6446,17 @@ function PersonGlobe({ row, home, geo, onClose }) {
                 React.createElement("em", null, home
                     ? `лучи из дома · ${np(rays.length, "way")}`
                     : "задайте дом в профиле"),
-                React.createElement("p", { className: "hint small" }, home
-                    ? "Нажмите направление в списке или луч на глобусе — они подсветятся друг за другом."
-                    : "Задайте дом в профиле, чтобы построить лучи."),
                 React.createElement("div", { className: "span-globe", ref: wrap },
                     React.createElement("canvas", { ref: cv })),
-                home && rays.length > 0 && (React.createElement(React.Fragment, null,
-                    React.createElement("div", { className: "ray-list", ref: listRef }, rays.map((q) => {
-                        var _c;
-                        return (React.createElement("button", { key: q.key, "data-on": sel === q.key ? "1" : "0", className: "ray-row" + (sel === q.key ? " on" : ""), onClick: () => setSel(sel === q.key ? null : q.key) },
-                            React.createElement("i", { style: { background: sel === q.key ? "#8fd4ff" : row.color } }),
-                            React.createElement("span", null,
-                                flag(((_c = BY_A3[q.a3]) === null || _c === void 0 ? void 0 : _c.a2) || ""),
-                                " ",
-                                q.name,
-                                q.n > 1 && React.createElement("u", null,
-                                    "\u00D7",
-                                    q.n)),
-                            React.createElement("b", null, kmText(q.km))));
-                    }))))))));
+                trip && (React.createElement("div", { className: "pg-trip" },
+                    React.createElement("span", { className: "pg-flag" }, flag(((_c = BY_A3[trip.a3]) === null || _c === void 0 ? void 0 : _c.a2) || "")),
+                    React.createElement("span", { className: "pg-main" },
+                        React.createElement("b", null, ((_d = BY_A3[trip.a3]) === null || _d === void 0 ? void 0 : _d.name) || trip.a3),
+                        React.createElement("em", null,
+                            trip.m ? `${MONTHS[trip.m - 1]} ` : "",
+                            trip.y || "",
+                            trip.cities ? ` · ${trip.cities}` : "")),
+                    sel && (React.createElement("span", { className: "pg-km" }, kmText(((_e = rays.find((q) => q.key === sel)) === null || _e === void 0 ? void 0 : _e.km) || 0)))))))));
 }
 /* самая длинная дуга: две самые удалённые точки поездок */
 function SpanChart({ rows, geo, home }) {
@@ -9363,20 +9372,18 @@ body > div{max-width:100%;}
 .crew-globe{display:flex; align-items:center; gap:6px; margin-top:8px; padding:6px 10px; border-radius:10px;
   border:1px solid var(--line); background:var(--field); color:var(--dim); font-size:0.64rem; cursor:pointer;}
 .crew-globe:active{color:var(--gold); border-color:rgba(232,184,75,.45);}
-.ray-list{margin-top:10px;}
-/* окно человека начинается ниже шапки шторки */
-.zoom-layer.pg-layer{align-items:flex-start; padding-top:calc(env(safe-area-inset-top) + 104px);
+/* окно человека начинается сразу под шапкой шторки */
+.zoom-layer.pg-layer{align-items:flex-start; padding-top:calc(env(safe-area-inset-top) + 46px);
   padding-bottom:calc(env(safe-area-inset-bottom) + 84px);}
 .pg-layer .zoom-box{max-height:100%;}
-.ray-list{width:100%; display:flex; flex-direction:column; gap:4px; margin-top:12px;}
+.pg-trip{display:flex; align-items:center; gap:10px; margin-top:12px; padding:11px 12px; border-radius:13px;
+  border:1px solid var(--line); background:var(--field);}
+.pg-flag{flex:none; font-size:1.3rem;}
+.pg-main{flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:2px;}
+.pg-main b{font-size:0.82rem; font-weight:500;}
+.pg-main em{font-style:normal; font-size:0.64rem; color:var(--dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.pg-km{flex:none; font-size:0.74rem; color:var(--gold);}
 .pg-tip{flex:none; margin:2px 0 0;}
-.ray-row{flex:none; display:flex; align-items:center; gap:8px; font-size:0.7rem; padding:7px 9px; border-radius:10px;
-  border:1px solid transparent; background:none; color:var(--text); cursor:pointer; text-align:left;}
-.ray-row.on{background:rgba(143,212,255,.12); border-color:rgba(143,212,255,.5);}
-.ray-list i{flex:none; width:8px; height:8px; border-radius:50%;}
-.ray-list span{flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-.ray-list span u{text-decoration:none; color:var(--dim); font-size:0.6rem; margin-left:5px;}
-.ray-list b{flex:none; font-weight:500;}
 .crew-trips{margin-top:9px; border-top:1px solid var(--line); padding-top:8px; display:flex; flex-direction:column; gap:10px;}
 .ct-year{display:flex; flex-direction:column; gap:5px;}
 .ct-yhead{display:flex; align-items:baseline; gap:8px;}
