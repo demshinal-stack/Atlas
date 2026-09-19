@@ -1260,7 +1260,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "21.6";
+const APP_VERSION = "21.7";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -6212,16 +6212,12 @@ function PersonGlobe({ row, home, geo, onClose }) {
     const drag = useRef(null);
     const raf = useRef(0);
     const [sel, setSel] = useState(null);
-    const [small, setSmall] = useState(false);
-    const lock = useRef(0);
     const selRef = useRef(null);
     const hitRef = useRef([]);
     const listRef = useRef(null);
     useEffect(() => {
         var _c;
         selRef.current = sel;
-        if (sel)
-            setSmall(false); // выбрали направление — показываем шар целиком
         const el = (_c = listRef.current) === null || _c === void 0 ? void 0 : _c.querySelector('[data-on="1"]');
         el === null || el === void 0 ? void 0 : el.scrollIntoView({ block: "nearest", behavior: "smooth" });
     }, [sel]);
@@ -6426,42 +6422,18 @@ function PersonGlobe({ row, home, geo, onClose }) {
         };
     }, [rays, geo, home, row]);
     return (React.createElement("div", { className: "zoom-layer", onClick: onClose },
-        React.createElement("div", { className: "zoom-box pg-box", onClick: (e) => e.stopPropagation() },
+        React.createElement("div", { className: "zoom-box", onClick: (e) => e.stopPropagation() },
             React.createElement("button", { className: "zoom-x", onClick: onClose, "aria-label": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C" }, "\u2715"),
             React.createElement("div", { className: "zoom-body rep" },
-                React.createElement("button", { className: "pg-head", onClick: () => {
-                        lock.current = Date.now() + 500;
-                        setSmall((v) => !v);
-                    } },
-                    React.createElement("span", null,
-                        React.createElement("b", null, row.name),
-                        React.createElement("em", null, home
-                            ? `лучи из дома · ${np(rays.length, "way")}`
-                            : "задайте дом в профиле")),
-                    React.createElement("i", { className: "pg-caret" + (small ? " on" : "") }, "\u25BE")),
-                React.createElement("div", { className: "pg-globe" + (small ? " small" : "") },
-                    React.createElement("div", { className: "span-globe", ref: wrap },
-                        React.createElement("canvas", { ref: cv }))),
+                React.createElement("b", null, row.name),
+                React.createElement("em", null, home
+                    ? `лучи из дома · ${np(rays.length, "way")}`
+                    : "задайте дом в профиле"),
+                React.createElement("div", { className: "span-globe", ref: wrap },
+                    React.createElement("canvas", { ref: cv })),
                 home && rays.length > 0 && (React.createElement(React.Fragment, null,
-                    React.createElement("p", { className: "hint small pg-tip" }, "\u041D\u0430\u0436\u043C\u0438\u0442\u0435 \u043D\u0430\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u0435 \u0432 \u0441\u043F\u0438\u0441\u043A\u0435 \u0438\u043B\u0438 \u043B\u0443\u0447 \u043D\u0430 \u0433\u043B\u043E\u0431\u0443\u0441\u0435."),
-                    React.createElement("div", { className: "ray-list", ref: listRef, onScroll: (e) => {
-                            const el = e.currentTarget;
-                            const y = el.scrollTop;
-                            const now = Date.now();
-                            // после сворачивания список подпрыгивает сам — ждём
-                            if (now < lock.current)
-                                return;
-                            if (y > 28 && !small) {
-                                setSmall(true);
-                                lock.current = now + 700;
-                            }
-                            else if (y < 6 &&
-                                small &&
-                                el.scrollHeight > el.clientHeight + 8) {
-                                setSmall(false);
-                                lock.current = now + 500;
-                            }
-                        } }, rays.map((q) => {
+                    React.createElement("p", { className: "hint small" }, "\u041D\u0430\u0436\u043C\u0438\u0442\u0435 \u043D\u0430\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u0435 \u0432 \u0441\u043F\u0438\u0441\u043A\u0435 \u0438\u043B\u0438 \u043B\u0443\u0447 \u043D\u0430 \u0433\u043B\u043E\u0431\u0443\u0441\u0435."),
+                    React.createElement("div", { className: "ray-list", ref: listRef }, rays.map((q) => {
                         var _c;
                         return (React.createElement("button", { key: q.key, "data-on": sel === q.key ? "1" : "0", className: "ray-row" + (sel === q.key ? " on" : ""), onClick: () => setSel(sel === q.key ? null : q.key) },
                             React.createElement("i", { style: { background: sel === q.key ? "#8fd4ff" : row.color } }),
@@ -9389,25 +9361,8 @@ body > div{max-width:100%;}
 .crew-globe{display:flex; align-items:center; gap:6px; margin-top:8px; padding:6px 10px; border-radius:10px;
   border:1px solid var(--line); background:var(--field); color:var(--dim); font-size:0.64rem; cursor:pointer;}
 .crew-globe:active{color:var(--gold); border-color:rgba(232,184,75,.45);}
-/* окно человека: само не прокручивается, листается только список */
-.zoom-box.pg-box{align-self:stretch; height:auto; max-height:none; flex:1 1 auto;
-  display:flex; flex-direction:column; overflow:hidden; padding:12px 12px 10px;}
-.zoom-box.pg-box .zoom-body{flex:1 1 auto; min-height:0; display:flex; flex-direction:column; overflow:hidden;}
-.pg-globe{flex:none; overflow:hidden; height:min(42vh, 370px); height:min(42dvh, 370px); margin:0 0 12px;
-  transition:height .28s ease, opacity .2s ease, margin .28s ease;}
-.pg-globe.small{height:0; opacity:0; margin-bottom:0;}
-.zoom-box.pg-box .span-globe{height:100%; justify-content:flex-start; gap:0; margin:0;}
-.zoom-box.pg-box .ray-list{flex:1 1 auto; max-height:none; min-height:96px;
-  overscroll-behavior:contain; touch-action:pan-y;}
-.pg-head{flex:none; display:flex; align-items:center; gap:8px; padding:0 34px 2px 0; border:0;
-  background:none; color:inherit; text-align:left; cursor:pointer; width:100%;}
-.pg-head span{flex:1 1 auto; min-width:0;}
-.pg-caret{flex:none; font-style:normal; color:var(--dim); transition:transform .25s;}
-.pg-caret.on{transform:rotate(180deg); color:var(--gold);}
-.pg-head b{display:block; font-size:0.9rem; font-weight:600;}
-.pg-head em{display:block; margin-top:3px; font-style:normal; font-size:0.7rem; color:var(--dim);}
-.ray-list{width:100%; display:flex; flex-direction:column; gap:4px; margin-top:10px;
-  max-height:260px; overflow-y:auto; -webkit-overflow-scrolling:touch;}
+.ray-list{margin-top:10px;}
+.ray-list{width:100%; display:flex; flex-direction:column; gap:4px;}
 .pg-tip{flex:none; margin:2px 0 0;}
 .ray-row{flex:none; display:flex; align-items:center; gap:8px; font-size:0.7rem; padding:7px 9px; border-radius:10px;
   border:1px solid transparent; background:none; color:var(--text); cursor:pointer; text-align:left;}
@@ -9451,7 +9406,7 @@ body > div{max-width:100%;}
 .cmp-y{flex:none; width:36px; color:var(--dim); font-size:0.64rem;}
 .cmp-cs{flex:1 1 auto; min-width:0;}
 .span-globe{display:flex; flex-direction:column; align-items:center; gap:14px;}
-.span-globe canvas{display:block; touch-action:none; cursor:grab; border-radius:50%;}
+.span-globe canvas{flex:none; display:block; touch-action:none; cursor:grab; border-radius:50%;}
 .span-globe canvas:active{cursor:grabbing;}
 .globe-legend{width:100%; display:flex; flex-direction:column; gap:7px;}
 .gl-row{position:relative; display:flex; align-items:center; gap:9px; padding:9px 11px; border-radius:12px;
@@ -9476,7 +9431,7 @@ body > div{max-width:100%;}
 .zoom-layer{position:fixed; -webkit-user-select:none; user-select:none; inset:0; z-index:240; background:rgba(6,12,20,.92);
   display:flex; align-items:center; justify-content:center;
   padding:calc(env(safe-area-inset-top) + 78px) 14px calc(env(safe-area-inset-bottom) + 78px);}
-.zoom-box{position:relative; width:100%; max-width:760px; max-height:92vh; overflow:auto; border-radius:16px;
+.zoom-box{position:relative; width:100%; max-width:760px; max-height:100%; overflow:auto; border-radius:16px;
   border:1px solid var(--line); background:var(--el); padding:16px 14px;}
 .zoom-x{position:absolute; top:8px; right:8px; width:32px; height:32px; border-radius:50%; border:1px solid var(--line);
   background:var(--field); color:var(--dim); cursor:pointer;}
