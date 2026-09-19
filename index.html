@@ -1260,7 +1260,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "21.4";
+const APP_VERSION = "21.5";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -9390,11 +9390,12 @@ body > div{max-width:100%;}
   border:1px solid var(--line); background:var(--field); color:var(--dim); font-size:0.64rem; cursor:pointer;}
 .crew-globe:active{color:var(--gold); border-color:rgba(232,184,75,.45);}
 /* окно человека: само не прокручивается, листается только список */
-.zoom-box.pg-box{height:min(88vh, 900px); height:min(88dvh, 900px); max-height:none; display:flex; flex-direction:column;
+.zoom-box.pg-box{height:100%; max-height:none; display:flex; flex-direction:column;
   overflow:hidden; padding:14px 12px 12px;}
 .zoom-box.pg-box .zoom-body{flex:1 1 auto; min-height:0; display:flex; flex-direction:column; overflow:hidden;}
-.pg-globe{flex:none; overflow:hidden; height:min(42vh, 370px); height:min(42dvh, 370px); transition:height .28s ease, opacity .2s ease;}
-.pg-globe.small{height:0; opacity:0;}
+.pg-globe{flex:none; overflow:hidden; height:min(42vh, 370px); height:min(42dvh, 370px); margin-bottom:12px;
+  transition:height .28s ease, opacity .2s ease, margin .28s ease;}
+.pg-globe.small{height:0; opacity:0; margin-bottom:0;}
 .zoom-box.pg-box .span-globe{height:100%; justify-content:flex-start; gap:0; margin:0;}
 .zoom-box.pg-box .ray-list{flex:1 1 auto; max-height:none; min-height:96px;
   overscroll-behavior:contain; touch-action:pan-y;}
@@ -9472,7 +9473,9 @@ body > div{max-width:100%;}
 .dist-line{height:8px; border-radius:4px; background:var(--track); overflow:hidden;}
 .dist-line i{display:block; height:100%; border-radius:4px;}
 .dist-ends{font-size:0.6rem; color:var(--dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-.zoom-layer{position:fixed; -webkit-user-select:none; user-select:none; inset:0; z-index:200; background:rgba(6,12,20,.92); display:flex; align-items:center; justify-content:center; padding:14px;}
+.zoom-layer{position:fixed; -webkit-user-select:none; user-select:none; inset:0; z-index:240; background:rgba(6,12,20,.92);
+  display:flex; align-items:center; justify-content:center;
+  padding:calc(env(safe-area-inset-top) + 78px) 14px calc(env(safe-area-inset-bottom) + 78px);}
 .zoom-box{position:relative; width:100%; max-width:760px; max-height:92vh; overflow:auto; border-radius:16px;
   border:1px solid var(--line); background:var(--el); padding:16px 14px;}
 .zoom-x{position:absolute; top:8px; right:8px; width:32px; height:32px; border-radius:50%; border:1px solid var(--line);
