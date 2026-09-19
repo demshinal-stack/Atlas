@@ -1260,7 +1260,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "21.5";
+const APP_VERSION = "21.6";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -9390,16 +9390,16 @@ body > div{max-width:100%;}
   border:1px solid var(--line); background:var(--field); color:var(--dim); font-size:0.64rem; cursor:pointer;}
 .crew-globe:active{color:var(--gold); border-color:rgba(232,184,75,.45);}
 /* окно человека: само не прокручивается, листается только список */
-.zoom-box.pg-box{height:100%; max-height:none; display:flex; flex-direction:column;
-  overflow:hidden; padding:14px 12px 12px;}
+.zoom-box.pg-box{align-self:stretch; height:auto; max-height:none; flex:1 1 auto;
+  display:flex; flex-direction:column; overflow:hidden; padding:12px 12px 10px;}
 .zoom-box.pg-box .zoom-body{flex:1 1 auto; min-height:0; display:flex; flex-direction:column; overflow:hidden;}
-.pg-globe{flex:none; overflow:hidden; height:min(42vh, 370px); height:min(42dvh, 370px); margin-bottom:12px;
+.pg-globe{flex:none; overflow:hidden; height:min(42vh, 370px); height:min(42dvh, 370px); margin:0 0 12px;
   transition:height .28s ease, opacity .2s ease, margin .28s ease;}
 .pg-globe.small{height:0; opacity:0; margin-bottom:0;}
 .zoom-box.pg-box .span-globe{height:100%; justify-content:flex-start; gap:0; margin:0;}
 .zoom-box.pg-box .ray-list{flex:1 1 auto; max-height:none; min-height:96px;
   overscroll-behavior:contain; touch-action:pan-y;}
-.pg-head{flex:none; display:flex; align-items:center; gap:8px; padding:0 34px 6px 0; border:0;
+.pg-head{flex:none; display:flex; align-items:center; gap:8px; padding:0 34px 2px 0; border:0;
   background:none; color:inherit; text-align:left; cursor:pointer; width:100%;}
 .pg-head span{flex:1 1 auto; min-width:0;}
 .pg-caret{flex:none; font-style:normal; color:var(--dim); transition:transform .25s;}
