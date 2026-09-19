@@ -1260,7 +1260,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "21.7";
+const APP_VERSION = "21.8";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -9406,7 +9406,7 @@ body > div{max-width:100%;}
 .cmp-y{flex:none; width:36px; color:var(--dim); font-size:0.64rem;}
 .cmp-cs{flex:1 1 auto; min-width:0;}
 .span-globe{display:flex; flex-direction:column; align-items:center; gap:14px;}
-.span-globe canvas{flex:none; display:block; touch-action:none; cursor:grab; border-radius:50%;}
+.span-globe canvas{display:block; touch-action:none; cursor:grab; border-radius:50%;}
 .span-globe canvas:active{cursor:grabbing;}
 .globe-legend{width:100%; display:flex; flex-direction:column; gap:7px;}
 .gl-row{position:relative; display:flex; align-items:center; gap:9px; padding:9px 11px; border-radius:12px;
@@ -9428,10 +9428,8 @@ body > div{max-width:100%;}
 .dist-line{height:8px; border-radius:4px; background:var(--track); overflow:hidden;}
 .dist-line i{display:block; height:100%; border-radius:4px;}
 .dist-ends{font-size:0.6rem; color:var(--dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-.zoom-layer{position:fixed; -webkit-user-select:none; user-select:none; inset:0; z-index:240; background:rgba(6,12,20,.92);
-  display:flex; align-items:center; justify-content:center;
-  padding:calc(env(safe-area-inset-top) + 78px) 14px calc(env(safe-area-inset-bottom) + 78px);}
-.zoom-box{position:relative; width:100%; max-width:760px; max-height:100%; overflow:auto; border-radius:16px;
+.zoom-layer{position:fixed; -webkit-user-select:none; user-select:none; inset:0; z-index:200; background:rgba(6,12,20,.92); display:flex; align-items:center; justify-content:center; padding:14px;}
+.zoom-box{position:relative; width:100%; max-width:760px; max-height:92vh; overflow:auto; border-radius:16px;
   border:1px solid var(--line); background:var(--el); padding:16px 14px;}
 .zoom-x{position:absolute; top:8px; right:8px; width:32px; height:32px; border-radius:50%; border:1px solid var(--line);
   background:var(--field); color:var(--dim); cursor:pointer;}
