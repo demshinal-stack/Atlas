@@ -290,7 +290,7 @@ VU|VUT|Вануату|OC|-16.3|167.5
 /* справочники живут отдельно: на сервере, а по желанию — на устройстве */
 const K_BOOKS = "atlas:books";
 /* версия справочников: меняется, когда данные обновились на сервере */
-const BOOKS_VER = 12;
+const BOOKS_VER = 14;
 const BOOKS = [
     { id: "cities", file: "cities.txt", title: "Города" },
     { id: "regions", file: "regions.txt", title: "Регионы" },
@@ -299,6 +299,7 @@ const BOOKS = [
     { id: "phrases", file: "phrases.txt", title: "Разговорник" },
     { id: "points", file: "citypoints.txt", title: "Координаты городов" },
     { id: "airlines", file: "airlines.txt", title: "Авиакомпании" },
+    { id: "cityregions", file: "cityregions.txt", title: "Города и регионы" },
     { id: "badges", file: "badges.txt", title: "Значки стран" },
 ];
 /* значки: один рисунок на все страны, по нему вырезаем нужную клетку */
@@ -393,6 +394,24 @@ const parsePhrases = (raw) => {
     });
     return by;
 };
+/* какой город в каком регионе: A3|Город=Регион;… */
+let CITY_REG = {};
+const parseCityRegions = (raw) => {
+    const out = {};
+    (raw || "").split("\n").forEach((row) => {
+        const [a3, rest] = row.split("|");
+        if (!a3 || !rest)
+            return;
+        const m = (out[a3.trim()] = out[a3.trim()] || {});
+        rest.split(";").forEach((e) => {
+            const [city, reg] = e.split("=");
+            if (city && reg)
+                m[city.trim()] = reg.trim();
+        });
+    });
+    return out;
+};
+const regionOf = (a3, city) => (CITY_REG[a3] || {})[city] || null;
 /* авиакомпании: код|название|страна|год|направления|альянс|цвет */
 let AIRLINES = {};
 const parseAirlines = (raw) => {
@@ -443,6 +462,7 @@ const applyBooks = (data) => {
     REGIONS = parseRegions(data === null || data === void 0 ? void 0 : data.regions);
     CITY_PT = parsePoints(data === null || data === void 0 ? void 0 : data.points);
     AIRLINES = parseAirlines(data === null || data === void 0 ? void 0 : data.airlines);
+    CITY_REG = parseCityRegions(data === null || data === void 0 ? void 0 : data.cityregions);
     if (data === null || data === void 0 ? void 0 : data.badges) {
         const [cols, cell, list] = data.badges.trim().split("|");
         const index = {};
@@ -568,6 +588,7 @@ const WORD = {
     sight: ["место", "места", "мест"],
     way: ["направление", "направления", "направлений"],
     airline: ["авиакомпания", "авиакомпании", "авиакомпаний"],
+    region: ["регион", "региона", "регионов"],
 };
 const pw = (n, key) => plural(n, ...WORD[key]);
 const np = (n, key) => `${n} ${pw(n, key)}`;
@@ -1283,7 +1304,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "23.2";
+const APP_VERSION = "23.6";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -4136,6 +4157,48 @@ const MOVES = [
     { id: "rail", name: "Поезд", icon: "🚆" },
     { id: "other", name: "Прочее", icon: "⛴" },
 ];
+/* поиск города: точные координаты, иначе столица страны */
+function CityPointPicker({ onPick, onClose, placeholder }) {
+    const [q, setQ] = useState("");
+    const found = useMemo(() => {
+        const t = q.trim().toLowerCase();
+        if (t.length < 2)
+            return [];
+        const out = [];
+        const seen = new Set();
+        Object.entries(CITY_PT).forEach(([a3, m]) => Object.entries(m).forEach(([name, xy]) => {
+            if (name.toLowerCase().startsWith(t)) {
+                seen.add(a3 + "|" + name);
+                out.push({ a3, name, lon: xy[0], lat: xy[1] });
+            }
+        }));
+        (CITIES || []).forEach(({ a3, city }) => {
+            if (!city.toLowerCase().startsWith(t) || seen.has(a3 + "|" + city))
+                return;
+            const xy = distPoint(a3, city);
+            if (xy)
+                out.push({ a3, name: city, lon: xy[0], lat: xy[1], about: true });
+        });
+        return out
+            .sort((a, b) => (a.about ? 1 : 0) - (b.about ? 1 : 0) ||
+            a.name.length - b.name.length ||
+            a.name.localeCompare(b.name, "ru"))
+            .slice(0, 12);
+    }, [q]);
+    return (React.createElement("div", { className: "air-pick" },
+        React.createElement("label", { className: "tf" },
+            React.createElement("input", { className: "tf-input", value: q, onChange: (e) => setQ(e.target.value), placeholder: placeholder || "Город", autoFocus: true }),
+            React.createElement("button", { className: "tf-clear", onClick: onClose, "aria-label": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C" }, "\u2715")),
+        found.length > 0 && (React.createElement("div", { className: "home-list" }, found.map((c) => {
+            var _c, _d;
+            return (React.createElement("button", { key: c.a3 + c.name, onClick: () => onPick(c) },
+                flag(((_c = BY_A3[c.a3]) === null || _c === void 0 ? void 0 : _c.a2) || ""),
+                " ",
+                c.name,
+                c.about && React.createElement("u", null, "\u2248"),
+                React.createElement("em", null, ((_d = BY_A3[c.a3]) === null || _d === void 0 ? void 0 : _d.name) || c.a3)));
+        })))));
+}
 /* поиск авиакомпании по названию, коду или стране */
 function AirPicker({ exclude = [], onAdd, onClose }) {
     const [q, setQ] = useState("");
@@ -4172,7 +4235,7 @@ function AirPicker({ exclude = [], onAdd, onClose }) {
             }),
             !found.length && (React.createElement("p", { className: "hint small" }, "\u0422\u0430\u043A\u043E\u0439 \u0430\u0432\u0438\u0430\u043A\u043E\u043C\u043F\u0430\u043D\u0438\u0438 \u0432 \u0441\u043F\u0440\u0430\u0432\u043E\u0447\u043D\u0438\u043A\u0435 \u043D\u0435\u0442.")))));
 }
-function TripSheet({ open, onClose, box, initial, visits, onSave, onRemove, mode, quality, since, people = [], meId = ME }) {
+function TripSheet({ open, onClose, box, initial, visits, onSave, onRemove, mode, quality, since, people = [], meId = ME, home = null }) {
     const totalPhotos = useMemo(() => {
         let k = 0;
         Object.values(visits).forEach((arr) => arr.forEach((t) => (k += (t.photos || []).length)));
@@ -4186,6 +4249,7 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, onRemove, mode
     const [addHotel, setAddHotel] = useState(false);
     const [addWho, setAddWho] = useState(false);
     const [addAir, setAddAir] = useState(false);
+    const [addDep, setAddDep] = useState(false);
     const [airInfo, setAirInfo] = useState(null);
     const whoBox = useRef(null);
     useEffect(() => {
@@ -4225,6 +4289,7 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, onRemove, mode
             photos: src.trip.photos || [],
             move: src.trip.move || null,
             air: src.trip.air || [],
+            dep: src.trip.dep || null,
         }
         : null;
     const srcKey = initial ? `${initial.a3}:${initial.idx}` : "";
@@ -4334,7 +4399,7 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, onRemove, mode
     const whenReady = !!(draft && draft.y && (!draft.approx || draft.y2));
     const whenText = (draft === null || draft === void 0 ? void 0 : draft.y) ? tripLabel(draft) : "";
     return (React.createElement(Sheet, { open: open, onClose: onClose, box: box, title: country ? country.name : mode === "edit" ? "Поездка" : "Новая поездка" }, (close) => {
-        var _c, _d;
+        var _c, _d, _e;
         return (React.createElement("div", { className: "sheet-body" },
             !country ? (React.createElement(React.Fragment, null,
                 React.createElement(TextField, { search: true, value: q, placeholder: "\u041D\u0430\u0447\u043D\u0438\u0442\u0435 \u0432\u0432\u043E\u0434\u0438\u0442\u044C \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u0435", onChange: (e) => setQ(e.target.value) }),
@@ -4358,6 +4423,7 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, onRemove, mode
                             photos: [],
                             move: null,
                             air: [],
+                            dep: home || null,
                         }) },
                         React.createElement("span", { className: "fl" }, flag(c.a2)),
                         React.createElement("span", { className: "nm" },
@@ -4400,13 +4466,47 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, onRemove, mode
                 React.createElement("p", { className: "step-title" }, "\u0413\u043E\u0440\u043E\u0434\u0430"),
                 draft.cities.length > 0 && (React.createElement("div", { className: "city-chips" }, draft.cities.map((c) => (React.createElement("span", { key: c, className: "city-chip" },
                     c,
-                    React.createElement("button", { onClick: () => patch({ cities: draft.cities.filter((x) => x !== c) }) }, "\u2715")))))),
+                    React.createElement("button", { onClick: () => {
+                            const cities = draft.cities.filter((x) => x !== c);
+                            const reg = regionOf(draft.a3, c);
+                            const stay = cities.some((x) => regionOf(draft.a3, x) === reg);
+                            patch({
+                                cities,
+                                regions: reg && !stay
+                                    ? (draft.regions || []).filter((r) => r !== reg)
+                                    : draft.regions || [],
+                            });
+                        } }, "\u2715")))))),
                 draft.cities.length === 0 || addCity ? (React.createElement(Suggest, { placeholder: "\u041D\u0430\u0447\u043D\u0438\u0442\u0435 \u0432\u0432\u043E\u0434\u0438\u0442\u044C \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u0435", pool: cityPool, exclude: draft.cities, onAdd: (c) => {
-                        patch({ cities: [...draft.cities, c] });
+                        {
+                            const cities = [...draft.cities, c];
+                            const reg = regionOf(draft.a3, c);
+                            const regions = draft.regions || [];
+                            patch({
+                                cities,
+                                regions: reg && !regions.includes(reg)
+                                    ? [...regions, reg]
+                                    : regions,
+                            });
+                        }
                         setAddCity(false);
                     } })) : (React.createElement("button", { className: "link-btn", onClick: () => setAddCity(true) }, "\uFF0B \u0435\u0449\u0451 \u0433\u043E\u0440\u043E\u0434")))),
             country && whenReady && !editWhen && (React.createElement("div", { className: "step" },
                 React.createElement("p", { className: "step-title" }, "\u041A\u0430\u043A \u0434\u043E\u0431\u0438\u0440\u0430\u043B\u0438\u0441\u044C"),
+                React.createElement("div", { className: "dep-row" },
+                    React.createElement("span", { className: "dep-label" }, "\u041E\u0442\u043A\u0443\u0434\u0430"),
+                    draft.dep ? (React.createElement("span", { className: "dep-chip" },
+                        flag(((_c = BY_A3[draft.dep.a3]) === null || _c === void 0 ? void 0 : _c.a2) || ""),
+                        " ",
+                        draft.dep.name,
+                        React.createElement("button", { onClick: () => patch({ dep: null }), "aria-label": "\u0423\u0431\u0440\u0430\u0442\u044C" }, "\u2715"))) : (React.createElement("em", { className: "dep-none" }, "\u043D\u0435 \u0443\u043A\u0430\u0437\u0430\u043D")),
+                    React.createElement("button", { className: "link-btn dep-edit", onClick: () => setAddDep(!addDep) }, draft.dep ? "изменить" : "＋ город вылета")),
+                addDep && (React.createElement(CityPointPicker, { placeholder: "\u0413\u043E\u0440\u043E\u0434 \u0432\u044B\u043B\u0435\u0442\u0430", onClose: () => setAddDep(false), onPick: (c) => {
+                        patch({
+                            dep: { a3: c.a3, name: c.name, lat: c.lat, lon: c.lon },
+                        });
+                        setAddDep(false);
+                    } })),
                 React.createElement("div", { className: "move-row" }, MOVES.map((m) => (React.createElement("button", { key: m.id, className: "move-chip" + (draft.move === m.id ? " on" : ""), onClick: () => {
                         var _c, _d;
                         const next = draft.move === m.id ? null : m.id;
@@ -4444,11 +4544,11 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, onRemove, mode
                     }))),
                     airInfo && AIRLINES[airInfo] && (React.createElement("div", { className: "air-info" },
                         React.createElement("b", null,
-                            flag(((_c = BY_A3[AIRLINES[airInfo].a3]) === null || _c === void 0 ? void 0 : _c.a2) || ""),
+                            flag(((_d = BY_A3[AIRLINES[airInfo].a3]) === null || _d === void 0 ? void 0 : _d.a2) || ""),
                             " ",
                             AIRLINES[airInfo].name),
                         React.createElement("em", null,
-                            ((_d = BY_A3[AIRLINES[airInfo].a3]) === null || _d === void 0 ? void 0 : _d.name) || "",
+                            ((_e = BY_A3[AIRLINES[airInfo].a3]) === null || _e === void 0 ? void 0 : _e.name) || "",
                             AIRLINES[airInfo].year
                                 ? ` · основана в ${AIRLINES[airInfo].year}`
                                 : "",
@@ -4548,6 +4648,7 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, onRemove, mode
                         onSave(draft.a3, {
                             move: draft.move || null,
                             air: draft.move === "air" ? draft.air || [] : [],
+                            dep: draft.dep || null,
                             y: draft.y,
                             m: draft.m || null,
                             y2: draft.approx ? draft.y2 || draft.y : null,
@@ -4605,7 +4706,9 @@ function HomePicker({ home, onHome }) {
                 out.push({ a3: c.a3, name: c.name, lon: xy[0], lat: xy[1], about: true });
         });
         return out
-            .sort((a, b) => (a.about ? 1 : 0) - (b.about ? 1 : 0) || a.name.localeCompare(b.name, "ru"))
+            .sort((a, b) => (a.about ? 1 : 0) - (b.about ? 1 : 0) ||
+            a.name.length - b.name.length ||
+            a.name.localeCompare(b.name, "ru"))
             .slice(0, 14);
     }, [q]);
     const byGeo = () => {
@@ -4664,7 +4767,7 @@ function HomePicker({ home, onHome }) {
                 React.createElement("em", null, ((_d = BY_A3[c.a3]) === null || _d === void 0 ? void 0 : _d.name) || c.a3)));
         })))));
 }
-function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, since, onSince, people, onPeople, onReports, onShelf, onSettings, onFamily, familyOn, onExport, onImport, onRestore, restoreMsg, doubles, onDoubles, visits, onMergeWho, home, onHome, }) {
+function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, since, onSince, people, onPeople, onReports, onShelf, onSettings, onFamily, familyOn, onExport, onImport, onRestore, restoreMsg, doubles, onDoubles, visits, onMergeWho, home, onHome, regionGaps, onFillRegions, depGaps, onFillDeparture, }) {
     const [showAll, setShowAll] = useState(false);
     const [addPerson, setAddPerson] = useState(false);
     const crew = useMemo(() => travelerStats(visits, people), [visits, people]);
@@ -4931,6 +5034,34 @@ function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, 
                     "\u00BB",
                     React.createElement("em", { className: "opt-role" }, newRole)))))) : (React.createElement("button", { className: "link-btn", onClick: () => setAddPerson(true) }, "\uFF0B \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u043F\u0443\u0442\u0435\u0448\u0435\u0441\u0442\u0432\u0435\u043D\u043D\u0438\u043A\u0430")),
         React.createElement("p", { className: "step-title" }, "\u041C\u043E\u0438 \u0434\u0430\u043D\u043D\u044B\u0435"),
+        depGaps > 0 && home && (React.createElement("button", { className: "switch-row", onClick: () => setAsk({
+                title: "Проставить город вылета?",
+                text: `В ${np(depGaps, "trip")} он не указан — поставим ${home.name}. В любой поездке его можно поменять.`,
+                yes: "Проставить",
+                onYes: onFillDeparture,
+            }) },
+            React.createElement("span", { className: "switch-text" },
+                "\u0413\u043E\u0440\u043E\u0434 \u0432\u044B\u043B\u0435\u0442\u0430",
+                React.createElement("em", null,
+                    "\u041D\u0435 \u0443\u043A\u0430\u0437\u0430\u043D \u0432 ",
+                    np(depGaps, "trip"),
+                    " \u2014 \u043F\u043E\u0434\u0441\u0442\u0430\u0432\u0438\u0442\u044C ",
+                    home.name)),
+            React.createElement("span", { className: "step-pen" }, "\u2192"))),
+        (regionGaps === null || regionGaps === void 0 ? void 0 : regionGaps.trips) > 0 && (React.createElement("button", { className: "switch-row", onClick: () => setAsk({
+                title: "Проставить регионы?",
+                text: `Регионы подставятся по городам в ${np(regionGaps.trips, "trip")} — всего ${np(regionGaps.adds, "region")}. Уже указанные
+                    регионы останутся, лишнее можно убрать вручную.`,
+                yes: "Проставить",
+                onYes: onFillRegions,
+            }) },
+            React.createElement("span", { className: "switch-text" },
+                "\u0420\u0435\u0433\u0438\u043E\u043D\u044B \u043F\u043E \u0433\u043E\u0440\u043E\u0434\u0430\u043C",
+                React.createElement("em", null,
+                    "\u041C\u043E\u0436\u043D\u043E \u043F\u0440\u043E\u0441\u0442\u0430\u0432\u0438\u0442\u044C \u0432 ",
+                    np(regionGaps.trips, "trip"),
+                    " \u2014 \u0441\u0435\u0439\u0447\u0430\u0441 \u0438\u0445 \u0442\u0430\u043C \u043D\u0435\u0442")),
+            React.createElement("span", { className: "step-pen" }, "\u2192"))),
         doubles > 0 && (React.createElement("button", { className: "switch-row", onClick: onDoubles },
             React.createElement("span", { className: "switch-text" },
                 "\u041F\u043E\u0445\u043E\u0436\u0438\u0435 \u043F\u043E\u0435\u0437\u0434\u043A\u0438",
@@ -5608,6 +5739,12 @@ const CONT_COLORS = {
 const CREW_COLORS = ["#e2b551", "#7fb3d5", "#c98f6a", "#9ec7a3", "#b6a2d6", "#d3d8de"];
 /* сокращения частей света — полные названия в строку не влезают */
 const CONT_MINI = { EU: "Евр", AS: "Азия", AF: "Афр", NA: "С.Ам", SA: "Ю.Ам", OC: "Оке" };
+const depPoint = (t, home) => {
+    const d = t === null || t === void 0 ? void 0 : t.dep;
+    if (d && isFinite(d.lat) && isFinite(d.lon))
+        return { lon: +d.lon, lat: +d.lat, name: d.name || "", a3: d.a3 || "" };
+    return home || null;
+};
 function crewReport(visits, people, order, home) {
     const who = (w) => {
         const p = (people || []).find((x) => x.id === w || x.name === w);
@@ -5674,6 +5811,7 @@ function crewReport(visits, people, order, home) {
                     about: !!xy[2],
                     a3,
                     tid: t.id,
+                    dep: depPoint(t, home),
                 });
             });
             if (!got) {
@@ -5686,6 +5824,7 @@ function crewReport(visits, people, order, home) {
                         about: true,
                         a3,
                         tid: t.id,
+                        dep: depPoint(t, home),
                     });
             }
             if (y) {
@@ -5834,19 +5973,22 @@ function kmBetween(a, b) {
     return Math.round(2 * R * Math.asin(Math.min(1, Math.sqrt(h))));
 }
 const kmText = (n) => `${n.toLocaleString("ru-RU")} км`;
-/* самая дальняя от дома точка поездок */
+/* самый дальний перелёт: от города вылета поездки до её точки */
 function farthestFromHome(points, home) {
-    if (!home)
-        return farthestPair(points);
-    let best = { a: home, b: null, km: 0 };
+    let best = { a: null, b: null, km: 0 };
     (points || []).forEach((q) => {
         if (!isFinite(q.lat) || !isFinite(q.lon))
             return;
-        const km = kmBetween(home, q);
+        const from = q.dep || home;
+        if (!from)
+            return;
+        const km = kmBetween(from, q);
         if (km > best.km)
-            best = { a: home, b: q, km };
+            best = { a: from, b: q, km };
     });
-    return best.b ? best : { a: null, b: null, km: 0 };
+    if (!best.b && home)
+        return farthestPair(points);
+    return best;
 }
 /* две самые удалённые точки из всех, где человек побывал */
 function farthestPair(points) {
@@ -6361,14 +6503,14 @@ function airReport(visits, home) {
             return;
         const codes = (t.air || []).filter(Boolean);
         flights += 1;
-        const c = BY_A3[a3];
         let far = 0;
+        const from = depPoint(t, home);
         const pts = (t.cities || []).length
             ? (t.cities || []).map((city) => distPoint(a3, city)).filter(Boolean)
             : [distPoint(a3, null)].filter(Boolean);
-        if (home)
+        if (from)
             pts.forEach((xy) => {
-                far = Math.max(far, kmBetween(home, { lon: xy[0], lat: xy[1] }));
+                far = Math.max(far, kmBetween(from, { lon: xy[0], lat: xy[1] }));
             });
         const trip = far * 2;
         km += trip;
@@ -6420,18 +6562,19 @@ function PersonGlobe({ row, home, geo, onClose }) {
         el === null || el === void 0 ? void 0 : el.scrollIntoView({ block: "nearest", behavior: "smooth" });
     }, [sel]);
     const rays = useMemo(() => {
-        if (!home)
-            return [];
         const uniq = new Map();
         ((row === null || row === void 0 ? void 0 : row.points) || []).forEach((q) => {
             if (!isFinite(q.lat) || !isFinite(q.lon))
                 return;
-            const k = `${q.lon.toFixed(1)}|${q.lat.toFixed(1)}`;
-            const km = kmBetween(home, q);
+            const from = q.dep || home;
+            if (!from)
+                return;
+            const k = `${from.lon.toFixed(1)}|${from.lat.toFixed(1)}>${q.lon.toFixed(1)}|${q.lat.toFixed(1)}`;
+            const km = kmBetween(from, q);
             if (km < 1)
                 return;
             if (!uniq.has(k))
-                uniq.set(k, { ...q, km, n: 1, key: k, tids: [q.tid] });
+                uniq.set(k, { ...q, km, n: 1, key: k, tids: [q.tid], from });
             else {
                 const v = uniq.get(k);
                 v.n += 1;
@@ -6517,7 +6660,8 @@ function PersonGlobe({ row, home, geo, onClose }) {
             const hits = [];
             rays.forEach((q, i) => {
                 const N = 64;
-                const inter = d3.geoInterpolate([home.lon, home.lat], [q.lon, q.lat]);
+                const src = q.from || home;
+                const inter = d3.geoInterpolate([src.lon, src.lat], [q.lon, q.lat]);
                 const lift = 0.05 + 0.1 * (q.km / far);
                 const pts = [];
                 for (let k = 0; k <= N; k++) {
@@ -8091,6 +8235,8 @@ function Atlas() {
     const [spinning, setSpinning] = useState(false);
     const [mapPage, setMapPage] = useState(0);
     const [booksFrom, setBooksFrom] = useState("");
+    // справочники приезжают позже данных — по этому счётчику пересчитываем разбор
+    const [booksRev, setBooksRev] = useState(0);
     const [booksSize, setBooksSize] = useState(0);
     const [booksSaved, setBooksSaved] = useState(false);
     const [booksAt, setBooksAt] = useState("");
@@ -8457,6 +8603,7 @@ function Atlas() {
             try {
                 const res = await loadBooks();
                 setBooksFrom(res.from);
+                setBooksRev((v) => v + 1);
                 setBooksSize(booksBytes);
                 // автономная работа включена — сверимся с сервером, если он на связи
                 if (res.from === "device" && navigator.onLine) {
@@ -8486,6 +8633,7 @@ function Atlas() {
                             __at: stamp,
                         });
                         setBooksAt(stamp);
+                        setBooksRev((v) => v + 1);
                         setBooksSize(booksBytes);
                         setBooksBusy(false);
                         setBooksProgress(0);
@@ -8673,6 +8821,65 @@ function Atlas() {
             return;
         cur[i] = { ...cur[i], ...patch };
         save({ ...visits, [a3]: cur });
+    };
+    /* проставляем регионы по городам там, где их не хватает */
+    const regionGaps = useMemo(() => {
+        let trips = 0;
+        let adds = 0;
+        Object.entries(visits).forEach(([a3, arr]) => (arr || []).forEach((t) => {
+            const have = t.regions || [];
+            const want = new Set();
+            (t.cities || []).forEach((c) => {
+                const r = regionOf(a3, c);
+                if (r && !have.includes(r))
+                    want.add(r);
+            });
+            if (want.size) {
+                trips += 1;
+                adds += want.size;
+            }
+        }));
+        return { trips, adds };
+    }, [visits, booksRev]);
+    /* город вылета по умолчанию — домашний */
+    const depGaps = useMemo(() => {
+        if (!(profile === null || profile === void 0 ? void 0 : profile.home))
+            return 0;
+        let n = 0;
+        Object.values(visits).forEach((arr) => (arr || []).forEach((t) => {
+            if (!t.dep)
+                n += 1;
+        }));
+        return n;
+    }, [visits, profile === null || profile === void 0 ? void 0 : profile.home]);
+    const fillDeparture = () => {
+        const h = profile === null || profile === void 0 ? void 0 : profile.home;
+        if (!h)
+            return;
+        const dep = { a3: h.a3, name: h.name, lat: h.lat, lon: h.lon };
+        const next = {};
+        Object.entries(visits).forEach(([a3, arr]) => {
+            next[a3] = (arr || []).map((t) => t.dep ? t : { ...t, dep, at: Date.now() });
+        });
+        save(next);
+    };
+    const fillRegions = () => {
+        const next = {};
+        Object.entries(visits).forEach(([a3, arr]) => {
+            next[a3] = (arr || []).map((t) => {
+                const have = t.regions || [];
+                const add = [];
+                (t.cities || []).forEach((c) => {
+                    const r = regionOf(a3, c);
+                    if (r && !have.includes(r) && !add.includes(r))
+                        add.push(r);
+                });
+                return add.length
+                    ? { ...t, regions: [...have, ...add], at: Date.now() }
+                    : t;
+            });
+        });
+        save(next);
     };
     /* сводим разные записи одного человека к одному id */
     const mergeWho = (from, toId) => {
@@ -9183,14 +9390,14 @@ function Atlas() {
                         React.createElement("p", { className: "focus-empty" }, mapView === "map"
                             ? "Нажмите страну на карте, чтобы посмотреть её."
                             : "Поверните глобус и нажмите страну, чтобы посмотреть её.")))),
-                    React.createElement(TripSheet, { open: sheet === "add", onClose: () => setSheet(null), box: box, initial: null, visits: visits, onSave: (a3, trip) => addTrip(a3, trip), mode: "add", quality: photoQuality, since: profile.since, people: profile.people || [], meId: profile.deviceId || ME }),
+                    React.createElement(TripSheet, { open: sheet === "add", onClose: () => setSheet(null), box: box, initial: null, visits: visits, onSave: (a3, trip) => addTrip(a3, trip), mode: "add", quality: photoQuality, since: profile.since, people: profile.people || [], home: profile.home || null, meId: profile.deviceId || ME }),
                     React.createElement(TripSheet, { open: sheet === "edit" && !!sel && !!selTrips.length, onClose: () => setSheet(null), box: box, initial: sel && selTrips.length
                             ? { a3: sel.a3, idx: (curTrip === null || curTrip === void 0 ? void 0 : curTrip.id) || curIdx, trip: curTrip }
-                            : null, visits: visits, onSave: (a3, trip) => editTrip(a3, (curTrip === null || curTrip === void 0 ? void 0 : curTrip.id) || curIdx, trip), onRemove: removeTrip, mode: "edit", quality: photoQuality, since: profile.since, people: profile.people || [], meId: profile.deviceId || ME }),
+                            : null, visits: visits, onSave: (a3, trip) => editTrip(a3, (curTrip === null || curTrip === void 0 ? void 0 : curTrip.id) || curIdx, trip), onRemove: removeTrip, mode: "edit", quality: photoQuality, since: profile.since, people: profile.people || [], home: profile.home || null, meId: profile.deviceId || ME }),
                     React.createElement(ProfileSheet, { open: sheet === "profile", onClose: () => setSheet(null), box: box, avatar: profile.avatar, name: profile.name, onName: async (v) => {
                             const prof = { ...profile, name: v };
                             await saveProfile(prof);
-                        }, onPickAvatar: (src) => setAvatarDraft(src), since: profile.since, people: profile.people || [], onPeople: async (list) => {
+                        }, onPickAvatar: (src) => setAvatarDraft(src), since: profile.since, people: profile.people || [], home: profile.home || null, onPeople: async (list) => {
                             const prof = { ...profile, people: list };
                             await saveProfile(prof);
                         }, onReports: () => {
@@ -9202,7 +9409,7 @@ function Atlas() {
                         }, home: profile.home || null, onHome: async (h) => {
                             const prof = { ...profile, home: h };
                             await saveProfile(prof);
-                        }, onMergeWho: mergeWho, onExport: exportData, onImport: importAsk, onRestore: restoreData, restoreMsg: restoreMsg, doubles: doubles.length, onDoubles: () => setSheet("doubles"), visits: visits }),
+                        }, onMergeWho: mergeWho, regionGaps: regionGaps, onFillRegions: fillRegions, depGaps: depGaps, onFillDeparture: fillDeparture, onExport: exportData, onImport: importAsk, onRestore: restoreData, restoreMsg: restoreMsg, doubles: doubles.length, onDoubles: () => setSheet("doubles"), visits: visits }),
                     React.createElement(SettingsSheet, { open: sheet === "settings", onClose: () => setSheet("profile"), box: box, visits: visits, theme: theme, onTheme: setTheme, quality: photoQuality, onQuality: (v) => {
                             setPhotoQuality(v);
                             setSheet("photomode");
@@ -9233,14 +9440,14 @@ function Atlas() {
                         } }),
                     React.createElement(CountrySheet, { country: sel, open: sheet === "country" && !!sel, onClose: () => setSheet(null), box: box }),
                     React.createElement(PhotoModeSheet, { open: sheet === "photomode", onClose: () => setSheet("settings"), box: box, quality: photoQuality, usage: photoUsage }),
-                    React.createElement(FamilySheet, { open: sheet === "family", onClose: () => setSheet("profile"), box: box, family: family, onFamily: setFamily, visits: visits, tombs: tombs, people: profile.people || [], meName: profile.name || "", onReceive: receiveFamily }),
+                    React.createElement(FamilySheet, { open: sheet === "family", onClose: () => setSheet("profile"), box: box, family: family, onFamily: setFamily, visits: visits, tombs: tombs, people: profile.people || [], home: profile.home || null, meName: profile.name || "", onReceive: receiveFamily }),
                     React.createElement(ShelfSheet, { open: sheet === "shelf", onClose: () => setSheet("profile"), box: box, isOn: isOn, isWish: isWish, onPick: (a3) => {
                             setSelected(a3);
                             setEditId(null);
                             setSheet(null);
                         } }),
-                    React.createElement(DoublesSheet, { open: sheet === "doubles", onClose: () => setSheet("profile"), box: box, pairs: doubles, people: profile.people || [], onJoin: joinDouble }),
-                    React.createElement(ReportsSheet, { open: sheet === "reports", onClose: () => setSheet(sheetBack === "list" ? "list" : "profile"), box: box, visits: visits, since: profile.since, stats: stats, people: profile.people || [], geo: geo, home: profile.home || null, onOpenTrip: (a3, id) => {
+                    React.createElement(DoublesSheet, { open: sheet === "doubles", onClose: () => setSheet("profile"), box: box, pairs: doubles, people: profile.people || [], home: profile.home || null, onJoin: joinDouble }),
+                    React.createElement(ReportsSheet, { open: sheet === "reports", onClose: () => setSheet(sheetBack === "list" ? "list" : "profile"), box: box, visits: visits, since: profile.since, stats: stats, people: profile.people || [], home: profile.home || null, geo: geo, home: profile.home || null, onOpenTrip: (a3, id) => {
                             setSelected(a3);
                             setEditId(id || null);
                             setSheet(null);
@@ -9255,7 +9462,7 @@ function Atlas() {
                     React.createElement(ListSheet, { visits: visits, stats: stats, open: sheet === "list", onClose: () => setSheet(null), onPick: (a3, id) => {
                             setSelected(a3);
                             setEditId(id || null);
-                        }, onDone: (a3, id) => editTrip(a3, id, { plan: false }), box: box, mode: listMode, since: profile.since, people: profile.people || [], meId: profile.deviceId || ME, wishCount: wish.length, onReports: () => {
+                        }, onDone: (a3, id) => editTrip(a3, id, { plan: false }), box: box, mode: listMode, since: profile.since, people: profile.people || [], home: profile.home || null, meId: profile.deviceId || ME, wishCount: wish.length, onReports: () => {
                             setSheetBack("list");
                             setSheet("reports");
                         }, onFilters: openFilters }),
@@ -9710,6 +9917,13 @@ body > div{max-width:100%;}
 .air-name b{font-size:0.74rem; font-weight:500;}
 .air-name em{font-style:normal; font-size:0.6rem; color:var(--dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .air-km{position:relative; flex:none; font-size:0.74rem; font-weight:600;}
+.dep-row{display:flex; align-items:center; flex-wrap:wrap; gap:9px; margin-bottom:10px;}
+.dep-label{font-size:0.72rem; color:var(--dim);}
+.dep-chip{display:flex; align-items:center; gap:7px; padding:6px 10px; border-radius:11px; border:1px solid var(--line);
+  background:var(--field); font-size:0.74rem;}
+.dep-chip button{border:0; background:none; color:var(--dim); cursor:pointer; padding:0 2px;}
+.dep-none{font-style:normal; font-size:0.72rem; color:var(--dim);}
+.dep-edit{margin:0 !important; padding:0 !important; font-size:0.72rem !important;}
 .move-row{display:flex; flex-wrap:wrap; gap:8px;}
 .move-chip{display:flex; align-items:center; gap:7px; padding:9px 13px; border-radius:12px; border:1px solid var(--line);
   background:var(--field); color:var(--dim); font-size:0.76rem; cursor:pointer;}
