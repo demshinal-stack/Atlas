@@ -1304,7 +1304,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "25.1";
+const APP_VERSION = "25.2";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -9999,10 +9999,13 @@ body > div{max-width:100%;}
 .pg-layer .span-globe{flex:1 1 auto; min-height:120px; justify-content:center;}
 .pg-list{display:none;}
 .pg-wide{position:fixed; inset:0; z-index:240; background:rgba(6,12,20,.9);
-  display:flex; align-items:stretch; padding:8px 8px 8px calc(env(safe-area-inset-left) + 8px);}
+  display:flex; align-items:stretch;
+  padding:8px 8px 8px calc(var(--rail) + env(safe-area-inset-left) + 12px);}
 .pg-panel{flex:1 1 auto; display:flex; gap:10px; min-width:0; border-radius:16px; border:1px solid var(--line);
   background:var(--el); padding:10px; overflow:hidden;}
-.pg-map{flex:1 1 auto; min-width:0; display:flex; align-items:center; justify-content:center;}
+.pg-map{flex:1 1 auto; min-width:0; display:flex; align-items:center; justify-content:center; overflow:hidden;}
+.pg-map .map-wrap{margin:0 auto; display:flex; flex-direction:column; align-items:center; justify-content:center;}
+.pg-map .globe-controls{position:absolute; left:14px; bottom:14px; padding:0;}
 .pg-side{flex:none; width:min(38%, 340px); display:flex; flex-direction:column; min-height:0; gap:8px;}
 .pg-side-head{display:flex; align-items:baseline; gap:8px; padding-right:38px;}
 .pg-side-head b{font-size:0.92rem;}
