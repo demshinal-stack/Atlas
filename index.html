@@ -1304,7 +1304,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "24.3";
+const APP_VERSION = "24.4";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -6169,7 +6169,8 @@ function SpanGlobe({ rows, geo, home }) {
         const path = d3.geoPath(proj, ctx);
         /* ширина карточки меняется при открытии — пересчитываем на лету */
         const fit = () => {
-            const want = Math.max(240, Math.min(box.clientWidth, window.innerHeight *
+            const free = freeForGlobe(box);
+            const want = Math.max(200, Math.min(box.clientWidth, free > 120 ? free : 9999, window.innerHeight *
                 (window.innerWidth > window.innerHeight ? 0.62 : 0.8), 520));
             if (want === w)
                 return;
@@ -6485,6 +6486,16 @@ function SpanGlobe({ rows, geo, home }) {
                     React.createElement("u", null, hoursText(Math.abs(tzHours(r.north) - tzHours(r.south)))))));
         }))));
 }
+/* сколько высоты осталось шару внутри карточки разворота */
+const freeForGlobe = (wrap) => {
+    const box = wrap === null || wrap === void 0 ? void 0 : wrap.closest(".zoom-box");
+    const layer = wrap === null || wrap === void 0 ? void 0 : wrap.closest(".zoom-layer");
+    if (!box || !layer)
+        return 0;
+    // всё, кроме самого шара, уже занимает место — остальное отдаём ему
+    const others = box.scrollHeight - (wrap.clientHeight || 0);
+    return Math.floor(layer.clientHeight - others - 10);
+};
 /* стартовый поворот: дом смотрит из верхней правой четверти шара */
 const homeRot = (home) => home && isFinite(home.lat) && isFinite(home.lon)
     ? [
@@ -6546,7 +6557,7 @@ function airReport(visits, home) {
 }
 /* глобус одного человека: лучи из дома во все его точки */
 function PersonGlobe({ row, home, geo, onClose }) {
-    var _c, _d, _e;
+    var _c, _d, _e, _f;
     const wrap = useRef(null);
     const cv = useRef(null);
     const rot = useRef(homeRot(home));
@@ -6600,8 +6611,9 @@ function PersonGlobe({ row, home, geo, onClose }) {
         const path = d3.geoPath(proj, ctx);
         const grat = d3.geoGraticule10();
         const fit = () => {
-            const want = Math.max(150, Math.min(box.clientWidth, window.innerHeight *
-                (window.innerWidth > window.innerHeight ? 0.6 : 0.44), 520));
+            const free = freeForGlobe(box);
+            const want = Math.max(150, Math.min(box.clientWidth, free > 120 ? free : 9999, window.innerHeight *
+                (window.innerWidth > window.innerHeight ? 0.6 : 0.52), 520));
             if (Math.abs(want - w) < 2)
                 return;
             w = want;
@@ -6792,12 +6804,22 @@ function PersonGlobe({ row, home, geo, onClose }) {
                 trip && (React.createElement("div", { className: "pg-trip" },
                     React.createElement("span", { className: "pg-flag" }, flag(((_c = BY_A3[trip.a3]) === null || _c === void 0 ? void 0 : _c.a2) || "")),
                     React.createElement("span", { className: "pg-main" },
-                        React.createElement("b", null, ((_d = BY_A3[trip.a3]) === null || _d === void 0 ? void 0 : _d.name) || trip.a3),
+                        React.createElement("b", null, (() => {
+                            var _c;
+                            const ray = (sel && rays.find((q) => q.key === sel)) ||
+                                rays.find((q) => (q.tids || []).includes(trip.id));
+                            const from = (ray === null || ray === void 0 ? void 0 : ray.from) || home;
+                            const to = (ray === null || ray === void 0 ? void 0 : ray.name) || trip.cities || ((_c = BY_A3[trip.a3]) === null || _c === void 0 ? void 0 : _c.name) || "";
+                            return from ? `${from.name} → ${to}` : to;
+                        })()),
                         React.createElement("em", null,
-                            trip.m ? `${MONTHS[trip.m - 1]} ` : "",
-                            trip.y || "",
-                            trip.cities ? ` · ${trip.cities}` : "")),
-                    sel && (React.createElement("span", { className: "pg-km" }, kmText(((_e = rays.find((q) => q.key === sel)) === null || _e === void 0 ? void 0 : _e.km) || 0)))))))));
+                            ((_d = BY_A3[trip.a3]) === null || _d === void 0 ? void 0 : _d.name) || trip.a3,
+                            trip.m ? ` · ${MONTHS[trip.m - 1]}` : "",
+                            trip.y ? ` ${trip.y}` : "")),
+                    React.createElement("span", { className: "pg-km" }, kmText((sel
+                        ? (_e = rays.find((q) => q.key === sel)) === null || _e === void 0 ? void 0 : _e.km
+                        : (_f = rays.find((q) => (q.tids || []).includes(trip.id))) === null || _f === void 0 ? void 0 : _f.km) ||
+                        0))))))));
 }
 /* самая длинная дуга: две самые удалённые точки поездок */
 function SpanChart({ rows, geo, home }) {
@@ -9828,7 +9850,7 @@ body > div{max-width:100%;}
 .crew-globe:active{color:var(--gold); border-color:rgba(232,184,75,.45);}
 /* окно человека начинается сразу под шапкой шторки */
 .zoom-layer.pg-layer{align-items:flex-start; padding-top:calc(env(safe-area-inset-top) + 46px);
-  padding-bottom:calc(env(safe-area-inset-bottom) + 84px);}
+  padding-bottom:calc(env(safe-area-inset-bottom) + 70px);}
 .pg-layer .zoom-box{max-height:100%;}
 .pg-trip{display:flex; align-items:center; gap:10px; margin-top:12px; padding:11px 12px; border-radius:13px;
   border:1px solid var(--line); background:var(--field);}
