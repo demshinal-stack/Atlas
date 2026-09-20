@@ -1304,7 +1304,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "25.0";
+const APP_VERSION = "25.1";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -2651,7 +2651,7 @@ function sunPoint(now) {
 /* ================================================================== */
 /*  Карта                                                             */
 /* ================================================================== */
-function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home, boxWidth, marks, light, playing, setPlaying, view, page: pageProp, setPage, isWish, arcs }) {
+function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home, boxWidth, marks, light, playing, setPlaying, view, page: pageProp, setPage, isWish, arcs, noFull }) {
     const wrapRef = useRef(null);
     const canvasRef = useRef(null);
     const [size, setSize] = useState(320);
@@ -3060,7 +3060,9 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         }
         // дуги перелётов: приподняты над шаром, поэтому видны целиком
         const arcRot = d3.geoRotation([rot.current[0], rot.current[1], 0]);
-        const arcR = (size / 2 - 6) * zoom.current;
+        const arcRoom = (state.current.arcs || []).length ? 0.84 : 1;
+        const arcR = (size / 2 - 6) * zoom.current * arcRoom;
+        const arcCy = cy + (1 - arcRoom) * size * 0.12;
         const arcRad = Math.PI / 180;
         const lift3d = ([lon, lat], lift) => {
             const p = arcRot([lon, lat]);
@@ -3071,7 +3073,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
             const z = Math.cos(la) * Math.cos(lo);
             const k = arcR * (1 + lift);
             const hidden = z < 0 && Math.hypot(x, y) * (1 + lift) < 1;
-            return hidden ? null : [cx + x * k, cy + y * k];
+            return hidden ? null : [cx + x * k, arcCy + y * k];
         };
         (state.current.arcs || []).forEach((a, ai) => {
             const N = 64;
@@ -3405,10 +3407,11 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                 .translate([size / 2 + panX.current, H / 2 + panY.current]);
         }
         else {
+            const room = (state.current.arcs || []).length ? 0.84 : 1;
             proj = d3
                 .geoOrthographic()
-                .translate([cx, cy])
-                .scale((size / 2 - 6) * zoom.current)
+                .translate([cx, cy + (1 - room) * size * 0.12])
+                .scale((size / 2 - 6) * zoom.current * room)
                 .rotate([rot.current[0], rot.current[1], 0])
                 .clipAngle(90);
         }
@@ -3489,7 +3492,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         !isMap && (React.createElement("button", { className: "play" + (playing ? " on" : ""), onClick: () => setPlaying((v) => !v), "aria-label": playing ? "Остановить вращение" : "Вращать глобус" }, playing ? (React.createElement("svg", { viewBox: "0 0 24 24", width: "15", height: "15" },
             React.createElement("path", { d: "M8 6h3v12H8zM13 6h3v12h-3z", fill: "currentColor" }))) : (React.createElement("svg", { viewBox: "0 0 24 24", width: "15", height: "15" },
             React.createElement("path", { d: "M9 6l9 6-9 6z", fill: "currentColor" }))))),
-        React.createElement("button", { onClick: onToggleFull, "aria-label": "\u0412\u043E \u0432\u0435\u0441\u044C \u044D\u043A\u0440\u0430\u043D" }, full ? "✕" : "⛶")));
+        !noFull && (React.createElement("button", { onClick: onToggleFull, "aria-label": "\u0412\u043E \u0432\u0435\u0441\u044C \u044D\u043A\u0440\u0430\u043D" }, full ? "✕" : "⛶"))));
     if (full)
         return (React.createElement("div", { className: "globe-full", ref: wrapRef },
             stage,
@@ -6624,13 +6627,14 @@ function airReport(visits, home) {
 }
 /* глобус одного человека: лучи из дома во все его точки */
 function PersonGlobe({ row, home, geo, onClose, onArcs, mapProps }) {
-    var _c, _d, _e, _f, _g, _h, _j, _k;
+    var _c, _d, _e, _f;
     const wrap = useRef(null);
     const cv = useRef(null);
     const rot = useRef(homeRot(home));
     const drag = useRef(null);
     const raf = useRef(0);
     const [sel, setSel] = useState(null);
+    const [spin, setSpin] = useState(true);
     const selRef = useRef(null);
     const hitRef = useRef([]);
     const listRef = useRef(null);
@@ -6880,7 +6884,7 @@ function PersonGlobe({ row, home, geo, onClose, onArcs, mapProps }) {
         return (React.createElement("div", { className: "pg-wide", onClick: onClose },
             React.createElement("div", { className: "pg-panel", onClick: (e) => e.stopPropagation() },
                 React.createElement("div", { className: "pg-map" },
-                    React.createElement(Globe, { ...(mapProps || {}), geo: geo, arcs: arcList, full: false, onToggleFull: () => { }, onPick: (a3) => {
+                    React.createElement(Globe, { ...(mapProps || {}), geo: geo, arcs: arcList, full: false, noFull: true, playing: spin, setPlaying: setSpin, onToggleFull: () => { }, onPick: (a3) => {
                             const hit = rays.find((q) => q.a3 === a3);
                             setSel(hit ? (sel === hit.key ? null : hit.key) : null);
                         } })),
@@ -6890,36 +6894,19 @@ function PersonGlobe({ row, home, geo, onClose, onArcs, mapProps }) {
                         React.createElement("em", null, np(rays.length, "way")),
                         React.createElement("button", { className: "zoom-x", onClick: onClose, "aria-label": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C" }, "\u2715")),
                     React.createElement("div", { className: "pg-list", ref: listRef }, rays.map((q) => {
-                        var _c;
+                        var _c, _d;
                         return (React.createElement("button", { key: q.key, "data-on": sel === q.key ? "1" : "0", className: "ray-row" + (sel === q.key ? " on" : ""), onClick: () => setSel(sel === q.key ? null : q.key) },
                             React.createElement("i", { style: { background: sel === q.key ? "#8fd4ff" : row.color } }),
                             React.createElement("span", null,
-                                flag(((_c = BY_A3[q.a3]) === null || _c === void 0 ? void 0 : _c.a2) || ""),
+                                ((_c = q.from) === null || _c === void 0 ? void 0 : _c.name) ? `${q.from.name} → ` : "",
+                                flag(((_d = BY_A3[q.a3]) === null || _d === void 0 ? void 0 : _d.a2) || ""),
                                 " ",
                                 q.name,
                                 q.n > 1 && React.createElement("u", null,
                                     "\u00D7",
                                     q.n)),
                             React.createElement("b", null, kmText(q.km))));
-                    })),
-                    trip && (React.createElement("div", { className: "pg-trip" },
-                        React.createElement("span", { className: "pg-flag" }, flag(((_c = BY_A3[trip.a3]) === null || _c === void 0 ? void 0 : _c.a2) || "")),
-                        React.createElement("span", { className: "pg-main" },
-                            React.createElement("b", null, (() => {
-                                var _c;
-                                const ray = (sel && rays.find((q) => q.key === sel)) ||
-                                    rays.find((q) => (q.tids || []).includes(trip.id));
-                                const from = (ray === null || ray === void 0 ? void 0 : ray.from) || home;
-                                const to = (ray === null || ray === void 0 ? void 0 : ray.name) || trip.cities || ((_c = BY_A3[trip.a3]) === null || _c === void 0 ? void 0 : _c.name) || "";
-                                return from ? `${from.name} → ${to}` : to;
-                            })()),
-                            React.createElement("em", null,
-                                ((_d = BY_A3[trip.a3]) === null || _d === void 0 ? void 0 : _d.name) || trip.a3,
-                                trip.m ? ` · ${MONTHS[trip.m - 1]}` : "",
-                                trip.y ? ` ${trip.y}` : "")),
-                        React.createElement("span", { className: "pg-km" }, kmText((sel
-                            ? (_e = rays.find((q) => q.key === sel)) === null || _e === void 0 ? void 0 : _e.km
-                            : (_f = rays.find((q) => (q.tids || []).includes(trip.id))) === null || _f === void 0 ? void 0 : _f.km) || 0))))))));
+                    }))))));
     return (React.createElement("div", { className: "zoom-layer pg-layer", onClick: onClose },
         React.createElement("div", { className: "zoom-box", onClick: (e) => e.stopPropagation() },
             React.createElement("button", { className: "zoom-x", onClick: onClose, "aria-label": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C" }, "\u2715"),
@@ -6944,7 +6931,7 @@ function PersonGlobe({ row, home, geo, onClose, onArcs, mapProps }) {
                         React.createElement("b", null, kmText(q.km))));
                 })),
                 trip && (React.createElement("div", { className: "pg-trip" },
-                    React.createElement("span", { className: "pg-flag" }, flag(((_g = BY_A3[trip.a3]) === null || _g === void 0 ? void 0 : _g.a2) || "")),
+                    React.createElement("span", { className: "pg-flag" }, flag(((_c = BY_A3[trip.a3]) === null || _c === void 0 ? void 0 : _c.a2) || "")),
                     React.createElement("span", { className: "pg-main" },
                         React.createElement("b", null, (() => {
                             var _c;
@@ -6955,12 +6942,12 @@ function PersonGlobe({ row, home, geo, onClose, onArcs, mapProps }) {
                             return from ? `${from.name} → ${to}` : to;
                         })()),
                         React.createElement("em", null,
-                            ((_h = BY_A3[trip.a3]) === null || _h === void 0 ? void 0 : _h.name) || trip.a3,
+                            ((_d = BY_A3[trip.a3]) === null || _d === void 0 ? void 0 : _d.name) || trip.a3,
                             trip.m ? ` · ${MONTHS[trip.m - 1]}` : "",
                             trip.y ? ` ${trip.y}` : "")),
                     React.createElement("span", { className: "pg-km" }, kmText((sel
-                        ? (_j = rays.find((q) => q.key === sel)) === null || _j === void 0 ? void 0 : _j.km
-                        : (_k = rays.find((q) => (q.tids || []).includes(trip.id))) === null || _k === void 0 ? void 0 : _k.km) ||
+                        ? (_e = rays.find((q) => q.key === sel)) === null || _e === void 0 ? void 0 : _e.km
+                        : (_f = rays.find((q) => (q.tids || []).includes(trip.id))) === null || _f === void 0 ? void 0 : _f.km) ||
                         0))))))));
 }
 /* самая длинная дуга: две самые удалённые точки поездок */
