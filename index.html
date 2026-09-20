@@ -290,7 +290,7 @@ VU|VUT|Вануату|OC|-16.3|167.5
 /* справочники живут отдельно: на сервере, а по желанию — на устройстве */
 const K_BOOKS = "atlas:books";
 /* версия справочников: меняется, когда данные обновились на сервере */
-const BOOKS_VER = 11;
+const BOOKS_VER = 12;
 const BOOKS = [
     { id: "cities", file: "cities.txt", title: "Города" },
     { id: "regions", file: "regions.txt", title: "Регионы" },
@@ -298,6 +298,7 @@ const BOOKS = [
     { id: "sights", file: "sights.txt", title: "Достопримечательности" },
     { id: "phrases", file: "phrases.txt", title: "Разговорник" },
     { id: "points", file: "citypoints.txt", title: "Координаты городов" },
+    { id: "airlines", file: "airlines.txt", title: "Авиакомпании" },
     { id: "badges", file: "badges.txt", title: "Значки стран" },
 ];
 /* значки: один рисунок на все страны, по нему вырезаем нужную клетку */
@@ -392,6 +393,26 @@ const parsePhrases = (raw) => {
     });
     return by;
 };
+/* авиакомпании: код|название|страна|год|направления|альянс|цвет */
+let AIRLINES = {};
+const parseAirlines = (raw) => {
+    const out = {};
+    (raw || "").split("\n").forEach((row) => {
+        const [code, name, a3, year, routes, alliance, color] = row.split("|");
+        if (!code || !name)
+            return;
+        out[code.trim()] = {
+            code: code.trim(),
+            name: name.trim(),
+            a3: (a3 || "").trim(),
+            year: +year || null,
+            routes: (routes || "").trim(),
+            alliance: (alliance || "").trim().replace("—", ""),
+            color: (color || "#2b4a68").trim(),
+        };
+    });
+    return out;
+};
 /* координаты городов: A3|Город,шир,долг;… Имя с «~» — приблизительно */
 let CITY_PT = {};
 const parsePoints = (raw) => {
@@ -421,6 +442,7 @@ const applyBooks = (data) => {
     SIGHTS = parseSights(data === null || data === void 0 ? void 0 : data.sights);
     REGIONS = parseRegions(data === null || data === void 0 ? void 0 : data.regions);
     CITY_PT = parsePoints(data === null || data === void 0 ? void 0 : data.points);
+    AIRLINES = parseAirlines(data === null || data === void 0 ? void 0 : data.airlines);
     if (data === null || data === void 0 ? void 0 : data.badges) {
         const [cols, cell, list] = data.badges.trim().split("|");
         const index = {};
@@ -1260,7 +1282,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "22.6";
+const APP_VERSION = "22.7";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -4106,6 +4128,49 @@ function Stars({ value, onPick }) {
             onPick(n === value ? 0 : n);
         }, "aria-label": `${n} звёзд` }, "\u2605")))));
 }
+const MOVE_ICON = { car: "🚗", air: "✈️", rail: "🚆", other: "⛴" };
+const MOVES = [
+    { id: "car", name: "Авто", icon: "🚗" },
+    { id: "air", name: "Авиа", icon: "✈️" },
+    { id: "rail", name: "Поезд", icon: "🚆" },
+    { id: "other", name: "Прочее", icon: "⛴" },
+];
+/* поиск авиакомпании по названию, коду или стране */
+function AirPicker({ exclude = [], onAdd, onClose }) {
+    const [q, setQ] = useState("");
+    const found = useMemo(() => {
+        const t = q.trim().toLowerCase();
+        const all = Object.values(AIRLINES).filter((a) => !exclude.includes(a.code));
+        if (!t)
+            return all.slice(0, 8);
+        return all
+            .filter((a) => {
+            var _c;
+            return a.name.toLowerCase().includes(t) ||
+                a.code.toLowerCase() === t ||
+                (((_c = BY_A3[a.a3]) === null || _c === void 0 ? void 0 : _c.name) || "").toLowerCase().startsWith(t);
+        })
+            .slice(0, 12);
+    }, [q, exclude]);
+    return (React.createElement("div", { className: "air-pick" },
+        React.createElement("label", { className: "tf" },
+            React.createElement("input", { className: "tf-input", value: q, onChange: (e) => setQ(e.target.value), placeholder: "\u0410\u0432\u0438\u0430\u043A\u043E\u043C\u043F\u0430\u043D\u0438\u044F \u0438\u043B\u0438 \u0441\u0442\u0440\u0430\u043D\u0430", autoFocus: true }),
+            React.createElement("button", { className: "tf-clear", onClick: onClose, "aria-label": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C" }, "\u2715")),
+        React.createElement("div", { className: "air-list" },
+            found.map((a) => {
+                var _c, _d;
+                return (React.createElement("button", { key: a.code, onClick: () => onAdd(a.code) },
+                    React.createElement("i", { style: { background: a.color } }, a.code),
+                    React.createElement("span", null,
+                        a.name,
+                        React.createElement("em", null,
+                            flag(((_c = BY_A3[a.a3]) === null || _c === void 0 ? void 0 : _c.a2) || ""),
+                            " ",
+                            ((_d = BY_A3[a.a3]) === null || _d === void 0 ? void 0 : _d.name) || a.a3,
+                            a.year ? ` · с ${a.year}` : ""))));
+            }),
+            !found.length && (React.createElement("p", { className: "hint small" }, "\u0422\u0430\u043A\u043E\u0439 \u0430\u0432\u0438\u0430\u043A\u043E\u043C\u043F\u0430\u043D\u0438\u0438 \u0432 \u0441\u043F\u0440\u0430\u0432\u043E\u0447\u043D\u0438\u043A\u0435 \u043D\u0435\u0442.")))));
+}
 function TripSheet({ open, onClose, box, initial, visits, onSave, onRemove, mode, quality, since, people = [], meId = ME }) {
     const totalPhotos = useMemo(() => {
         let k = 0;
@@ -4119,6 +4184,8 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, onRemove, mode
     const [addRegion, setAddRegion] = useState(false);
     const [addHotel, setAddHotel] = useState(false);
     const [addWho, setAddWho] = useState(false);
+    const [addAir, setAddAir] = useState(false);
+    const [airInfo, setAirInfo] = useState(null);
     const whoBox = useRef(null);
     useEffect(() => {
         if (!addWho)
@@ -4155,6 +4222,8 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, onRemove, mode
             cities: src.trip.cities || [],
             hotels: src.trip.hotels || [],
             photos: src.trip.photos || [],
+            move: src.trip.move || null,
+            air: src.trip.air || [],
         }
         : null;
     const srcKey = initial ? `${initial.a3}:${initial.idx}` : "";
@@ -4263,180 +4332,224 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, onRemove, mode
     const cityPool = useMemo(() => (country ? CITIES.filter((c) => c.a3 === country.a3).map((c) => c.city) : []), [country]);
     const whenReady = !!(draft && draft.y && (!draft.approx || draft.y2));
     const whenText = (draft === null || draft === void 0 ? void 0 : draft.y) ? tripLabel(draft) : "";
-    return (React.createElement(Sheet, { open: open, onClose: onClose, box: box, title: country ? country.name : mode === "edit" ? "Поездка" : "Новая поездка" }, (close) => (React.createElement("div", { className: "sheet-body" },
-        !country ? (React.createElement(React.Fragment, null,
-            React.createElement(TextField, { search: true, value: q, placeholder: "\u041D\u0430\u0447\u043D\u0438\u0442\u0435 \u0432\u0432\u043E\u0434\u0438\u0442\u044C \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u0435", onChange: (e) => setQ(e.target.value) }),
-            React.createElement("p", { className: "tf-hint" }, "\u041D\u0430\u043F\u0440\u0438\u043C\u0435\u0440: \u042F\u043F\u043E\u043D\u0438\u044F, \u041F\u0445\u0443\u043A\u0435\u0442, \u041F\u0440\u0430\u0433\u0430"),
-            React.createElement("div", { className: "sheet-list inline-list" }, results.map(({ c, via }) => {
-                var _c;
-                return (React.createElement("button", { key: c.a3, className: "opt" + (((_c = visits[c.a3]) === null || _c === void 0 ? void 0 : _c.length) ? " opt-on" : ""), onClick: () => setDraft({
-                        a3: c.a3,
-                        y: NOW.getFullYear(),
-                        m: null,
-                        noMonth: true,
-                        y2: null,
-                        approx: false,
-                        from: "",
-                        to: "",
-                        plan: false,
-                        who: [ME, ...people.filter((p) => p.always).map((p) => p.id)],
-                        regions: [],
-                        cities: via ? [via] : [],
-                        hotels: [],
-                        photos: [],
-                    }) },
-                    React.createElement("span", { className: "fl" }, flag(c.a2)),
-                    React.createElement("span", { className: "nm" },
-                        c.name,
-                        via && React.createElement("em", { className: "via" },
-                            " \u00B7 ",
-                            via)),
-                    React.createElement("span", { className: "ct" }, CONTINENTS[c.cont])));
-            })))) : (React.createElement(Done, { label: "\u0421\u0442\u0440\u0430\u043D\u0430", value: `${flag(country.a2)} ${country.name}`, onEdit: () => setDraft(null) })),
-        country &&
-            (editWhen ? (React.createElement("div", { className: "step" },
-                React.createElement("p", { className: "step-title" }, "\u041A\u043E\u0433\u0434\u0430 \u044D\u0442\u043E \u0431\u044B\u043B\u043E"),
-                React.createElement(WhenPicker, { y: draft.y, m: draft.m, noMonth: draft.noMonth, y2: draft.y2, approx: draft.approx, from: draft.from, to: draft.to, since: since, onChange: (p) => patch(p) }),
-                React.createElement("button", { className: "cta slim", onClick: () => draft.y && setEditWhen(false) }, "\u0413\u043E\u0442\u043E\u0432\u043E"))) : (React.createElement(Done, { label: "\u041A\u043E\u0433\u0434\u0430", value: whenText, onEdit: () => setEditWhen(true) }))),
-        country && whenReady && !editWhen && (React.createElement("button", { className: "approx-row plan-row", onClick: () => {
-                planTouched.current = true;
-                patch({ plan: !draft.plan });
-            } },
-            React.createElement("span", null,
-                "\u042D\u0442\u043E \u043F\u043B\u0430\u043D\u044B",
-                React.createElement("em", null, draft.plan
-                    ? "Поездка впереди — в статистику не попадёт"
-                    : "Включится само, если выбрать будущую дату")),
-            React.createElement("span", { className: "switch" + (draft.plan ? " on" : "") },
-                React.createElement("i", null)))),
-        country && whenReady && !editWhen && (REGIONS[country.a3] || []).length > 0 && (React.createElement("div", { className: "step" },
-            React.createElement("p", { className: "step-title" }, "\u0420\u0435\u0433\u0438\u043E\u043D"),
-            (draft.regions || []).length > 0 && (React.createElement("div", { className: "city-chips" }, (draft.regions || []).map((r) => (React.createElement("span", { key: r, className: "city-chip" },
-                r,
-                React.createElement("button", { onClick: () => patch({
-                        regions: (draft.regions || []).filter((x) => x !== r),
-                    }) }, "\u2715")))))),
-            addRegion ? (React.createElement(Suggest, { placeholder: "\u041D\u0430\u0447\u043D\u0438\u0442\u0435 \u0432\u0432\u043E\u0434\u0438\u0442\u044C \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u0435", pool: REGIONS[country.a3] || [], exclude: draft.regions || [], onAdd: (r) => {
-                    patch({ regions: [...(draft.regions || []), r] });
-                    setAddRegion(false);
-                } })) : (React.createElement("button", { className: "link-btn", onClick: () => setAddRegion(true) },
-                "\uFF0B ",
-                (draft.regions || []).length ? "ещё регион" : "выбрать регион")))),
-        country && whenReady && !editWhen && (React.createElement("div", { className: "step" },
-            React.createElement("p", { className: "step-title" }, "\u0413\u043E\u0440\u043E\u0434\u0430"),
-            draft.cities.length > 0 && (React.createElement("div", { className: "city-chips" }, draft.cities.map((c) => (React.createElement("span", { key: c, className: "city-chip" },
-                c,
-                React.createElement("button", { onClick: () => patch({ cities: draft.cities.filter((x) => x !== c) }) }, "\u2715")))))),
-            draft.cities.length === 0 || addCity ? (React.createElement(Suggest, { placeholder: "\u041D\u0430\u0447\u043D\u0438\u0442\u0435 \u0432\u0432\u043E\u0434\u0438\u0442\u044C \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u0435", pool: cityPool, exclude: draft.cities, onAdd: (c) => {
-                    patch({ cities: [...draft.cities, c] });
-                    setAddCity(false);
-                } })) : (React.createElement("button", { className: "link-btn", onClick: () => setAddCity(true) }, "\uFF0B \u0435\u0449\u0451 \u0433\u043E\u0440\u043E\u0434")))),
-        country && whenReady && !editWhen && (React.createElement("div", { className: "step" },
-            React.createElement("p", { className: "step-title" }, "\u041A\u0442\u043E \u0435\u0437\u0434\u0438\u043B"),
-            React.createElement("div", { className: "city-chips" },
-                React.createElement("span", { className: "city-chip me-chip" +
-                        ((draft.who || []).includes(ME) ? " who-on" : " who-off") },
-                    "\u042F",
-                    React.createElement("button", { onClick: () => patch((draft.who || []).includes(ME)
-                            ? {
-                                who: (draft.who || []).filter((x) => x !== ME),
-                                left: [
-                                    ...new Set([...(draft.left || []), meId]),
-                                ],
-                            }
-                            : {
-                                who: [ME, ...(draft.who || [])],
-                                left: (draft.left || []).filter((x) => x !== meId),
-                            }) }, (draft.who || []).includes(ME) ? "✕" : "＋"))),
-            othersOf(draft).length > 0 && (React.createElement("div", { className: "city-chips" }, othersOf(draft).map((n) => {
-                const p = people.find((x) => x.id === n || x.name === n);
-                return (React.createElement("span", { key: n, className: "city-chip who-on" },
-                    p ? p.name : n,
-                    p && React.createElement("i", null, p.role),
+    return (React.createElement(Sheet, { open: open, onClose: onClose, box: box, title: country ? country.name : mode === "edit" ? "Поездка" : "Новая поездка" }, (close) => {
+        var _c, _d;
+        return (React.createElement("div", { className: "sheet-body" },
+            !country ? (React.createElement(React.Fragment, null,
+                React.createElement(TextField, { search: true, value: q, placeholder: "\u041D\u0430\u0447\u043D\u0438\u0442\u0435 \u0432\u0432\u043E\u0434\u0438\u0442\u044C \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u0435", onChange: (e) => setQ(e.target.value) }),
+                React.createElement("p", { className: "tf-hint" }, "\u041D\u0430\u043F\u0440\u0438\u043C\u0435\u0440: \u042F\u043F\u043E\u043D\u0438\u044F, \u041F\u0445\u0443\u043A\u0435\u0442, \u041F\u0440\u0430\u0433\u0430"),
+                React.createElement("div", { className: "sheet-list inline-list" }, results.map(({ c, via }) => {
+                    var _c;
+                    return (React.createElement("button", { key: c.a3, className: "opt" + (((_c = visits[c.a3]) === null || _c === void 0 ? void 0 : _c.length) ? " opt-on" : ""), onClick: () => setDraft({
+                            a3: c.a3,
+                            y: NOW.getFullYear(),
+                            m: null,
+                            noMonth: true,
+                            y2: null,
+                            approx: false,
+                            from: "",
+                            to: "",
+                            plan: false,
+                            who: [ME, ...people.filter((p) => p.always).map((p) => p.id)],
+                            regions: [],
+                            cities: via ? [via] : [],
+                            hotels: [],
+                            photos: [],
+                            move: null,
+                            air: [],
+                        }) },
+                        React.createElement("span", { className: "fl" }, flag(c.a2)),
+                        React.createElement("span", { className: "nm" },
+                            c.name,
+                            via && React.createElement("em", { className: "via" },
+                                " \u00B7 ",
+                                via)),
+                        React.createElement("span", { className: "ct" }, CONTINENTS[c.cont])));
+                })))) : (React.createElement(Done, { label: "\u0421\u0442\u0440\u0430\u043D\u0430", value: `${flag(country.a2)} ${country.name}`, onEdit: () => setDraft(null) })),
+            country &&
+                (editWhen ? (React.createElement("div", { className: "step" },
+                    React.createElement("p", { className: "step-title" }, "\u041A\u043E\u0433\u0434\u0430 \u044D\u0442\u043E \u0431\u044B\u043B\u043E"),
+                    React.createElement(WhenPicker, { y: draft.y, m: draft.m, noMonth: draft.noMonth, y2: draft.y2, approx: draft.approx, from: draft.from, to: draft.to, since: since, onChange: (p) => patch(p) }),
+                    React.createElement("button", { className: "cta slim", onClick: () => draft.y && setEditWhen(false) }, "\u0413\u043E\u0442\u043E\u0432\u043E"))) : (React.createElement(Done, { label: "\u041A\u043E\u0433\u0434\u0430", value: whenText, onEdit: () => setEditWhen(true) }))),
+            country && whenReady && !editWhen && (React.createElement("button", { className: "approx-row plan-row", onClick: () => {
+                    planTouched.current = true;
+                    patch({ plan: !draft.plan });
+                } },
+                React.createElement("span", null,
+                    "\u042D\u0442\u043E \u043F\u043B\u0430\u043D\u044B",
+                    React.createElement("em", null, draft.plan
+                        ? "Поездка впереди — в статистику не попадёт"
+                        : "Включится само, если выбрать будущую дату")),
+                React.createElement("span", { className: "switch" + (draft.plan ? " on" : "") },
+                    React.createElement("i", null)))),
+            country && whenReady && !editWhen && (REGIONS[country.a3] || []).length > 0 && (React.createElement("div", { className: "step" },
+                React.createElement("p", { className: "step-title" }, "\u0420\u0435\u0433\u0438\u043E\u043D"),
+                (draft.regions || []).length > 0 && (React.createElement("div", { className: "city-chips" }, (draft.regions || []).map((r) => (React.createElement("span", { key: r, className: "city-chip" },
+                    r,
                     React.createElement("button", { onClick: () => patch({
-                            who: (draft.who || []).filter((x) => x !== n),
-                        }) }, "\u2715")));
-            }))),
-            people.length === 0 && !(draft.who || []).length && !addWho && (React.createElement("p", { className: "hint small" }, "\u041F\u043E\u043A\u0430 \u043D\u0438\u043A\u043E\u0433\u043E \u043D\u0435\u0442. \u0414\u043E\u0431\u0430\u0432\u044C\u0442\u0435 \u0443\u0447\u0430\u0441\u0442\u043D\u0438\u043A\u0430 \u2014 \u043E\u043D \u0441\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u0441\u044F \u0432 \u043F\u0440\u043E\u0444\u0438\u043B\u0435 \u0438 \u0432 \u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0438\u0439 \u0440\u0430\u0437 \u0431\u0443\u0434\u0435\u0442 \u0432\u044B\u0431\u0438\u0440\u0430\u0442\u044C\u0441\u044F \u043D\u0430\u0436\u0430\u0442\u0438\u0435\u043C.")),
-            addWho ? (React.createElement("div", { ref: whoBox },
-                React.createElement(Suggest, { placeholder: "\u041D\u0430\u0447\u043D\u0438\u0442\u0435 \u0432\u0432\u043E\u0434\u0438\u0442\u044C \u0438\u043C\u044F", pool: people
-                        .filter((p) => !(draft.who || []).includes(p.id))
-                        .map((p) => p.name), exclude: [], allowCustom: false, onAdd: (name) => {
-                        const p = people.find((x) => x.name === name);
+                            regions: (draft.regions || []).filter((x) => x !== r),
+                        }) }, "\u2715")))))),
+                addRegion ? (React.createElement(Suggest, { placeholder: "\u041D\u0430\u0447\u043D\u0438\u0442\u0435 \u0432\u0432\u043E\u0434\u0438\u0442\u044C \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u0435", pool: REGIONS[country.a3] || [], exclude: draft.regions || [], onAdd: (r) => {
+                        patch({ regions: [...(draft.regions || []), r] });
+                        setAddRegion(false);
+                    } })) : (React.createElement("button", { className: "link-btn", onClick: () => setAddRegion(true) },
+                    "\uFF0B ",
+                    (draft.regions || []).length ? "ещё регион" : "выбрать регион")))),
+            country && whenReady && !editWhen && (React.createElement("div", { className: "step" },
+                React.createElement("p", { className: "step-title" }, "\u0413\u043E\u0440\u043E\u0434\u0430"),
+                draft.cities.length > 0 && (React.createElement("div", { className: "city-chips" }, draft.cities.map((c) => (React.createElement("span", { key: c, className: "city-chip" },
+                    c,
+                    React.createElement("button", { onClick: () => patch({ cities: draft.cities.filter((x) => x !== c) }) }, "\u2715")))))),
+                draft.cities.length === 0 || addCity ? (React.createElement(Suggest, { placeholder: "\u041D\u0430\u0447\u043D\u0438\u0442\u0435 \u0432\u0432\u043E\u0434\u0438\u0442\u044C \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u0435", pool: cityPool, exclude: draft.cities, onAdd: (c) => {
+                        patch({ cities: [...draft.cities, c] });
+                        setAddCity(false);
+                    } })) : (React.createElement("button", { className: "link-btn", onClick: () => setAddCity(true) }, "\uFF0B \u0435\u0449\u0451 \u0433\u043E\u0440\u043E\u0434")))),
+            country && whenReady && !editWhen && (React.createElement("div", { className: "step" },
+                React.createElement("p", { className: "step-title" }, "\u041A\u0430\u043A \u0434\u043E\u0431\u0438\u0440\u0430\u043B\u0438\u0441\u044C"),
+                React.createElement("div", { className: "move-row" }, MOVES.map((m) => (React.createElement("button", { key: m.id, className: "move-chip" + (draft.move === m.id ? " on" : ""), onClick: () => patch({
+                        move: draft.move === m.id ? null : m.id,
+                        air: m.id === "air" ? draft.air || [] : [],
+                    }) },
+                    React.createElement("i", null, m.icon),
+                    m.name)))),
+                draft.move === "air" && (React.createElement("div", { className: "air-box" },
+                    (draft.air || []).length > 0 && (React.createElement("div", { className: "air-chips" }, (draft.air || []).map((code) => {
+                        const a = AIRLINES[code];
+                        return (React.createElement("span", { key: code, className: "air-chip" },
+                            React.createElement("button", { className: "air-open", onClick: () => setAirInfo(airInfo === code ? null : code) },
+                                React.createElement("i", { style: { background: (a === null || a === void 0 ? void 0 : a.color) || "#2b4a68" } }, code),
+                                (a === null || a === void 0 ? void 0 : a.name) || code),
+                            React.createElement("button", { onClick: () => patch({
+                                    air: (draft.air || []).filter((x) => x !== code),
+                                }), "aria-label": "\u0423\u0431\u0440\u0430\u0442\u044C" }, "\u2715")));
+                    }))),
+                    airInfo && AIRLINES[airInfo] && (React.createElement("div", { className: "air-info" },
+                        React.createElement("b", null,
+                            flag(((_c = BY_A3[AIRLINES[airInfo].a3]) === null || _c === void 0 ? void 0 : _c.a2) || ""),
+                            " ",
+                            AIRLINES[airInfo].name),
+                        React.createElement("em", null,
+                            ((_d = BY_A3[AIRLINES[airInfo].a3]) === null || _d === void 0 ? void 0 : _d.name) || "",
+                            AIRLINES[airInfo].year
+                                ? ` · основана в ${AIRLINES[airInfo].year}`
+                                : "",
+                            AIRLINES[airInfo].alliance
+                                ? ` · ${AIRLINES[airInfo].alliance}`
+                                : ""),
+                        React.createElement("span", null, AIRLINES[airInfo].routes))),
+                    addAir ? (React.createElement(AirPicker, { exclude: draft.air || [], onAdd: (code) => {
+                            patch({ air: [...(draft.air || []), code] });
+                            setAddAir(false);
+                        }, onClose: () => setAddAir(false) })) : (React.createElement("button", { className: "link-btn", onClick: () => setAddAir(true) }, "\uFF0B \u0430\u0432\u0438\u0430\u043A\u043E\u043C\u043F\u0430\u043D\u0438\u044F")))))),
+            country && whenReady && !editWhen && (React.createElement("div", { className: "step" },
+                React.createElement("p", { className: "step-title" }, "\u041A\u0442\u043E \u0435\u0437\u0434\u0438\u043B"),
+                React.createElement("div", { className: "city-chips" },
+                    React.createElement("span", { className: "city-chip me-chip" +
+                            ((draft.who || []).includes(ME) ? " who-on" : " who-off") },
+                        "\u042F",
+                        React.createElement("button", { onClick: () => patch((draft.who || []).includes(ME)
+                                ? {
+                                    who: (draft.who || []).filter((x) => x !== ME),
+                                    left: [
+                                        ...new Set([...(draft.left || []), meId]),
+                                    ],
+                                }
+                                : {
+                                    who: [ME, ...(draft.who || [])],
+                                    left: (draft.left || []).filter((x) => x !== meId),
+                                }) }, (draft.who || []).includes(ME) ? "✕" : "＋"))),
+                othersOf(draft).length > 0 && (React.createElement("div", { className: "city-chips" }, othersOf(draft).map((n) => {
+                    const p = people.find((x) => x.id === n || x.name === n);
+                    return (React.createElement("span", { key: n, className: "city-chip who-on" },
+                        p ? p.name : n,
+                        p && React.createElement("i", null, p.role),
+                        React.createElement("button", { onClick: () => patch({
+                                who: (draft.who || []).filter((x) => x !== n),
+                            }) }, "\u2715")));
+                }))),
+                people.length === 0 && !(draft.who || []).length && !addWho && (React.createElement("p", { className: "hint small" }, "\u041F\u043E\u043A\u0430 \u043D\u0438\u043A\u043E\u0433\u043E \u043D\u0435\u0442. \u0414\u043E\u0431\u0430\u0432\u044C\u0442\u0435 \u0443\u0447\u0430\u0441\u0442\u043D\u0438\u043A\u0430 \u2014 \u043E\u043D \u0441\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u0441\u044F \u0432 \u043F\u0440\u043E\u0444\u0438\u043B\u0435 \u0438 \u0432 \u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0438\u0439 \u0440\u0430\u0437 \u0431\u0443\u0434\u0435\u0442 \u0432\u044B\u0431\u0438\u0440\u0430\u0442\u044C\u0441\u044F \u043D\u0430\u0436\u0430\u0442\u0438\u0435\u043C.")),
+                addWho ? (React.createElement("div", { ref: whoBox },
+                    React.createElement(Suggest, { placeholder: "\u041D\u0430\u0447\u043D\u0438\u0442\u0435 \u0432\u0432\u043E\u0434\u0438\u0442\u044C \u0438\u043C\u044F", pool: people
+                            .filter((p) => !(draft.who || []).includes(p.id))
+                            .map((p) => p.name), exclude: [], allowCustom: false, onAdd: (name) => {
+                            const p = people.find((x) => x.name === name);
+                            patch({
+                                who: [...(draft.who || []), p ? p.id : name],
+                            });
+                            setAddWho(false);
+                        } }))) : (React.createElement("button", { className: "link-btn", onClick: () => setAddWho(true) }, "\uFF0B \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0443\u0447\u0430\u0441\u0442\u043D\u0438\u043A\u0430")))),
+            country && whenReady && !editWhen && (React.createElement("div", { className: "step" },
+                React.createElement("p", { className: "step-title" }, "\u0413\u0434\u0435 \u0436\u0438\u043B\u0438"),
+                draft.hotels.length > 0 && (React.createElement("div", { className: "hotel-rows" }, draft.hotels.map((h, i) => (React.createElement("div", { key: i, className: "hotel-card" },
+                    React.createElement("div", { className: "hotel-row" },
+                        React.createElement("span", { className: "hotel-name" },
+                            h.name,
+                            HOTEL_CAT[h.name] ? (React.createElement("em", { className: "hotel-cat" },
+                                HOTEL_CAT[h.name],
+                                "\u2605 \u0437\u0430\u044F\u0432\u043B\u0435\u043D\u043E")) : null),
+                        React.createElement(Stars, { value: h.stars || 0, onPick: (stars) => patch({
+                                hotels: draft.hotels.map((x, n) => n === i ? { ...x, stars } : x),
+                            }) }),
+                        React.createElement("button", { className: "icon-btn small", onClick: () => setAsk({
+                                title: "Убрать отель?",
+                                text: h.note
+                                    ? `${h.name}. Заметка тоже удалится.`
+                                    : h.name,
+                                yes: "Убрать",
+                                onYes: () => patch({
+                                    hotels: draft.hotels.filter((_, n) => n !== i),
+                                }),
+                            }), "aria-label": "\u0423\u0431\u0440\u0430\u0442\u044C" }, "\u2715")),
+                    React.createElement("input", { className: "hotel-note", value: h.note || "", placeholder: "\u0417\u0430\u043C\u0435\u0442\u043A\u0430: \u0447\u0442\u043E \u043F\u043E\u043D\u0440\u0430\u0432\u0438\u043B\u043E\u0441\u044C, \u043D\u043E\u043C\u0435\u0440, \u0432\u0438\u0434", onChange: (e) => patch({
+                            hotels: draft.hotels.map((x, n) => n === i ? { ...x, note: e.target.value } : x),
+                        }), autoComplete: "off", autoCorrect: "off", "data-lpignore": "true" })))))),
+                draft.hotels.length === 0 || addHotel ? (React.createElement(Suggest, { placeholder: "\u041D\u0430\u0447\u043D\u0438\u0442\u0435 \u0432\u0432\u043E\u0434\u0438\u0442\u044C \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u0435", pool: knownHotels, exclude: draft.hotels.map((h) => h.name), onAdd: (name) => {
                         patch({
-                            who: [...(draft.who || []), p ? p.id : name],
+                            hotels: [...draft.hotels, { name, stars: 0, note: "" }],
                         });
-                        setAddWho(false);
-                    } }))) : (React.createElement("button", { className: "link-btn", onClick: () => setAddWho(true) }, "\uFF0B \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0443\u0447\u0430\u0441\u0442\u043D\u0438\u043A\u0430")))),
-        country && whenReady && !editWhen && (React.createElement("div", { className: "step" },
-            React.createElement("p", { className: "step-title" }, "\u0413\u0434\u0435 \u0436\u0438\u043B\u0438"),
-            draft.hotels.length > 0 && (React.createElement("div", { className: "hotel-rows" }, draft.hotels.map((h, i) => (React.createElement("div", { key: i, className: "hotel-card" },
-                React.createElement("div", { className: "hotel-row" },
-                    React.createElement("span", { className: "hotel-name" },
-                        h.name,
-                        HOTEL_CAT[h.name] ? (React.createElement("em", { className: "hotel-cat" },
-                            HOTEL_CAT[h.name],
-                            "\u2605 \u0437\u0430\u044F\u0432\u043B\u0435\u043D\u043E")) : null),
-                    React.createElement(Stars, { value: h.stars || 0, onPick: (stars) => patch({
-                            hotels: draft.hotels.map((x, n) => n === i ? { ...x, stars } : x),
-                        }) }),
-                    React.createElement("button", { className: "icon-btn small", onClick: () => setAsk({
-                            title: "Убрать отель?",
-                            text: h.note
-                                ? `${h.name}. Заметка тоже удалится.`
-                                : h.name,
-                            yes: "Убрать",
-                            onYes: () => patch({
-                                hotels: draft.hotels.filter((_, n) => n !== i),
-                            }),
-                        }), "aria-label": "\u0423\u0431\u0440\u0430\u0442\u044C" }, "\u2715")),
-                React.createElement("input", { className: "hotel-note", value: h.note || "", placeholder: "\u0417\u0430\u043C\u0435\u0442\u043A\u0430: \u0447\u0442\u043E \u043F\u043E\u043D\u0440\u0430\u0432\u0438\u043B\u043E\u0441\u044C, \u043D\u043E\u043C\u0435\u0440, \u0432\u0438\u0434", onChange: (e) => patch({
-                        hotels: draft.hotels.map((x, n) => n === i ? { ...x, note: e.target.value } : x),
-                    }), autoComplete: "off", autoCorrect: "off", "data-lpignore": "true" })))))),
-            draft.hotels.length === 0 || addHotel ? (React.createElement(Suggest, { placeholder: "\u041D\u0430\u0447\u043D\u0438\u0442\u0435 \u0432\u0432\u043E\u0434\u0438\u0442\u044C \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u0435", pool: knownHotels, exclude: draft.hotels.map((h) => h.name), onAdd: (name) => {
-                    patch({
-                        hotels: [...draft.hotels, { name, stars: 0, note: "" }],
-                    });
-                    setAddHotel(false);
-                } })) : (React.createElement("button", { className: "link-btn", onClick: () => setAddHotel(true) }, "\uFF0B \u0435\u0449\u0451 \u043E\u0442\u0435\u043B\u044C")))),
-        country && whenReady && !editWhen && (React.createElement(PhotoBlock, { box: box, country: country, trip: draft, onChange: (p) => patch(p), quality: quality, totalPhotos: totalPhotos })),
-        React.createElement(Ask, { ask: ask, onClose: () => setAsk(null), box: box }),
-        country && whenReady && !editWhen && (React.createElement("div", { className: "edit-actions" },
-            mode === "edit" && onRemove && draft.id && (React.createElement("button", { className: "act del", "aria-label": "\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u043F\u043E\u0435\u0437\u0434\u043A\u0443", onClick: () => setAsk({
-                    title: "Удалить поездку?",
-                    text: `${country.name}, ${tripLabel(draft)}${(draft.photos || []).length
-                        ? ` · снимков: ${draft.photos.length}`
-                        : ""}. Отменить будет нельзя.`,
-                    yes: "Удалить",
-                    onYes: () => {
-                        onRemove(draft.a3, draft.id);
+                        setAddHotel(false);
+                    } })) : (React.createElement("button", { className: "link-btn", onClick: () => setAddHotel(true) }, "\uFF0B \u0435\u0449\u0451 \u043E\u0442\u0435\u043B\u044C")))),
+            country && whenReady && !editWhen && (React.createElement(PhotoBlock, { box: box, country: country, trip: draft, onChange: (p) => patch(p), quality: quality, totalPhotos: totalPhotos })),
+            React.createElement(Ask, { ask: ask, onClose: () => setAsk(null), box: box }),
+            country && whenReady && !editWhen && (React.createElement("div", { className: "edit-actions" },
+                mode === "edit" && onRemove && draft.id && (React.createElement("button", { className: "act del", "aria-label": "\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u043F\u043E\u0435\u0437\u0434\u043A\u0443", onClick: () => setAsk({
+                        title: "Удалить поездку?",
+                        text: `${country.name}, ${tripLabel(draft)}${(draft.photos || []).length
+                            ? ` · снимков: ${draft.photos.length}`
+                            : ""}. Отменить будет нельзя.`,
+                        yes: "Удалить",
+                        onYes: () => {
+                            onRemove(draft.a3, draft.id);
+                            close();
+                        },
+                    }) },
+                    React.createElement("svg", { viewBox: "0 0 24 24", width: "22", height: "22" },
+                        React.createElement("path", { d: "M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round" })))),
+                React.createElement("button", { className: "act ok", onClick: () => {
+                        onSave(draft.a3, {
+                            move: draft.move || null,
+                            air: draft.move === "air" ? draft.air || [] : [],
+                            y: draft.y,
+                            m: draft.m || null,
+                            y2: draft.approx ? draft.y2 || draft.y : null,
+                            approx: !!draft.approx,
+                            from: draft.from || "",
+                            to: draft.to || "",
+                            who: draft.who || [],
+                            regions: draft.regions || [],
+                            plan: !!draft.plan,
+                            id: draft.id || uid(),
+                            at: Date.now(),
+                            by: draft.by || meId,
+                            cities: draft.cities,
+                            hotels: draft.hotels,
+                            photos: draft.photos || [],
+                        });
                         close();
-                    },
-                }) },
-                React.createElement("svg", { viewBox: "0 0 24 24", width: "22", height: "22" },
-                    React.createElement("path", { d: "M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round" })))),
-            React.createElement("button", { className: "act ok", onClick: () => {
-                    onSave(draft.a3, {
-                        y: draft.y,
-                        m: draft.m || null,
-                        y2: draft.approx ? draft.y2 || draft.y : null,
-                        approx: !!draft.approx,
-                        from: draft.from || "",
-                        to: draft.to || "",
-                        who: draft.who || [],
-                        regions: draft.regions || [],
-                        plan: !!draft.plan,
-                        id: draft.id || uid(),
-                        at: Date.now(),
-                        by: draft.by || meId,
-                        cities: draft.cities,
-                        hotels: draft.hotels,
-                        photos: draft.photos || [],
-                    });
-                    close();
-                }, "aria-label": "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C" },
-                React.createElement("svg", { viewBox: "0 0 24 24", width: "24", height: "24" },
-                    React.createElement("path", { d: "M5 12.5l4.5 4.5L19 7.5", fill: "none", stroke: "currentColor", strokeWidth: "2.2", strokeLinecap: "round", strokeLinejoin: "round" })))))))));
+                    }, "aria-label": "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C" },
+                    React.createElement("svg", { viewBox: "0 0 24 24", width: "24", height: "24" },
+                        React.createElement("path", { d: "M5 12.5l4.5 4.5L19 7.5", fill: "none", stroke: "currentColor", strokeWidth: "2.2", strokeLinecap: "round", strokeLinejoin: "round" })))))));
+    }));
 }
 /* шторка: профиль — вы и ваши данные */
 /* дом: город из справочника или точка по геолокации */
@@ -7783,9 +7896,15 @@ function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, si
                                 React.createElement("span", { className: "trip-title" }, mode === "country"
                                     ? tripLabel(row.t)
                                     : row.c.name),
-                                React.createElement("span", { className: "trip-sub" }, mode === "country"
-                                    ? sub(row.t).replace(MONTHS[(row.t.m || 1) - 1] + " · ", "")
-                                    : sub(row.t) || tripLabel(row.t))),
+                                React.createElement("span", { className: "trip-sub" },
+                                    row.t.move && (React.createElement("i", { className: "trip-move" },
+                                        MOVE_ICON[row.t.move] || "",
+                                        (row.t.air || []).length
+                                            ? ` ${(row.t.air || []).join(" · ")}`
+                                            : "")),
+                                    mode === "country"
+                                        ? sub(row.t).replace(MONTHS[(row.t.m || 1) - 1] + " · ", "")
+                                        : sub(row.t) || tripLabel(row.t))),
                             mode !== "country" && (React.createElement("span", { className: "trip-year" }, row.t.y2 && row.t.y2 !== row.t.y
                                 ? `${row.t.y}–${row.t.y2}`
                                 : row.t.y))),
@@ -9469,6 +9588,33 @@ body > div{max-width:100%;}
 .zoom-body .center .season,.zoom-body .season{width:100%; max-width:min(82vw, 470px); height:auto;}
 .zoom-body{font-size:1.05rem; border:none; padding:0; margin:0; background:none;}
 .zoom-body>b{display:block; margin-right:34px;}
+.move-row{display:flex; flex-wrap:wrap; gap:8px;}
+.move-chip{display:flex; align-items:center; gap:7px; padding:9px 13px; border-radius:12px; border:1px solid var(--line);
+  background:var(--field); color:var(--dim); font-size:0.76rem; cursor:pointer;}
+.move-chip i{font-style:normal; font-size:1rem;}
+.move-chip.on{color:var(--ink); border-color:rgba(232,184,75,.55); background:rgba(232,184,75,.08);}
+.air-box{margin-top:10px; display:flex; flex-direction:column; gap:9px;}
+.air-chips{display:flex; flex-wrap:wrap; gap:7px;}
+.air-chip{display:flex; align-items:center; gap:7px; padding:6px 9px 6px 6px; border-radius:11px;
+  border:1px solid var(--line); background:var(--field); font-size:0.72rem;}
+.air-chip i{flex:none; display:flex; align-items:center; justify-content:center; width:30px; height:22px; border-radius:6px;
+  font-style:normal; font-size:0.62rem; font-weight:600; color:#fff; letter-spacing:.03em;}
+.air-chip button{border:0; background:none; color:var(--dim); cursor:pointer; padding:0 2px;}
+.air-open{display:flex; align-items:center; gap:7px; border:0; background:none; color:inherit; font-size:0.72rem;
+  padding:0; cursor:pointer;}
+.air-info{padding:10px 12px; border-radius:12px; border:1px solid rgba(232,184,75,.35); background:rgba(232,184,75,.06);
+  display:flex; flex-direction:column; gap:3px;}
+.air-info b{font-size:0.78rem; font-weight:500;}
+.air-info em{font-style:normal; font-size:0.64rem; color:var(--dim);}
+.air-info span{font-size:0.68rem; color:var(--text);}
+.air-pick{display:flex; flex-direction:column; gap:8px;}
+.air-list{display:flex; flex-direction:column; gap:5px; max-height:240px; overflow-y:auto;}
+.air-list button{display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:11px; border:1px solid var(--line);
+  background:var(--field); color:var(--text); cursor:pointer; text-align:left;}
+.air-list i{flex:none; display:flex; align-items:center; justify-content:center; width:38px; height:26px; border-radius:7px;
+  font-style:normal; font-size:0.68rem; font-weight:600; color:#fff; letter-spacing:.03em;}
+.air-list span{display:flex; flex-direction:column; min-width:0;}
+.air-list span em{font-style:normal; font-size:0.62rem; color:var(--dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .home-pick{display:flex; flex-direction:column; gap:8px; margin-bottom:6px;}
 .home-now{display:flex; align-items:center; gap:8px; padding:9px 11px; border-radius:12px; border:1px solid var(--line); background:var(--field);}
 .home-now span{font-size:0.78rem;}
@@ -9585,6 +9731,7 @@ body > div{max-width:100%;}
 .trip-main{flex:1 1 auto; min-width:0; display:flex; align-items:center; gap:10px; padding:10px 6px 10px 14px; background:none; border:0; color:var(--ink); text-align:left; cursor:pointer;}
 .trip-body{flex:1 1 auto; min-width:0;}
 .trip-title{display:block; font-size:0.88rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.trip-move{font-style:normal; color:var(--dim); margin-right:6px;}
 .trip-sub{display:block; margin-top:2px; font-size:0.7rem; color:var(--dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .trip-year{flex:none; font-size:0.72rem; color:var(--dim); font-variant-numeric:tabular-nums;}
 .trip-done{flex:none; width:40px; display:flex; align-items:center; justify-content:center; background:none; border:0; color:var(--gold); font-size:1rem; cursor:pointer;}
