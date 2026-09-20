@@ -1304,7 +1304,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "23.9";
+const APP_VERSION = "24.0";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -6169,7 +6169,8 @@ function SpanGlobe({ rows, geo, home }) {
         const path = d3.geoPath(proj, ctx);
         /* ширина карточки меняется при открытии — пересчитываем на лету */
         const fit = () => {
-            const want = Math.max(260, Math.min(box.clientWidth, 520));
+            const want = Math.max(240, Math.min(box.clientWidth, window.innerHeight *
+                (window.innerWidth > window.innerHeight ? 0.56 : 0.8), 520));
             if (want === w)
                 return;
             w = want;
@@ -6599,7 +6600,8 @@ function PersonGlobe({ row, home, geo, onClose }) {
         const path = d3.geoPath(proj, ctx);
         const grat = d3.geoGraticule10();
         const fit = () => {
-            const want = Math.max(220, Math.min(box.clientWidth, window.innerHeight * 0.44, 520));
+            const want = Math.max(150, Math.min(box.clientWidth, window.innerHeight *
+                (window.innerWidth > window.innerHeight ? 0.34 : 0.44), 520));
             if (Math.abs(want - w) < 2)
                 return;
             w = want;
@@ -10479,7 +10481,8 @@ body > div{max-width:100%;}
   .globe-controls{padding:2px 10px 10px;}
 
   /* разворот лёжа: не лезем под шапку и ужимаем рисунки по высоте */
-  .zoom-layer{padding:calc(env(safe-area-inset-top) + 82px) 14px calc(env(safe-area-inset-bottom) + 14px);}
+  .zoom-layer, .zoom-layer.pg-layer{
+    padding:calc(env(safe-area-inset-top) + 82px) 14px calc(env(safe-area-inset-bottom) + 14px);}
   .zoom-box{max-height:100%;}
   .zoom-box{width:100%; max-width:none;}
   .zoom-body .donut{max-width:min(38vh, 320px);}
