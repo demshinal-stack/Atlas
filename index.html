@@ -1304,7 +1304,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "25.7";
+const APP_VERSION = "25.8";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -2651,7 +2651,7 @@ function sunPoint(now) {
 /* ================================================================== */
 /*  Карта                                                             */
 /* ================================================================== */
-function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home, boxWidth, marks, light, playing, setPlaying, view, page: pageProp, setPage, isWish, arcs, noFull, fitBox, onArcPick }) {
+function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home, boxWidth, marks, light, playing, setPlaying, view, page: pageProp, setPage, isWish, arcs, noFull, fitBox, onArcPick, spinStep }) {
     const wrapRef = useRef(null);
     const canvasRef = useRef(null);
     const [size, setSize] = useState(320);
@@ -3330,7 +3330,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         cancelAnimationFrame(anim.current);
         const step = () => {
             try {
-                rot.current = [rot.current[0] + 0.7, rot.current[1]];
+                rot.current = [rot.current[0] + (spinStep || 0.7), rot.current[1]];
                 drawRef.current();
             }
             catch (e) {
@@ -3340,7 +3340,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         };
         playRaf.current = requestAnimationFrame(step);
         return () => cancelAnimationFrame(playRaf.current);
-    }, [playing]);
+    }, [playing, spinStep]);
     const sens = () => 90 / Math.max(70, (size / 2 - 6) * zoom.current);
     const startDrag = (x, y) => {
         if (playRef.current)
@@ -6516,7 +6516,7 @@ function SpanGlobe({ rows, geo, home }) {
         const tick = (t) => {
             fit();
             if (!drag.current)
-                rot.current = [rot.current[0] + 0.1, rot.current[1]];
+                rot.current = [rot.current[0] + 0.25, rot.current[1]];
             draw(t || 0);
             raf.current = requestAnimationFrame(tick);
         };
@@ -6850,7 +6850,7 @@ function PersonGlobe({ row, home, geo, onClose, onArcs, mapProps }) {
         };
         const tick = (t) => {
             if (!drag.current)
-                rot.current = [rot.current[0] + 0.1, rot.current[1]];
+                rot.current = [rot.current[0] + 0.25, rot.current[1]];
             draw(t || 0);
             raf.current = requestAnimationFrame(tick);
         };
@@ -6916,7 +6916,7 @@ function PersonGlobe({ row, home, geo, onClose, onArcs, mapProps }) {
             React.createElement("div", { className: "pg-panel", onClick: (e) => e.stopPropagation() },
                 React.createElement("div", { className: "pg-map" },
                     React.createElement("span", { className: "pg-title" }, "\u041B\u0443\u0447\u0438 \u0438\u0437 \u0434\u043E\u043C\u0430"),
-                    React.createElement(Globe, { ...(mapProps || {}), geo: geo, arcs: arcList, full: false, noFull: true, fitBox: true, playing: true, setPlaying: () => { }, onToggleFull: () => { }, onArcPick: (key) => setSel((v) => (key && v !== key ? key : null)), onPick: () => { } })),
+                    React.createElement(Globe, { ...(mapProps || {}), geo: geo, arcs: arcList, full: false, noFull: true, fitBox: true, playing: true, spinStep: 0.25, setPlaying: () => { }, onToggleFull: () => { }, onArcPick: (key) => setSel((v) => (key && v !== key ? key : null)), onPick: () => { } })),
                 React.createElement("div", { className: "pg-side" },
                     React.createElement("div", { className: "pg-side-head" },
                         React.createElement("b", null, row.name),
