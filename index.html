@@ -1304,7 +1304,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "24.5";
+const APP_VERSION = "24.6";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -7551,10 +7551,6 @@ function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], o
                 React.createElement("b", null, "\u0414\u0430\u043B\u044C\u0448\u0435 \u0432\u0441\u0435\u0433\u043E \u043E\u0442 \u0434\u043E\u043C\u0430"),
                 React.createElement(OnlyCard, null,
                     React.createElement("em", null, "\u0441\u0430\u043C\u0430\u044F \u0434\u0430\u043B\u0451\u043A\u0430\u044F \u0442\u043E\u0447\u043A\u0430 \u043F\u043E\u0435\u0437\u0434\u043E\u043A \u00B7 \u0434\u0432\u043E\u0439\u043D\u043E\u0435 \u043A\u0430\u0441\u0430\u043D\u0438\u0435 \u2014 \u0433\u043B\u043E\u0431\u0443\u0441")),
-                React.createElement(OnlyCard, null,
-                    React.createElement("p", { className: "hint small" }, homePoint
-                        ? `Дом: ${homePoint.name}${homePoint.guess ? " (задайте дом в профиле)" : ""}. Считаем по координатам городов; если города нет в справочнике, берём столицу страны.`
-                        : "Задайте дом в профиле, чтобы считать расстояния.")),
                 React.createElement(SpanChart, { rows: crewR.rows, geo: geo, home: homePoint })),
             diff && (React.createElement(Reveal, { className: "rep cmp" },
                 React.createElement("b", null, "\u0414\u0432\u043E\u0435: \u0442\u043E\u043B\u044C\u043A\u043E \u0440\u0430\u0437\u043D\u0438\u0446\u0430"),
