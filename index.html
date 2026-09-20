@@ -1304,7 +1304,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "25.4";
+const APP_VERSION = "25.5";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -3095,9 +3095,9 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
             ctx.lineCap = "round";
             ctx.strokeStyle = a.color || "#e2b551";
             ctx.shadowColor = a.color || "#e2b551";
-            ctx.shadowBlur = 12;
-            ctx.lineWidth = 2.6;
-            ctx.globalAlpha = 1;
+            ctx.shadowBlur = a.width && a.width > 2 ? 10 : 5;
+            ctx.lineWidth = a.width || 2.6;
+            ctx.globalAlpha = a.alpha == null ? 1 : a.alpha;
             let open = false;
             ctx.beginPath();
             pts.forEach((q) => {
@@ -3116,9 +3116,10 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
             const end = pts[N];
             if (end) {
                 ctx.beginPath();
-                ctx.arc(end[0], end[1], 3, 0, Math.PI * 2);
-                ctx.fillStyle = "#f4efe2";
+                ctx.arc(end[0], end[1], a.dot || 3, 0, Math.PI * 2);
+                ctx.fillStyle = a.color === "#8fd4ff" ? "#8fd4ff" : "#f4efe2";
                 ctx.shadowBlur = 0;
+                ctx.globalAlpha = 1;
                 ctx.fill();
             }
             ctx.restore();
@@ -6681,13 +6682,22 @@ function PersonGlobe({ row, home, geo, onClose, onArcs, mapProps }) {
             window.removeEventListener("orientationchange", on);
         };
     }, []);
-    const arcList = useMemo(() => rays.map((q) => ({
-        from: q.from || home,
-        to: { lon: q.lon, lat: q.lat },
-        a3: q.a3,
-        key: q.key,
-        color: sel && q.key !== sel ? "#3d5a74" : row.color,
-    })), [rays, sel, row, home]);
+    const arcList = useMemo(() => {
+        const far = Math.max(1, ...rays.map((q) => q.km || 0));
+        return rays.map((q) => {
+            const on = sel === q.key;
+            return {
+                from: q.from || home,
+                to: { lon: q.lon, lat: q.lat },
+                a3: q.a3,
+                key: q.key,
+                color: on ? "#8fd4ff" : row.color,
+                width: on ? 2.6 : 0.9 + 1.1 * (q.km / far),
+                alpha: on ? 1 : sel ? 0.28 : 0.5 + 0.4 * (q.km / far),
+                dot: on ? 4 : 2.1 + (q.n > 1 ? 1.1 : 0),
+            };
+        });
+    }, [rays, sel, row, home]);
     useEffect(() => {
         const box = wrap.current;
         const c = cv.current;
@@ -9997,8 +10007,8 @@ body > div{max-width:100%;}
   padding:0; border-radius:9px; border:1px solid var(--line); background:var(--field); color:var(--dim); cursor:pointer;}
 .crew-globe:active{color:var(--gold); border-color:rgba(232,184,75,.45);}
 /* окно человека начинается сразу под шапкой шторки */
-.zoom-layer.pg-layer{align-items:flex-start; padding-top:calc(env(safe-area-inset-top) + 46px);
-  padding-bottom:calc(env(safe-area-inset-bottom) + 70px);}
+.zoom-layer.pg-layer{align-items:flex-start; bottom:var(--tabh);
+  padding-top:calc(env(safe-area-inset-top) + 46px); padding-bottom:10px;}
 .pg-layer .zoom-box{align-self:stretch; max-height:100%; display:flex; flex-direction:column; overflow:hidden;}
 .pg-layer .zoom-body{flex:1 1 auto; min-height:0; display:flex; flex-direction:column;}
 .pg-layer .span-globe{flex:1 1 auto; min-height:120px; justify-content:center;}
