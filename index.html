@@ -1304,7 +1304,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "24.2";
+const APP_VERSION = "24.3";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -6601,7 +6601,7 @@ function PersonGlobe({ row, home, geo, onClose }) {
         const grat = d3.geoGraticule10();
         const fit = () => {
             const want = Math.max(150, Math.min(box.clientWidth, window.innerHeight *
-                (window.innerWidth > window.innerHeight ? 0.34 : 0.44), 520));
+                (window.innerWidth > window.innerHeight ? 0.6 : 0.44), 520));
             if (Math.abs(want - w) < 2)
                 return;
             w = want;
@@ -10493,6 +10493,7 @@ body > div{max-width:100%;}
   .zoom-box{width:100%; max-width:none;}
   /* лёжа в развороте оставляем только заголовок и шар */
   .zoom-body .globe-legend{display:none;}
+  .pg-layer .zoom-body > em, .pg-layer .pg-trip{display:none;}
   .zoom-body .donut{max-width:min(38vh, 320px);}
   .zoom-body .center .season,.zoom-body .season{max-width:min(56vh, 440px);}
   .zoom-body .radar{max-width:min(58vh, 480px);}
