@@ -1304,7 +1304,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "23.6";
+const APP_VERSION = "23.7";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -9893,13 +9893,13 @@ body > div{max-width:100%;}
 .zoom-x{position:absolute; top:8px; right:8px; width:32px; height:32px; border-radius:50%; border:1px solid var(--line);
   background:var(--field); color:var(--dim); cursor:pointer;}
 .zoom-body>.reveal{opacity:1; transform:none;}
-.zoom-body .radar{max-width:min(86vw, 560px);}
+.zoom-body .radar{max-width:min(86vw, 62vh, 560px);}
 .zoom-body .lane-c{height:30px;}
 .zoom-body .donut-row{flex-direction:column; gap:16px;}
-.zoom-body .donut{width:100%; max-width:min(78vw, 430px); height:auto;}
+.zoom-body .donut{width:100%; max-width:min(78vw, 58vh, 430px); height:auto;}
 .zoom-body .donut-legend{width:100%; display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px 18px; font-size:0.8rem;}
 .zoom-body .donut-legend div{min-width:0;}
-.zoom-body .center .season,.zoom-body .season{width:100%; max-width:min(82vw, 470px); height:auto;}
+.zoom-body .center .season,.zoom-body .season{width:100%; max-width:min(82vw, 58vh, 470px); height:auto;}
 .zoom-body{font-size:1.05rem; border:none; padding:0; margin:0; background:none;}
 .zoom-body>b{display:block; margin-right:34px;}
 .air-stat{display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; margin:4px 0 12px;}
@@ -10477,6 +10477,14 @@ body > div{max-width:100%;}
   .key{max-height:48px; border-radius:12px; font-size:1.05rem;}
   .flip-in{height:230px;}
   .globe-controls{padding:2px 10px 10px;}
+
+  /* разворот лёжа: не лезем под шапку и ужимаем рисунки по высоте */
+  .zoom-layer{padding:calc(env(safe-area-inset-top) + 56px) 14px calc(env(safe-area-inset-bottom) + 12px);}
+  .zoom-box{max-height:100%;}
+  .zoom-body .donut{max-width:min(44vh, 300px);}
+  .zoom-body .center .season,.zoom-body .season{max-width:min(46vh, 320px);}
+  .zoom-body .radar{max-width:min(50vh, 340px);}
+  .zoom-body .donut-legend{grid-template-columns:repeat(3, minmax(0, 1fr));}
 
   /* полный экран лёжа: глобус по центру справа от меню, кнопки — в левом нижнем углу */
   .globe-full{padding:8px 12px 8px calc(var(--rail) + env(safe-area-inset-left) + 12px);}
