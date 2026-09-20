@@ -1304,7 +1304,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "24.4";
+const APP_VERSION = "24.5";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -6611,7 +6611,7 @@ function PersonGlobe({ row, home, geo, onClose }) {
         const path = d3.geoPath(proj, ctx);
         const grat = d3.geoGraticule10();
         const fit = () => {
-            const free = freeForGlobe(box);
+            const free = box.clientHeight || freeForGlobe(box);
             const want = Math.max(150, Math.min(box.clientWidth, free > 120 ? free : 9999, window.innerHeight *
                 (window.innerWidth > window.innerHeight ? 0.6 : 0.52), 520));
             if (Math.abs(want - w) < 2)
@@ -9851,7 +9851,10 @@ body > div{max-width:100%;}
 /* окно человека начинается сразу под шапкой шторки */
 .zoom-layer.pg-layer{align-items:flex-start; padding-top:calc(env(safe-area-inset-top) + 46px);
   padding-bottom:calc(env(safe-area-inset-bottom) + 70px);}
-.pg-layer .zoom-box{max-height:100%;}
+.pg-layer .zoom-box{align-self:stretch; max-height:100%; display:flex; flex-direction:column; overflow:hidden;}
+.pg-layer .zoom-body{flex:1 1 auto; min-height:0; display:flex; flex-direction:column;}
+.pg-layer .span-globe{flex:1 1 auto; min-height:120px; justify-content:center;}
+.pg-layer .pg-trip{flex:none;}
 .pg-trip{display:flex; align-items:center; gap:10px; margin-top:12px; padding:11px 12px; border-radius:13px;
   border:1px solid var(--line); background:var(--field);}
 .pg-flag{flex:none; font-size:1.3rem;}
