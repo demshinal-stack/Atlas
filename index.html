@@ -1304,7 +1304,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "24.6";
+const APP_VERSION = "24.7";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -9363,10 +9363,8 @@ function Atlas() {
                             React.createElement("div", { className: "focus-title" },
                                 React.createElement("div", { className: "sel-name" + ((curTrip === null || curTrip === void 0 ? void 0 : curTrip.plan) ? " is-plan" : "") }, sel.name),
                                 React.createElement("div", { className: "sel-cont" }, selTrips.length ? (React.createElement(React.Fragment, null,
-                                    [
-                                        ...((curTrip === null || curTrip === void 0 ? void 0 : curTrip.cities) || []),
-                                        ...((curTrip === null || curTrip === void 0 ? void 0 : curTrip.regions) || []),
-                                    ].join(", ") || CONTINENTS[sel.cont],
+                                    ((curTrip === null || curTrip === void 0 ? void 0 : curTrip.cities) || []).join(", ") ||
+                                        CONTINENTS[sel.cont],
                                     " · ",
                                     tripLabel(curTrip))) : (React.createElement(React.Fragment, null,
                                     CONTINENTS[sel.cont],
@@ -9689,7 +9687,7 @@ body > div{max-width:100%;}
 .trip-nav{display:flex; align-items:center; gap:10px; margin-top:8px;}
 .trip-nav button{width:30px; height:30px; border-radius:9px; border:1px solid var(--line); background:var(--el); color:var(--gold); font-size:1rem; cursor:pointer;}
 .trip-nav span{font-size:0.7rem; color:var(--dim);}
-.sel-cont{font-size:0.750rem; color:var(--dim); line-height:1.45;}
+.sel-cont{font-size:0.7rem; color:var(--dim); line-height:1.45;}
 .x{margin-left:auto; background:none; border:0; color:var(--dim); font-size:0.938rem; cursor:pointer;}
 .trips{display:flex; flex-wrap:wrap; gap:6px; margin:11px 0 4px;}
 .trip{display:inline-flex; align-items:center; gap:6px; padding:5px 9px; background:var(--field); border:1px solid var(--line); border-radius:999px; font-size:0.750rem;}
