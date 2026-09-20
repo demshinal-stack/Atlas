@@ -1304,7 +1304,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "23.7";
+const APP_VERSION = "23.8";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -10481,9 +10481,10 @@ body > div{max-width:100%;}
   /* разворот лёжа: не лезем под шапку и ужимаем рисунки по высоте */
   .zoom-layer{padding:calc(env(safe-area-inset-top) + 56px) 14px calc(env(safe-area-inset-bottom) + 12px);}
   .zoom-box{max-height:100%;}
-  .zoom-body .donut{max-width:min(44vh, 300px);}
-  .zoom-body .center .season,.zoom-body .season{max-width:min(46vh, 320px);}
-  .zoom-body .radar{max-width:min(50vh, 340px);}
+  .zoom-box{width:100%; max-width:none;}
+  .zoom-body .donut{max-width:min(46vh, 360px);}
+  .zoom-body .center .season,.zoom-body .season{max-width:min(62vh, 480px);}
+  .zoom-body .radar{max-width:min(64vh, 520px);}
   .zoom-body .donut-legend{grid-template-columns:repeat(3, minmax(0, 1fr));}
 
   /* полный экран лёжа: глобус по центру справа от меню, кнопки — в левом нижнем углу */
