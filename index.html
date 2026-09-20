@@ -1283,7 +1283,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "22.9";
+const APP_VERSION = "23.0";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -6142,9 +6142,9 @@ function SpanGlobe({ rows, geo, home }) {
                 ctx.lineJoin = "round";
                 // за шаром дуга прячется — как и положено при повороте
                 ctx.shadowColor = a.who.color;
-                ctx.shadowBlur = 12;
+                ctx.shadowBlur = 7;
                 ctx.strokeStyle = a.who.color;
-                ctx.lineWidth = 5;
+                ctx.lineWidth = 2.4;
                 let open = false;
                 ctx.beginPath();
                 pts.forEach((q) => {
@@ -6165,7 +6165,7 @@ function SpanGlobe({ rows, geo, home }) {
                 ctx.setLineDash([12, 30]);
                 ctx.lineDashOffset = -((time / 22) % 42);
                 ctx.strokeStyle = "rgba(255,255,255,.8)";
-                ctx.lineWidth = 1.6;
+                ctx.lineWidth = 0.9;
                 ctx.shadowBlur = 0;
                 let open2 = false;
                 ctx.beginPath();
@@ -6190,7 +6190,7 @@ function SpanGlobe({ rows, geo, home }) {
                     if (!q || !prev || q.hidden || prev.hidden)
                         return;
                     const ang = Math.atan2(q.y - prev.y, q.x - prev.x);
-                    const L = 11;
+                    const L = 7.5;
                     ctx.beginPath();
                     ctx.moveTo(q.x, q.y);
                     ctx.lineTo(q.x - Math.cos(ang - 0.4) * L, q.y - Math.sin(ang - 0.4) * L);
@@ -6213,7 +6213,7 @@ function SpanGlobe({ rows, geo, home }) {
                     ctx.save();
                     ctx.translate(cur.x, cur.y);
                     ctx.rotate(ang + Math.PI / 2);
-                    ctx.scale(1.35, 1.35);
+                    ctx.scale(1.05, 1.05);
                     ctx.beginPath();
                     ctx.moveTo(0, -8.5);
                     ctx.lineTo(1.9, -3.5);
@@ -6530,9 +6530,9 @@ function PersonGlobe({ row, home, geo, onClose }) {
                 ctx.lineCap = "round";
                 ctx.strokeStyle = on ? "#8fd4ff" : row.color;
                 ctx.shadowColor = on ? "#8fd4ff" : row.color;
-                ctx.shadowBlur = on ? 16 : 8;
-                ctx.globalAlpha = on ? 1 : selRef.current ? 0.3 : 0.55 + 0.45 * (q.km / far);
-                ctx.lineWidth = on ? 4.6 : 1.6 + 1.8 * (q.km / far);
+                ctx.shadowBlur = on ? 10 : 5;
+                ctx.globalAlpha = on ? 1 : selRef.current ? 0.28 : 0.5 + 0.4 * (q.km / far);
+                ctx.lineWidth = on ? 2.6 : 0.9 + 1.1 * (q.km / far);
                 let open = false;
                 ctx.beginPath();
                 pts.forEach((s2) => {
@@ -6552,7 +6552,7 @@ function PersonGlobe({ row, home, geo, onClose }) {
                 const end = place([q.lon, q.lat], 0);
                 if (!end.hidden) {
                     ctx.beginPath();
-                    ctx.arc(end.x, end.y, on ? 5 : 2.6 + (q.n > 1 ? 1.4 : 0), 0, Math.PI * 2);
+                    ctx.arc(end.x, end.y, on ? 4 : 2.1 + (q.n > 1 ? 1.1 : 0), 0, Math.PI * 2);
                     ctx.fillStyle = on ? "#8fd4ff" : "#f4efe2";
                     ctx.fill();
                 }
@@ -6560,7 +6560,7 @@ function PersonGlobe({ row, home, geo, onClose }) {
             hitRef.current = hits;
             const h = place([home.lon, home.lat], 0);
             if (!h.hidden) {
-                const pulse = 6 + Math.sin(time / 420) * 1.6;
+                const pulse = 5 + Math.sin(time / 420) * 1.2;
                 ctx.beginPath();
                 ctx.arc(h.x, h.y, pulse, 0, Math.PI * 2);
                 ctx.fillStyle = C_GOLD;
