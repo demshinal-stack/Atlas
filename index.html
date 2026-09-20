@@ -1304,7 +1304,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "24.8";
+const APP_VERSION = "24.9";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -2899,6 +2899,12 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                         ctx.fill();
                     }
                 }
+                else if ((state.current.arcs || []).length) {
+                    // пока показываем дуги, страны держим нейтральными
+                    ctx.fillStyle = lt ? "#e8eef3" : "#294f6b";
+                    ctx.globalAlpha = 1;
+                    ctx.fill();
+                }
                 else {
                     ctx.fillStyle =
                         visited || wished
@@ -3052,28 +3058,40 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                 ctx.fill();
             });
         }
-        // дуги перелётов поверх шара
-        (state.current.arcs || []).forEach((a) => {
-            const N = 56;
+        // дуги перелётов: приподняты над шаром, поэтому видны целиком
+        const arcRot = d3.geoRotation([rot.current[0], rot.current[1], 0]);
+        const arcR = (size / 2 - 6) * zoom.current;
+        const arcRad = Math.PI / 180;
+        const lift3d = ([lon, lat], lift) => {
+            const p = arcRot([lon, lat]);
+            const la = p[1] * arcRad;
+            const lo = p[0] * arcRad;
+            const x = Math.cos(la) * Math.sin(lo);
+            const y = -Math.sin(la);
+            const z = Math.cos(la) * Math.cos(lo);
+            const k = arcR * (1 + lift);
+            const hidden = z < 0 && Math.hypot(x, y) * (1 + lift) < 1;
+            return hidden ? null : [cx + x * k, cy + y * k];
+        };
+        (state.current.arcs || []).forEach((a, ai) => {
+            const N = 64;
             const inter = d3.geoInterpolate([a.from.lon, a.from.lat], [a.to.lon, a.to.lat]);
+            const lift = 0.05 + (ai % 5) * 0.02;
             const pts = [];
             for (let i = 0; i <= N; i++) {
                 const t = i / N;
                 const p = inter(t);
-                if (!state.current.isMap && d3.geoDistance(p, center) > Math.PI / 2 - 0.02) {
-                    pts.push(null);
-                    continue;
-                }
-                const q = proj(p);
-                pts.push(q || null);
+                pts.push(state.current.isMap
+                    ? proj(p) || null
+                    : lift3d(p, lift * Math.sin(Math.PI * t)));
             }
             ctx.save();
             ctx.lineCap = "round";
             ctx.strokeStyle = a.color || "#e2b551";
             ctx.shadowColor = a.color || "#e2b551";
-            ctx.shadowBlur = 6;
-            ctx.lineWidth = 1.8;
-            ctx.globalAlpha = 0.9;
+            ctx.shadowBlur = 12;
+            ctx.lineWidth = 2.6;
+            ctx.globalAlpha = 1;
             let open = false;
             ctx.beginPath();
             pts.forEach((q) => {
@@ -3092,7 +3110,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
             const end = pts[N];
             if (end) {
                 ctx.beginPath();
-                ctx.arc(end[0], end[1], 2.4, 0, Math.PI * 2);
+                ctx.arc(end[0], end[1], 3, 0, Math.PI * 2);
                 ctx.fillStyle = "#f4efe2";
                 ctx.shadowBlur = 0;
                 ctx.fill();
@@ -3139,11 +3157,13 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         if (!state.current.isMap) {
             const [slon, slat] = sun;
             const anti = [slon + 180, -slat];
+            // когда показываем дуги, ночь притушиваем, иначе линий не видно
+            const soft = (state.current.arcs || []).length ? 0.35 : 1;
             [
-                [100, "rgba(3,8,18,0.10)"],
-                [95, "rgba(3,8,18,0.16)"],
-                [90, "rgba(3,8,18,0.34)"],
-                [80, "rgba(2,6,14,0.22)"],
+                [100, `rgba(3,8,18,${0.1 * soft})`],
+                [95, `rgba(3,8,18,${0.16 * soft})`],
+                [90, `rgba(3,8,18,${0.34 * soft})`],
+                [80, `rgba(2,6,14,${0.22 * soft})`],
             ].forEach(([r, fill]) => {
                 ctx.beginPath();
                 path(d3.geoCircle().center(anti).radius(r)());
