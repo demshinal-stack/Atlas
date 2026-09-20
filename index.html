@@ -1283,7 +1283,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "22.8";
+const APP_VERSION = "22.9";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -4407,10 +4407,28 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, onRemove, mode
                     } })) : (React.createElement("button", { className: "link-btn", onClick: () => setAddCity(true) }, "\uFF0B \u0435\u0449\u0451 \u0433\u043E\u0440\u043E\u0434")))),
             country && whenReady && !editWhen && (React.createElement("div", { className: "step" },
                 React.createElement("p", { className: "step-title" }, "\u041A\u0430\u043A \u0434\u043E\u0431\u0438\u0440\u0430\u043B\u0438\u0441\u044C"),
-                React.createElement("div", { className: "move-row" }, MOVES.map((m) => (React.createElement("button", { key: m.id, className: "move-chip" + (draft.move === m.id ? " on" : ""), onClick: () => patch({
-                        move: draft.move === m.id ? null : m.id,
-                        air: m.id === "air" ? draft.air || [] : [],
-                    }) },
+                React.createElement("div", { className: "move-row" }, MOVES.map((m) => (React.createElement("button", { key: m.id, className: "move-chip" + (draft.move === m.id ? " on" : ""), onClick: () => {
+                        var _c, _d;
+                        const next = draft.move === m.id ? null : m.id;
+                        const apply = () => patch({
+                            move: next,
+                            air: next === "air" ? draft.air || [] : [],
+                        });
+                        // у сохранённой поездки транспорт меняем только с вопросом
+                        const lose = (draft.air || []).length && next !== "air";
+                        if (mode === "edit" && draft.move && draft.move !== next) {
+                            setAsk({
+                                title: next ? "Поменять транспорт?" : "Убрать транспорт?",
+                                text: next
+                                    ? `Сейчас указано «${(_c = MOVES.find((x) => x.id === draft.move)) === null || _c === void 0 ? void 0 : _c.name}», станет «${m.name}».${lose ? " Список авиакомпаний очистится." : ""}`
+                                    : `«${(_d = MOVES.find((x) => x.id === draft.move)) === null || _d === void 0 ? void 0 : _d.name}» больше не будет отмечен.${lose ? " Список авиакомпаний очистится." : ""}`,
+                                yes: next ? "Поменять" : "Убрать",
+                                onYes: apply,
+                            });
+                            return;
+                        }
+                        apply();
+                    } },
                     React.createElement("i", null, m.icon),
                     m.name)))),
                 draft.move === "air" && (React.createElement("div", { className: "air-box" },
