@@ -290,7 +290,7 @@ VU|VUT|Вануату|OC|-16.3|167.5
 /* справочники живут отдельно: на сервере, а по желанию — на устройстве */
 const K_BOOKS = "atlas:books";
 /* версия справочников: меняется, когда данные обновились на сервере */
-const BOOKS_VER = 14;
+const BOOKS_VER = 15;
 const BOOKS = [
     { id: "cities", file: "cities.txt", title: "Города" },
     { id: "regions", file: "regions.txt", title: "Регионы" },
@@ -417,7 +417,7 @@ let AIRLINES = {};
 const parseAirlines = (raw) => {
     const out = {};
     (raw || "").split("\n").forEach((row) => {
-        const [code, name, a3, year, routes, alliance, color] = row.split("|");
+        const [code, name, a3, year, routes, alliance, color, arc] = row.split("|");
         if (!code || !name)
             return;
         out[code.trim()] = {
@@ -428,6 +428,7 @@ const parseAirlines = (raw) => {
             routes: (routes || "").trim(),
             alliance: (alliance || "").trim().replace("—", ""),
             color: (color || "#2b4a68").trim(),
+            arc: (arc || color || "#e2b551").trim(),
         };
     });
     return out;
@@ -1304,7 +1305,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "26.4";
+const APP_VERSION = "26.5";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -6698,6 +6699,198 @@ function bendPoint(a, b, t, side) {
     const m = Math.hypot(x, y, z) || 1;
     return [(Math.atan2(y, x) * 180) / Math.PI, (Math.asin(z / m) * 180) / Math.PI];
 }
+/* дуги авиакомпаний: одна на пару «авиакомпания — часть света назначения» */
+function airArcs(visits, home) {
+    const groups = new Map();
+    Object.entries(visits || {}).forEach(([a3, arr]) => (arr || []).forEach((t) => {
+        var _c, _d;
+        if (t.plan || t.move !== "air")
+            return;
+        const codes = (t.air || []).filter(Boolean);
+        if (!codes.length)
+            return;
+        const from = depPoint(t, home);
+        if (!from)
+            return;
+        const cont = ((_c = BY_A3[a3]) === null || _c === void 0 ? void 0 : _c.cont) || "";
+        const pts = (t.cities || []).length
+            ? (t.cities || []).map((c) => ({ xy: distPoint(a3, c), name: c }))
+            : [{ xy: distPoint(a3, null), name: ((_d = BY_A3[a3]) === null || _d === void 0 ? void 0 : _d.name) || a3 }];
+        codes.forEach((code) => {
+            var _c;
+            const k = code + "|" + cont;
+            const g = groups.get(k) ||
+                { key: k, code, cont, deps: new Map(), dests: [], trips: 0, countries: new Set() };
+            g.trips += 1;
+            g.countries.add(a3);
+            const dk = `${from.lon.toFixed(1)}|${from.lat.toFixed(1)}`;
+            g.deps.set(dk, { p: from, n: (((_c = g.deps.get(dk)) === null || _c === void 0 ? void 0 : _c.n) || 0) + 1 });
+            pts.forEach((q) => q.xy && g.dests.push({ lon: q.xy[0], lat: q.xy[1], name: q.name, a3 }));
+            groups.set(k, g);
+        });
+    }));
+    return [...groups.values()]
+        .map((g) => {
+        // вылет — самый частый, прилёт — самая далёкая точка этой части света
+        const from = [...g.deps.values()].sort((a, b) => b.n - a.n)[0].p;
+        let to = null;
+        let km = 0;
+        g.dests.forEach((d) => {
+            const k = kmBetween(from, d);
+            if (k >= km) {
+                km = k;
+                to = d;
+            }
+        });
+        return { ...g, from, to, km, countries: g.countries.size };
+    })
+        .filter((g) => g.to && g.km > 1);
+}
+/* оттенок цвета в градусах — чтобы не ставить рядом похожие */
+const hueOf = (hex) => {
+    const n = parseInt((hex || "#000").slice(1), 16);
+    const r = ((n >> 16) & 255) / 255;
+    const g = ((n >> 8) & 255) / 255;
+    const b = (n & 255) / 255;
+    const mx = Math.max(r, g, b);
+    const mn = Math.min(r, g, b);
+    if (mx === mn)
+        return 0;
+    const d = mx - mn;
+    const h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+    return (h * 60 + 360) % 360;
+};
+const ARC_SPARE = [
+    "#ff6b6b", "#4ade80", "#f472b6", "#facc15", "#a78bfa", "#fb923c", "#2dd4bf",
+    "#e879f9", "#a3e635", "#fda4af", "#c084fc", "#fde047", "#34d399", "#f97316",
+];
+/* авиакомпании во весь экран: логика окна путешественника */
+function AirGlobe({ visits, home, air, geo, mapProps, onClose }) {
+    var _c, _d, _e, _f;
+    const arcs = useMemo(() => airArcs(visits, home), [visits, home]);
+    const [sel, setSel] = useState(null);
+    // у каждой авиакомпании свой цвет из справочника; если два похожи — второй меняем
+    const colorOf = useMemo(() => {
+        const out = {};
+        const used = [];
+        const gap = (c) => used.length
+            ? Math.min(...used.map((u) => {
+                const d = Math.abs(hueOf(u) - hueOf(c));
+                return Math.min(d, 360 - d);
+            }))
+            : 360;
+        // чем меньше компаний, тем сильнее разводим оттенки
+        const need = Math.max(28, Math.min(80, 300 / Math.max(1, air.rows.length)));
+        air.rows.forEach((r) => {
+            var _c;
+            let c = ((_c = AIRLINES[r.code]) === null || _c === void 0 ? void 0 : _c.arc) || "#e2b551";
+            if (gap(c) < need) {
+                const spare = ARC_SPARE.filter((x) => !used.includes(x)).sort((x, y) => gap(y) - gap(x))[0];
+                if (spare && gap(spare) > gap(c))
+                    c = spare;
+            }
+            out[r.code] = c;
+            used.push(c);
+        });
+        return out;
+    }, [air]);
+    const [wide, setWide] = useState(typeof window !== "undefined" && window.innerWidth > window.innerHeight);
+    useEffect(() => {
+        const on = () => setWide(window.innerWidth > window.innerHeight);
+        window.addEventListener("resize", on);
+        window.addEventListener("orientationchange", on);
+        return () => {
+            window.removeEventListener("resize", on);
+            window.removeEventListener("orientationchange", on);
+        };
+    }, []);
+    const arcList = useMemo(() => {
+        var _c;
+        const far = Math.max(1, ...arcs.map((g) => g.km));
+        const selCode = sel ? (_c = arcs.find((g) => g.key === sel)) === null || _c === void 0 ? void 0 : _c.code : null;
+        return arcs.map((g) => {
+            var _c;
+            const on = sel === g.key;
+            const mine = selCode && g.code === selCode;
+            return {
+                key: g.key,
+                from: g.from,
+                to: { lon: g.to.lon, lat: g.to.lat },
+                color: colorOf[g.code] || ((_c = AIRLINES[g.code]) === null || _c === void 0 ? void 0 : _c.arc) || "#e2b551",
+                width: on ? 3 : mine ? 2.2 : 1 + 1.2 * (g.km / far),
+                alpha: on || mine ? 1 : sel ? 0.22 : 0.85,
+                dot: on ? 4.2 : 2.6,
+            };
+        });
+    }, [arcs, sel, colorOf]);
+    const selArc = arcs.find((g) => g.key === sel) || null;
+    const code = (selArc === null || selArc === void 0 ? void 0 : selArc.code) || ((_c = air.rows[0]) === null || _c === void 0 ? void 0 : _c.code);
+    const a = AIRLINES[code];
+    const row = air.rows.find((r) => r.code === code);
+    const conts = [...new Set(arcs.filter((g) => g.code === code).map((g) => g.cont))]
+        .map((c) => CONTINENTS[c] || c)
+        .filter(Boolean);
+    const globe = (React.createElement(Globe, { ...(mapProps || {}), geo: geo, arcs: arcList, full: false, noFull: true, fitBox: true, playing: true, spinStep: 0.25, setPlaying: () => { }, onToggleFull: () => { }, onArcPick: (key) => setSel((v) => (key && v !== key ? key : null)), onPick: () => { } }));
+    const tiles = (React.createElement("div", { className: "ag-tiles" },
+        React.createElement("div", { className: "ag-tile" },
+            React.createElement("b", null, air.rows.length),
+            React.createElement("em", null, pw(air.rows.length, "airline"))),
+        React.createElement("div", { className: "ag-tile" },
+            React.createElement("b", null, kmText(air.km)),
+            React.createElement("em", null,
+                "\u2248 ",
+                (air.km / 40075).toLocaleString("ru-RU", { maximumFractionDigits: 1 }),
+                " \u0440\u0430\u0437\u0430 \u0432\u043E\u043A\u0440\u0443\u0433 \u0417\u0435\u043C\u043B\u0438")),
+        React.createElement("div", { className: "ag-tile" },
+            React.createElement("b", null, air.flights),
+            React.createElement("em", null,
+                pw(air.flights, "trip"),
+                " \u0441\u0430\u043C\u043E\u043B\u0451\u0442\u043E\u043C"))));
+    const card = a && (React.createElement("div", { className: "ag-card", style: { "--ac": colorOf[code] || a.arc } },
+        React.createElement("div", { className: "ag-card-head" },
+            React.createElement(AirMark, { code: code }),
+            React.createElement("span", null,
+                React.createElement("b", null, a.name),
+                React.createElement("em", null,
+                    flag(((_d = BY_A3[a.a3]) === null || _d === void 0 ? void 0 : _d.a2) || ""),
+                    " ",
+                    ((_e = BY_A3[a.a3]) === null || _e === void 0 ? void 0 : _e.name) || a.a3,
+                    a.year ? ` · с ${a.year}` : "",
+                    a.alliance ? ` · ${a.alliance}` : ""))),
+        React.createElement("div", { className: "ag-card-nums" },
+            React.createElement("span", null,
+                React.createElement("b", null, row ? np(row.trips, "trip") : "—")),
+            React.createElement("span", null,
+                React.createElement("b", null, row ? np(row.countries, "country") : "—")),
+            React.createElement("span", null,
+                React.createElement("b", null, row ? kmText(row.km) : "—"))),
+        React.createElement("em", { className: "ag-card-foot" }, selArc
+            ? `${selArc.from.name || "Дом"} → ${flag(((_f = BY_A3[selArc.to.a3]) === null || _f === void 0 ? void 0 : _f.a2) || "")} ${selArc.to.name} · ${CONTINENTS[selArc.cont] || ""}`
+            : conts.length
+                ? `Куда летали: ${conts.join(", ")}`
+                : "Нажмите дугу на глобусе")));
+    if (wide)
+        return (React.createElement("div", { className: "pg-wide", onClick: onClose },
+            React.createElement("div", { className: "pg-panel", onClick: (e) => e.stopPropagation() },
+                React.createElement("div", { className: "pg-map" },
+                    React.createElement("span", { className: "pg-title" }, "\u0410\u0432\u0438\u0430\u043A\u043E\u043C\u043F\u0430\u043D\u0438\u0438"),
+                    globe),
+                React.createElement("div", { className: "pg-side ag-side" },
+                    React.createElement("div", { className: "pg-side-head" },
+                        React.createElement("b", null, "\u0410\u0432\u0438\u0430\u043A\u043E\u043C\u043F\u0430\u043D\u0438\u0438"),
+                        React.createElement("button", { className: "zoom-x", onClick: onClose, "aria-label": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C" }, "\u2715")),
+                    tiles,
+                    card))));
+    return (React.createElement("div", { className: "zoom-layer pg-layer", onClick: onClose },
+        React.createElement("div", { className: "zoom-box", onClick: (e) => e.stopPropagation() },
+            React.createElement("button", { className: "zoom-x", onClick: onClose, "aria-label": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C" }, "\u2715"),
+            React.createElement("div", { className: "zoom-body rep" },
+                React.createElement("b", null, "\u0410\u0432\u0438\u0430\u043A\u043E\u043C\u043F\u0430\u043D\u0438\u0438"),
+                React.createElement("em", null, "\u0434\u0443\u0433\u0430 \u2014 \u0430\u0432\u0438\u0430\u043A\u043E\u043C\u043F\u0430\u043D\u0438\u044F \u0438 \u0447\u0430\u0441\u0442\u044C \u0441\u0432\u0435\u0442\u0430"),
+                React.createElement("div", { className: "pg-map far-map" }, globe),
+                tiles,
+                card))));
+}
 /* «Дальше всего от дома» во весь экран: по дуге на человека, как в окне путешественника */
 function FarGlobe({ rows, home, geo, mapProps, onClose }) {
     const [sel, setSel] = useState(null);
@@ -7665,7 +7858,7 @@ function GridChart({ grid, planGrid, vague, years, onOpen }) {
             " \u043D\u0435\u0442\u043E\u0447\u043D\u0430\u044F \u0434\u0430\u0442\u0430")));
 }
 /* шторка отчётов */
-function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], onOpenTrip, geo, home, onPerson, onFar, meName = "" }) {
+function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], onOpenTrip, geo, home, onPerson, onFar, onAir, meName = "" }) {
     ME_NAME = meName;
     const r = useMemo(() => reportData(visits, since, people), [visits, since, people]);
     const crew = useMemo(() => travelerStats(visits, people), [visits, people, meName]);
@@ -7807,11 +8000,15 @@ function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], o
                         !trips.length && (React.createElement("p", { className: "hint small" }, "\u041F\u043E\u0435\u0437\u0434\u043E\u043A \u043D\u0435\u0442."))))));
             })),
             React.createElement("p", { className: "hint small" }, "\u041F\u043E\u043B\u043E\u0441\u0430 \u2014 \u0434\u043E\u043B\u044F \u043E\u0442 \u043B\u0438\u0434\u0435\u0440\u0430 \u043F\u043E \u0441\u0442\u0440\u0430\u043D\u0430\u043C. \u0421\u0447\u0438\u0442\u0430\u044E\u0442\u0441\u044F \u0442\u043E\u043B\u044C\u043A\u043E \u0441\u043E\u0441\u0442\u043E\u044F\u0432\u0448\u0438\u0435\u0441\u044F \u043F\u043E\u0435\u0437\u0434\u043A\u0438, \u0433\u0434\u0435 \u0447\u0435\u043B\u043E\u0432\u0435\u043A \u043E\u0442\u043C\u0435\u0447\u0435\u043D \u0432 \u0441\u043E\u0441\u0442\u0430\u0432\u0435."))),
-        air.rows.length > 0 && (React.createElement(Reveal, { className: "rep air-rep" },
+        air.rows.length > 0 && (React.createElement(Reveal, { className: "rep air-rep", zoomable: false },
             React.createElement("div", { className: "air-top" },
                 React.createElement("span", null,
                     React.createElement("b", null, "\u0410\u0432\u0438\u0430\u043A\u043E\u043C\u043F\u0430\u043D\u0438\u0438"),
                     React.createElement("em", null, "\u0441\u043A\u043E\u043B\u044C\u043A\u043E \u0440\u0430\u0437 \u0438 \u0441\u043A\u043E\u043B\u044C\u043A\u043E \u043A\u0438\u043B\u043E\u043C\u0435\u0442\u0440\u043E\u0432")),
+                React.createElement("button", { className: "crew-globe air-open-globe", onClick: () => onAir === null || onAir === void 0 ? void 0 : onAir({ air }), "aria-label": "\u041F\u043E\u043A\u0430\u0437\u0430\u0442\u044C \u043D\u0430 \u0433\u043B\u043E\u0431\u0443\u0441\u0435" },
+                    React.createElement("svg", { viewBox: "0 0 24 24", width: "18", height: "18" },
+                        React.createElement("circle", { cx: "12", cy: "12", r: "8.5", fill: "none", stroke: "currentColor", strokeWidth: "1.5" }),
+                        React.createElement("path", { d: "M3.5 12h17M12 3.5c2.6 2.4 2.6 14.6 0 17M12 3.5c-2.6 2.4-2.6 14.6 0 17", fill: "none", stroke: "currentColor", strokeWidth: "1.3" }))),
                 React.createElement("svg", { className: "air-motto", viewBox: "0 0 150 70", "aria-hidden": "true" },
                     React.createElement("path", { d: "M8 62 C40 58, 90 44, 132 14", fill: "none", stroke: "currentColor", strokeWidth: "0.9", strokeDasharray: "3 3", opacity: ".7" }),
                     React.createElement("text", { x: "10", y: "20", transform: "rotate(-10 10 20)" }, "More"),
@@ -8612,6 +8809,7 @@ function Atlas() {
     // окно путешественника живёт поверх всего приложения
     const [person, setPerson] = useState(null);
     const [far, setFar] = useState(null);
+    const [airWin, setAirWin] = useState(null);
     const [booksSize, setBooksSize] = useState(0);
     const [booksSaved, setBooksSaved] = useState(false);
     const [booksAt, setBooksAt] = useState("");
@@ -9837,7 +10035,7 @@ function Atlas() {
                             setSheet(null);
                         } }),
                     React.createElement(DoublesSheet, { open: sheet === "doubles", onClose: () => setSheet("profile"), box: box, pairs: doubles, people: profile.people || [], home: profile.home || null, onJoin: joinDouble }),
-                    React.createElement(ReportsSheet, { open: sheet === "reports", onClose: () => setSheet(sheetBack === "list" ? "list" : "profile"), box: box, visits: visits, since: profile.since, stats: stats, people: profile.people || [], home: profile.home || null, geo: geo, home: profile.home || null, onPerson: setPerson, onFar: setFar, meName: profile.name || "", onOpenTrip: (a3, id) => {
+                    React.createElement(ReportsSheet, { open: sheet === "reports", onClose: () => setSheet(sheetBack === "list" ? "list" : "profile"), box: box, visits: visits, since: profile.since, stats: stats, people: profile.people || [], home: profile.home || null, geo: geo, home: profile.home || null, onPerson: setPerson, onFar: setFar, onAir: setAirWin, meName: profile.name || "", onOpenTrip: (a3, id) => {
                             setSelected(a3);
                             setEditId(id || null);
                             setSheet(null);
@@ -9856,6 +10054,21 @@ function Atlas() {
                             setSheetBack("list");
                             setSheet("reports");
                         }, onFilters: openFilters }),
+                    (airWin === null || airWin === void 0 ? void 0 : airWin.air) && (React.createElement(AirGlobe, { visits: visits, home: profile.home || null, air: airWin.air, geo: geo, onClose: () => setAirWin(null), mapProps: {
+                            isOn,
+                            selected: null,
+                            visitKey,
+                            home: lastTrip,
+                            boxWidth: 0,
+                            marks,
+                            light,
+                            playing: true,
+                            setPlaying: () => { },
+                            view: "globe",
+                            page: 0,
+                            setPage: () => { },
+                            isWish,
+                        } })),
                     (far === null || far === void 0 ? void 0 : far.rows) && (React.createElement(FarGlobe, { rows: far.rows, home: far.home, geo: geo, onClose: () => setFar(null), mapProps: {
                             isOn,
                             selected: null,
@@ -10243,6 +10456,28 @@ body > div{max-width:100%;}
 .pg-layer .zoom-body{flex:1 1 auto; min-height:0; display:flex; flex-direction:column;}
 .pg-layer .span-globe{flex:1 1 auto; min-height:120px; justify-content:center;}
 .pg-list{display:none;}
+.air-open-globe{flex:none; order:3;}
+.ag-side{gap:10px;}
+.ag-tiles{display:grid; grid-template-columns:repeat(3, 1fr); gap:6px;}
+.ag-tile{display:flex; flex-direction:column; gap:2px; padding:9px 10px; border-radius:12px; border:1px solid var(--line);
+  background:var(--field); min-width:0;}
+.ag-tile b{font-size:0.86rem; font-weight:700; color:var(--gold); line-height:1.15;}
+.ag-tile em{font-style:normal; font-size:0.58rem; color:var(--dim); line-height:1.25;}
+.ag-card{flex:1 1 auto; min-height:0; display:flex; flex-direction:column; gap:10px; padding:12px 14px; border-radius:14px;
+  border:1px solid color-mix(in srgb, var(--ac) 55%, var(--line)); background:
+  linear-gradient(135deg, color-mix(in srgb, var(--ac) 16%, transparent), transparent 60%), var(--field);}
+.ag-card-head{display:flex; align-items:center; gap:10px;}
+.ag-card-head .air-mark{width:42px; height:28px; border-radius:8px; display:flex; align-items:center; justify-content:center;
+  font-style:normal; font-size:0.7rem; font-weight:600; color:#fff;}
+.ag-card-head span{display:flex; flex-direction:column; min-width:0;}
+.ag-card-head b{font-size:0.9rem;}
+.ag-card-head em{font-style:normal; font-size:0.62rem; color:var(--dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.ag-card-nums{display:grid; grid-template-columns:repeat(3, 1fr); gap:6px;}
+.ag-card-nums span{padding:7px 8px; border-radius:10px; background:rgba(255,255,255,.04); text-align:center;}
+.ag-card-nums b{font-size:0.74rem; font-weight:600; color:var(--ac);}
+.ag-card-foot{font-style:normal; font-size:0.64rem; color:var(--text); line-height:1.35;}
+.pg-layer .ag-tiles{margin-top:8px;}
+.pg-layer .ag-card{flex:none; margin-top:8px;}
 .far-card{position:relative;}
 .far-card .far-open{position:absolute; top:12px; right:12px;}
 .far-row{align-items:center;}
