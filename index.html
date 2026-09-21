@@ -1304,7 +1304,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "26.1";
+const APP_VERSION = "26.2";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -5719,6 +5719,9 @@ function awardStats(visits, since) {
         hotels: hotels.size,
     };
 }
+/* как называть основного путешественника в отчётах */
+let ME_NAME = "";
+const meLabel = () => (ME_NAME || "").trim() || "Я";
 /* сколько проехал каждый: считаем по совместным поездкам */
 function travelerStats(visits, people) {
     const rows = new Map();
@@ -5737,7 +5740,7 @@ function travelerStats(visits, people) {
             });
         return rows.get(id);
     };
-    touch(ME, "Я", "");
+    touch(ME, meLabel(), "");
     (people || []).forEach((p) => touch(p.id, p.name, p.role));
     Object.entries(visits || {}).forEach(([a3, arr]) => (arr || []).forEach((t) => {
         if (t.plan)
@@ -5745,7 +5748,7 @@ function travelerStats(visits, people) {
         const c = BY_A3[a3];
         (t.who || []).forEach((w) => {
             const p = (people || []).find((x) => x.id === w || x.name === w);
-            const r = touch(p ? p.id : w, p ? p.name : w === ME ? "Я" : w, p === null || p === void 0 ? void 0 : p.role);
+            const r = touch(p ? p.id : w, p ? p.name : w === ME ? meLabel() : w, p === null || p === void 0 ? void 0 : p.role);
             r.countries.add(a3);
             if (c)
                 r.conts.add(c.cont);
@@ -5863,7 +5866,7 @@ function crewReport(visits, people, order, home) {
         const p = (people || []).find((x) => x.id === w || x.name === w);
         return {
             id: p ? p.id : w,
-            name: p ? p.name : w === ME ? "Я" : w,
+            name: p ? p.name : w === ME ? meLabel() : w,
         };
     };
     const P = new Map();
@@ -7662,9 +7665,10 @@ function GridChart({ grid, planGrid, vague, years, onOpen }) {
             " \u043D\u0435\u0442\u043E\u0447\u043D\u0430\u044F \u0434\u0430\u0442\u0430")));
 }
 /* шторка отчётов */
-function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], onOpenTrip, geo, home, onPerson, onFar }) {
+function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], onOpenTrip, geo, home, onPerson, onFar, meName = "" }) {
+    ME_NAME = meName;
     const r = useMemo(() => reportData(visits, since, people), [visits, since, people]);
-    const crew = useMemo(() => travelerStats(visits, people), [visits, people]);
+    const crew = useMemo(() => travelerStats(visits, people), [visits, people, meName]);
     /* дом из профиля, а пока не задан — страна, куда ездят чаще всего */
     const homePoint = useMemo(() => {
         if (home && isFinite(home.lat) && isFinite(home.lon))
@@ -7680,7 +7684,7 @@ function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], o
             ? { a3: c.a3, name: c.name, lon: c.lon, lat: c.lat, about: true, guess: true }
             : null;
     }, [home, visits]);
-    const crewR = useMemo(() => crewReport(visits, people, crew.map((p) => p.id), homePoint), [visits, people, crew, homePoint]);
+    const crewR = useMemo(() => crewReport(visits, people, crew.map((p) => p.id), homePoint), [visits, people, crew, homePoint, meName]);
     const [openCrew, setOpenCrew] = useState(null);
     const [cmp, setCmp] = useState([]);
     const [side, setSide] = useState(0);
@@ -9779,7 +9783,7 @@ function Atlas() {
                             setSheet(null);
                         } }),
                     React.createElement(DoublesSheet, { open: sheet === "doubles", onClose: () => setSheet("profile"), box: box, pairs: doubles, people: profile.people || [], home: profile.home || null, onJoin: joinDouble }),
-                    React.createElement(ReportsSheet, { open: sheet === "reports", onClose: () => setSheet(sheetBack === "list" ? "list" : "profile"), box: box, visits: visits, since: profile.since, stats: stats, people: profile.people || [], home: profile.home || null, geo: geo, home: profile.home || null, onPerson: setPerson, onFar: setFar, onOpenTrip: (a3, id) => {
+                    React.createElement(ReportsSheet, { open: sheet === "reports", onClose: () => setSheet(sheetBack === "list" ? "list" : "profile"), box: box, visits: visits, since: profile.since, stats: stats, people: profile.people || [], home: profile.home || null, geo: geo, home: profile.home || null, onPerson: setPerson, onFar: setFar, meName: profile.name || "", onOpenTrip: (a3, id) => {
                             setSelected(a3);
                             setEditId(id || null);
                             setSheet(null);
