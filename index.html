@@ -1304,7 +1304,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "26.0";
+const APP_VERSION = "26.1";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -3163,14 +3163,28 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
             return hidden ? null : [cx + x * k, arcCy + y * k];
         };
         const arcHits = [];
+        // сколько дуг идут одним маршрутом — их разводим в стороны
+        const same = new Map();
+        const keyOf = (a) => [a.from.lon, a.from.lat, a.to.lon, a.to.lat].map((x) => x.toFixed(1)).join("|");
+        (state.current.arcs || []).forEach((a) => {
+            const k = keyOf(a);
+            same.set(k, (same.get(k) || 0) + 1);
+        });
+        const seenIdx = new Map();
         (state.current.arcs || []).forEach((a, ai) => {
             const N = 64;
-            const inter = d3.geoInterpolate([a.from.lon, a.from.lat], [a.to.lon, a.to.lat]);
+            const k = keyOf(a);
+            const n = same.get(k) || 1;
+            const idx = seenIdx.get(k) || 0;
+            seenIdx.set(k, idx + 1);
+            const side = n > 1 ? (idx - (n - 1) / 2) * 0.14 : 0;
+            const A = [a.from.lon, a.from.lat];
+            const B = [a.to.lon, a.to.lat];
             const lift = 0.05 + (ai % 5) * 0.02;
             const pts = [];
             for (let i = 0; i <= N; i++) {
                 const t = i / N;
-                const p = inter(t);
+                const p = bendPoint(A, B, t, side);
                 pts.push(state.current.isMap
                     ? proj(p) || null
                     : lift3d(p, lift * Math.sin(Math.PI * t)));
@@ -6653,6 +6667,33 @@ function airReport(visits, home) {
         years: years.size,
         alliances: [...alli.entries()].sort((a, b) => b[1] - a[1]),
     };
+}
+/* точка большой дуги со сносом вбок: совпадающие маршруты расходятся в середине */
+function bendPoint(a, b, t, side) {
+    const p = d3.geoInterpolate(a, b)(t);
+    if (!side)
+        return p;
+    const r = Math.PI / 180;
+    const v = ([lon, lat]) => [
+        Math.cos(lat * r) * Math.cos(lon * r),
+        Math.cos(lat * r) * Math.sin(lon * r),
+        Math.sin(lat * r),
+    ];
+    const u = v(a);
+    const w = v(b);
+    const n = [
+        u[1] * w[2] - u[2] * w[1],
+        u[2] * w[0] - u[0] * w[2],
+        u[0] * w[1] - u[1] * w[0],
+    ];
+    const ln = Math.hypot(n[0], n[1], n[2]) || 1;
+    const q = v(p);
+    const k = side * Math.sin(Math.PI * t);
+    const x = q[0] + (n[0] / ln) * k;
+    const y = q[1] + (n[1] / ln) * k;
+    const z = q[2] + (n[2] / ln) * k;
+    const m = Math.hypot(x, y, z) || 1;
+    return [(Math.atan2(y, x) * 180) / Math.PI, (Math.asin(z / m) * 180) / Math.PI];
 }
 /* «Дальше всего от дома» во весь экран: по дуге на человека, как в окне путешественника */
 function FarGlobe({ rows, home, geo, mapProps, onClose }) {
