@@ -1305,7 +1305,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "26.6";
+const APP_VERSION = "26.7";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -3198,6 +3198,8 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
             ctx.shadowBlur = a.width && a.width > 2 ? 10 : 5;
             ctx.lineWidth = a.width || 2.6;
             ctx.globalAlpha = a.alpha == null ? 1 : a.alpha;
+            if (a.dash)
+                ctx.setLineDash([6, 5]);
             let open = false;
             ctx.beginPath();
             pts.forEach((q) => {
@@ -6720,9 +6722,10 @@ function airArcs(visits, home) {
             var _c;
             const k = code + "|" + cont;
             const g = groups.get(k) ||
-                { key: k, code, cont, deps: new Map(), dests: [], trips: 0, countries: new Set() };
+                { key: k, code, cont, deps: new Map(), dests: [], trips: 0, countries: new Set(), byCountry: new Map() };
             g.trips += 1;
             g.countries.add(a3);
+            g.byCountry.set(a3, (g.byCountry.get(a3) || 0) + 1);
             const dk = `${from.lon.toFixed(1)}|${from.lat.toFixed(1)}`;
             g.deps.set(dk, { p: from, n: (((_c = g.deps.get(dk)) === null || _c === void 0 ? void 0 : _c.n) || 0) + 1 });
             pts.forEach((q) => q.xy && g.dests.push({ lon: q.xy[0], lat: q.xy[1], name: q.name, a3 }));
@@ -6742,7 +6745,10 @@ function airArcs(visits, home) {
                 to = d;
             }
         });
-        return { ...g, from, to, km, countries: g.countries.size };
+        const list = [...g.byCountry.entries()]
+            .map(([a3, n]) => ({ a3, n }))
+            .sort((x, y) => { var _c, _d; return y.n - x.n || (((_c = BY_A3[x.a3]) === null || _c === void 0 ? void 0 : _c.name) || "").localeCompare(((_d = BY_A3[y.a3]) === null || _d === void 0 ? void 0 : _d.name) || "", "ru"); });
+        return { ...g, from, to, km, countries: g.countries.size, list };
     })
         .filter((g) => g.to && g.km > 1);
 }
@@ -6766,7 +6772,7 @@ const ARC_SPARE = [
 ];
 /* авиакомпании во весь экран: логика окна путешественника */
 function AirGlobe({ visits, home, air, geo, mapProps, onClose }) {
-    var _c, _d, _e, _f;
+    var _c, _d;
     const arcs = useMemo(() => airArcs(visits, home), [visits, home]);
     const [sel, setSel] = useState(null);
     // у каждой авиакомпании свой цвет из справочника; если два похожи — второй меняем
@@ -6820,6 +6826,7 @@ function AirGlobe({ visits, home, air, geo, mapProps, onClose }) {
                 width: on ? 3 : mine ? 2.2 : 1 + 1.2 * (g.km / far),
                 alpha: on || mine ? 1 : sel ? 0.22 : 0.85,
                 dot: on ? 4.2 : 2.6,
+                dash: true,
             };
         });
     }, [arcs, sel, colorOf]);
@@ -6848,29 +6855,27 @@ function AirGlobe({ visits, home, air, geo, mapProps, onClose }) {
                 "\u2248 ",
                 (air.km / 40075).toLocaleString("ru-RU", { maximumFractionDigits: 1 }),
                 " \u0440\u0430\u0437\u0430 \u0432\u043E\u043A\u0440\u0443\u0433 \u0417\u0435\u043C\u043B\u0438"))));
-    const card = a && (React.createElement("div", { className: "ag-card", style: { "--ac": colorOf[code] || a.arc } },
-        React.createElement("div", { className: "ag-card-head" },
-            React.createElement(AirMark, { code: code }),
-            React.createElement("span", null,
-                React.createElement("b", null, a.name),
-                React.createElement("em", null,
-                    flag(((_d = BY_A3[a.a3]) === null || _d === void 0 ? void 0 : _d.a2) || ""),
-                    " ",
-                    ((_e = BY_A3[a.a3]) === null || _e === void 0 ? void 0 : _e.name) || a.a3,
-                    a.year ? ` · с ${a.year}` : "",
-                    a.alliance ? ` · ${a.alliance}` : ""))),
-        React.createElement("div", { className: "ag-card-nums" },
-            React.createElement("span", null,
-                React.createElement("b", null, row ? np(row.trips, "trip") : "—")),
-            React.createElement("span", null,
-                React.createElement("b", null, row ? np(row.countries, "country") : "—")),
-            React.createElement("span", null,
-                React.createElement("b", null, row ? kmText(row.km) : "—"))),
-        React.createElement("em", { className: "ag-card-foot" }, selArc
-            ? `${selArc.from.name || "Дом"} → ${flag(((_f = BY_A3[selArc.to.a3]) === null || _f === void 0 ? void 0 : _f.a2) || "")} ${selArc.to.name} · ${CONTINENTS[selArc.cont] || ""}`
-            : conts.length
-                ? `Куда летали: ${conts.join(", ")}`
-                : "Нажмите дугу на глобусе")));
+    const card = selArc ? (React.createElement("div", { className: "ag-sel" },
+        React.createElement("div", { className: "ag-sel-head" },
+            React.createElement("i", { className: "ag-dot", style: { background: colorOf[selArc.code] } }),
+            React.createElement("b", null, ((_d = AIRLINES[selArc.code]) === null || _d === void 0 ? void 0 : _d.name) || selArc.code),
+            React.createElement("em", null,
+                CONTINENTS[selArc.cont] || "",
+                " \u00B7 ",
+                np(selArc.trips, "trip"))),
+        React.createElement("div", { className: "ag-list" }, selArc.list.map((c) => {
+            var _c, _d;
+            return (React.createElement("div", { key: c.a3, className: "ag-row" },
+                React.createElement("i", { className: "ag-dot", style: { background: colorOf[selArc.code] } }),
+                React.createElement(AirMark, { code: selArc.code }),
+                React.createElement("span", null,
+                    React.createElement("b", null,
+                        flag(((_c = BY_A3[c.a3]) === null || _c === void 0 ? void 0 : _c.a2) || ""),
+                        " ",
+                        ((_d = BY_A3[c.a3]) === null || _d === void 0 ? void 0 : _d.name) || c.a3),
+                    React.createElement("em", null, np(c.n, "trip")))));
+        })))) : (React.createElement("div", { className: "ag-sel ag-hint" },
+        React.createElement("p", null, "\u041A\u0430\u0436\u0434\u0430\u044F \u043F\u0443\u043D\u043A\u0442\u0438\u0440\u043D\u0430\u044F \u0434\u0443\u0433\u0430 \u2014 \u043E\u0434\u043D\u0430 \u0430\u0432\u0438\u0430\u043A\u043E\u043C\u043F\u0430\u043D\u0438\u044F \u0432 \u043E\u0434\u043D\u0443 \u0447\u0430\u0441\u0442\u044C \u0441\u0432\u0435\u0442\u0430. \u041D\u0430\u0436\u043C\u0438\u0442\u0435 \u0434\u0443\u0433\u0443, \u0447\u0442\u043E\u0431\u044B \u0443\u0432\u0438\u0434\u0435\u0442\u044C \u0441\u0442\u0440\u0430\u043D\u044B \u0438 \u0447\u0438\u0441\u043B\u043E \u043F\u043E\u0435\u0437\u0434\u043E\u043A.")));
     if (wide)
         return (React.createElement("div", { className: "pg-wide", onClick: onClose },
             React.createElement("div", { className: "pg-panel", onClick: (e) => e.stopPropagation() },
@@ -10468,6 +10473,23 @@ body > div{max-width:100%;}
 .ag-tile.ag-km{grid-column:1 / -1;}
 .ag-tile b{font-size:1.3rem; font-weight:700; color:var(--gold); line-height:1.1;}
 .ag-tile em{font-style:normal; font-size:0.72rem; color:var(--dim); line-height:1.3;}
+.ag-sel{flex:1 1 auto; min-height:0; display:flex; flex-direction:column; gap:8px;}
+.ag-sel-head{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
+.ag-sel-head b{font-size:0.9rem;}
+.ag-sel-head em{font-style:normal; font-size:0.66rem; color:var(--dim);}
+.ag-dot{flex:none; width:10px; height:10px; border-radius:50%; box-shadow:0 0 6px currentColor;}
+.ag-list{flex:1 1 auto; min-height:0; display:flex; flex-direction:column; gap:6px; overflow-y:auto;
+  overscroll-behavior:contain; touch-action:pan-y;}
+.ag-row{flex:none; display:flex; align-items:center; gap:10px; padding:9px 12px; border-radius:12px;
+  border:1px solid var(--line); background:var(--field);}
+.ag-row .air-mark{width:36px; height:24px; border-radius:7px; display:flex; align-items:center; justify-content:center;
+  font-style:normal; font-size:0.64rem; font-weight:600; color:#fff;}
+.ag-row span{display:flex; flex-direction:column; min-width:0;}
+.ag-row b{font-size:0.8rem; font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.ag-row em{font-style:normal; font-size:0.66rem; color:var(--dim);}
+.ag-hint{justify-content:center; padding:14px; border-radius:14px; border:1px dashed var(--line);}
+.ag-hint p{margin:0; font-size:0.74rem; color:var(--dim); line-height:1.45;}
+.pg-layer .ag-sel{flex:none; margin-top:8px; max-height:34vh;}
 .ag-card{flex:1 1 auto; min-height:0; display:flex; flex-direction:column; gap:10px; padding:12px 14px; border-radius:14px;
   border:1px solid color-mix(in srgb, var(--ac) 55%, var(--line)); background:
   linear-gradient(135deg, color-mix(in srgb, var(--ac) 16%, transparent), transparent 60%), var(--field);}
