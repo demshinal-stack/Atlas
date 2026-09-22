@@ -1342,7 +1342,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "28.0";
+const APP_VERSION = "28.1";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -7830,11 +7830,12 @@ function AreaChart({ points }) {
             React.createElement("text", { x: w - 2, y: h + 15, fill: C_DIM, fontSize: "9", textAnchor: "end" }, points[points.length - 1].y))));
 }
 /* кольцо по частям света */
-function DonutChart({ parts, total }) {
-    const size = 150;
-    const r = 58;
+function DonutChart({ parts, total, sel = null, onSel, size = 168, big = false }) {
+    var _c, _d;
     const cx = size / 2;
     const cy = size / 2;
+    const w = size * (big ? 0.15 : 0.135); // толщина кольца
+    const r = size / 2 - w / 2 - size * 0.02;
     /* кольцо крутится: сначала само при появлении, потом пальцем */
     const [rot, setRot] = useState(-320);
     const [free, setFree] = useState(false);
@@ -7842,6 +7843,7 @@ function DonutChart({ parts, total }) {
     const drag = useRef(null);
     const spin = useRef(0);
     const raf = useRef(0);
+    const moved = useRef(0);
     useEffect(() => {
         const t = setTimeout(() => setRot(0), 60);
         return () => clearTimeout(t);
@@ -7852,8 +7854,7 @@ function DonutChart({ parts, total }) {
         const b = (_c = box.current) === null || _c === void 0 ? void 0 : _c.getBoundingClientRect();
         if (!b)
             return 0;
-        return ((Math.atan2(e.clientY - (b.top + b.height / 2), e.clientX - (b.left + b.width / 2)) *
-            180) /
+        return ((Math.atan2(e.clientY - (b.top + b.height / 2), e.clientX - (b.left + b.width / 2)) * 180) /
             Math.PI);
     };
     const glide = () => {
@@ -7869,8 +7870,9 @@ function DonutChart({ parts, total }) {
         var _c, _d;
         cancelAnimationFrame(raf.current);
         spin.current = 0;
+        moved.current = 0;
         setFree(true);
-        drag.current = { a: angleAt(e), at: Date.now() };
+        drag.current = { a: angleAt(e) };
         (_d = (_c = e.currentTarget).setPointerCapture) === null || _d === void 0 ? void 0 : _d.call(_c, e.pointerId);
     };
     const move = (e) => {
@@ -7882,38 +7884,154 @@ function DonutChart({ parts, total }) {
             d -= 360;
         if (d < -180)
             d += 360;
-        drag.current = { a, at: Date.now() };
+        drag.current = { a };
         spin.current = d;
+        moved.current += Math.abs(d);
         setRot((v) => v + d);
     };
-    const up = () => {
+    const up = (e) => {
+        var _c, _d, _e;
         if (!drag.current)
             return;
         drag.current = null;
+        // палец захвачен кольцом, поэтому попадание ищем по точке отпускания
+        if (moved.current < 6 && onSel) {
+            const el = (_d = (_c = document.elementFromPoint(e.clientX, e.clientY)) === null || _c === void 0 ? void 0 : _c.closest) === null || _d === void 0 ? void 0 : _d.call(_c, "[data-seg]");
+            const k = (_e = el === null || el === void 0 ? void 0 : el.getAttribute) === null || _e === void 0 ? void 0 : _e.call(el, "data-seg");
+            if (k === "")
+                onSel(null);
+            else if (k)
+                onSel(sel === k ? null : k);
+        }
         raf.current = requestAnimationFrame(glide);
     };
-    let acc = 0;
     const sum = parts.reduce((s, p) => s + p.v, 0) || 1;
     const colors = [C_GOLD, C_SILVER, C_BLUE, "#9a7b45", "#5d7d92", "#7a6b8f"];
-    return (React.createElement("div", { className: "donut-row" },
+    const rad = Math.PI / 180;
+    let acc = 0;
+    const segs = parts.map((p, i) => {
+        const from = (acc / sum) * 360 - 90;
+        acc += p.v;
+        const to = (acc / sum) * 360 - 90;
+        return { ...p, from, to, mid: (from + to) / 2, color: colors[i % colors.length] };
+    });
+    const arc = (a0, a1) => {
+        const gap = Math.min(2.2, (a1 - a0) / 4);
+        const s0 = (a0 + gap) * rad;
+        const s1 = (a1 - gap) * rad;
+        const big2 = s1 - s0 > Math.PI ? 1 : 0;
+        return `M ${cx + Math.cos(s0) * r} ${cy + Math.sin(s0) * r} A ${r} ${r} 0 ${big2} 1 ${cx + Math.cos(s1) * r} ${cy + Math.sin(s1) * r}`;
+    };
+    return (React.createElement("div", { className: "donut-row" + (big ? " donut-big" : "") },
         React.createElement("svg", { viewBox: `0 0 ${size} ${size}`, className: "donut", ref: box, onPointerDown: down, onPointerMove: move, onPointerUp: up, onPointerCancel: up },
             React.createElement("g", { className: "donut-ring", style: {
                     transform: `rotate(${rot}deg)`,
                     transformOrigin: `${cx}px ${cy}px`,
                     transition: free ? "none" : undefined,
-                } }, parts.map((p, i) => {
-                const a0 = (acc / sum) * Math.PI * 2 - Math.PI / 2;
-                acc += p.v;
-                const a1 = (acc / sum) * Math.PI * 2 - Math.PI / 2 - 0.03;
-                const big = a1 - a0 > Math.PI ? 1 : 0;
-                return (React.createElement("path", { key: p.k, d: `M ${cx + Math.cos(a0) * r} ${cy + Math.sin(a0) * r} A ${r} ${r} 0 ${big} 1 ${cx + Math.cos(a1) * r} ${cy + Math.sin(a1) * r}`, stroke: colors[i % colors.length], strokeWidth: "20", fill: "none" }));
-            })),
-            React.createElement("text", { x: cx, y: cy - 2, fill: C_GOLD, fontSize: "20", textAnchor: "middle" }, total),
-            React.createElement("text", { x: cx, y: cy + 14, fill: C_DIM, fontSize: "9", textAnchor: "middle" }, "\u0441\u0442\u0440\u0430\u043D")),
-        React.createElement("div", { className: "donut-legend" }, parts.map((p, i) => (React.createElement("div", { key: p.k },
-            React.createElement("i", { style: { background: colors[i % colors.length] } }),
+                } }, segs.map((p) => (React.createElement("path", { key: p.k, d: arc(p.from, p.to), stroke: p.color, strokeWidth: w, strokeLinecap: "round", fill: "none", "data-seg": p.k, opacity: sel && sel !== p.k ? 0.4 : 1, style: { filter: sel === p.k ? "brightness(1.15)" : undefined, cursor: onSel ? "pointer" : "grab" } })))),
+            segs.map((p) => {
+                const a = (p.mid + rot) * rad;
+                const x = cx + Math.cos(a) * r;
+                const y = cy + Math.sin(a) * r;
+                const wide = p.to - p.from > 26;
+                return (React.createElement("g", { key: p.k, pointerEvents: "none" },
+                    React.createElement("text", { x: x, y: y + (wide && big ? -size * 0.012 : size * 0.014), textAnchor: "middle", fontSize: size * (big ? 0.062 : 0.058), fontWeight: "700", fill: "#0d1a27" }, p.v),
+                    wide && big && (React.createElement("text", { x: x, y: y + size * 0.042, textAnchor: "middle", fontSize: size * 0.034, fill: "#12222f" },
+                        Math.round((p.v / sum) * 100),
+                        "%"))));
+            }),
+            React.createElement("g", { "data-seg": "", style: { cursor: sel ? "pointer" : "default" } },
+                React.createElement("circle", { cx: cx, cy: cy, r: r - w / 2 - 2, fill: "transparent" }),
+                React.createElement("text", { x: cx, y: cy - size * 0.005, fill: C_GOLD, fontSize: size * 0.14, fontWeight: "700", textAnchor: "middle" }, sel ? (_d = (_c = parts.find((p) => p.k === sel)) === null || _c === void 0 ? void 0 : _c.v) !== null && _d !== void 0 ? _d : total : total),
+                React.createElement("text", { x: cx, y: cy + size * 0.075, fill: C_DIM, fontSize: size * 0.055, textAnchor: "middle" }, sel ? CONTINENTS[sel] : pw(total, "country")),
+                sel && (React.createElement("text", { x: cx, y: cy + size * 0.13, fill: C_GOLD, fontSize: size * 0.05, textAnchor: "middle" }, "\u21BA \u0432\u0441\u0435")))),
+        React.createElement("div", { className: "donut-legend" }, segs.map((p) => (React.createElement("div", { key: p.k, className: sel === p.k ? "on" : "", onClick: () => onSel === null || onSel === void 0 ? void 0 : onSel(sel === p.k ? null : p.k) },
+            React.createElement("i", { style: { background: p.color } }),
             CONTINENTS[p.k],
             React.createElement("b", null, p.v)))))));
+}
+/* страны по частям света: для карточек в полноэкранном режиме */
+function contsData(visits) {
+    const by = {};
+    let total = 0;
+    Object.entries(visits || {}).forEach(([a3, arr]) => {
+        var _c;
+        const trips = (arr || []).filter((t) => !t.plan).length;
+        if (!trips)
+            return;
+        const k = (_c = BY_A3[a3]) === null || _c === void 0 ? void 0 : _c.cont;
+        if (!k)
+            return;
+        total += 1;
+        (by[k] = by[k] || []).push({ a3, n: trips });
+    });
+    Object.values(by).forEach((l) => l.sort((a, b) => { var _c, _d; return b.n - a.n || (((_c = BY_A3[a.a3]) === null || _c === void 0 ? void 0 : _c.name) || "").localeCompare(((_d = BY_A3[b.a3]) === null || _d === void 0 ? void 0 : _d.name) || "", "ru"); }));
+    const parts = CONT_ORDER.filter((k) => { var _c; return (_c = by[k]) === null || _c === void 0 ? void 0 : _c.length; }).map((k) => ({ k, v: by[k].length }));
+    return { by, parts, total };
+}
+/* «Части света» во весь экран: диаграмма и список стран */
+function ContsWin({ visits, onClose }) {
+    const data = useMemo(() => contsData(visits), [visits]);
+    const [sel, setSel] = useState(null);
+    const [wide, setWide] = useState(typeof window !== "undefined" && window.innerWidth > window.innerHeight);
+    const wrap = useRef(null);
+    const [side, setSide] = useState(280);
+    useEffect(() => {
+        const fit = () => {
+            var _c;
+            setWide(window.innerWidth > window.innerHeight);
+            const b = (_c = wrap.current) === null || _c === void 0 ? void 0 : _c.getBoundingClientRect();
+            if (b)
+                setSide(Math.max(200, Math.min(b.width, b.height) - 12));
+        };
+        fit();
+        const t = setTimeout(fit, 60);
+        window.addEventListener("resize", fit);
+        window.addEventListener("orientationchange", fit);
+        return () => {
+            clearTimeout(t);
+            window.removeEventListener("resize", fit);
+            window.removeEventListener("orientationchange", fit);
+        };
+    }, [wide]);
+    const list = sel
+        ? (data.by[sel] || []).map((c) => ({ ...c, k: sel }))
+        : CONT_ORDER.flatMap((k) => (data.by[k] || []).map((c) => ({ ...c, k })));
+    const dial = (React.createElement("div", { className: "sd-stage", ref: wrap },
+        React.createElement("div", { style: { width: side, height: side } },
+            React.createElement(DonutChart, { parts: data.parts, total: data.total, sel: sel, onSel: setSel, size: 300, big: true }))));
+    const cards = (React.createElement("div", { className: "sd-cards" },
+        React.createElement("div", { className: "sd-card" },
+            React.createElement("em", null, sel ? CONTINENTS[sel] : "Все части света"),
+            React.createElement("b", { className: "sd-mname" }, np(list.length, "country"))),
+        React.createElement("div", { className: "ct-list" }, list.map((c) => {
+            var _c, _d;
+            return (React.createElement("div", { key: c.a3, className: "ct-row" },
+                React.createElement("span", { className: "ct-flag" }, flag(((_c = BY_A3[c.a3]) === null || _c === void 0 ? void 0 : _c.a2) || "")),
+                React.createElement("span", { className: "ct-name" },
+                    ((_d = BY_A3[c.a3]) === null || _d === void 0 ? void 0 : _d.name) || c.a3,
+                    !sel && React.createElement("em", null, CONTINENTS[c.k])),
+                React.createElement("b", null, np(c.n, "trip"))));
+        })),
+        React.createElement("p", { className: "hint small" }, "\u041D\u0430\u0436\u043C\u0438\u0442\u0435 \u0447\u0430\u0441\u0442\u044C \u043A\u0440\u0443\u0433\u0430, \u0447\u0442\u043E\u0431\u044B \u043E\u0441\u0442\u0430\u0432\u0438\u0442\u044C \u0442\u043E\u043B\u044C\u043A\u043E \u0435\u0451 \u0441\u0442\u0440\u0430\u043D\u044B. \u041D\u0430\u0436\u0430\u0442\u0438\u0435 \u043D\u0430 \u0446\u0435\u043D\u0442\u0440 \u2014 \u0441\u043D\u043E\u0432\u0430 \u0432\u0441\u0435.")));
+    if (wide)
+        return (React.createElement("div", { className: "pg-wide", onClick: onClose },
+            React.createElement("div", { className: "pg-panel", onClick: (e) => e.stopPropagation() },
+                React.createElement("div", { className: "pg-map" },
+                    React.createElement("span", { className: "pg-title" }, "\u0427\u0430\u0441\u0442\u0438 \u0441\u0432\u0435\u0442\u0430"),
+                    dial),
+                React.createElement("div", { className: "pg-side ag-side" },
+                    React.createElement("div", { className: "pg-side-head" },
+                        React.createElement("b", null, "\u0427\u0430\u0441\u0442\u0438 \u0441\u0432\u0435\u0442\u0430"),
+                        React.createElement("button", { className: "zoom-x", onClick: onClose, "aria-label": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C" }, "\u2715")),
+                    React.createElement("div", { className: "ag-frame sd-frame" }, cards)))));
+    return (React.createElement("div", { className: "zoom-layer pg-layer", onClick: onClose },
+        React.createElement("div", { className: "zoom-box", onClick: (e) => e.stopPropagation() },
+            React.createElement("button", { className: "zoom-x", onClick: onClose, "aria-label": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C" }, "\u2715"),
+            React.createElement("div", { className: "zoom-body rep" },
+                React.createElement("b", null, "\u0427\u0430\u0441\u0442\u0438 \u0441\u0432\u0435\u0442\u0430"),
+                React.createElement("div", { className: "pg-map far-map" }, dial),
+                React.createElement("div", { className: "ag-frame sd-frame" }, cards)))));
 }
 /* ── сезонность: данные ─────────────────────────────────────────── */
 const MON3 = ["Янв", "Фев", "Мар", "Апр", "Май", "Июн", "Июл", "Авг", "Сен", "Окт", "Ноя", "Дек"];
@@ -8223,7 +8341,7 @@ function GridChart({ grid, planGrid, vague, years, onOpen }) {
             " \u043D\u0435\u0442\u043E\u0447\u043D\u0430\u044F \u0434\u0430\u0442\u0430")));
 }
 /* шторка отчётов */
-function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], onOpenTrip, geo, home, onPerson, onFar, onAir, onSeason, meName = "", repCfg = null }) {
+function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], onOpenTrip, geo, home, onPerson, onFar, onAir, onSeason, onConts, meName = "", repCfg = null }) {
     ME_NAME = meName;
     const r = useMemo(() => reportData(visits, since, people), [visits, since, people]);
     const crew = useMemo(() => travelerStats(visits, people), [visits, people, meName]);
@@ -8272,8 +8390,11 @@ function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], o
                 React.createElement("b", null, "\u0421\u0442\u0440\u0430\u043D\u044B \u043D\u0430\u0440\u0430\u0441\u0442\u0430\u044E\u0449\u0438\u043C \u0438\u0442\u043E\u0433\u043E\u043C"),
                 React.createElement("em", null, "\u043A\u0430\u043A \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u043B\u0441\u044F \u043C\u0438\u0440"),
                 React.createElement(AreaChart, { points: r.line })),
-            React.createElement(Reveal, { rid: "conts", className: "rep" },
+            React.createElement(Reveal, { rid: "conts", className: "rep far-card", zoomable: false },
                 React.createElement("b", null, "\u0427\u0430\u0441\u0442\u0438 \u0441\u0432\u0435\u0442\u0430"),
+                React.createElement("button", { className: "crew-globe far-open", onClick: () => onConts === null || onConts === void 0 ? void 0 : onConts(), "aria-label": "\u0412\u043E \u0432\u0435\u0441\u044C \u044D\u043A\u0440\u0430\u043D" },
+                    React.createElement("svg", { viewBox: "0 0 24 24", width: "18", height: "18" },
+                        React.createElement("path", { d: "M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5", fill: "none", stroke: "currentColor", strokeWidth: "1.7", strokeLinecap: "round" }))),
                 React.createElement("em", null, "\u0441\u043A\u043E\u043B\u044C\u043A\u043E \u0441\u0442\u0440\u0430\u043D \u0432 \u043A\u0430\u0436\u0434\u043E\u0439"),
                 React.createElement(DonutChart, { parts: CONT_ORDER.filter((k) => r.conts[k]).map((k) => ({
                         k,
@@ -9177,6 +9298,7 @@ function Atlas() {
     const [far, setFar] = useState(null);
     const [airWin, setAirWin] = useState(null);
     const [seasonWin, setSeasonWin] = useState(false);
+    const [contsWin, setContsWin] = useState(false);
     const [booksSize, setBooksSize] = useState(0);
     const [booksSaved, setBooksSaved] = useState(false);
     const [booksAt, setBooksAt] = useState("");
@@ -9307,12 +9429,13 @@ function Atlas() {
     /* нажатие на меню: закрыть всё, что открыто поверх, и перейти в раздел.
        Если поверх было открыто окно, а нажали текущий раздел — просто закрываем окно */
     const goTab = (tab, sheetName) => {
-        const over = !!(person || far || airWin || seasonWin) ||
+        const over = !!(person || far || airWin || seasonWin || contsWin) ||
             (typeof document !== "undefined" && !!document.querySelector(".zoom-layer"));
         setPerson(null);
         setFar(null);
         setAirWin(null);
         setSeasonWin(false);
+        setContsWin(false);
         if (typeof window !== "undefined")
             window.dispatchEvent(new Event("atlas:closezoom"));
         setSheetBack(null);
@@ -10426,7 +10549,7 @@ function Atlas() {
                             setSheet(null);
                         } }),
                     React.createElement(DoublesSheet, { open: sheet === "doubles", onClose: () => setSheet("profile"), box: box, pairs: doubles, people: profile.people || [], home: profile.home || null, onJoin: joinDouble }),
-                    React.createElement(ReportsSheet, { open: sheet === "reports", onClose: () => setSheet(sheetBack === "profile" ? "profile" : null), box: box, visits: visits, since: profile.since, stats: stats, people: profile.people || [], home: profile.home || null, geo: geo, home: profile.home || null, onPerson: setPerson, onFar: setFar, onAir: setAirWin, onSeason: () => setSeasonWin(true), repCfg: profile.reports || null, meName: profile.name || "", onOpenTrip: (a3, id) => {
+                    React.createElement(ReportsSheet, { open: sheet === "reports", onClose: () => setSheet(sheetBack === "profile" ? "profile" : null), box: box, visits: visits, since: profile.since, stats: stats, people: profile.people || [], home: profile.home || null, geo: geo, home: profile.home || null, onPerson: setPerson, onFar: setFar, onAir: setAirWin, onSeason: () => setSeasonWin(true), onConts: () => setContsWin(true), repCfg: profile.reports || null, meName: profile.name || "", onOpenTrip: (a3, id) => {
                             setSelected(a3);
                             setEditId(id || null);
                             setSheet(null);
@@ -10446,6 +10569,7 @@ function Atlas() {
                             setSheet("reports");
                         }, onFilters: openFilters }),
                     seasonWin && React.createElement(SeasonWin, { visits: visits, onClose: () => setSeasonWin(false) }),
+                    contsWin && React.createElement(ContsWin, { visits: visits, onClose: () => setContsWin(false) }),
                     (airWin === null || airWin === void 0 ? void 0 : airWin.air) && (React.createElement(AirGlobe, { visits: visits, home: profile.home || null, air: airWin.air, geo: geo, onClose: () => setAirWin(null), mapProps: {
                             isOn,
                             selected: null,
@@ -10928,6 +11052,16 @@ body > div{max-width:100%;}
 }
 .sd-stage{flex:1 1 auto; width:100%; height:100%; display:flex; align-items:center; justify-content:center; min-height:0;}
 .sd-frame{gap:8px; overflow-y:auto; overscroll-behavior:contain; touch-action:pan-y;}
+.donut-row.donut-big .donut-legend{display:none !important;}
+.donut-row .donut-legend div{cursor:pointer;}
+.donut-row .donut-legend div.on{color:var(--gold);}
+.ct-list{display:flex; flex-direction:column; gap:5px;}
+.ct-row{display:flex !important; flex-direction:row !important; align-items:center; gap:9px;
+  padding:8px 11px; border-radius:11px; border:1px solid var(--line); background:var(--field); text-align:left;}
+.ct-flag{flex:none; font-size:1.05rem;}
+.ct-name{flex:1 1 auto; min-width:0; display:flex; flex-direction:column; align-items:flex-start; font-size:0.78rem;}
+.ct-name em{font-style:normal; font-size:0.62rem; color:var(--dim);}
+.ct-row b{flex:none; font-size:0.72rem; font-weight:500; color:var(--dim);}
 .sd-cards{display:flex; flex-direction:column; gap:8px;}
 .sd-card{display:flex; flex-direction:column; gap:3px; padding:11px 13px; border-radius:12px; border:1px solid var(--line); background:var(--field);}
 .sd-card em{font-style:normal; font-size:0.66rem; color:var(--dim);}
