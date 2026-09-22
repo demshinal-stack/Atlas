@@ -1305,7 +1305,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "27.0";
+const APP_VERSION = "27.1";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -5211,7 +5211,34 @@ function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, 
         React.createElement(Ask, { ask: ask, onClose: () => setAsk(null), box: box })))));
 }
 /* шторка: настройки — поведение приложения */
-function SettingsSheet({ open, onClose, box, visits, theme, onTheme, quality, onQuality, cityPins, onToggleCityPins, spinStart, onToggleSpin, mapView, onMapView, geoCount, onReloadGeo, offline, busy, progress, offlineAt, onToggleOffline, booksSize, booksCounts, hasPin, faceAvailable, faceOn, onSetPin, onDropPin, onLock, onFace, }) {
+/* выбор отчётов и их порядка */
+function ReportsSetup({ cfg, onChange }) {
+    const order = reportOrder(cfg);
+    const off = (cfg === null || cfg === void 0 ? void 0 : cfg.off) || [];
+    const save = (next) => { var _c, _d; return onChange({ order: (_c = next.order) !== null && _c !== void 0 ? _c : order, off: (_d = next.off) !== null && _d !== void 0 ? _d : off }); };
+    const move = (i, d) => {
+        const j = i + d;
+        if (j < 0 || j >= order.length)
+            return;
+        const next = [...order];
+        [next[i], next[j]] = [next[j], next[i]];
+        save({ order: next });
+    };
+    const toggle = (id) => save({ off: off.includes(id) ? off.filter((x) => x !== id) : [...off, id] });
+    const shown = order.filter((id) => !off.includes(id)).length;
+    return (React.createElement("div", { className: "rs-list" },
+        order.map((id, i) => {
+            const r = REPORTS.find((x) => x.id === id);
+            const on = !off.includes(id);
+            return (React.createElement("div", { key: id, className: "rs-row" + (on ? "" : " off") },
+                React.createElement("button", { className: "rs-check" + (on ? " on" : ""), onClick: () => (on && shown === 1 ? null : toggle(id)), "aria-label": on ? "Скрыть отчёт" : "Показывать отчёт" }, on ? "✓" : ""),
+                React.createElement("span", { className: "rs-name" }, (r === null || r === void 0 ? void 0 : r.title) || id),
+                React.createElement("button", { className: "rs-arrow", onClick: () => move(i, -1), disabled: i === 0, "aria-label": "\u0412\u044B\u0448\u0435" }, "\u2191"),
+                React.createElement("button", { className: "rs-arrow", onClick: () => move(i, 1), disabled: i === order.length - 1, "aria-label": "\u041D\u0438\u0436\u0435" }, "\u2193")));
+        }),
+        React.createElement("button", { className: "link-btn", onClick: () => onChange(null) }, "\u0412\u0435\u0440\u043D\u0443\u0442\u044C \u043A\u0430\u043A \u0431\u044B\u043B\u043E")));
+}
+function SettingsSheet({ reportsCfg, onReportsCfg, open, onClose, box, visits, theme, onTheme, quality, onQuality, cityPins, onToggleCityPins, spinStart, onToggleSpin, mapView, onMapView, geoCount, onReloadGeo, offline, busy, progress, offlineAt, onToggleOffline, booksSize, booksCounts, hasPin, faceAvailable, faceOn, onSetPin, onDropPin, onLock, onFace, }) {
     const where = store.kind() === "idb"
         ? "база браузера"
         : store.kind() === "ls"
@@ -5243,6 +5270,9 @@ function SettingsSheet({ open, onClose, box, visits, theme, onTheme, quality, on
                         : "Глобус стоит, пока не нажмёте воспроизведение")),
                 React.createElement("span", { className: "switch" + (spinStart ? " on" : "") },
                     React.createElement("i", null))),
+            React.createElement("p", { className: "step-title" }, "\u041E\u0442\u0447\u0451\u0442\u044B"),
+            React.createElement("p", { className: "hint small" }, "\u0413\u0430\u043B\u043E\u0447\u043A\u0430 \u2014 \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0442\u044C \u043E\u0442\u0447\u0451\u0442, \u0441\u0442\u0440\u0435\u043B\u043A\u0438 \u2014 \u043F\u043E\u043C\u0435\u043D\u044F\u0442\u044C \u043F\u043E\u0440\u044F\u0434\u043E\u043A \u043D\u0430 \u044D\u043A\u0440\u0430\u043D\u0435 \u043E\u0442\u0447\u0451\u0442\u043E\u0432."),
+            React.createElement(ReportsSetup, { cfg: reportsCfg, onChange: onReportsCfg }),
             React.createElement("p", { className: "step-title" }, "\u041E\u0444\u043E\u0440\u043C\u043B\u0435\u043D\u0438\u0435"),
             React.createElement("div", { className: "theme-row" }, [
                 ["system", "Системная"],
@@ -7531,11 +7561,41 @@ function reportData(visits, since, people) {
 }
 /* появление при прокрутке: строим график, когда он попал на экран */
 const ZoomCtx = React.createContext(false);
+/* какие отчёты показывать и в каком порядке — настраивается в профиле */
+const REPORTS = [
+    { id: "years", title: "Поездки по годам" },
+    { id: "grow", title: "Страны нарастающим итогом" },
+    { id: "conts", title: "Части света" },
+    { id: "season", title: "Сезонность" },
+    { id: "days", title: "Дни в пути" },
+    { id: "often", title: "Чаще всего" },
+    { id: "hotels", title: "Любимые отели" },
+    { id: "crew", title: "Кто сколько проехал" },
+    { id: "air", title: "Авиакомпании" },
+    { id: "lanes", title: "Дорожки по годам" },
+    { id: "split", title: "Свои и общие страны" },
+    { id: "first", title: "Первооткрыватели" },
+    { id: "far", title: "Дальше всего от дома" },
+    { id: "diff", title: "Двое: только разница" },
+    { id: "radar", title: "Части света лепестками" },
+    { id: "calendar", title: "Календарь поездок" },
+];
+// порядок из профиля; новые отчёты, которых там ещё нет, встают в конец
+const reportOrder = (cfg) => {
+    const known = REPORTS.map((r) => r.id);
+    const saved = ((cfg === null || cfg === void 0 ? void 0 : cfg.order) || []).filter((id) => known.includes(id));
+    return [...saved, ...known.filter((id) => !saved.includes(id))];
+};
+const ReportCfg = React.createContext(null);
 /* показываем только в карточке, в развороте прячем */
 function OnlyCard({ children }) {
     return React.useContext(ZoomCtx) ? null : children;
 }
-function Reveal({ children, className = "", zoomable = true }) {
+function Reveal({ children, className = "", zoomable = true, rid }) {
+    var _c;
+    const cfg = React.useContext(ReportCfg);
+    const hidden = rid && ((_c = cfg === null || cfg === void 0 ? void 0 : cfg.off) === null || _c === void 0 ? void 0 : _c.includes(rid));
+    const order = rid && cfg ? cfg.order.indexOf(rid) + 1 : undefined;
     const box = useRef(null);
     const [seen, setSeen] = useState(false);
     useEffect(() => {
@@ -7574,7 +7634,9 @@ function Reveal({ children, className = "", zoomable = true }) {
         else
             tap.current = t;
     };
-    return (React.createElement("div", { ref: box, className: `reveal ${className}${seen ? " in" : ""}`, onDoubleClick: () => zoomable && setZoom(true), onTouchEnd: zoomable ? onTap : undefined },
+    if (hidden)
+        return null;
+    return (React.createElement("div", { ref: box, className: `reveal ${className}${seen ? " in" : ""}`, style: order ? { order } : undefined, onDoubleClick: () => zoomable && setZoom(true), onTouchEnd: zoomable ? onTap : undefined },
         children,
         zoom && (React.createElement("div", { className: "zoom-layer", onClick: () => setZoom(false), onTouchEnd: (e) => e.stopPropagation() },
             React.createElement("div", { className: "zoom-box", onClick: (e) => e.stopPropagation() },
@@ -7863,7 +7925,7 @@ function GridChart({ grid, planGrid, vague, years, onOpen }) {
             " \u043D\u0435\u0442\u043E\u0447\u043D\u0430\u044F \u0434\u0430\u0442\u0430")));
 }
 /* шторка отчётов */
-function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], onOpenTrip, geo, home, onPerson, onFar, onAir, meName = "" }) {
+function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], onOpenTrip, geo, home, onPerson, onFar, onAir, meName = "", repCfg = null }) {
     ME_NAME = meName;
     const r = useMemo(() => reportData(visits, since, people), [visits, since, people]);
     const crew = useMemo(() => travelerStats(visits, people), [visits, people, meName]);
@@ -7900,250 +7962,251 @@ function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], o
     const [airOpen, setAirOpen] = useState(false);
     const diff = useMemo(() => (pair[0] && pair[1] ? diffPair(crewR.rows, pair[0], pair[1]) : null), [crewR, pair]);
     const years = r.allYears.length ? r.allYears : [NOW.getFullYear()];
-    return (React.createElement(Sheet, { open: open, onClose: onClose, title: "\u041E\u0442\u0447\u0451\u0442\u044B", box: box }, () => (React.createElement("div", { className: "sheet-body" }, r.trips.length === 0 ? (React.createElement("p", { className: "hint small" }, "\u041E\u0442\u0447\u0451\u0442\u044B \u043F\u043E\u044F\u0432\u044F\u0442\u0441\u044F, \u043A\u043E\u0433\u0434\u0430 \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u0435 \u043F\u0435\u0440\u0432\u0443\u044E \u043F\u043E\u0435\u0437\u0434\u043A\u0443.")) : (React.createElement(React.Fragment, null,
-        React.createElement("p", { className: "hint small" }, "\u0414\u0432\u043E\u0439\u043D\u043E\u0435 \u043A\u0430\u0441\u0430\u043D\u0438\u0435 \u0440\u0430\u0437\u0432\u043E\u0440\u0430\u0447\u0438\u0432\u0430\u0435\u0442 \u043B\u044E\u0431\u043E\u0439 \u0433\u0440\u0430\u0444\u0438\u043A \u043D\u0430 \u0432\u0435\u0441\u044C \u044D\u043A\u0440\u0430\u043D."),
-        React.createElement(Reveal, { className: "rep" },
-            React.createElement("b", null, "\u041F\u043E\u0435\u0437\u0434\u043A\u0438 \u043F\u043E \u0433\u043E\u0434\u0430\u043C"),
-            React.createElement("em", null, "\u0441\u0442\u043E\u043B\u0431\u0438\u043A\u0438 \u0438 \u043B\u0438\u043D\u0438\u044F \u0442\u0440\u0435\u043D\u0434\u0430"),
-            React.createElement(BarsChart, { data: years.map((y) => Math.round((r.years[y] || 0) * 10) / 10), vague: years.map((y) => r.vague[y] || 0), labels: years }),
-            Object.keys(r.vague).length > 0 && (React.createElement("p", { className: "hint small" }, "\u0411\u043B\u0435\u0434\u043D\u0430\u044F \u0447\u0430\u0441\u0442\u044C \u0441\u0442\u043E\u043B\u0431\u0438\u043A\u0430 \u2014 \u043F\u043E\u0435\u0437\u0434\u043A\u0438 \u0441 \u043D\u0435\u0442\u043E\u0447\u043D\u043E\u0439 \u0434\u0430\u0442\u043E\u0439, \u0440\u0430\u0437\u043B\u043E\u0436\u0435\u043D\u043D\u044B\u0435 \u043F\u043E\u0440\u043E\u0432\u043D\u0443 \u043F\u043E \u0433\u043E\u0434\u0430\u043C \u043F\u0435\u0440\u0438\u043E\u0434\u0430."))),
-        React.createElement(Reveal, { className: "rep" },
-            React.createElement("b", null, "\u0421\u0442\u0440\u0430\u043D\u044B \u043D\u0430\u0440\u0430\u0441\u0442\u0430\u044E\u0449\u0438\u043C \u0438\u0442\u043E\u0433\u043E\u043C"),
-            React.createElement("em", null, "\u043A\u0430\u043A \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u043B\u0441\u044F \u043C\u0438\u0440"),
-            React.createElement(AreaChart, { points: r.line })),
-        React.createElement(Reveal, { className: "rep" },
-            React.createElement("b", null, "\u0427\u0430\u0441\u0442\u0438 \u0441\u0432\u0435\u0442\u0430"),
-            React.createElement("em", null, "\u0441\u043A\u043E\u043B\u044C\u043A\u043E \u0441\u0442\u0440\u0430\u043D \u0432 \u043A\u0430\u0436\u0434\u043E\u0439"),
-            React.createElement(DonutChart, { parts: CONT_ORDER.filter((k) => r.conts[k]).map((k) => ({
-                    k,
-                    v: r.conts[k],
-                })), total: stats.countries })),
-        React.createElement(Reveal, { className: "rep" },
-            React.createElement("b", null, "\u0421\u0435\u0437\u043E\u043D\u043D\u043E\u0441\u0442\u044C"),
-            React.createElement("em", null, "\u0432 \u043A\u0430\u043A\u0438\u0435 \u043C\u0435\u0441\u044F\u0446\u044B \u0432\u044B \u0432 \u043F\u0443\u0442\u0438"),
-            React.createElement("div", { className: "center" },
-                React.createElement(SeasonChart, { months: r.months }))),
-        React.createElement(Reveal, { className: "rep" },
-            React.createElement("b", null, "\u0414\u043D\u0438 \u0432 \u043F\u0443\u0442\u0438"),
-            React.createElement("em", null, "\u043F\u043E \u0433\u043E\u0434\u0430\u043C, \u0433\u0434\u0435 \u0443\u043A\u0430\u0437\u0430\u043D\u044B \u0442\u043E\u0447\u043D\u044B\u0435 \u0434\u0430\u0442\u044B"),
-            Object.keys(r.days).length ? (React.createElement(RowsChart, { rows: years
-                    .filter((y) => r.days[y])
-                    .map((y) => [String(y), r.days[y]]), unit: "\u0434\u043D." })) : (React.createElement("p", { className: "hint small" }, "\u0423\u043A\u0430\u0436\u0438\u0442\u0435 \u0442\u043E\u0447\u043D\u044B\u0435 \u0434\u0430\u0442\u044B \u0445\u043E\u0442\u044F \u0431\u044B \u0432 \u043E\u0434\u043D\u043E\u0439 \u043F\u043E\u0435\u0437\u0434\u043A\u0435."))),
-        React.createElement(Reveal, { className: "rep" },
-            React.createElement("b", null, "\u0427\u0430\u0449\u0435 \u0432\u0441\u0435\u0433\u043E"),
-            React.createElement("em", null, "\u0433\u043E\u0440\u043E\u0434\u0430, \u043A\u0443\u0434\u0430 \u0432\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u0435\u0442\u0435\u0441\u044C"),
-            r.topCities.length ? (React.createElement(RowsChart, { rows: r.topCities })) : (React.createElement("p", { className: "hint small" }, "\u0413\u043E\u0440\u043E\u0434\u0430 \u043F\u043E\u043A\u0430 \u043D\u0435 \u043E\u0442\u043C\u0435\u0447\u0435\u043D\u044B."))),
-        r.topHotels.length > 0 && (React.createElement(Reveal, { className: "rep" },
-            React.createElement("b", null, "\u041B\u044E\u0431\u0438\u043C\u044B\u0435 \u043E\u0442\u0435\u043B\u0438"),
-            React.createElement("em", null, "\u0433\u0434\u0435 \u043E\u0441\u0442\u0430\u043D\u0430\u0432\u043B\u0438\u0432\u0430\u043B\u0438\u0441\u044C \u043D\u0435 \u0440\u0430\u0437"),
-            React.createElement(RowsChart, { rows: r.topHotels }))),
-        crew.length > 1 && (React.createElement(Reveal, { className: "rep", zoomable: false },
-            React.createElement("b", null, "\u041A\u0442\u043E \u0441\u043A\u043E\u043B\u044C\u043A\u043E \u043F\u0440\u043E\u0435\u0445\u0430\u043B"),
-            React.createElement("em", null, "\u0441\u0442\u0440\u0430\u043D\u044B, \u0447\u0430\u0441\u0442\u0438 \u0441\u0432\u0435\u0442\u0430, \u0433\u043E\u0440\u043E\u0434\u0430 \u0438 \u0433\u043E\u0434\u044B"),
-            React.createElement("div", { className: "crew" }, crew.map((p, i) => {
-                var _c;
-                const lead = crew[0].countries || 1;
-                const trips = ((_c = crewR.rows.find((x) => x.id === p.id)) === null || _c === void 0 ? void 0 : _c.list) || [];
-                const open = openCrew === p.id;
-                return (React.createElement("div", { key: p.id, className: "crew-row" + (p.id === ME ? " me" : "") },
-                    React.createElement("div", { className: "crew-top", onClick: () => setOpenCrew(open ? null : p.id) },
-                        React.createElement("span", { className: "crew-rank" }, i + 1),
-                        React.createElement("span", { className: "crew-name" },
-                            p.name,
-                            p.role && React.createElement("i", null, p.role)),
-                        React.createElement("button", { className: "crew-globe", onClick: (e) => {
-                                e.stopPropagation();
-                                onPerson === null || onPerson === void 0 ? void 0 : onPerson({
-                                    row: crewR.rows.find((r) => r.id === p.id),
-                                    home: homePoint,
-                                });
-                            }, "aria-label": "\u041F\u043E\u043A\u0430\u0437\u0430\u0442\u044C \u043D\u0430 \u0433\u043B\u043E\u0431\u0443\u0441\u0435" },
-                            React.createElement("svg", { viewBox: "0 0 24 24", width: "18", height: "18" },
-                                React.createElement("circle", { cx: "12", cy: "12", r: "8.5", fill: "none", stroke: "currentColor", strokeWidth: "1.5" }),
-                                React.createElement("path", { d: "M3.5 12h17M12 3.5c2.6 2.4 2.6 14.6 0 17M12 3.5c-2.6 2.4-2.6 14.6 0 17", fill: "none", stroke: "currentColor", strokeWidth: "1.3" }))),
-                        React.createElement("span", { className: "crew-big" }, p.countries),
-                        React.createElement("span", { className: "crew-caret" + (open ? " on" : "") }, "\u25BE")),
-                    React.createElement("span", { className: "crew-bar" },
-                        React.createElement("i", { style: {
-                                "--w": `${(p.countries / lead) * 100}%`,
-                                width: `${(p.countries / lead) * 100}%`,
-                                background: i === 0 ? C_GOLD : C_SILVER,
-                            } })),
-                    React.createElement("div", { className: "crew-cells" },
-                        React.createElement("span", null,
-                            React.createElement("b", null, p.conts),
-                            pw(p.conts, "cont")),
-                        React.createElement("span", null,
-                            React.createElement("b", null, p.cities),
-                            pw(p.cities, "city")),
-                        React.createElement("span", null,
-                            React.createElement("b", null, p.years),
-                            pw(p.years, "year")),
-                        React.createElement("span", null,
-                            React.createElement("b", null, p.trips),
-                            pw(p.trips, "trip"))),
-                    open && (React.createElement("div", { className: "crew-trips" },
-                        crewTree(trips).map((yr) => (React.createElement("div", { key: yr.y, className: "ct-year" },
-                            React.createElement("div", { className: "ct-yhead" },
-                                React.createElement("b", null, yr.y || "без года"),
-                                React.createElement("em", null,
-                                    np(yr.n, "trip"),
-                                    " \u00B7 ",
-                                    np(yr.countries, "country"))),
-                            yr.conts.map((c) => (React.createElement("div", { key: c.k, className: "ct-cont" },
-                                React.createElement("div", { className: "ct-chead" },
-                                    React.createElement("i", { style: { background: CONT_COLORS[c.k] || C_DIM } }),
-                                    CONT_MINI[c.k] || "—"),
-                                React.createElement("div", { className: "ct-items" }, c.items.map((it) => {
-                                    var _c;
-                                    return (React.createElement("div", { key: it.key, className: "ct-row" },
-                                        React.createElement("span", { className: "ct-cn" },
-                                            ((_c = BY_A3[it.a3]) === null || _c === void 0 ? void 0 : _c.name) || it.a3,
-                                            it.m > 0 && (React.createElement("u", null, MONTHS[it.m - 1]))),
-                                        it.cities && React.createElement("em", null, it.cities)));
-                                })))))))),
-                        !trips.length && (React.createElement("p", { className: "hint small" }, "\u041F\u043E\u0435\u0437\u0434\u043E\u043A \u043D\u0435\u0442."))))));
-            })),
-            React.createElement("p", { className: "hint small" }, "\u041F\u043E\u043B\u043E\u0441\u0430 \u2014 \u0434\u043E\u043B\u044F \u043E\u0442 \u043B\u0438\u0434\u0435\u0440\u0430 \u043F\u043E \u0441\u0442\u0440\u0430\u043D\u0430\u043C. \u0421\u0447\u0438\u0442\u0430\u044E\u0442\u0441\u044F \u0442\u043E\u043B\u044C\u043A\u043E \u0441\u043E\u0441\u0442\u043E\u044F\u0432\u0448\u0438\u0435\u0441\u044F \u043F\u043E\u0435\u0437\u0434\u043A\u0438, \u0433\u0434\u0435 \u0447\u0435\u043B\u043E\u0432\u0435\u043A \u043E\u0442\u043C\u0435\u0447\u0435\u043D \u0432 \u0441\u043E\u0441\u0442\u0430\u0432\u0435."))),
-        air.rows.length > 0 && (React.createElement(Reveal, { className: "rep air-rep", zoomable: false },
-            React.createElement("div", { className: "air-top" },
-                React.createElement("span", null,
-                    React.createElement("b", null, "\u0410\u0432\u0438\u0430\u043A\u043E\u043C\u043F\u0430\u043D\u0438\u0438"),
-                    React.createElement("em", null, "\u0441\u043A\u043E\u043B\u044C\u043A\u043E \u0440\u0430\u0437 \u0438 \u0441\u043A\u043E\u043B\u044C\u043A\u043E \u043A\u0438\u043B\u043E\u043C\u0435\u0442\u0440\u043E\u0432")),
-                React.createElement("button", { className: "crew-globe air-open-globe", onClick: () => onAir === null || onAir === void 0 ? void 0 : onAir({ air }), "aria-label": "\u041F\u043E\u043A\u0430\u0437\u0430\u0442\u044C \u043D\u0430 \u0433\u043B\u043E\u0431\u0443\u0441\u0435" },
-                    React.createElement("svg", { viewBox: "0 0 24 24", width: "18", height: "18" },
-                        React.createElement("circle", { cx: "12", cy: "12", r: "8.5", fill: "none", stroke: "currentColor", strokeWidth: "1.5" }),
-                        React.createElement("path", { d: "M3.5 12h17M12 3.5c2.6 2.4 2.6 14.6 0 17M12 3.5c-2.6 2.4-2.6 14.6 0 17", fill: "none", stroke: "currentColor", strokeWidth: "1.3" }))),
-                React.createElement("svg", { className: "air-motto", viewBox: "0 0 150 70", "aria-hidden": "true" },
-                    React.createElement("path", { d: "M8 62 C40 58, 90 44, 132 14", fill: "none", stroke: "currentColor", strokeWidth: "0.9", strokeDasharray: "3 3", opacity: ".7" }),
-                    React.createElement("text", { x: "10", y: "20", transform: "rotate(-10 10 20)" }, "More"),
-                    React.createElement("text", { x: "22", y: "34", transform: "rotate(-10 22 34)" }, "flights"),
-                    React.createElement("text", { x: "48", y: "58", transform: "rotate(-10 48 58)" }, "More stories"),
-                    React.createElement("path", { d: "M128 18 l10 -8 2 1 -6 8 5 1 2 -2 1 1 -1 3 3 1 -1 1 -3 -1 -2 2 -1 -1 1 -2 -5 -1 -6 7 -2 -1z", fill: "currentColor" }))),
-            React.createElement("div", { className: "air-tiles" },
-                React.createElement("div", { className: "air-tile" },
-                    React.createElement("i", { className: "air-ico" },
-                        React.createElement("svg", { viewBox: "0 0 24 24", width: "20", height: "20" },
-                            React.createElement("path", { d: "M21 15.5v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V8.5l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-6z", fill: "currentColor" }))),
-                    React.createElement("span", null,
-                        React.createElement("b", null, air.rows.length),
-                        React.createElement("b", { className: "air-unit" }, pw(air.rows.length, "airline")),
-                        React.createElement("em", null, "\u0432 \u0432\u0430\u0448\u0435\u0439 \u0438\u0441\u0442\u043E\u0440\u0438\u0438"))),
-                React.createElement("div", { className: "air-tile" },
-                    React.createElement("i", { className: "air-ico" },
-                        React.createElement("svg", { viewBox: "0 0 24 24", width: "20", height: "20" },
-                            React.createElement("path", { d: "M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z", fill: "currentColor" }))),
-                    React.createElement("span", null,
-                        React.createElement("b", null, kmText(air.km)),
-                        React.createElement("em", { className: "air-lead" }, "\u043D\u0430\u043B\u0451\u0442\u0430 \u0442\u0443\u0434\u0430 \u0438 \u043E\u0431\u0440\u0430\u0442\u043D\u043E"),
-                        React.createElement("em", null,
-                            "\u2248 ",
-                            (air.km / 40075).toLocaleString("ru-RU", { maximumFractionDigits: 1 }),
-                            " ",
-                            "\u0440\u0430\u0437\u0430 \u0432\u043E\u043A\u0440\u0443\u0433 \u0417\u0435\u043C\u043B\u0438"))),
-                React.createElement("div", { className: "air-tile" },
-                    React.createElement("i", { className: "air-ico" },
-                        React.createElement("svg", { viewBox: "0 0 24 24", width: "20", height: "20" },
-                            React.createElement("path", { d: "M3 7.5 7.5 3l2 2a2 2 0 0 0 2.8 2.8L14.5 10l6.5 6.5L16.5 21l-2-2a2 2 0 0 0-2.8-2.8L9.5 14z", fill: "none", stroke: "currentColor", strokeWidth: "1.6", strokeLinejoin: "round" }),
-                            React.createElement("path", { d: "M10.5 9.5l4 4M8.5 11.5l4 4", stroke: "currentColor", strokeWidth: "1.2" }))),
-                    React.createElement("span", null,
-                        React.createElement("b", null, np(air.flights, "trip")),
-                        React.createElement("em", { className: "air-lead" }, "\u0441\u0430\u043C\u043E\u043B\u0451\u0442\u043E\u043C")))),
-            React.createElement("button", { className: "air-toggle" + (airOpen ? " on" : ""), onClick: () => setAirOpen((v) => !v), "aria-expanded": airOpen },
-                React.createElement("span", null,
-                    airOpen ? "Скрыть список" : "Показать все авиакомпании",
-                    React.createElement("u", null, air.rows.length)),
-                React.createElement("i", null,
-                    React.createElement("svg", { viewBox: "0 0 24 24", width: "18", height: "18" },
-                        React.createElement("path", { d: "M6 9l6 6 6-6", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" })))),
-            React.createElement("div", { className: "air-drawer" + (airOpen ? " on" : "") },
-                React.createElement("div", { className: "air-drawer-in" },
-                    React.createElement("div", { className: "air-rows" }, air.rows.map((r) => {
-                        const a = AIRLINES[r.code];
-                        const top = air.rows[0].km || 1;
-                        return (React.createElement("div", { key: r.code, className: "air-row" },
-                            React.createElement("span", { className: "air-fill", style: {
-                                    width: `${(r.km / top) * 100}%`,
-                                    background: (a === null || a === void 0 ? void 0 : a.color) || "#2b4a68",
-                                } }),
-                            React.createElement(AirMark, { code: r.code }),
-                            React.createElement("span", { className: "air-name" },
-                                React.createElement("b", null, (a === null || a === void 0 ? void 0 : a.name) || r.code),
-                                React.createElement("em", null,
-                                    np(r.trips, "trip"),
-                                    " \u00B7 ",
-                                    np(r.countries, "country"),
-                                    (a === null || a === void 0 ? void 0 : a.alliance) ? ` · ${a.alliance}` : "")),
-                            React.createElement("b", { className: "air-km" }, kmText(r.km))));
-                    })),
-                    React.createElement("p", { className: "hint small" }, "\u041A\u0438\u043B\u043E\u043C\u0435\u0442\u0440\u044B \u0441\u0447\u0438\u0442\u0430\u044E\u0442\u0441\u044F \u043E\u0442 \u0433\u043E\u0440\u043E\u0434\u0430 \u0432\u044B\u043B\u0435\u0442\u0430 \u0434\u043E \u0441\u0430\u043C\u043E\u0439 \u0434\u0430\u043B\u0451\u043A\u043E\u0439 \u0442\u043E\u0447\u043A\u0438 \u043F\u043E\u0435\u0437\u0434\u043A\u0438 \u0438 \u043E\u0431\u0440\u0430\u0442\u043D\u043E. \u0415\u0441\u043B\u0438 \u0440\u0435\u0439\u0441\u043E\u0432 \u0431\u044B\u043B\u043E \u043D\u0435\u0441\u043A\u043E\u043B\u044C\u043A\u043E, \u043F\u0443\u0442\u044C \u0434\u0435\u043B\u0438\u0442\u0441\u044F \u043C\u0435\u0436\u0434\u0443 \u0430\u0432\u0438\u0430\u043A\u043E\u043C\u043F\u0430\u043D\u0438\u044F\u043C\u0438 \u043F\u043E\u0440\u043E\u0432\u043D\u0443."))))),
-        crewR.rows.length > 1 && (React.createElement(React.Fragment, null,
-            React.createElement(Reveal, { className: "rep" },
-                React.createElement("b", null, "\u0414\u043E\u0440\u043E\u0436\u043A\u0438 \u043F\u043E \u0433\u043E\u0434\u0430\u043C"),
-                React.createElement("em", null, "\u043A\u0440\u0443\u0436\u043E\u043A \u2014 \u0433\u043E\u0434, \u043A\u0440\u0443\u043F\u043D\u0435\u0435 \u2014 \u0431\u043E\u043B\u044C\u0448\u0435 \u043F\u043E\u0435\u0437\u0434\u043E\u043A"),
-                React.createElement(LanesChart, { rows: crewR.rows, years: crewR.years })),
-            React.createElement(Reveal, { className: "rep" },
-                React.createElement("b", null, "\u0421\u0432\u043E\u0438 \u0438 \u043E\u0431\u0449\u0438\u0435 \u0441\u0442\u0440\u0430\u043D\u044B"),
-                React.createElement("em", null, "\u043A\u0442\u043E \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u0435\u0442 \u043D\u043E\u0432\u043E\u0435, \u0430 \u043A\u0442\u043E \u0435\u0437\u0434\u0438\u0442 \u0432\u043C\u0435\u0441\u0442\u0435"),
-                React.createElement(SplitChart, { rows: crewR.rows })),
-            React.createElement(Reveal, { className: "rep" },
-                React.createElement("b", null, "\u041F\u0435\u0440\u0432\u043E\u043E\u0442\u043A\u0440\u044B\u0432\u0430\u0442\u0435\u043B\u0438"),
-                React.createElement("em", null, "\u043A\u0442\u043E \u043F\u043E\u043F\u0430\u043B \u0432 \u0441\u0442\u0440\u0430\u043D\u0443 \u0440\u0430\u043D\u044C\u0448\u0435 \u043E\u0441\u0442\u0430\u043B\u044C\u043D\u044B\u0445"),
-                React.createElement(FirstsChart, { rows: crewR.rows })),
-            React.createElement(Reveal, { className: "rep far-card", zoomable: false },
-                React.createElement("b", null, "\u0414\u0430\u043B\u044C\u0448\u0435 \u0432\u0441\u0435\u0433\u043E \u043E\u0442 \u0434\u043E\u043C\u0430"),
-                React.createElement("button", { className: "crew-globe far-open", onClick: () => onFar === null || onFar === void 0 ? void 0 : onFar({ rows: crewR.rows, home: homePoint }), "aria-label": "\u041F\u043E\u043A\u0430\u0437\u0430\u0442\u044C \u043D\u0430 \u0433\u043B\u043E\u0431\u0443\u0441\u0435" },
-                    React.createElement("svg", { viewBox: "0 0 24 24", width: "18", height: "18" },
-                        React.createElement("circle", { cx: "12", cy: "12", r: "8.5", fill: "none", stroke: "currentColor", strokeWidth: "1.5" }),
-                        React.createElement("path", { d: "M3.5 12h17M12 3.5c2.6 2.4 2.6 14.6 0 17M12 3.5c-2.6 2.4-2.6 14.6 0 17", fill: "none", stroke: "currentColor", strokeWidth: "1.3" }))),
-                React.createElement("em", null, "\u0441\u0430\u043C\u0430\u044F \u0434\u0430\u043B\u0451\u043A\u0430\u044F \u0442\u043E\u0447\u043A\u0430 \u043F\u043E\u0435\u0437\u0434\u043E\u043A"),
-                React.createElement(SpanChart, { rows: crewR.rows, geo: geo, home: homePoint })),
-            diff && (React.createElement(Reveal, { className: "rep cmp" },
-                React.createElement("b", null, "\u0414\u0432\u043E\u0435: \u0442\u043E\u043B\u044C\u043A\u043E \u0440\u0430\u0437\u043D\u0438\u0446\u0430"),
-                React.createElement("em", null, "\u0441\u0442\u0440\u0430\u043D\u044B, \u0433\u0434\u0435 \u0431\u044B\u043B \u043E\u0434\u0438\u043D \u0438 \u043D\u0435 \u0431\u044B\u043B \u0434\u0440\u0443\u0433\u043E\u0439"),
-                React.createElement("div", { className: "cmp-chips" }, crewR.rows.map((r) => (React.createElement("button", { key: r.id, className: "cmp-chip" +
-                        (pair[0] === r.id
-                            ? " on a"
-                            : pair[1] === r.id
-                                ? " on b"
-                                : ""), onClick: () => pickCmp(r.id) }, r.name)))),
-                React.createElement("div", { className: "cmp-sum" }, [
-                    { k: "a", who: diff.A, list: diff.onlyA },
-                    { k: "b", who: diff.B, list: diff.onlyB },
-                ].map((x, n) => {
+    return (React.createElement(Sheet, { open: open, onClose: onClose, title: "\u041E\u0442\u0447\u0451\u0442\u044B", box: box }, () => (React.createElement(ReportCfg.Provider, { value: { order: reportOrder(repCfg), off: (repCfg === null || repCfg === void 0 ? void 0 : repCfg.off) || [] } },
+        React.createElement("div", { className: "sheet-body rep-body" }, r.trips.length === 0 ? (React.createElement("p", { className: "hint small" }, "\u041E\u0442\u0447\u0451\u0442\u044B \u043F\u043E\u044F\u0432\u044F\u0442\u0441\u044F, \u043A\u043E\u0433\u0434\u0430 \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u0435 \u043F\u0435\u0440\u0432\u0443\u044E \u043F\u043E\u0435\u0437\u0434\u043A\u0443.")) : (React.createElement(React.Fragment, null,
+            React.createElement("p", { className: "hint small", style: { order: 0 } }, "\u0414\u0432\u043E\u0439\u043D\u043E\u0435 \u043A\u0430\u0441\u0430\u043D\u0438\u0435 \u0440\u0430\u0437\u0432\u043E\u0440\u0430\u0447\u0438\u0432\u0430\u0435\u0442 \u043B\u044E\u0431\u043E\u0439 \u0433\u0440\u0430\u0444\u0438\u043A \u043D\u0430 \u0432\u0435\u0441\u044C \u044D\u043A\u0440\u0430\u043D. \u041A\u0430\u043A\u0438\u0435 \u043E\u0442\u0447\u0451\u0442\u044B \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0442\u044C \u0438 \u0432 \u043A\u0430\u043A\u043E\u043C \u043F\u043E\u0440\u044F\u0434\u043A\u0435 \u2014 \u0432 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0430\u0445 \u043F\u0440\u043E\u0444\u0438\u043B\u044F."),
+            React.createElement(Reveal, { rid: "years", className: "rep" },
+                React.createElement("b", null, "\u041F\u043E\u0435\u0437\u0434\u043A\u0438 \u043F\u043E \u0433\u043E\u0434\u0430\u043C"),
+                React.createElement("em", null, "\u0441\u0442\u043E\u043B\u0431\u0438\u043A\u0438 \u0438 \u043B\u0438\u043D\u0438\u044F \u0442\u0440\u0435\u043D\u0434\u0430"),
+                React.createElement(BarsChart, { data: years.map((y) => Math.round((r.years[y] || 0) * 10) / 10), vague: years.map((y) => r.vague[y] || 0), labels: years }),
+                Object.keys(r.vague).length > 0 && (React.createElement("p", { className: "hint small" }, "\u0411\u043B\u0435\u0434\u043D\u0430\u044F \u0447\u0430\u0441\u0442\u044C \u0441\u0442\u043E\u043B\u0431\u0438\u043A\u0430 \u2014 \u043F\u043E\u0435\u0437\u0434\u043A\u0438 \u0441 \u043D\u0435\u0442\u043E\u0447\u043D\u043E\u0439 \u0434\u0430\u0442\u043E\u0439, \u0440\u0430\u0437\u043B\u043E\u0436\u0435\u043D\u043D\u044B\u0435 \u043F\u043E\u0440\u043E\u0432\u043D\u0443 \u043F\u043E \u0433\u043E\u0434\u0430\u043C \u043F\u0435\u0440\u0438\u043E\u0434\u0430."))),
+            React.createElement(Reveal, { rid: "grow", className: "rep" },
+                React.createElement("b", null, "\u0421\u0442\u0440\u0430\u043D\u044B \u043D\u0430\u0440\u0430\u0441\u0442\u0430\u044E\u0449\u0438\u043C \u0438\u0442\u043E\u0433\u043E\u043C"),
+                React.createElement("em", null, "\u043A\u0430\u043A \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u043B\u0441\u044F \u043C\u0438\u0440"),
+                React.createElement(AreaChart, { points: r.line })),
+            React.createElement(Reveal, { rid: "conts", className: "rep" },
+                React.createElement("b", null, "\u0427\u0430\u0441\u0442\u0438 \u0441\u0432\u0435\u0442\u0430"),
+                React.createElement("em", null, "\u0441\u043A\u043E\u043B\u044C\u043A\u043E \u0441\u0442\u0440\u0430\u043D \u0432 \u043A\u0430\u0436\u0434\u043E\u0439"),
+                React.createElement(DonutChart, { parts: CONT_ORDER.filter((k) => r.conts[k]).map((k) => ({
+                        k,
+                        v: r.conts[k],
+                    })), total: stats.countries })),
+            React.createElement(Reveal, { rid: "season", className: "rep" },
+                React.createElement("b", null, "\u0421\u0435\u0437\u043E\u043D\u043D\u043E\u0441\u0442\u044C"),
+                React.createElement("em", null, "\u0432 \u043A\u0430\u043A\u0438\u0435 \u043C\u0435\u0441\u044F\u0446\u044B \u0432\u044B \u0432 \u043F\u0443\u0442\u0438"),
+                React.createElement("div", { className: "center" },
+                    React.createElement(SeasonChart, { months: r.months }))),
+            React.createElement(Reveal, { rid: "days", className: "rep" },
+                React.createElement("b", null, "\u0414\u043D\u0438 \u0432 \u043F\u0443\u0442\u0438"),
+                React.createElement("em", null, "\u043F\u043E \u0433\u043E\u0434\u0430\u043C, \u0433\u0434\u0435 \u0443\u043A\u0430\u0437\u0430\u043D\u044B \u0442\u043E\u0447\u043D\u044B\u0435 \u0434\u0430\u0442\u044B"),
+                Object.keys(r.days).length ? (React.createElement(RowsChart, { rows: years
+                        .filter((y) => r.days[y])
+                        .map((y) => [String(y), r.days[y]]), unit: "\u0434\u043D." })) : (React.createElement("p", { className: "hint small" }, "\u0423\u043A\u0430\u0436\u0438\u0442\u0435 \u0442\u043E\u0447\u043D\u044B\u0435 \u0434\u0430\u0442\u044B \u0445\u043E\u0442\u044F \u0431\u044B \u0432 \u043E\u0434\u043D\u043E\u0439 \u043F\u043E\u0435\u0437\u0434\u043A\u0435."))),
+            React.createElement(Reveal, { rid: "often", className: "rep" },
+                React.createElement("b", null, "\u0427\u0430\u0449\u0435 \u0432\u0441\u0435\u0433\u043E"),
+                React.createElement("em", null, "\u0433\u043E\u0440\u043E\u0434\u0430, \u043A\u0443\u0434\u0430 \u0432\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u0435\u0442\u0435\u0441\u044C"),
+                r.topCities.length ? (React.createElement(RowsChart, { rows: r.topCities })) : (React.createElement("p", { className: "hint small" }, "\u0413\u043E\u0440\u043E\u0434\u0430 \u043F\u043E\u043A\u0430 \u043D\u0435 \u043E\u0442\u043C\u0435\u0447\u0435\u043D\u044B."))),
+            r.topHotels.length > 0 && (React.createElement(Reveal, { rid: "hotels", className: "rep" },
+                React.createElement("b", null, "\u041B\u044E\u0431\u0438\u043C\u044B\u0435 \u043E\u0442\u0435\u043B\u0438"),
+                React.createElement("em", null, "\u0433\u0434\u0435 \u043E\u0441\u0442\u0430\u043D\u0430\u0432\u043B\u0438\u0432\u0430\u043B\u0438\u0441\u044C \u043D\u0435 \u0440\u0430\u0437"),
+                React.createElement(RowsChart, { rows: r.topHotels }))),
+            crew.length > 1 && (React.createElement(Reveal, { rid: "crew", className: "rep", zoomable: false },
+                React.createElement("b", null, "\u041A\u0442\u043E \u0441\u043A\u043E\u043B\u044C\u043A\u043E \u043F\u0440\u043E\u0435\u0445\u0430\u043B"),
+                React.createElement("em", null, "\u0441\u0442\u0440\u0430\u043D\u044B, \u0447\u0430\u0441\u0442\u0438 \u0441\u0432\u0435\u0442\u0430, \u0433\u043E\u0440\u043E\u0434\u0430 \u0438 \u0433\u043E\u0434\u044B"),
+                React.createElement("div", { className: "crew" }, crew.map((p, i) => {
                     var _c;
-                    return (React.createElement("button", { key: x.k, className: "cmp-half " + x.k + (side === n ? " on" : ""), onClick: () => setSide(n) },
-                        React.createElement("b", null, x.list.length),
-                        React.createElement("span", null,
-                            "\u0442\u043E\u043B\u044C\u043A\u043E ", (_c = x.who) === null || _c === void 0 ? void 0 :
-                            _c.name)));
+                    const lead = crew[0].countries || 1;
+                    const trips = ((_c = crewR.rows.find((x) => x.id === p.id)) === null || _c === void 0 ? void 0 : _c.list) || [];
+                    const open = openCrew === p.id;
+                    return (React.createElement("div", { key: p.id, className: "crew-row" + (p.id === ME ? " me" : "") },
+                        React.createElement("div", { className: "crew-top", onClick: () => setOpenCrew(open ? null : p.id) },
+                            React.createElement("span", { className: "crew-rank" }, i + 1),
+                            React.createElement("span", { className: "crew-name" },
+                                p.name,
+                                p.role && React.createElement("i", null, p.role)),
+                            React.createElement("button", { className: "crew-globe", onClick: (e) => {
+                                    e.stopPropagation();
+                                    onPerson === null || onPerson === void 0 ? void 0 : onPerson({
+                                        row: crewR.rows.find((r) => r.id === p.id),
+                                        home: homePoint,
+                                    });
+                                }, "aria-label": "\u041F\u043E\u043A\u0430\u0437\u0430\u0442\u044C \u043D\u0430 \u0433\u043B\u043E\u0431\u0443\u0441\u0435" },
+                                React.createElement("svg", { viewBox: "0 0 24 24", width: "18", height: "18" },
+                                    React.createElement("circle", { cx: "12", cy: "12", r: "8.5", fill: "none", stroke: "currentColor", strokeWidth: "1.5" }),
+                                    React.createElement("path", { d: "M3.5 12h17M12 3.5c2.6 2.4 2.6 14.6 0 17M12 3.5c-2.6 2.4-2.6 14.6 0 17", fill: "none", stroke: "currentColor", strokeWidth: "1.3" }))),
+                            React.createElement("span", { className: "crew-big" }, p.countries),
+                            React.createElement("span", { className: "crew-caret" + (open ? " on" : "") }, "\u25BE")),
+                        React.createElement("span", { className: "crew-bar" },
+                            React.createElement("i", { style: {
+                                    "--w": `${(p.countries / lead) * 100}%`,
+                                    width: `${(p.countries / lead) * 100}%`,
+                                    background: i === 0 ? C_GOLD : C_SILVER,
+                                } })),
+                        React.createElement("div", { className: "crew-cells" },
+                            React.createElement("span", null,
+                                React.createElement("b", null, p.conts),
+                                pw(p.conts, "cont")),
+                            React.createElement("span", null,
+                                React.createElement("b", null, p.cities),
+                                pw(p.cities, "city")),
+                            React.createElement("span", null,
+                                React.createElement("b", null, p.years),
+                                pw(p.years, "year")),
+                            React.createElement("span", null,
+                                React.createElement("b", null, p.trips),
+                                pw(p.trips, "trip"))),
+                        open && (React.createElement("div", { className: "crew-trips" },
+                            crewTree(trips).map((yr) => (React.createElement("div", { key: yr.y, className: "ct-year" },
+                                React.createElement("div", { className: "ct-yhead" },
+                                    React.createElement("b", null, yr.y || "без года"),
+                                    React.createElement("em", null,
+                                        np(yr.n, "trip"),
+                                        " \u00B7 ",
+                                        np(yr.countries, "country"))),
+                                yr.conts.map((c) => (React.createElement("div", { key: c.k, className: "ct-cont" },
+                                    React.createElement("div", { className: "ct-chead" },
+                                        React.createElement("i", { style: { background: CONT_COLORS[c.k] || C_DIM } }),
+                                        CONT_MINI[c.k] || "—"),
+                                    React.createElement("div", { className: "ct-items" }, c.items.map((it) => {
+                                        var _c;
+                                        return (React.createElement("div", { key: it.key, className: "ct-row" },
+                                            React.createElement("span", { className: "ct-cn" },
+                                                ((_c = BY_A3[it.a3]) === null || _c === void 0 ? void 0 : _c.name) || it.a3,
+                                                it.m > 0 && (React.createElement("u", null, MONTHS[it.m - 1]))),
+                                            it.cities && React.createElement("em", null, it.cities)));
+                                    })))))))),
+                            !trips.length && (React.createElement("p", { className: "hint small" }, "\u041F\u043E\u0435\u0437\u0434\u043E\u043A \u043D\u0435\u0442."))))));
                 })),
-                React.createElement("div", { className: "cmp-list" }, (() => {
-                    const list = side ? diff.onlyB : diff.onlyA;
-                    if (!list.length)
-                        return React.createElement("p", { className: "hint small" }, "\u0422\u0430\u043A\u0438\u0445 \u0441\u0442\u0440\u0430\u043D \u043D\u0435\u0442.");
-                    const byYear = [];
-                    list.forEach((v) => {
-                        const row = byYear.find((r) => r.y === v.y);
-                        if (row)
-                            row.items.push(v);
-                        else
-                            byYear.push({ y: v.y, items: [v] });
-                    });
-                    return byYear.map((r) => (React.createElement("div", { key: r.y, className: "cmp-year" },
-                        React.createElement("span", { className: "cmp-y" }, r.y || "—"),
-                        React.createElement("span", { className: "cmp-cs" }, r.items
-                            .map((v) => { var _c; return ((_c = BY_A3[v.a3]) === null || _c === void 0 ? void 0 : _c.name) || v.a3; })
-                            .join(", ")))));
-                })()))),
-            React.createElement(Reveal, { className: "rep" },
-                React.createElement("b", null, "\u0427\u0430\u0441\u0442\u0438 \u0441\u0432\u0435\u0442\u0430 \u043B\u0435\u043F\u0435\u0441\u0442\u043A\u0430\u043C\u0438"),
-                React.createElement("em", null, "\u0443 \u043A\u043E\u0433\u043E \u043A\u0430\u043A\u043E\u0439 \u043F\u0435\u0440\u0435\u043A\u043E\u0441"),
-                React.createElement(RadarChart, { rows: crewR.rows })))),
-        React.createElement(Reveal, { className: "rep" },
-            React.createElement("b", null, "\u041A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u044C \u043F\u043E\u0435\u0437\u0434\u043E\u043A"),
-            React.createElement("em", null, "\u0433\u043E\u0434 \u0438 \u043C\u0435\u0441\u044F\u0446, \u044F\u0440\u0447\u0435 \u2014 \u0434\u043E\u043B\u044C\u0448\u0435"),
-            React.createElement(GridChart, { grid: r.grid, planGrid: r.planGrid, vague: r.vague, years: years.slice(-8), onOpen: onOpenTrip }))))))));
+                React.createElement("p", { className: "hint small" }, "\u041F\u043E\u043B\u043E\u0441\u0430 \u2014 \u0434\u043E\u043B\u044F \u043E\u0442 \u043B\u0438\u0434\u0435\u0440\u0430 \u043F\u043E \u0441\u0442\u0440\u0430\u043D\u0430\u043C. \u0421\u0447\u0438\u0442\u0430\u044E\u0442\u0441\u044F \u0442\u043E\u043B\u044C\u043A\u043E \u0441\u043E\u0441\u0442\u043E\u044F\u0432\u0448\u0438\u0435\u0441\u044F \u043F\u043E\u0435\u0437\u0434\u043A\u0438, \u0433\u0434\u0435 \u0447\u0435\u043B\u043E\u0432\u0435\u043A \u043E\u0442\u043C\u0435\u0447\u0435\u043D \u0432 \u0441\u043E\u0441\u0442\u0430\u0432\u0435."))),
+            air.rows.length > 0 && (React.createElement(Reveal, { rid: "air", className: "rep air-rep", zoomable: false },
+                React.createElement("div", { className: "air-top" },
+                    React.createElement("span", null,
+                        React.createElement("b", null, "\u0410\u0432\u0438\u0430\u043A\u043E\u043C\u043F\u0430\u043D\u0438\u0438"),
+                        React.createElement("em", null, "\u0441\u043A\u043E\u043B\u044C\u043A\u043E \u0440\u0430\u0437 \u0438 \u0441\u043A\u043E\u043B\u044C\u043A\u043E \u043A\u0438\u043B\u043E\u043C\u0435\u0442\u0440\u043E\u0432")),
+                    React.createElement("button", { className: "crew-globe air-open-globe", onClick: () => onAir === null || onAir === void 0 ? void 0 : onAir({ air }), "aria-label": "\u041F\u043E\u043A\u0430\u0437\u0430\u0442\u044C \u043D\u0430 \u0433\u043B\u043E\u0431\u0443\u0441\u0435" },
+                        React.createElement("svg", { viewBox: "0 0 24 24", width: "18", height: "18" },
+                            React.createElement("circle", { cx: "12", cy: "12", r: "8.5", fill: "none", stroke: "currentColor", strokeWidth: "1.5" }),
+                            React.createElement("path", { d: "M3.5 12h17M12 3.5c2.6 2.4 2.6 14.6 0 17M12 3.5c-2.6 2.4-2.6 14.6 0 17", fill: "none", stroke: "currentColor", strokeWidth: "1.3" }))),
+                    React.createElement("svg", { className: "air-motto", viewBox: "0 0 150 70", "aria-hidden": "true" },
+                        React.createElement("path", { d: "M8 62 C40 58, 90 44, 132 14", fill: "none", stroke: "currentColor", strokeWidth: "0.9", strokeDasharray: "3 3", opacity: ".7" }),
+                        React.createElement("text", { x: "10", y: "20", transform: "rotate(-10 10 20)" }, "More"),
+                        React.createElement("text", { x: "22", y: "34", transform: "rotate(-10 22 34)" }, "flights"),
+                        React.createElement("text", { x: "48", y: "58", transform: "rotate(-10 48 58)" }, "More stories"),
+                        React.createElement("path", { d: "M128 18 l10 -8 2 1 -6 8 5 1 2 -2 1 1 -1 3 3 1 -1 1 -3 -1 -2 2 -1 -1 1 -2 -5 -1 -6 7 -2 -1z", fill: "currentColor" }))),
+                React.createElement("div", { className: "air-tiles" },
+                    React.createElement("div", { className: "air-tile" },
+                        React.createElement("i", { className: "air-ico" },
+                            React.createElement("svg", { viewBox: "0 0 24 24", width: "20", height: "20" },
+                                React.createElement("path", { d: "M21 15.5v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V8.5l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-6z", fill: "currentColor" }))),
+                        React.createElement("span", null,
+                            React.createElement("b", null, air.rows.length),
+                            React.createElement("b", { className: "air-unit" }, pw(air.rows.length, "airline")),
+                            React.createElement("em", null, "\u0432 \u0432\u0430\u0448\u0435\u0439 \u0438\u0441\u0442\u043E\u0440\u0438\u0438"))),
+                    React.createElement("div", { className: "air-tile" },
+                        React.createElement("i", { className: "air-ico" },
+                            React.createElement("svg", { viewBox: "0 0 24 24", width: "20", height: "20" },
+                                React.createElement("path", { d: "M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z", fill: "currentColor" }))),
+                        React.createElement("span", null,
+                            React.createElement("b", null, kmText(air.km)),
+                            React.createElement("em", { className: "air-lead" }, "\u043D\u0430\u043B\u0451\u0442\u0430 \u0442\u0443\u0434\u0430 \u0438 \u043E\u0431\u0440\u0430\u0442\u043D\u043E"),
+                            React.createElement("em", null,
+                                "\u2248 ",
+                                (air.km / 40075).toLocaleString("ru-RU", { maximumFractionDigits: 1 }),
+                                " ",
+                                "\u0440\u0430\u0437\u0430 \u0432\u043E\u043A\u0440\u0443\u0433 \u0417\u0435\u043C\u043B\u0438"))),
+                    React.createElement("div", { className: "air-tile" },
+                        React.createElement("i", { className: "air-ico" },
+                            React.createElement("svg", { viewBox: "0 0 24 24", width: "20", height: "20" },
+                                React.createElement("path", { d: "M3 7.5 7.5 3l2 2a2 2 0 0 0 2.8 2.8L14.5 10l6.5 6.5L16.5 21l-2-2a2 2 0 0 0-2.8-2.8L9.5 14z", fill: "none", stroke: "currentColor", strokeWidth: "1.6", strokeLinejoin: "round" }),
+                                React.createElement("path", { d: "M10.5 9.5l4 4M8.5 11.5l4 4", stroke: "currentColor", strokeWidth: "1.2" }))),
+                        React.createElement("span", null,
+                            React.createElement("b", null, np(air.flights, "trip")),
+                            React.createElement("em", { className: "air-lead" }, "\u0441\u0430\u043C\u043E\u043B\u0451\u0442\u043E\u043C")))),
+                React.createElement("button", { className: "air-toggle" + (airOpen ? " on" : ""), onClick: () => setAirOpen((v) => !v), "aria-expanded": airOpen },
+                    React.createElement("span", null,
+                        airOpen ? "Скрыть список" : "Показать все авиакомпании",
+                        React.createElement("u", null, air.rows.length)),
+                    React.createElement("i", null,
+                        React.createElement("svg", { viewBox: "0 0 24 24", width: "18", height: "18" },
+                            React.createElement("path", { d: "M6 9l6 6 6-6", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" })))),
+                React.createElement("div", { className: "air-drawer" + (airOpen ? " on" : "") },
+                    React.createElement("div", { className: "air-drawer-in" },
+                        React.createElement("div", { className: "air-rows" }, air.rows.map((r) => {
+                            const a = AIRLINES[r.code];
+                            const top = air.rows[0].km || 1;
+                            return (React.createElement("div", { key: r.code, className: "air-row" },
+                                React.createElement("span", { className: "air-fill", style: {
+                                        width: `${(r.km / top) * 100}%`,
+                                        background: (a === null || a === void 0 ? void 0 : a.color) || "#2b4a68",
+                                    } }),
+                                React.createElement(AirMark, { code: r.code }),
+                                React.createElement("span", { className: "air-name" },
+                                    React.createElement("b", null, (a === null || a === void 0 ? void 0 : a.name) || r.code),
+                                    React.createElement("em", null,
+                                        np(r.trips, "trip"),
+                                        " \u00B7 ",
+                                        np(r.countries, "country"),
+                                        (a === null || a === void 0 ? void 0 : a.alliance) ? ` · ${a.alliance}` : "")),
+                                React.createElement("b", { className: "air-km" }, kmText(r.km))));
+                        })),
+                        React.createElement("p", { className: "hint small" }, "\u041A\u0438\u043B\u043E\u043C\u0435\u0442\u0440\u044B \u0441\u0447\u0438\u0442\u0430\u044E\u0442\u0441\u044F \u043E\u0442 \u0433\u043E\u0440\u043E\u0434\u0430 \u0432\u044B\u043B\u0435\u0442\u0430 \u0434\u043E \u0441\u0430\u043C\u043E\u0439 \u0434\u0430\u043B\u0451\u043A\u043E\u0439 \u0442\u043E\u0447\u043A\u0438 \u043F\u043E\u0435\u0437\u0434\u043A\u0438 \u0438 \u043E\u0431\u0440\u0430\u0442\u043D\u043E. \u0415\u0441\u043B\u0438 \u0440\u0435\u0439\u0441\u043E\u0432 \u0431\u044B\u043B\u043E \u043D\u0435\u0441\u043A\u043E\u043B\u044C\u043A\u043E, \u043F\u0443\u0442\u044C \u0434\u0435\u043B\u0438\u0442\u0441\u044F \u043C\u0435\u0436\u0434\u0443 \u0430\u0432\u0438\u0430\u043A\u043E\u043C\u043F\u0430\u043D\u0438\u044F\u043C\u0438 \u043F\u043E\u0440\u043E\u0432\u043D\u0443."))))),
+            crewR.rows.length > 1 && (React.createElement(React.Fragment, null,
+                React.createElement(Reveal, { rid: "lanes", className: "rep" },
+                    React.createElement("b", null, "\u0414\u043E\u0440\u043E\u0436\u043A\u0438 \u043F\u043E \u0433\u043E\u0434\u0430\u043C"),
+                    React.createElement("em", null, "\u043A\u0440\u0443\u0436\u043E\u043A \u2014 \u0433\u043E\u0434, \u043A\u0440\u0443\u043F\u043D\u0435\u0435 \u2014 \u0431\u043E\u043B\u044C\u0448\u0435 \u043F\u043E\u0435\u0437\u0434\u043E\u043A"),
+                    React.createElement(LanesChart, { rows: crewR.rows, years: crewR.years })),
+                React.createElement(Reveal, { rid: "split", className: "rep" },
+                    React.createElement("b", null, "\u0421\u0432\u043E\u0438 \u0438 \u043E\u0431\u0449\u0438\u0435 \u0441\u0442\u0440\u0430\u043D\u044B"),
+                    React.createElement("em", null, "\u043A\u0442\u043E \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u0435\u0442 \u043D\u043E\u0432\u043E\u0435, \u0430 \u043A\u0442\u043E \u0435\u0437\u0434\u0438\u0442 \u0432\u043C\u0435\u0441\u0442\u0435"),
+                    React.createElement(SplitChart, { rows: crewR.rows })),
+                React.createElement(Reveal, { rid: "first", className: "rep" },
+                    React.createElement("b", null, "\u041F\u0435\u0440\u0432\u043E\u043E\u0442\u043A\u0440\u044B\u0432\u0430\u0442\u0435\u043B\u0438"),
+                    React.createElement("em", null, "\u043A\u0442\u043E \u043F\u043E\u043F\u0430\u043B \u0432 \u0441\u0442\u0440\u0430\u043D\u0443 \u0440\u0430\u043D\u044C\u0448\u0435 \u043E\u0441\u0442\u0430\u043B\u044C\u043D\u044B\u0445"),
+                    React.createElement(FirstsChart, { rows: crewR.rows })),
+                React.createElement(Reveal, { rid: "far", className: "rep far-card", zoomable: false },
+                    React.createElement("b", null, "\u0414\u0430\u043B\u044C\u0448\u0435 \u0432\u0441\u0435\u0433\u043E \u043E\u0442 \u0434\u043E\u043C\u0430"),
+                    React.createElement("button", { className: "crew-globe far-open", onClick: () => onFar === null || onFar === void 0 ? void 0 : onFar({ rows: crewR.rows, home: homePoint }), "aria-label": "\u041F\u043E\u043A\u0430\u0437\u0430\u0442\u044C \u043D\u0430 \u0433\u043B\u043E\u0431\u0443\u0441\u0435" },
+                        React.createElement("svg", { viewBox: "0 0 24 24", width: "18", height: "18" },
+                            React.createElement("circle", { cx: "12", cy: "12", r: "8.5", fill: "none", stroke: "currentColor", strokeWidth: "1.5" }),
+                            React.createElement("path", { d: "M3.5 12h17M12 3.5c2.6 2.4 2.6 14.6 0 17M12 3.5c-2.6 2.4-2.6 14.6 0 17", fill: "none", stroke: "currentColor", strokeWidth: "1.3" }))),
+                    React.createElement("em", null, "\u0441\u0430\u043C\u0430\u044F \u0434\u0430\u043B\u0451\u043A\u0430\u044F \u0442\u043E\u0447\u043A\u0430 \u043F\u043E\u0435\u0437\u0434\u043E\u043A"),
+                    React.createElement(SpanChart, { rows: crewR.rows, geo: geo, home: homePoint })),
+                diff && (React.createElement(Reveal, { rid: "diff", className: "rep cmp" },
+                    React.createElement("b", null, "\u0414\u0432\u043E\u0435: \u0442\u043E\u043B\u044C\u043A\u043E \u0440\u0430\u0437\u043D\u0438\u0446\u0430"),
+                    React.createElement("em", null, "\u0441\u0442\u0440\u0430\u043D\u044B, \u0433\u0434\u0435 \u0431\u044B\u043B \u043E\u0434\u0438\u043D \u0438 \u043D\u0435 \u0431\u044B\u043B \u0434\u0440\u0443\u0433\u043E\u0439"),
+                    React.createElement("div", { className: "cmp-chips" }, crewR.rows.map((r) => (React.createElement("button", { key: r.id, className: "cmp-chip" +
+                            (pair[0] === r.id
+                                ? " on a"
+                                : pair[1] === r.id
+                                    ? " on b"
+                                    : ""), onClick: () => pickCmp(r.id) }, r.name)))),
+                    React.createElement("div", { className: "cmp-sum" }, [
+                        { k: "a", who: diff.A, list: diff.onlyA },
+                        { k: "b", who: diff.B, list: diff.onlyB },
+                    ].map((x, n) => {
+                        var _c;
+                        return (React.createElement("button", { key: x.k, className: "cmp-half " + x.k + (side === n ? " on" : ""), onClick: () => setSide(n) },
+                            React.createElement("b", null, x.list.length),
+                            React.createElement("span", null,
+                                "\u0442\u043E\u043B\u044C\u043A\u043E ", (_c = x.who) === null || _c === void 0 ? void 0 :
+                                _c.name)));
+                    })),
+                    React.createElement("div", { className: "cmp-list" }, (() => {
+                        const list = side ? diff.onlyB : diff.onlyA;
+                        if (!list.length)
+                            return React.createElement("p", { className: "hint small" }, "\u0422\u0430\u043A\u0438\u0445 \u0441\u0442\u0440\u0430\u043D \u043D\u0435\u0442.");
+                        const byYear = [];
+                        list.forEach((v) => {
+                            const row = byYear.find((r) => r.y === v.y);
+                            if (row)
+                                row.items.push(v);
+                            else
+                                byYear.push({ y: v.y, items: [v] });
+                        });
+                        return byYear.map((r) => (React.createElement("div", { key: r.y, className: "cmp-year" },
+                            React.createElement("span", { className: "cmp-y" }, r.y || "—"),
+                            React.createElement("span", { className: "cmp-cs" }, r.items
+                                .map((v) => { var _c; return ((_c = BY_A3[v.a3]) === null || _c === void 0 ? void 0 : _c.name) || v.a3; })
+                                .join(", ")))));
+                    })()))),
+                React.createElement(Reveal, { rid: "radar", className: "rep" },
+                    React.createElement("b", null, "\u0427\u0430\u0441\u0442\u0438 \u0441\u0432\u0435\u0442\u0430 \u043B\u0435\u043F\u0435\u0441\u0442\u043A\u0430\u043C\u0438"),
+                    React.createElement("em", null, "\u0443 \u043A\u043E\u0433\u043E \u043A\u0430\u043A\u043E\u0439 \u043F\u0435\u0440\u0435\u043A\u043E\u0441"),
+                    React.createElement(RadarChart, { rows: crewR.rows })))),
+            React.createElement(Reveal, { rid: "calendar", className: "rep" },
+                React.createElement("b", null, "\u041A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u044C \u043F\u043E\u0435\u0437\u0434\u043E\u043A"),
+                React.createElement("em", null, "\u0433\u043E\u0434 \u0438 \u043C\u0435\u0441\u044F\u0446, \u044F\u0440\u0447\u0435 \u2014 \u0434\u043E\u043B\u044C\u0448\u0435"),
+                React.createElement(GridChart, { grid: r.grid, planGrid: r.planGrid, vague: r.vague, years: years.slice(-8), onOpen: onOpenTrip })))))))));
 }
 /* шторка: семья — ключ, способ обмена, отправка и приём */
 function FamilySheet({ open, onClose, box, family, onFamily, visits, tombs, people, meName, onReceive, }) {
@@ -8677,11 +8740,7 @@ function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, si
                                 React.createElement("b", null, wishCount),
                                 React.createElement("span", null, "\u0445\u043E\u0447\u0443 \u043F\u043E\u0441\u0435\u0442\u0438\u0442\u044C"))),
                         React.createElement("div", { className: "flip-foot" },
-                            React.createElement("span", { className: "flip-hint" }, "\u041D\u0430\u0436\u043C\u0438\u0442\u0435, \u0447\u0442\u043E\u0431\u044B \u043F\u0435\u0440\u0435\u0432\u0435\u0440\u043D\u0443\u0442\u044C"),
-                            React.createElement("button", { className: "reports-link", onClick: (e) => {
-                                    e.stopPropagation();
-                                    onReports();
-                                } }, "\u041E\u0442\u0447\u0451\u0442\u044B \u2192")))))),
+                            React.createElement("span", { className: "flip-hint" }, "\u041D\u0430\u0436\u043C\u0438\u0442\u0435, \u0447\u0442\u043E\u0431\u044B \u043F\u0435\u0440\u0435\u0432\u0435\u0440\u043D\u0443\u0442\u044C")))))),
             React.createElement("div", { className: "list-tools" },
                 React.createElement("button", { className: "filter-icon", onClick: onFilters, "aria-label": "\u0424\u0438\u043B\u044C\u0442\u0440\u044B" },
                     React.createElement("svg", { viewBox: "0 0 24 24", width: "17", height: "17" },
@@ -8934,7 +8993,7 @@ function Atlas() {
         if (s === "add")
             return "add";
         if (s === "reports")
-            return back === "list" ? "list" : "profile";
+            return "reports";
         if (s === "filters")
             return back ? tabOf(back, null) : "list";
         if (["profile", "settings", "shelf", "family", "photomode", "doubles"].includes(s))
@@ -10003,7 +10062,9 @@ function Atlas() {
                             const prof = { ...profile, home: h };
                             await saveProfile(prof);
                         }, onMergeWho: mergeWho, regionGaps: regionGaps, onFillRegions: fillRegions, depGaps: depGaps, onFillDeparture: fillDeparture, onExport: exportData, onImport: importAsk, onRestore: restoreData, restoreMsg: restoreMsg, doubles: doubles.length, onDoubles: () => setSheet("doubles"), visits: visits }),
-                    React.createElement(SettingsSheet, { open: sheet === "settings", onClose: () => setSheet("profile"), box: box, visits: visits, theme: theme, onTheme: setTheme, quality: photoQuality, onQuality: (v) => {
+                    React.createElement(SettingsSheet, { reportsCfg: profile.reports || null, onReportsCfg: async (cfg) => {
+                            await saveProfile({ ...profile, reports: cfg });
+                        }, open: sheet === "settings", onClose: () => setSheet("profile"), box: box, visits: visits, theme: theme, onTheme: setTheme, quality: photoQuality, onQuality: (v) => {
                             setPhotoQuality(v);
                             setSheet("photomode");
                         }, cityPins: cityPins, onToggleCityPins: setCityPins, spinStart: spinStart, onToggleSpin: setSpinStart, mapView: mapView, onMapView: setMapView, geoCount: ((_c = geo === null || geo === void 0 ? void 0 : geo.features) === null || _c === void 0 ? void 0 : _c.length) || 0, onReloadGeo: reloadGeo, offline: booksSaved, busy: booksBusy, progress: booksProgress, offlineAt: booksAt, onToggleOffline: () => (booksSaved ? dropBooks() : keepBooks()), booksSize: booksSize, booksCounts: {
@@ -10040,7 +10101,7 @@ function Atlas() {
                             setSheet(null);
                         } }),
                     React.createElement(DoublesSheet, { open: sheet === "doubles", onClose: () => setSheet("profile"), box: box, pairs: doubles, people: profile.people || [], home: profile.home || null, onJoin: joinDouble }),
-                    React.createElement(ReportsSheet, { open: sheet === "reports", onClose: () => setSheet(sheetBack === "list" ? "list" : "profile"), box: box, visits: visits, since: profile.since, stats: stats, people: profile.people || [], home: profile.home || null, geo: geo, home: profile.home || null, onPerson: setPerson, onFar: setFar, onAir: setAirWin, meName: profile.name || "", onOpenTrip: (a3, id) => {
+                    React.createElement(ReportsSheet, { open: sheet === "reports", onClose: () => setSheet(sheetBack === "profile" ? "profile" : null), box: box, visits: visits, since: profile.since, stats: stats, people: profile.people || [], home: profile.home || null, geo: geo, home: profile.home || null, onPerson: setPerson, onFar: setFar, onAir: setAirWin, repCfg: profile.reports || null, meName: profile.name || "", onOpenTrip: (a3, id) => {
                             setSelected(a3);
                             setEditId(id || null);
                             setSheet(null);
@@ -10123,6 +10184,13 @@ function Atlas() {
                                 React.createElement("svg", { viewBox: "0 0 24 24", width: "24", height: "24" },
                                     React.createElement("path", { d: "M12 5v14M5 12h14", fill: "none", stroke: "currentColor", strokeWidth: "2.2", strokeLinecap: "round" }))),
                             React.createElement("em", null, "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C")),
+                        React.createElement("button", { className: "tab" + (activeTab === "reports" ? " on" : ""), onClick: () => {
+                                setSheetBack(null);
+                                setSheet((v) => (v === "reports" ? null : "reports"));
+                            } },
+                            React.createElement("svg", { viewBox: "0 0 24 24", width: "22", height: "22", "aria-hidden": "true" },
+                                React.createElement("path", { d: "M4 20V10M10 20V4M16 20v-7M22 20H2", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round" })),
+                            React.createElement("em", null, "\u041E\u0442\u0447\u0451\u0442\u044B")),
                         React.createElement("button", { className: "tab" +
                                 (activeTab === "profile" ? " on" : ""), onClick: () => setSheet((v) => (v === "profile" ? null : "profile")) },
                             profile.avatar ? (React.createElement("img", { className: "tab-ava", src: profile.avatar, alt: "" })) : (React.createElement("svg", { viewBox: "0 0 24 24", width: "22", height: "22" },
@@ -10507,6 +10575,18 @@ body > div{max-width:100%;}
 .ag-card-foot{font-style:normal; font-size:0.64rem; color:var(--text); line-height:1.35;}
 .pg-layer .ag-tiles{margin-top:8px;}
 .pg-layer .ag-card{flex:none; margin-top:8px;}
+.rep-body{display:flex; flex-direction:column;}
+.rs-list{display:flex; flex-direction:column; gap:5px; margin-bottom:6px;}
+.rs-row{display:flex; align-items:center; gap:10px; padding:7px 8px 7px 10px; border-radius:11px;
+  border:1px solid var(--line); background:var(--field);}
+.rs-row.off .rs-name{color:var(--dim);}
+.rs-check{flex:none; width:24px; height:24px; border-radius:7px; border:1px solid var(--line); background:none;
+  color:#0b1622; font-size:0.8rem; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center;}
+.rs-check.on{background:var(--gold); border-color:var(--gold);}
+.rs-name{flex:1 1 auto; min-width:0; font-size:0.78rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.rs-arrow{flex:none; width:32px; height:30px; border-radius:9px; border:1px solid var(--line); background:none;
+  color:var(--text); font-size:0.85rem; cursor:pointer;}
+.rs-arrow:disabled{opacity:.3; cursor:default;}
 .far-card{position:relative;}
 .far-card .far-open{position:absolute; top:12px; right:12px;}
 .far-row{align-items:center;}
