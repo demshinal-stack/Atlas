@@ -412,6 +412,39 @@ const parseCityRegions = (raw) => {
     return out;
 };
 const regionOf = (a3, city) => (CITY_REG[a3] || {})[city] || null;
+/* авиакомпания по коду; «~Название» — своя, которой нет в справочнике */
+const airInfo = (code) => {
+    if (!code)
+        return undefined;
+    if (AIRLINES[code])
+        return AIRLINES[code];
+    if (!String(code).startsWith("~"))
+        return undefined;
+    const name = String(code).slice(1);
+    let h = 0;
+    for (const ch of name)
+        h = (h * 31 + ch.charCodeAt(0)) % 360;
+    if (h > 190 && h < 248)
+        h = (h + 80) % 360; // мимо синих тонов глобуса
+    return {
+        code,
+        name,
+        a3: "",
+        year: null,
+        routes: "",
+        alliance: "",
+        color: "#3b4b5c",
+        arc: (() => {
+            // оттенок в hex, чтобы цвета дуг можно было сравнивать
+            const l = 0.62;
+            const k = (n) => (n + h / 30) % 12;
+            const f = (n) => l - 0.8 * Math.min(l, 1 - l) * Math.max(-1, Math.min(k(n) - 3, 9 - k(n), 1));
+            const x = (v) => Math.round(v * 255).toString(16).padStart(2, "0");
+            return `#${x(f(0))}${x(f(8))}${x(f(4))}`;
+        })(),
+        own: true,
+    };
+};
 /* авиакомпании: код|название|страна|год|направления|альянс|цвет */
 let AIRLINES = {};
 const parseAirlines = (raw) => {
@@ -499,7 +532,11 @@ async function loadBooks({ force, onStep } = {}) {
     let done = 0;
     for (const b of missing) {
         try {
-            const r = await fetch(`./data/${b.file}`, { cache: "force-cache" });
+            // при новой версии справочников кеш браузера не годится — он вернёт старый файл
+            const fresh = force || stale;
+            const r = await fetch(`./data/${b.file}?v=${BOOKS_VER}`, {
+                cache: fresh ? "reload" : "force-cache",
+            });
             if (r.ok)
                 data[b.id] = await r.text();
         }
@@ -1305,7 +1342,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "27.4";
+const APP_VERSION = "27.5";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -4334,9 +4371,10 @@ function CityPointPicker({ onPick, onClose, placeholder }) {
 }
 /* значок авиакомпании: картинка из data/airlines/<код>.png, иначе код на плашке */
 function AirMark({ code, className = "" }) {
-    const [img, setImg] = useState(true);
-    const a = AIRLINES[code];
-    return (React.createElement("i", { className: "air-mark " + className, style: { background: img ? "transparent" : (a === null || a === void 0 ? void 0 : a.color) || "#2b4a68" } }, img ? (React.createElement("img", { src: `./data/airlines/${code}.png`, alt: (a === null || a === void 0 ? void 0 : a.name) || code, onError: () => setImg(false) })) : (code)));
+    const a = airInfo(code);
+    const [img, setImg] = useState(!(a === null || a === void 0 ? void 0 : a.own));
+    const label = (a === null || a === void 0 ? void 0 : a.own) ? a.name.slice(0, 2).toUpperCase() : code;
+    return (React.createElement("i", { className: "air-mark " + className, style: { background: img ? "transparent" : (a === null || a === void 0 ? void 0 : a.color) || "#2b4a68" } }, img ? (React.createElement("img", { src: `./data/airlines/${code}.png`, alt: (a === null || a === void 0 ? void 0 : a.name) || code, onError: () => setImg(false) })) : (label)));
 }
 /* поиск авиакомпании по названию, коду или стране */
 function AirPicker({ exclude = [], onAdd, onClose }) {
@@ -4386,7 +4424,16 @@ function AirPicker({ exclude = [], onAdd, onClose }) {
                             ((_d = BY_A3[a.a3]) === null || _d === void 0 ? void 0 : _d.name) || a.a3,
                             a.year ? ` · с ${a.year}` : ""))));
             }),
-            !found.length && (React.createElement("p", { className: "hint small" }, "\u0422\u0430\u043A\u043E\u0439 \u0430\u0432\u0438\u0430\u043A\u043E\u043C\u043F\u0430\u043D\u0438\u0438 \u0432 \u0441\u043F\u0440\u0430\u0432\u043E\u0447\u043D\u0438\u043A\u0435 \u043D\u0435\u0442.")))));
+            q.trim().length >= 2 &&
+                !found.some((a) => a.name.toLowerCase() === q.trim().toLowerCase()) && (React.createElement("button", { className: "air-own", onClick: () => onAdd("~" + q.trim()) },
+                React.createElement("i", null, "\uFF0B"),
+                React.createElement("span", null,
+                    "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u00AB",
+                    q.trim(),
+                    "\u00BB",
+                    React.createElement("em", null, found.length
+                        ? "если нужной нет в списке выше"
+                        : "такой пока нет в справочнике — сохраним как вашу")))))));
 }
 function TripSheet({ open, onClose, box, initial, visits, onSave, onRemove, mode, quality, since, people = [], meId = ME, home = null }) {
     const totalPhotos = useMemo(() => {
@@ -4403,7 +4450,7 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, onRemove, mode
     const [addWho, setAddWho] = useState(false);
     const [addAir, setAddAir] = useState(false);
     const [addDep, setAddDep] = useState(false);
-    const [airInfo, setAirInfo] = useState(null);
+    const [airShown, setAirShown] = useState(null);
     const whoBox = useRef(null);
     useEffect(() => {
         if (!addWho)
@@ -4686,29 +4733,29 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, onRemove, mode
                     m.name)))),
                 draft.move === "air" && (React.createElement("div", { className: "air-box" },
                     (draft.air || []).length > 0 && (React.createElement("div", { className: "air-chips" }, (draft.air || []).map((code) => {
-                        const a = AIRLINES[code];
+                        const a = airInfo(code);
                         return (React.createElement("span", { key: code, className: "air-chip" },
-                            React.createElement("button", { className: "air-open", onClick: () => setAirInfo(airInfo === code ? null : code) },
+                            React.createElement("button", { className: "air-open", onClick: () => setAirShown(airShown === code ? null : code) },
                                 React.createElement(AirMark, { code: code }),
                                 (a === null || a === void 0 ? void 0 : a.name) || code),
                             React.createElement("button", { onClick: () => patch({
                                     air: (draft.air || []).filter((x) => x !== code),
                                 }), "aria-label": "\u0423\u0431\u0440\u0430\u0442\u044C" }, "\u2715")));
                     }))),
-                    airInfo && AIRLINES[airInfo] && (React.createElement("div", { className: "air-info" },
+                    airShown && airInfo(airShown) && (React.createElement("div", { className: "air-info" },
                         React.createElement("b", null,
-                            flag(((_d = BY_A3[AIRLINES[airInfo].a3]) === null || _d === void 0 ? void 0 : _d.a2) || ""),
+                            flag(((_d = BY_A3[airInfo(airShown).a3]) === null || _d === void 0 ? void 0 : _d.a2) || ""),
                             " ",
-                            AIRLINES[airInfo].name),
+                            airInfo(airShown).name),
                         React.createElement("em", null,
-                            ((_e = BY_A3[AIRLINES[airInfo].a3]) === null || _e === void 0 ? void 0 : _e.name) || "",
-                            AIRLINES[airInfo].year
-                                ? ` · основана в ${AIRLINES[airInfo].year}`
+                            ((_e = BY_A3[airInfo(airShown).a3]) === null || _e === void 0 ? void 0 : _e.name) || "",
+                            airInfo(airShown).year
+                                ? ` · основана в ${airInfo(airShown).year}`
                                 : "",
-                            AIRLINES[airInfo].alliance
-                                ? ` · ${AIRLINES[airInfo].alliance}`
+                            airInfo(airShown).alliance
+                                ? ` · ${airInfo(airShown).alliance}`
                                 : ""),
-                        React.createElement("span", null, AIRLINES[airInfo].routes))),
+                        React.createElement("span", null, airInfo(airShown).routes))),
                     addAir ? (React.createElement(AirPicker, { exclude: draft.air || [], onAdd: (code) => {
                             patch({ air: [...(draft.air || []), code] });
                             setAddAir(false);
@@ -6730,7 +6777,7 @@ function airReport(visits, home) {
     const alli = new Map();
     rows.forEach((r) => {
         var _c;
-        const a = ((_c = AIRLINES[r.code]) === null || _c === void 0 ? void 0 : _c.alliance) || "без альянса";
+        const a = ((_c = airInfo(r.code)) === null || _c === void 0 ? void 0 : _c.alliance) || "без альянса";
         alli.set(a, (alli.get(a) || 0) + r.km);
     });
     return {
@@ -6857,7 +6904,7 @@ function AirGlobe({ visits, home, air, geo, mapProps, onClose }) {
         const need = Math.max(28, Math.min(80, 300 / Math.max(1, air.rows.length)));
         air.rows.forEach((r) => {
             var _c;
-            let c = ((_c = AIRLINES[r.code]) === null || _c === void 0 ? void 0 : _c.arc) || "#e2b551";
+            let c = ((_c = airInfo(r.code)) === null || _c === void 0 ? void 0 : _c.arc) || "#e2b551";
             if (gap(c) < need) {
                 const spare = ARC_SPARE.filter((x) => !used.includes(x)).sort((x, y) => gap(y) - gap(x))[0];
                 if (spare && gap(spare) > gap(c))
@@ -6887,7 +6934,7 @@ function AirGlobe({ visits, home, air, geo, mapProps, onClose }) {
                 key: g.key,
                 from: g.from,
                 to: { lon: g.to.lon, lat: g.to.lat },
-                color: colorOf[g.code] || ((_c = AIRLINES[g.code]) === null || _c === void 0 ? void 0 : _c.arc) || "#e2b551",
+                color: colorOf[g.code] || ((_c = airInfo(g.code)) === null || _c === void 0 ? void 0 : _c.arc) || "#e2b551",
                 width: on ? 3.6 : 1.2 + 1.1 * (g.km / far),
                 alpha: on ? 1 : 0.9,
                 lift: on ? 0.2 : 0.05 + (i % 5) * 0.02,
@@ -6900,7 +6947,7 @@ function AirGlobe({ visits, home, air, geo, mapProps, onClose }) {
     }, [arcs, sel, colorOf]);
     const selArc = arcs.find((g) => g.key === sel) || null;
     const code = (selArc === null || selArc === void 0 ? void 0 : selArc.code) || ((_c = air.rows[0]) === null || _c === void 0 ? void 0 : _c.code);
-    const a = AIRLINES[code];
+    const a = airInfo(code);
     const row = air.rows.find((r) => r.code === code);
     const conts = [...new Set(arcs.filter((g) => g.code === code).map((g) => g.cont))]
         .map((c) => CONTINENTS[c] || c)
@@ -6926,7 +6973,7 @@ function AirGlobe({ visits, home, air, geo, mapProps, onClose }) {
     const card = (React.createElement("div", { className: "ag-frame" }, selArc ? (React.createElement("div", { className: "ag-sel" },
         React.createElement("div", { className: "ag-sel-head" },
             React.createElement("i", { className: "ag-dot", style: { background: colorOf[selArc.code] } }),
-            React.createElement("b", null, ((_d = AIRLINES[selArc.code]) === null || _d === void 0 ? void 0 : _d.name) || selArc.code),
+            React.createElement("b", null, ((_d = airInfo(selArc.code)) === null || _d === void 0 ? void 0 : _d.name) || selArc.code),
             React.createElement("em", null,
                 CONTINENTS[selArc.cont] || "",
                 " \u00B7 ",
@@ -8164,7 +8211,7 @@ function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], o
                 React.createElement("div", { className: "air-drawer" + (airOpen ? " on" : "") },
                     React.createElement("div", { className: "air-drawer-in" },
                         React.createElement("div", { className: "air-rows" }, air.rows.map((r) => {
-                            const a = AIRLINES[r.code];
+                            const a = airInfo(r.code);
                             const top = air.rows[0].km || 1;
                             return (React.createElement("div", { key: r.code, className: "air-row" },
                                 React.createElement("span", { className: "air-fill", style: {
@@ -8824,7 +8871,9 @@ function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, si
                                     row.t.move && (React.createElement("i", { className: "trip-move" },
                                         MOVE_ICON[row.t.move] || "",
                                         (row.t.air || []).length
-                                            ? ` ${(row.t.air || []).join(" · ")}`
+                                            ? ` ${(row.t.air || [])
+                                                .map((c) => { var _c; return (((_c = airInfo(c)) === null || _c === void 0 ? void 0 : _c.own) ? airInfo(c).name : c); })
+                                                .join(" · ")}`
                                             : "")),
                                     mode === "country"
                                         ? sub(row.t).replace(MONTHS[(row.t.m || 1) - 1] + " · ", "")
@@ -9506,7 +9555,10 @@ function Atlas() {
         if (!BY_A3[a3])
             return;
         const cur = visits[a3] || [];
+        // всё, что пришло из карточки, сохраняем целиком — раньше терялись
+        // транспорт, авиакомпании, город вылета, отели и снимки
         const entry = {
+            ...(trip || {}),
             y: (trip === null || trip === void 0 ? void 0 : trip.y) || NOW.getFullYear(),
             m: (trip === null || trip === void 0 ? void 0 : trip.m) || null,
             y2: (trip === null || trip === void 0 ? void 0 : trip.y2) || null,
@@ -10838,6 +10890,12 @@ body > div{max-width:100%;}
 .air-info em{font-style:normal; font-size:0.64rem; color:var(--dim);}
 .air-info span{font-size:0.68rem; color:var(--text);}
 .air-pick{display:flex; flex-direction:column; gap:8px;}
+.air-own{display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:11px;
+  border:1px dashed rgba(232,184,75,.5); background:none; color:var(--gold); cursor:pointer; text-align:left;}
+.air-own i{flex:none; font-style:normal; width:38px; height:26px; display:flex; align-items:center; justify-content:center;
+  border-radius:7px; background:rgba(232,184,75,.12); font-size:1rem;}
+.air-own span{display:flex; flex-direction:column; font-size:0.78rem;}
+.air-own em{font-style:normal; font-size:0.62rem; color:var(--dim);}
 .air-list{display:flex; flex-direction:column; gap:5px; max-height:240px; overflow-y:auto;}
 .air-list button{display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:11px; border:1px solid var(--line);
   background:var(--field); color:var(--text); cursor:pointer; text-align:left;}
