@@ -1342,7 +1342,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "28.1";
+const APP_VERSION = "28.2";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -7830,7 +7830,7 @@ function AreaChart({ points }) {
             React.createElement("text", { x: w - 2, y: h + 15, fill: C_DIM, fontSize: "9", textAnchor: "end" }, points[points.length - 1].y))));
 }
 /* кольцо по частям света */
-function DonutChart({ parts, total, sel = null, onSel, size = 168, big = false }) {
+function DonutChart({ parts, total, sel = null, onSel, size = 168, big = false, geo = null }) {
     var _c, _d;
     const cx = size / 2;
     const cy = size / 2;
@@ -7940,6 +7940,16 @@ function DonutChart({ parts, total, sel = null, onSel, size = 168, big = false }
                         Math.round((p.v / sum) * 100),
                         "%"))));
             }),
+            big && (React.createElement("g", { className: "donut-globe", pointerEvents: "none" },
+                React.createElement("defs", null,
+                    React.createElement("clipPath", { id: "dgclip" },
+                        React.createElement("circle", { cx: cx, cy: cy, r: r - w / 2 - 4 })),
+                    React.createElement("radialGradient", { id: "dgball", cx: "35%", cy: "32%", r: "75%" },
+                        React.createElement("stop", { offset: "0", stopColor: "#1a3a56" }),
+                        React.createElement("stop", { offset: "1", stopColor: "#0a1a29" }))),
+                React.createElement("circle", { cx: cx, cy: cy, r: r - w / 2 - 4, fill: "url(#dgball)" }),
+                React.createElement("g", { clipPath: "url(#dgclip)", opacity: "0.5" }, globePaths(geo, cx, cy, r - w / 2 - 4).map((d, i) => (React.createElement("path", { key: i, d: d, fill: "#5d87ad", stroke: "none" })))),
+                React.createElement("circle", { cx: cx, cy: cy, r: r - w / 2 - 4, fill: "none", stroke: "rgba(140,180,220,.25)" }))),
             React.createElement("g", { "data-seg": "", style: { cursor: sel ? "pointer" : "default" } },
                 React.createElement("circle", { cx: cx, cy: cy, r: r - w / 2 - 2, fill: "transparent" }),
                 React.createElement("text", { x: cx, y: cy - size * 0.005, fill: C_GOLD, fontSize: size * 0.14, fontWeight: "700", textAnchor: "middle" }, sel ? (_d = (_c = parts.find((p) => p.k === sel)) === null || _c === void 0 ? void 0 : _c.v) !== null && _d !== void 0 ? _d : total : total),
@@ -7949,6 +7959,20 @@ function DonutChart({ parts, total, sel = null, onSel, size = 168, big = false }
             React.createElement("i", { style: { background: p.color } }),
             CONTINENTS[p.k],
             React.createElement("b", null, p.v)))))));
+}
+/* контуры суши для маленького глобуса в центре кольца */
+function globePaths(geo, cx, cy, r) {
+    var _c;
+    if (!((_c = geo === null || geo === void 0 ? void 0 : geo.features) === null || _c === void 0 ? void 0 : _c.length))
+        return [];
+    const proj = d3
+        .geoOrthographic()
+        .clipAngle(90)
+        .rotate([-20, -20])
+        .translate([cx, cy])
+        .scale(r);
+    const path = d3.geoPath(proj);
+    return geo.features.map((f) => path(f)).filter(Boolean);
 }
 /* страны по частям света: для карточек в полноэкранном режиме */
 function contsData(visits) {
@@ -7970,7 +7994,7 @@ function contsData(visits) {
     return { by, parts, total };
 }
 /* «Части света» во весь экран: диаграмма и список стран */
-function ContsWin({ visits, onClose }) {
+function ContsWin({ visits, geo, onClose }) {
     const data = useMemo(() => contsData(visits), [visits]);
     const [sel, setSel] = useState(null);
     const [wide, setWide] = useState(typeof window !== "undefined" && window.innerWidth > window.innerHeight);
@@ -7978,11 +8002,11 @@ function ContsWin({ visits, onClose }) {
     const [side, setSide] = useState(280);
     useEffect(() => {
         const fit = () => {
-            var _c;
+            var _c, _d;
             setWide(window.innerWidth > window.innerHeight);
-            const b = (_c = wrap.current) === null || _c === void 0 ? void 0 : _c.getBoundingClientRect();
+            const b = (_d = (((_c = wrap.current) === null || _c === void 0 ? void 0 : _c.closest(".pg-map")) || wrap.current)) === null || _d === void 0 ? void 0 : _d.getBoundingClientRect();
             if (b)
-                setSide(Math.max(200, Math.min(b.width, b.height) - 12));
+                setSide(Math.max(200, Math.min(b.width - 16, b.height - 16, 520)));
         };
         fit();
         const t = setTimeout(fit, 60);
@@ -7999,7 +8023,7 @@ function ContsWin({ visits, onClose }) {
         : CONT_ORDER.flatMap((k) => (data.by[k] || []).map((c) => ({ ...c, k })));
     const dial = (React.createElement("div", { className: "sd-stage", ref: wrap },
         React.createElement("div", { style: { width: side, height: side } },
-            React.createElement(DonutChart, { parts: data.parts, total: data.total, sel: sel, onSel: setSel, size: 300, big: true }))));
+            React.createElement(DonutChart, { parts: data.parts, total: data.total, sel: sel, onSel: setSel, size: 300, big: true, geo: geo }))));
     const cards = (React.createElement("div", { className: "sd-cards" },
         React.createElement("div", { className: "sd-card" },
             React.createElement("em", null, sel ? CONTINENTS[sel] : "Все части света"),
@@ -8195,11 +8219,11 @@ function SeasonWin({ visits, onClose }) {
     const [side, setSide] = useState(280);
     useEffect(() => {
         const fit = () => {
-            var _c;
+            var _c, _d;
             setWide(window.innerWidth > window.innerHeight);
-            const b = (_c = wrap.current) === null || _c === void 0 ? void 0 : _c.getBoundingClientRect();
+            const b = (_d = (((_c = wrap.current) === null || _c === void 0 ? void 0 : _c.closest(".pg-map")) || wrap.current)) === null || _d === void 0 ? void 0 : _d.getBoundingClientRect();
             if (b)
-                setSide(Math.max(200, Math.min(b.width, b.height) - 12));
+                setSide(Math.max(200, Math.min(b.width - 16, b.height - 16, 520)));
         };
         fit();
         const t = setTimeout(fit, 60);
@@ -10569,7 +10593,7 @@ function Atlas() {
                             setSheet("reports");
                         }, onFilters: openFilters }),
                     seasonWin && React.createElement(SeasonWin, { visits: visits, onClose: () => setSeasonWin(false) }),
-                    contsWin && React.createElement(ContsWin, { visits: visits, onClose: () => setContsWin(false) }),
+                    contsWin && React.createElement(ContsWin, { visits: visits, geo: geo, onClose: () => setContsWin(false) }),
                     (airWin === null || airWin === void 0 ? void 0 : airWin.air) && (React.createElement(AirGlobe, { visits: visits, home: profile.home || null, air: airWin.air, geo: geo, onClose: () => setAirWin(null), mapProps: {
                             isOn,
                             selected: null,
@@ -11050,8 +11074,11 @@ body > div{max-width:100%;}
 @media (prefers-reduced-motion: reduce){
   .sd .sd-base, .sd .sd-lab, .sd .sd-center, .sd .sd-tip, .sd .sd-seg{animation:none !important; opacity:1; transform:none;}
 }
-.sd-stage{flex:1 1 auto; width:100%; height:100%; display:flex; align-items:center; justify-content:center; min-height:0;}
+.sd-stage{flex:1 1 auto; align-self:stretch; width:100%; height:100%; min-height:0;
+  display:flex; align-items:center; justify-content:center;}
 .sd-frame{gap:8px; overflow-y:auto; overscroll-behavior:contain; touch-action:pan-y;}
+.donut-row.donut-big{width:100%; height:100%;}
+.donut-row.donut-big .donut{flex:1 1 auto; width:100%; height:100%; max-width:none;}
 .donut-row.donut-big .donut-legend{display:none !important;}
 .donut-row .donut-legend div{cursor:pointer;}
 .donut-row .donut-legend div.on{color:var(--gold);}
