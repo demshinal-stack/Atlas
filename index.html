@@ -290,7 +290,7 @@ VU|VUT|Вануату|OC|-16.3|167.5
 /* справочники живут отдельно: на сервере, а по желанию — на устройстве */
 const K_BOOKS = "atlas:books";
 /* версия справочников: меняется, когда данные обновились на сервере */
-const BOOKS_VER = 15;
+const BOOKS_VER = 16;
 const BOOKS = [
     { id: "cities", file: "cities.txt", title: "Города" },
     { id: "regions", file: "regions.txt", title: "Регионы" },
@@ -1305,7 +1305,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "27.2";
+const APP_VERSION = "27.4";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -3621,21 +3621,41 @@ function Sheet({ open, onClose, title, children, box }) {
         };
     }, []);
     const swipe = useRef(null);
-    /* высота клавиатуры: поднимаем шторку, чтобы поле оставалось видимым */
+    /* высота клавиатуры: поднимаем шторку, чтобы поле оставалось видимым.
+       Считаем её только пока в фокусе поле ввода — иначе после закрытия
+       клавиатуры iOS мог оставить шторку задранной до самого верха */
     useEffect(() => {
         const vv = window.visualViewport;
         if (!vv || !open)
             return;
+        const typing = () => {
+            const el = document.activeElement;
+            return !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable);
+        };
         const onResize = () => {
+            if (!typing()) {
+                setKb(0);
+                return;
+            }
             const gap = Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop));
             setKb(gap > 90 ? gap : 0);
         };
+        // клавиатура закрылась — возвращаем всё на место
+        const onBlur = () => setTimeout(() => {
+            if (typing())
+                return;
+            setKb(0);
+            if (window.scrollY || document.documentElement.scrollTop)
+                window.scrollTo(0, 0);
+        }, 60);
         onResize();
         vv.addEventListener("resize", onResize);
         vv.addEventListener("scroll", onResize);
+        document.addEventListener("focusout", onBlur);
         return () => {
             vv.removeEventListener("resize", onResize);
             vv.removeEventListener("scroll", onResize);
+            document.removeEventListener("focusout", onBlur);
             setKb(0);
         };
     }, [open]);
@@ -3665,7 +3685,10 @@ function Sheet({ open, onClose, title, children, box }) {
                         ? `translate(-50%, ${shift}px)`
                         : "translate(-50%, 100%)",
                     bottom: kb ? kb : undefined,
-                    maxHeight: kb ? `calc(100% - ${kb + 12}px)` : undefined,
+                    // даже с клавиатурой шапка шторки не заходит под часы
+                    maxHeight: kb
+                        ? `calc(100% - ${kb + 12}px - env(safe-area-inset-top) - 8px)`
+                        : undefined,
                 } },
             React.createElement("div", { className: "sheet-grab", onTouchStart: (e) => (swipe.current = e.touches[0].clientY), onTouchMove: (e) => {
                     if (swipe.current == null)
@@ -4319,18 +4342,32 @@ function AirMark({ code, className = "" }) {
 function AirPicker({ exclude = [], onAdd, onClose }) {
     const [q, setQ] = useState("");
     const found = useMemo(() => {
-        const t = q.trim().toLowerCase();
+        // пробелы, дефисы и регистр не важны: «Air Asia» найдёт AirAsia
+        const norm = (x) => (x || "").toLowerCase().replace(/[\s\-'’.]/g, "");
+        const t = norm(q);
         const all = Object.values(AIRLINES).filter((a) => !exclude.includes(a.code));
         if (!t)
             return all.slice(0, 8);
-        return all
-            .filter((a) => {
+        // сначала совпадение по названию и коду, потом — авиакомпании страны
+        const score = (a) => {
             var _c;
-            return a.name.toLowerCase().includes(t) ||
-                a.code.toLowerCase() === t ||
-                (((_c = BY_A3[a.a3]) === null || _c === void 0 ? void 0 : _c.name) || "").toLowerCase().startsWith(t);
-        })
-            .slice(0, 12);
+            const n = norm(a.name);
+            if (norm(a.code) === t || n === t)
+                return 0;
+            if (n.startsWith(t))
+                return 1;
+            if (n.includes(t))
+                return 2;
+            if (norm((_c = BY_A3[a.a3]) === null || _c === void 0 ? void 0 : _c.name).startsWith(t))
+                return 3;
+            return 9;
+        };
+        return all
+            .map((a) => [score(a), a])
+            .filter(([k]) => k < 9)
+            .sort((x, y) => x[0] - y[0] || x[1].name.localeCompare(y[1].name, "ru"))
+            .map(([, a]) => a)
+            .slice(0, 30);
     }, [q, exclude]);
     return (React.createElement("div", { className: "air-pick" },
         React.createElement("label", { className: "tf" },
