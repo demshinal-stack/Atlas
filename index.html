@@ -1342,7 +1342,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "28.3";
+const APP_VERSION = "28.4";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -6121,6 +6121,12 @@ function crewReport(visits, people, order, home) {
             firsts: list.filter((a3) => r.firstYear[a3] &&
                 r.firstYear[a3] === globalFirst[a3] &&
                 firstCrowd[a3] === 1).length,
+            firstList: list
+                .filter((a3) => r.firstYear[a3] &&
+                r.firstYear[a3] === globalFirst[a3] &&
+                firstCrowd[a3] === 1)
+                .map((a3) => ({ a3, y: r.firstYear[a3] }))
+                .sort((a, b) => a.y - b.y),
             firstsJoint: list.filter((a3) => r.firstYear[a3] &&
                 r.firstYear[a3] === globalFirst[a3] &&
                 firstCrowd[a3] > 1).length,
@@ -6334,23 +6340,204 @@ function SplitChart({ rows }) {
                 "\u0432\u043C\u0435\u0441\u0442\u0435 \u0441 \u043A\u0435\u043C-\u0442\u043E"))));
 }
 /* кто открыл страну раньше всех в компании */
-function FirstsChart({ rows }) {
-    const max = Math.max(1, ...rows.map((r) => r.firsts));
-    return (React.createElement("div", { className: "firsts" },
-        rows
-            .slice()
-            .sort((a, b) => b.firsts - a.firsts || b.firstsJoint - a.firstsJoint)
-            .map((r) => (React.createElement("div", { key: r.id, className: "first-row" },
-            React.createElement("span", { className: "first-pill", style: { opacity: 0.35 + (r.firsts / max) * 0.65 } }, r.firsts),
-            React.createElement("span", { className: "first-n" },
-                r.name,
-                React.createElement("em", null,
-                    "\u043E\u0442\u043A\u0440\u044B\u043B \u043E\u0434\u0438\u043D \u00B7 \u0432\u043C\u0435\u0441\u0442\u0435 ",
-                    r.firstsJoint,
-                    " \u00B7 \u0432\u0441\u0435\u0433\u043E \u0431\u044B\u043B \u0432",
+function firstsOrder(rows) {
+    return rows
+        .slice()
+        .sort((a, b) => b.firsts - a.firsts ||
+        b.firstsJoint - a.firstsJoint ||
+        b.countries - a.countries);
+}
+/* годы для дорожки: от самого раннего открытия до нынешнего года, не больше 9 меток */
+function firstsYears(list) {
+    const ys = list.map((r) => { var _c; return (_c = r.firstList[0]) === null || _c === void 0 ? void 0 : _c.y; }).filter(Boolean);
+    const now = NOW.getFullYear();
+    const from = ys.length ? Math.min(...ys) : now;
+    const span = Math.max(1, now - from);
+    const step = Math.ceil(span / 5);
+    const out = [];
+    for (let y = from; y <= now; y += step)
+        out.push(y);
+    if (out[out.length - 1] !== now)
+        out.push(now);
+    return out;
+}
+function FirstsLine({ years, y, gold, ends = false }) {
+    return (React.createElement("div", { className: "fr-line" + (gold ? " gold" : "") }, years.map((yy, i) => {
+        const near = y == null
+            ? -1
+            : years.reduce((b, v, k) => (Math.abs(v - y) < Math.abs(years[b] - y) ? k : b), 0);
+        const on = i === near;
+        const showY = !ends || on || i === 0 || i === years.length - 1;
+        return (React.createElement("span", { key: yy, className: "fr-dot" + (on ? " on" : "") },
+            React.createElement("i", null),
+            React.createElement("em", null, showY ? yy : "")));
+    })));
+}
+/* строка участника: место, число открытий, имя, первая страна и дорожка лет */
+function FirstsRow({ r, place, years, wide = false }) {
+    var _c, _d;
+    const first = r.firstList[0];
+    return (React.createElement("div", { className: "fr-row" + (place === 1 ? " top" : "") },
+        React.createElement("span", { className: "fr-rank" },
+            place === 1 && React.createElement("u", null, "\u265B"),
+            place),
+        React.createElement("span", { className: "fr-num" },
+            React.createElement("b", null, r.firsts),
+            React.createElement("em", null, pw(r.firsts, "country"))),
+        React.createElement("span", { className: "fr-main" },
+            React.createElement("b", null, r.name),
+            React.createElement("em", null,
+                "\u043E\u0442\u043A\u0440\u044B\u043B ",
+                r.firsts,
+                " \u00B7 \u0432\u043C\u0435\u0441\u0442\u0435 ",
+                r.firstsJoint,
+                " \u00B7 \u0432\u0441\u0435\u0433\u043E \u0431\u044B\u043B \u0432 ",
+                r.countries),
+            first && (React.createElement("span", { className: "fr-chip" },
+                React.createElement("i", null, "\uD83C\uDF10"),
+                " \u041F\u0435\u0440\u0432\u044B\u043C \u043E\u0442\u043A\u0440\u044B\u043B",
+                " ",
+                React.createElement("b", null,
+                    flag(((_c = BY_A3[first.a3]) === null || _c === void 0 ? void 0 : _c.a2) || ""),
                     " ",
-                    r.countries))))),
-        React.createElement("p", { className: "hint small" }, "\u0421\u0442\u0440\u0430\u043D\u0430 \u0437\u0430\u0441\u0447\u0438\u0442\u044B\u0432\u0430\u0435\u0442\u0441\u044F \u0442\u043E\u043C\u0443, \u043A\u0442\u043E \u043F\u043E\u0431\u044B\u0432\u0430\u043B \u0432 \u043D\u0435\u0439 \u0432 \u0441\u0430\u043C\u044B\u0439 \u0440\u0430\u043D\u043D\u0438\u0439 \u0433\u043E\u0434. \u0415\u0441\u043B\u0438 \u0432 \u044D\u0442\u043E\u0442 \u0433\u043E\u0434 \u0442\u0443\u0434\u0430 \u0435\u0437\u0434\u0438\u043B\u0438 \u043D\u0435\u0441\u043A\u043E\u043B\u044C\u043A\u043E \u0447\u0435\u043B\u043E\u0432\u0435\u043A, \u0441\u0442\u0440\u0430\u043D\u0430 \u0441\u0447\u0438\u0442\u0430\u0435\u0442\u0441\u044F \u043E\u0442\u043A\u0440\u044B\u0442\u043E\u0439 \u0432\u043C\u0435\u0441\u0442\u0435 \u0438 \u043D\u0438\u043A\u043E\u043C\u0443 \u0432 \u0441\u0447\u0451\u0442 \u043D\u0435 \u0438\u0434\u0451\u0442.")));
+                    ((_d = BY_A3[first.a3]) === null || _d === void 0 ? void 0 : _d.name) || first.a3),
+                " ",
+                "\u0432 ",
+                first.y)),
+            React.createElement(FirstsLine, { years: years, y: first === null || first === void 0 ? void 0 : first.y, gold: place === 1 }))));
+}
+function FirstsChart({ rows, onOpen }) {
+    const list = firstsOrder(rows);
+    const years = firstsYears(list);
+    return (React.createElement("div", { className: "firsts" },
+        list.map((r, i) => (React.createElement(FirstsRow, { key: r.id, r: r, place: i + 1, years: years }))),
+        React.createElement("div", { className: "fr-note" },
+            React.createElement("i", null, "\u24D8"),
+            React.createElement("span", null,
+                React.createElement("b", null, "\u041A\u0430\u043A \u0441\u0447\u0438\u0442\u0430\u0435\u0442\u0441\u044F"),
+                React.createElement("em", null, "\u0421\u0442\u0440\u0430\u043D\u0430 \u0437\u0430\u0441\u0447\u0438\u0442\u044B\u0432\u0430\u0435\u0442\u0441\u044F \u0442\u043E\u043C\u0443, \u043A\u0442\u043E \u043F\u043E\u0431\u044B\u0432\u0430\u043B \u0432 \u043D\u0435\u0439 \u0440\u0430\u043D\u044C\u0448\u0435 \u043E\u0441\u0442\u0430\u043B\u044C\u043D\u044B\u0445. \u0415\u0441\u043B\u0438 \u0432 \u0441\u0430\u043C\u044B\u0439 \u0440\u0430\u043D\u043D\u0438\u0439 \u0433\u043E\u0434 \u0442\u0443\u0434\u0430 \u0435\u0437\u0434\u0438\u043B\u0438 \u043D\u0435\u0441\u043A\u043E\u043B\u044C\u043A\u043E \u0447\u0435\u043B\u043E\u0432\u0435\u043A, \u0441\u0442\u0440\u0430\u043D\u0430 \u0441\u0447\u0438\u0442\u0430\u0435\u0442\u0441\u044F \u043E\u0442\u043A\u0440\u044B\u0442\u043E\u0439 \u0432\u043C\u0435\u0441\u0442\u0435.")))));
+}
+/* «Первооткрыватели» во весь экран */
+function FirstsWin({ rows, onClose }) {
+    var _c, _d, _e;
+    const list = firstsOrder(rows);
+    const years = firstsYears(list);
+    const [wide, setWide] = useState(typeof window !== "undefined" && window.innerWidth > window.innerHeight);
+    const [cur, setCur] = useState(0);
+    useEffect(() => {
+        const on = () => setWide(window.innerWidth > window.innerHeight);
+        window.addEventListener("resize", on);
+        window.addEventListener("orientationchange", on);
+        return () => {
+            window.removeEventListener("resize", on);
+            window.removeEventListener("orientationchange", on);
+        };
+    }, []);
+    const totalCountries = new Set();
+    rows.forEach((r) => (r.list || []).forEach((v) => totalCountries.add(v.a3)));
+    const together = Math.max(0, ...list.map((r) => r.firstsJoint));
+    const discoverers = list.filter((r) => r.firsts > 0).length;
+    const summary = (React.createElement("div", { className: "fw-sum" },
+        React.createElement("span", null,
+            React.createElement("b", null, totalCountries.size || ((_c = list[0]) === null || _c === void 0 ? void 0 : _c.countries) || 0),
+            React.createElement("em", null, pw(totalCountries.size, "country"))),
+        React.createElement("span", null,
+            React.createElement("b", null, together),
+            React.createElement("em", null, "\u0432\u043C\u0435\u0441\u0442\u0435")),
+        React.createElement("span", null,
+            React.createElement("b", null, discoverers),
+            React.createElement("em", null, pw(discoverers, "person")))));
+    if (wide)
+        return (React.createElement("div", { className: "pg-wide", onClick: onClose },
+            React.createElement("div", { className: "pg-panel fw-panel", onClick: (e) => e.stopPropagation() },
+                React.createElement("div", { className: "fw-head" },
+                    React.createElement("span", null,
+                        React.createElement("b", null, "\u041F\u0435\u0440\u0432\u043E\u043E\u0442\u043A\u0440\u044B\u0432\u0430\u0442\u0435\u043B\u0438"),
+                        React.createElement("em", null, "\u043A\u0442\u043E \u043F\u043E\u043F\u0430\u043B \u0432 \u0441\u0442\u0440\u0430\u043D\u0443 \u0440\u0430\u043D\u044C\u0448\u0435 \u043E\u0441\u0442\u0430\u043B\u044C\u043D\u044B\u0445")),
+                    React.createElement("button", { className: "zoom-x", onClick: onClose, "aria-label": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C" }, "\u2715")),
+                React.createElement("div", { className: "fw-cards" }, list.map((r, i) => {
+                    var _c, _d;
+                    const first = r.firstList[0];
+                    return (React.createElement("div", { key: r.id, className: "fw-card" + (i === 0 ? " top" : "") },
+                        React.createElement("div", { className: "fw-card-head" },
+                            React.createElement("span", { className: "fr-rank" },
+                                i === 0 && React.createElement("u", null, "\u265B"),
+                                i + 1),
+                            React.createElement("b", null, r.name)),
+                        React.createElement("div", { className: "fw-nums" },
+                            React.createElement("span", null,
+                                React.createElement("b", null, r.firsts),
+                                React.createElement("em", null, pw(r.firsts, "country"))),
+                            React.createElement("span", null,
+                                React.createElement("b", null, r.firstsJoint),
+                                React.createElement("em", null, "\u0432\u043C\u0435\u0441\u0442\u0435")),
+                            React.createElement("span", null,
+                                React.createElement("b", null, r.countries),
+                                React.createElement("em", null, "\u0432\u0441\u0435\u0433\u043E"))),
+                        first ? (React.createElement("div", { className: "fw-first" },
+                            React.createElement("em", null, "\u041F\u0435\u0440\u0432\u044B\u043C \u043E\u0442\u043A\u0440\u044B\u043B"),
+                            React.createElement("b", null,
+                                flag(((_c = BY_A3[first.a3]) === null || _c === void 0 ? void 0 : _c.a2) || ""),
+                                " ",
+                                ((_d = BY_A3[first.a3]) === null || _d === void 0 ? void 0 : _d.name) || first.a3),
+                            React.createElement("em", null,
+                                "\u0432 ",
+                                first.y,
+                                " \u0433\u043E\u0434\u0443"))) : (React.createElement("div", { className: "fw-first" },
+                            React.createElement("em", null, "\u041F\u043E\u043A\u0430 \u043D\u0435 \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u043B \u0441\u0442\u0440\u0430\u043D\u044B \u043F\u0435\u0440\u0432\u044B\u043C"))),
+                        React.createElement(FirstsLine, { years: years, y: first === null || first === void 0 ? void 0 : first.y, gold: i === 0, ends: true })));
+                })),
+                summary)));
+    const r = list[cur];
+    const first = r === null || r === void 0 ? void 0 : r.firstList[0];
+    return (React.createElement("div", { className: "zoom-layer pg-layer", onClick: onClose },
+        React.createElement("div", { className: "zoom-box", onClick: (e) => e.stopPropagation() },
+            React.createElement("button", { className: "zoom-x", onClick: onClose, "aria-label": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C" }, "\u2715"),
+            React.createElement("div", { className: "zoom-body rep fw-port" },
+                React.createElement("b", null, "\u041F\u0435\u0440\u0432\u043E\u043E\u0442\u043A\u0440\u044B\u0432\u0430\u0442\u0435\u043B\u0438"),
+                React.createElement("em", null, "\u043A\u0442\u043E \u043F\u043E\u043F\u0430\u043B \u0432 \u0441\u0442\u0440\u0430\u043D\u0443 \u0440\u0430\u043D\u044C\u0448\u0435 \u043E\u0441\u0442\u0430\u043B\u044C\u043D\u044B\u0445"),
+                r && (React.createElement("div", { className: "fw-card top" },
+                    React.createElement("div", { className: "fw-card-head" },
+                        React.createElement("span", { className: "fr-rank" },
+                            cur === 0 && React.createElement("u", null, "\u265B"),
+                            cur + 1),
+                        React.createElement("b", null, r.name)),
+                    React.createElement("div", { className: "fw-nums" },
+                        React.createElement("span", null,
+                            React.createElement("b", null, r.firsts),
+                            React.createElement("em", null, pw(r.firsts, "country"))),
+                        React.createElement("span", null,
+                            React.createElement("b", null, r.firstsJoint),
+                            React.createElement("em", null, "\u0432\u043C\u0435\u0441\u0442\u0435")),
+                        React.createElement("span", null,
+                            React.createElement("b", null, r.countries),
+                            React.createElement("em", null, "\u0432\u0441\u0435\u0433\u043E"))),
+                    first && (React.createElement("div", { className: "fw-first" },
+                        React.createElement("em", null, "\u041F\u0435\u0440\u0432\u044B\u043C \u043E\u0442\u043A\u0440\u044B\u043B"),
+                        React.createElement("b", null,
+                            flag(((_d = BY_A3[first.a3]) === null || _d === void 0 ? void 0 : _d.a2) || ""),
+                            " ",
+                            ((_e = BY_A3[first.a3]) === null || _e === void 0 ? void 0 : _e.name) || first.a3),
+                        React.createElement("em", null,
+                            "\u0432 ",
+                            first.y,
+                            " \u0433\u043E\u0434\u0443"))),
+                    React.createElement(FirstsLine, { years: years, y: first === null || first === void 0 ? void 0 : first.y, gold: cur === 0 }),
+                    r.firstList.length > 1 && (React.createElement("div", { className: "fw-more" }, r.firstList.slice(1, 6).map((f) => {
+                        var _c, _d;
+                        return (React.createElement("span", { key: f.a3 },
+                            flag(((_c = BY_A3[f.a3]) === null || _c === void 0 ? void 0 : _c.a2) || ""),
+                            " ",
+                            ((_d = BY_A3[f.a3]) === null || _d === void 0 ? void 0 : _d.name) || f.a3,
+                            React.createElement("u", null, f.y)));
+                    }))))),
+                React.createElement("div", { className: "fw-list" }, list.map((p, i) => i === cur ? null : (React.createElement("button", { key: p.id, className: "fw-item", onClick: () => setCur(i) },
+                    React.createElement("span", { className: "fr-rank" }, i + 1),
+                    React.createElement("span", null,
+                        React.createElement("b", null, p.name),
+                        React.createElement("em", null, p.firsts ? `${np(p.firsts, "country")} первым` : "нет открытий")),
+                    React.createElement("i", null, "\u203A"))))),
+                summary))));
 }
 /* часовой пояс точки: из справочника, иначе по долготе */
 function tzHours(pt) {
@@ -8364,7 +8551,7 @@ function GridChart({ grid, planGrid, vague, years, onOpen }) {
             " \u043D\u0435\u0442\u043E\u0447\u043D\u0430\u044F \u0434\u0430\u0442\u0430")));
 }
 /* шторка отчётов */
-function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], onOpenTrip, geo, home, onPerson, onFar, onAir, onSeason, onConts, meName = "", repCfg = null }) {
+function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], onOpenTrip, geo, home, onPerson, onFar, onAir, onSeason, onConts, onFirsts, meName = "", repCfg = null }) {
     ME_NAME = meName;
     const r = useMemo(() => reportData(visits, since, people), [visits, since, people]);
     const crew = useMemo(() => travelerStats(visits, people), [visits, people, meName]);
@@ -8593,8 +8780,11 @@ function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], o
                     React.createElement("b", null, "\u0421\u0432\u043E\u0438 \u0438 \u043E\u0431\u0449\u0438\u0435 \u0441\u0442\u0440\u0430\u043D\u044B"),
                     React.createElement("em", null, "\u043A\u0442\u043E \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u0435\u0442 \u043D\u043E\u0432\u043E\u0435, \u0430 \u043A\u0442\u043E \u0435\u0437\u0434\u0438\u0442 \u0432\u043C\u0435\u0441\u0442\u0435"),
                     React.createElement(SplitChart, { rows: crewR.rows })),
-                React.createElement(Reveal, { rid: "first", className: "rep" },
+                React.createElement(Reveal, { rid: "first", className: "rep far-card", zoomable: false },
                     React.createElement("b", null, "\u041F\u0435\u0440\u0432\u043E\u043E\u0442\u043A\u0440\u044B\u0432\u0430\u0442\u0435\u043B\u0438"),
+                    React.createElement("button", { className: "crew-globe far-open", onClick: () => onFirsts === null || onFirsts === void 0 ? void 0 : onFirsts(crewR.rows), "aria-label": "\u0412\u043E \u0432\u0435\u0441\u044C \u044D\u043A\u0440\u0430\u043D" },
+                        React.createElement("svg", { viewBox: "0 0 24 24", width: "18", height: "18" },
+                            React.createElement("path", { d: "M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5", fill: "none", stroke: "currentColor", strokeWidth: "1.7", strokeLinecap: "round" }))),
                     React.createElement("em", null, "\u043A\u0442\u043E \u043F\u043E\u043F\u0430\u043B \u0432 \u0441\u0442\u0440\u0430\u043D\u0443 \u0440\u0430\u043D\u044C\u0448\u0435 \u043E\u0441\u0442\u0430\u043B\u044C\u043D\u044B\u0445"),
                     React.createElement(FirstsChart, { rows: crewR.rows })),
                 React.createElement(Reveal, { rid: "far", className: "rep far-card", zoomable: false },
@@ -9322,6 +9512,7 @@ function Atlas() {
     const [airWin, setAirWin] = useState(null);
     const [seasonWin, setSeasonWin] = useState(false);
     const [contsWin, setContsWin] = useState(false);
+    const [firstsWin, setFirstsWin] = useState(null);
     const [booksSize, setBooksSize] = useState(0);
     const [booksSaved, setBooksSaved] = useState(false);
     const [booksAt, setBooksAt] = useState("");
@@ -9452,13 +9643,14 @@ function Atlas() {
     /* нажатие на меню: закрыть всё, что открыто поверх, и перейти в раздел.
        Если поверх было открыто окно, а нажали текущий раздел — просто закрываем окно */
     const goTab = (tab, sheetName) => {
-        const over = !!(person || far || airWin || seasonWin || contsWin) ||
+        const over = !!(person || far || airWin || seasonWin || contsWin || firstsWin) ||
             (typeof document !== "undefined" && !!document.querySelector(".zoom-layer"));
         setPerson(null);
         setFar(null);
         setAirWin(null);
         setSeasonWin(false);
         setContsWin(false);
+        setFirstsWin(null);
         if (typeof window !== "undefined")
             window.dispatchEvent(new Event("atlas:closezoom"));
         setSheetBack(null);
@@ -10572,7 +10764,7 @@ function Atlas() {
                             setSheet(null);
                         } }),
                     React.createElement(DoublesSheet, { open: sheet === "doubles", onClose: () => setSheet("profile"), box: box, pairs: doubles, people: profile.people || [], home: profile.home || null, onJoin: joinDouble }),
-                    React.createElement(ReportsSheet, { open: sheet === "reports", onClose: () => setSheet(sheetBack === "profile" ? "profile" : null), box: box, visits: visits, since: profile.since, stats: stats, people: profile.people || [], home: profile.home || null, geo: geo, home: profile.home || null, onPerson: setPerson, onFar: setFar, onAir: setAirWin, onSeason: () => setSeasonWin(true), onConts: () => setContsWin(true), repCfg: profile.reports || null, meName: profile.name || "", onOpenTrip: (a3, id) => {
+                    React.createElement(ReportsSheet, { open: sheet === "reports", onClose: () => setSheet(sheetBack === "profile" ? "profile" : null), box: box, visits: visits, since: profile.since, stats: stats, people: profile.people || [], home: profile.home || null, geo: geo, home: profile.home || null, onPerson: setPerson, onFar: setFar, onAir: setAirWin, onSeason: () => setSeasonWin(true), onConts: () => setContsWin(true), onFirsts: (rows) => setFirstsWin(rows), repCfg: profile.reports || null, meName: profile.name || "", onOpenTrip: (a3, id) => {
                             setSelected(a3);
                             setEditId(id || null);
                             setSheet(null);
@@ -10593,6 +10785,7 @@ function Atlas() {
                         }, onFilters: openFilters }),
                     seasonWin && React.createElement(SeasonWin, { visits: visits, onClose: () => setSeasonWin(false) }),
                     contsWin && React.createElement(ContsWin, { visits: visits, geo: geo, onClose: () => setContsWin(false) }),
+                    firstsWin && React.createElement(FirstsWin, { rows: firstsWin, onClose: () => setFirstsWin(null) }),
                     (airWin === null || airWin === void 0 ? void 0 : airWin.air) && (React.createElement(AirGlobe, { visits: visits, home: profile.home || null, air: airWin.air, geo: geo, onClose: () => setAirWin(null), mapProps: {
                             isOn,
                             selected: null,
@@ -10967,6 +11160,83 @@ body > div{max-width:100%;}
 .grid-legend .lg i{margin-left:0;}
 
 .firsts{display:flex; flex-direction:column; gap:8px;}
+.fr-row{display:grid; grid-template-columns:auto auto 1fr; gap:10px; align-items:center;
+  padding:11px 12px; border-radius:14px; border:1px solid var(--line); background:var(--field);}
+.fr-row.top{border-color:rgba(232,184,75,.55); background:linear-gradient(135deg, rgba(232,184,75,.1), transparent 55%), var(--field);}
+.fr-rank{position:relative; flex:none; width:28px; height:28px; border-radius:50%; display:flex; align-items:center;
+  justify-content:center; font-size:0.74rem; font-weight:600; color:var(--dim); border:1px solid var(--line);}
+.fr-row.top .fr-rank, .fw-card.top .fr-rank{color:#11202e; background:var(--gold); border-color:var(--gold);}
+.fr-rank u{position:absolute; top:-13px; left:50%; transform:translateX(-50%); text-decoration:none; color:var(--gold); font-size:0.7rem;}
+.fr-num{display:flex; flex-direction:column; align-items:center; justify-content:center; min-width:52px;
+  padding:6px 8px; border-radius:11px; border:1px solid var(--line); background:rgba(255,255,255,.03);}
+.fr-num b{font-size:1.25rem; font-weight:700; color:var(--gold); line-height:1;}
+.fr-num em{font-style:normal; font-size:0.58rem; color:var(--dim);}
+.fr-main{min-width:0; display:flex; flex-direction:column; gap:3px;}
+.fr-main > b{font-size:0.86rem;}
+.fr-main > em{font-style:normal; font-size:0.66rem; color:var(--dim);}
+.fr-chip{display:inline-flex; align-items:center; gap:5px; flex-wrap:wrap; align-self:flex-start;
+  padding:5px 9px; border-radius:10px; border:1px solid var(--line); background:rgba(255,255,255,.03);
+  font-size:0.68rem; color:var(--dim); margin-top:2px;}
+.fr-chip b{font-weight:500; color:var(--text);}
+.fr-chip i{font-style:normal; font-size:0.72rem;}
+.fr-row.top .fr-chip{border-color:rgba(232,184,75,.4);}
+.fr-dot em{white-space:nowrap;}
+.fr-line{display:flex; align-items:flex-start; gap:2px; margin-top:4px;}
+.fr-dot{flex:1 1 0; min-width:0; display:flex; flex-direction:column; align-items:center; gap:3px; position:relative;}
+.fr-dot::before{content:""; position:absolute; top:4px; left:-50%; width:100%; height:1px; background:var(--line);}
+.fr-dot:first-child::before{display:none;}
+.fr-dot i{width:8px; height:8px; border-radius:50%; background:#2f435a; position:relative;}
+.fr-dot.on i{background:#8fd4ff; box-shadow:0 0 8px rgba(143,212,255,.8);}
+.fr-line.gold .fr-dot.on i{background:var(--gold); box-shadow:0 0 9px rgba(232,184,75,.85);}
+.fr-dot em{font-style:normal; font-size:0.5rem; color:var(--dim);}
+.fr-dot.on em{color:var(--text);}
+.fr-note{display:flex; gap:10px; padding:11px 12px; border-radius:14px; border:1px solid var(--line); background:var(--field);}
+.fr-note i{flex:none; font-style:normal; color:#8fb3d6; font-size:1rem;}
+.fr-note span{display:flex; flex-direction:column; gap:3px;}
+.fr-note b{font-size:0.8rem;}
+.fr-note em{font-style:normal; font-size:0.68rem; color:var(--dim); line-height:1.4;}
+/* во весь экран */
+.fw-panel{flex-direction:column; gap:10px;}
+.fw-head{display:flex; align-items:flex-start; justify-content:space-between; gap:10px;}
+.fw-head b{font-size:1.05rem;}
+.fw-head em{display:block; font-style:normal; font-size:0.72rem; color:var(--dim); margin-top:2px;}
+.fw-head .zoom-x{position:static; flex:none;}
+.fw-cards{flex:1 1 auto; min-height:0; display:flex; gap:10px; overflow-x:auto; overscroll-behavior:contain;}
+.fw-card{flex:0 0 clamp(210px, 31%, 330px); min-width:0; display:flex; flex-direction:column; gap:9px; padding:12px;
+  border-radius:16px; border:1px solid var(--line); background:var(--field); text-align:left;}
+.fw-card .fr-rank, .fw-item .fr-rank{flex:none; width:28px; height:28px;}
+.fw-card{align-items:stretch;}
+.fw-card > *{align-self:stretch;}
+.fw-card .fw-card-head{justify-content:flex-start;}
+.fw-card .fw-more{justify-content:flex-start;}
+.fw-card.top{border-color:rgba(232,184,75,.55); background:linear-gradient(140deg, rgba(232,184,75,.1), transparent 60%), var(--field);}
+.fw-card-head{display:flex; align-items:center; gap:9px;}
+.fw-card-head b{font-size:0.9rem;}
+.fw-nums{display:grid; grid-template-columns:repeat(3, 1fr); gap:6px;}
+.fw-nums > span{flex:1 1 0; display:flex; flex-direction:column; align-items:center; padding:7px 4px; border-radius:11px;
+  background:rgba(255,255,255,.04);}
+.fw-nums b{font-size:1.15rem; font-weight:700; color:var(--gold); line-height:1;}
+.fw-nums em{font-style:normal; font-size:0.56rem; color:var(--dim);}
+.fw-first{display:flex; flex-direction:column; gap:2px; padding:8px 10px; border-radius:11px; border:1px solid var(--line);}
+.fw-first b{font-size:0.82rem;}
+.fw-first em{font-style:normal; font-size:0.62rem; color:var(--dim);}
+.fw-sum{flex:none; display:flex; gap:16px; padding:10px 12px; border-radius:14px; border:1px solid var(--line);
+  background:rgba(255,255,255,.02); text-align:left;}
+.fw-sum span{display:flex; flex-direction:column;}
+.fw-sum b{font-size:1.1rem; font-weight:700; color:var(--gold); line-height:1.1;}
+.fw-sum em{font-style:normal; font-size:0.6rem; color:var(--dim);}
+.fw-port{gap:10px;}
+.fw-list{display:flex; flex-direction:column; gap:6px;}
+.fw-item{display:flex; align-items:center; gap:10px; text-align:left; padding:9px 11px; border-radius:12px; border:1px solid var(--line);
+  background:var(--field); color:var(--text); cursor:pointer; text-align:left;}
+.fw-item > span:not(.fr-rank){flex:1 1 auto; min-width:0; display:flex; flex-direction:column; align-items:flex-start;}
+.fw-item b{font-size:0.8rem; font-weight:500;}
+.fw-item em{font-style:normal; font-size:0.64rem; color:var(--dim);}
+.fw-item i{flex:none; font-style:normal; color:var(--dim);}
+.fw-more{display:flex; flex-wrap:wrap; gap:6px;}
+.fw-more span{display:flex; align-items:center; gap:5px; padding:5px 9px; border-radius:10px;
+  border:1px solid var(--line); font-size:0.7rem;}
+.fw-more u{text-decoration:none; color:var(--dim); font-size:0.62rem;}
 .split{display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:9px 8px; font-size:0.68rem;}
 .split-n{color:var(--text); white-space:nowrap;}
 .split-bar{height:8px; border-radius:4px; background:var(--track); overflow:hidden; display:flex;}
