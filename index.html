@@ -1305,7 +1305,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "26.9";
+const APP_VERSION = "27.0";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -6774,7 +6774,8 @@ const ARC_SPARE = [
 function AirGlobe({ visits, home, air, geo, mapProps, onClose }) {
     var _c, _d;
     const arcs = useMemo(() => airArcs(visits, home), [visits, home]);
-    const [sel, setSel] = useState(null);
+    // при открытии сразу выбран самый длинный перелёт, дальше — как решит пользователь
+    const [sel, setSel] = useState(() => arcs.length ? arcs.reduce((a, b) => (b.km > a.km ? b : a)).key : null);
     // у каждой авиакомпании свой цвет из справочника; если два похожи — второй меняем
     const colorOf = useMemo(() => {
         const out = {};
@@ -6892,7 +6893,6 @@ function AirGlobe({ visits, home, air, geo, mapProps, onClose }) {
             React.createElement("button", { className: "zoom-x", onClick: onClose, "aria-label": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C" }, "\u2715"),
             React.createElement("div", { className: "zoom-body rep" },
                 React.createElement("b", null, "\u0410\u0432\u0438\u0430\u043A\u043E\u043C\u043F\u0430\u043D\u0438\u0438"),
-                React.createElement("em", null, "\u0434\u0443\u0433\u0430 \u2014 \u0430\u0432\u0438\u0430\u043A\u043E\u043C\u043F\u0430\u043D\u0438\u044F \u0438 \u0447\u0430\u0441\u0442\u044C \u0441\u0432\u0435\u0442\u0430"),
                 React.createElement("div", { className: "pg-map far-map" }, globe),
                 card))));
 }
