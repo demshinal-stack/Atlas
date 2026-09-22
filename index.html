@@ -1342,7 +1342,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "28.2";
+const APP_VERSION = "28.3";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -8026,8 +8026,7 @@ function ContsWin({ visits, geo, onClose }) {
             React.createElement(DonutChart, { parts: data.parts, total: data.total, sel: sel, onSel: setSel, size: 300, big: true, geo: geo }))));
     const cards = (React.createElement("div", { className: "sd-cards" },
         React.createElement("div", { className: "sd-card" },
-            React.createElement("em", null, sel ? CONTINENTS[sel] : "Все части света"),
-            React.createElement("b", { className: "sd-mname" }, np(list.length, "country"))),
+            React.createElement("b", { className: "sd-mname" }, sel ? CONTINENTS[sel] : "Все части света")),
         React.createElement("div", { className: "ct-list" }, list.map((c) => {
             var _c, _d;
             return (React.createElement("div", { key: c.a3, className: "ct-row" },
