@@ -1342,7 +1342,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "27.8";
+const APP_VERSION = "27.9";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -7953,6 +7953,7 @@ function seasonData(visits, period) {
             best = { from: i, sum };
     }
     return {
+        byMonth: months.map((c) => c.where),
         months: months.map((c, i) => ({
             i,
             n: c.n,
@@ -7970,13 +7971,13 @@ function seasonData(visits, period) {
 }
 const pct = (v) => `${Math.round(v * 100)}%`;
 /* ── сезонность: круговая диаграмма с анимацией появления ─────────── */
-function SeasonDial({ data, sel, onSel, play = false, size = 300, tip = true }) {
+function SeasonDial({ data, sel, onSel, play = false, size = 300 }) {
     const cx = size / 2;
     const cy = size / 2;
     const r0 = size * 0.22; // внутренний круг
     const segW = size * 0.062;
-    const maxLen = size * 0.17;
-    const labR = size * 0.445;
+    const maxLen = size * 0.145; // внешний край самого длинного ~0.39 от размера
+    const labR = size * 0.458; // подписи с запасом снаружи
     const show = sel !== null && sel !== void 0 ? sel : data.key;
     const colorOf = (m) => {
         if (!m.n)
@@ -7988,14 +7989,7 @@ function SeasonDial({ data, sel, onSel, play = false, size = 300, tip = true }) 
             return ["#8fcaff", "#3f8fdb"]; // средние — голубые
         return ["#5d6f83", "#3d4d5f"]; // редкие — приглушённые
     };
-    const tipM = show >= 0 ? data.months[show] : null;
-    const ta = tipM ? ((tipM.i * 30 - 90) * Math.PI) / 180 : 0;
-    const tx = cx + Math.cos(ta) * (r0 + maxLen * 0.6);
-    const ty = cy + Math.sin(ta) * (r0 + maxLen * 0.6);
-    const tw = size * 0.34;
-    const th = size * 0.2;
-    const tLeft = Math.min(size - tw - 4, Math.max(4, tx + (Math.cos(ta) >= 0 ? 10 : -tw - 10)));
-    const tTop = Math.min(size - th - 4, Math.max(4, ty - th / 2));
+    const cur = sel != null ? data.months[sel] : null;
     return (React.createElement("svg", { viewBox: `0 0 ${size} ${size}`, className: "sd" + (play ? " play" : "") },
         React.createElement("defs", null,
             data.months.map((m) => {
@@ -8015,66 +8009,42 @@ function SeasonDial({ data, sel, onSel, play = false, size = 300, tip = true }) 
                 React.createElement("rect", { x: -segW / 2, y: -(r0 + 6 + maxLen), width: segW, height: maxLen, rx: segW * 0.35, fill: "rgba(143,179,214,.05)" }))))),
         React.createElement("g", { className: "sd-lab" }, data.months.map((m) => {
             const a = ((m.i * 30 - 90) * Math.PI) / 180;
-            const on = m.i === show;
+            const on = sel != null ? m.i === sel : m.i === data.key;
             return (React.createElement("text", { key: m.i, x: cx + Math.cos(a) * labR, y: cy + Math.sin(a) * labR + size * 0.012, textAnchor: "middle", fontSize: size * 0.036, fill: on ? "var(--gold)" : "var(--dim)", fontWeight: on ? 700 : 400 }, MON3[m.i]));
         })),
         data.months.map((m) => {
             const len = m.n ? size * 0.05 + (m.n / data.max) * (maxLen - size * 0.05) : size * 0.035;
             const on = m.i === show;
-            return (React.createElement("g", { key: m.i, transform: `translate(${cx} ${cy}) rotate(${m.i * 30})`, onClick: () => onSel === null || onSel === void 0 ? void 0 : onSel(sel === m.i ? null : m.i), onMouseEnter: () => onSel === null || onSel === void 0 ? void 0 : onSel(m.i, true), style: { cursor: "pointer" } },
+            return (React.createElement("g", { key: m.i, transform: `translate(${cx} ${cy}) rotate(${m.i * 30})`, onClick: () => onSel === null || onSel === void 0 ? void 0 : onSel(sel === m.i ? null : m.i), style: { cursor: "pointer" } },
                 React.createElement("rect", { x: -segW, y: -(r0 + 6 + maxLen), width: segW * 2, height: maxLen + 6, fill: "transparent" }),
-                React.createElement("rect", { className: "sd-seg" + (on ? " sd-key" : ""), style: { animationDelay: `${0.8 + m.i * (0.8 / 12)}s` }, x: -segW / 2, y: -(r0 + 6 + len), width: segW, height: len, rx: segW * 0.35, fill: `url(#sdg${m.i})`, filter: on && m.n ? "url(#sdglow)" : undefined, opacity: m.n ? 1 : 0.6 })));
+                React.createElement("rect", { className: "sd-seg" + (m.i === data.key ? " sd-key" : ""), style: { animationDelay: `${0.8 + m.i * (0.8 / 12)}s` }, x: -segW / 2, y: -(r0 + 6 + len), width: segW, height: len, rx: segW * 0.35, fill: `url(#sdg${m.i})`, stroke: sel === m.i ? "#fff3cf" : "none", strokeWidth: size * 0.008, filter: on && m.n ? "url(#sdglow)" : undefined, opacity: m.n ? (sel != null && sel !== m.i ? 0.55 : 1) : 0.6 })));
         }),
         React.createElement("g", { className: "sd-center" },
             React.createElement("g", { transform: `translate(${cx} ${cy - size * 0.135}) scale(${size / 300})` },
                 React.createElement("path", { d: "M9 1.5v-1a1 1 0 0 0-2 0v1L1 5v1.5l6-1.5V9L5 10.5V12l3-1 3 1v-1.5L9 9V5l6 1.5V5z", transform: "translate(-8 -6)", fill: "#9cc9ee" })),
-            React.createElement("text", { x: cx, y: cy - size * 0.075, textAnchor: "middle", fontSize: size * 0.032, fill: "#e6edf4" }, "\u0421\u0435\u0437\u043E\u043D"),
-            React.createElement("text", { x: cx, y: cy - size * 0.04, textAnchor: "middle", fontSize: size * 0.032, fill: "#e6edf4" }, "\u043F\u0443\u0442\u0435\u0448\u0435\u0441\u0442\u0432\u0438\u0439"),
-            data.season && (React.createElement(React.Fragment, null,
-                React.createElement("text", { x: cx, y: cy - size * 0.003, textAnchor: "middle", fontSize: size * 0.028, fill: "var(--dim)" },
-                    MON3[data.season.from],
-                    " \u2013 ",
-                    MON3[data.season.to]),
-                React.createElement("text", { x: cx, y: cy + size * 0.075, textAnchor: "middle", fontSize: size * 0.075, fontWeight: "700", fill: "var(--gold)" }, pct(data.season.share)),
-                React.createElement("text", { x: cx, y: cy + size * 0.113, textAnchor: "middle", fontSize: size * 0.026, fill: "var(--dim)" }, "\u0432\u0441\u0435\u0445 \u043F\u043E\u0435\u0437\u0434\u043E\u043A"))),
-            !data.total && (React.createElement("text", { x: cx, y: cy + size * 0.05, textAnchor: "middle", fontSize: size * 0.032, fill: "var(--dim)" }, "\u043D\u0435\u0442 \u043F\u043E\u0435\u0437\u0434\u043E\u043A \u0441 \u043C\u0435\u0441\u044F\u0446\u0435\u043C"))),
-        tip && tipM && tipM.n > 0 && (React.createElement("g", { className: "sd-tip", key: `t${show}` },
-            React.createElement("rect", { x: tLeft, y: tTop, width: tw, height: th, rx: size * 0.03, fill: "rgba(12,22,34,.94)", stroke: "rgba(232,184,75,.6)" }),
-            React.createElement("text", { x: tLeft + size * 0.03, y: tTop + size * 0.05, fontSize: size * 0.03, fill: "var(--gold)" }, sel == null ? `Пик — в ${MON_IN[tipM.i]}` : `В ${MON_IN[tipM.i]}`),
-            React.createElement("text", { x: tLeft + size * 0.03, y: tTop + size * 0.125, fontSize: size * 0.07, fontWeight: "700", fill: "var(--gold)" }, pct(tipM.share)),
-            React.createElement("text", { x: tLeft + size * 0.03, y: tTop + size * 0.172, fontSize: size * 0.028, fill: "var(--dim)" }, np(tipM.n, "trip"))))));
+            cur ? (React.createElement(React.Fragment, null,
+                React.createElement("text", { x: cx, y: cy - size * 0.055, textAnchor: "middle", fontSize: size * 0.042, fontWeight: "600", fill: "#e6edf4" }, MONTHS[cur.i][0].toUpperCase() + MONTHS[cur.i].slice(1)),
+                React.createElement("text", { x: cx, y: cy + size * 0.045, textAnchor: "middle", fontSize: size * 0.085, fontWeight: "700", fill: "var(--gold)" }, pct(cur.share)),
+                React.createElement("text", { x: cx, y: cy + size * 0.09, textAnchor: "middle", fontSize: size * 0.028, fill: "var(--dim)" }, np(cur.n, "trip")))) : (React.createElement(React.Fragment, null,
+                React.createElement("text", { x: cx, y: cy - size * 0.075, textAnchor: "middle", fontSize: size * 0.032, fill: "#e6edf4" }, "\u0421\u0435\u0437\u043E\u043D"),
+                React.createElement("text", { x: cx, y: cy - size * 0.04, textAnchor: "middle", fontSize: size * 0.032, fill: "#e6edf4" }, "\u043F\u0443\u0442\u0435\u0448\u0435\u0441\u0442\u0432\u0438\u0439"),
+                data.season && (React.createElement(React.Fragment, null,
+                    React.createElement("text", { x: cx, y: cy - size * 0.003, textAnchor: "middle", fontSize: size * 0.028, fill: "var(--dim)" },
+                        MON3[data.season.from],
+                        " \u2013 ",
+                        MON3[data.season.to]),
+                    React.createElement("text", { x: cx, y: cy + size * 0.075, textAnchor: "middle", fontSize: size * 0.075, fontWeight: "700", fill: "var(--gold)" }, pct(data.season.share)),
+                    React.createElement("text", { x: cx, y: cy + size * 0.113, textAnchor: "middle", fontSize: size * 0.026, fill: "var(--dim)" }, "\u0432\u0441\u0435\u0445 \u043F\u043E\u0435\u0437\u0434\u043E\u043A"))))),
+            !data.total && (React.createElement("text", { x: cx, y: cy + size * 0.05, textAnchor: "middle", fontSize: size * 0.032, fill: "var(--dim)" }, "\u043D\u0435\u0442 \u043F\u043E\u0435\u0437\u0434\u043E\u043A \u0441 \u043C\u0435\u0441\u044F\u0446\u0435\u043C")))));
 }
-/* выбор периода для сезонности */
-function SeasonPeriod({ years, value, onChange }) {
-    const last = years[years.length - 1];
-    const opts = [{ k: "all", t: "Всё время", v: null }];
-    if (last) {
-        opts.push({ k: "3", t: `${last - 2} – ${last}`, v: [last - 2, last] });
-        opts.push({ k: "5", t: `${last - 4} – ${last}`, v: [last - 4, last] });
-        [...years].reverse().forEach((y) => opts.push({ k: "y" + y, t: String(y), v: [y, y] }));
-    }
-    const cur = opts.find((o) => JSON.stringify(o.v) === JSON.stringify(value)) || opts[0];
-    return (React.createElement("label", { className: "sd-period" },
-        React.createElement("select", { value: cur.k, onChange: (e) => { var _c; return onChange(((_c = opts.find((o) => o.k === e.target.value)) === null || _c === void 0 ? void 0 : _c.v) || null); } }, opts.map((o) => (React.createElement("option", { key: o.k, value: o.k }, o.t))))));
-}
-/* карточки сезонности: месяц, доля, поездки, направления */
-function SeasonCards({ data, sel, period, onPeriod }) {
+/* карточка месяца: доля, поездки, направления */
+function SeasonCards({ data, sel }) {
     const m = data.months[sel !== null && sel !== void 0 ? sel : data.key];
+    if (!m)
+        return React.createElement("p", { className: "hint small" }, "\u041F\u043E\u043A\u0430 \u043D\u0435\u0442 \u043F\u043E\u0435\u0437\u0434\u043E\u043A \u0441 \u0443\u043A\u0430\u0437\u0430\u043D\u043D\u044B\u043C \u043C\u0435\u0441\u044F\u0446\u0435\u043C.");
+    const all = [...data.byMonth[m.i].entries()].sort((a, b) => b[1] - a[1]);
     return (React.createElement("div", { className: "sd-cards" },
-        React.createElement("div", { className: "sd-card sd-row" },
-            React.createElement("span", null, "\u041F\u0435\u0440\u0438\u043E\u0434"),
-            React.createElement(SeasonPeriod, { years: data.years, value: period, onChange: onPeriod })),
-        data.season && (React.createElement("div", { className: "sd-card" },
-            React.createElement("em", null, "\u0421\u0435\u0437\u043E\u043D \u043F\u0443\u0442\u0435\u0448\u0435\u0441\u0442\u0432\u0438\u0439"),
-            React.createElement("b", { className: "sd-big" }, pct(data.season.share)),
-            React.createElement("span", null,
-                MON3[data.season.from],
-                " \u2013 ",
-                MON3[data.season.to],
-                " \u00B7 ",
-                np(data.total, "trip"),
-                " \u0437\u0430 \u043F\u0435\u0440\u0438\u043E\u0434"))),
-        m && (React.createElement("div", { className: "sd-card sd-month" },
+        React.createElement("div", { className: "sd-card sd-month" },
             React.createElement("em", null, sel == null ? "Самый активный месяц" : "Выбранный месяц"),
             React.createElement("b", { className: "sd-mname" }, MONTHS[m.i][0].toUpperCase() + MONTHS[m.i].slice(1)),
             React.createElement("div", { className: "sd-nums" },
@@ -8084,22 +8054,22 @@ function SeasonCards({ data, sel, period, onPeriod }) {
                 React.createElement("span", null,
                     React.createElement("b", null, m.n),
                     React.createElement("em", null, pw(m.n, "trip")))),
-            m.top.length > 0 && (React.createElement(React.Fragment, null,
-                React.createElement("em", null, "\u041F\u043E\u043F\u0443\u043B\u044F\u0440\u043D\u044B\u0435 \u043D\u0430\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u044F"),
-                React.createElement("div", { className: "sd-top" }, m.top.map(([a3, n]) => {
+            all.length > 0 && (React.createElement(React.Fragment, null,
+                React.createElement("em", null, "\u041A\u0443\u0434\u0430 \u0435\u0437\u0434\u0438\u043B\u0438"),
+                React.createElement("div", { className: "sd-top" }, all.map(([a3, n]) => {
                     var _c, _d;
                     return (React.createElement("span", { key: a3 },
                         flag(((_c = BY_A3[a3]) === null || _c === void 0 ? void 0 : _c.a2) || ""),
                         " ",
                         ((_d = BY_A3[a3]) === null || _d === void 0 ? void 0 : _d.name) || a3,
-                        React.createElement("u", null, n)));
-                }))))))));
+                        React.createElement("u", null, np(n, "trip"))));
+                }))))),
+        React.createElement("p", { className: "hint small" }, "\u041D\u0430\u0436\u043C\u0438\u0442\u0435 \u043D\u0430 \u043C\u0435\u0441\u044F\u0446 \u043D\u0430 \u0434\u0438\u0430\u0433\u0440\u0430\u043C\u043C\u0435, \u0447\u0442\u043E\u0431\u044B \u0443\u0432\u0438\u0434\u0435\u0442\u044C \u0435\u0433\u043E. \u041F\u043E\u0432\u0442\u043E\u0440\u043D\u043E\u0435 \u043D\u0430\u0436\u0430\u0442\u0438\u0435 \u2014 \u0441\u043D\u043E\u0432\u0430 \u0441\u0430\u043C\u044B\u0439 \u0430\u043A\u0442\u0438\u0432\u043D\u044B\u0439.")));
 }
 /* сезонность во весь экран — рамки как у окна путешественника */
 function SeasonWin({ visits, onClose }) {
-    const [period, setPeriod] = useState(null);
     const [sel, setSel] = useState(null);
-    const data = useMemo(() => seasonData(visits, period), [visits, period]);
+    const data = useMemo(() => seasonData(visits, null), [visits]);
     const [wide, setWide] = useState(typeof window !== "undefined" && window.innerWidth > window.innerHeight);
     const wrap = useRef(null);
     const [side, setSide] = useState(280);
@@ -8121,15 +8091,11 @@ function SeasonWin({ visits, onClose }) {
             window.removeEventListener("orientationchange", fit);
         };
     }, [wide]);
-    const pick = (i, hover) => {
-        if (hover)
-            return;
-        setSel(i);
-    };
+    const pick = (i) => setSel(i);
     const dial = (React.createElement("div", { className: "sd-stage", ref: wrap },
         React.createElement("div", { style: { width: side, height: side } },
-            React.createElement(SeasonDial, { data: data, sel: sel, onSel: pick, play: true, size: 300, tip: false }))));
-    const cards = React.createElement(SeasonCards, { data: data, sel: sel, period: period, onPeriod: (v) => { setPeriod(v); setSel(null); } });
+            React.createElement(SeasonDial, { data: data, sel: sel, onSel: pick, play: true, size: 300 }))));
+    const cards = React.createElement(SeasonCards, { data: data, sel: sel });
     if (wide)
         return (React.createElement("div", { className: "pg-wide", onClick: onClose },
             React.createElement("div", { className: "pg-panel", onClick: (e) => e.stopPropagation() },
@@ -8154,7 +8120,7 @@ function SeasonCard({ visits }) {
     const data = useMemo(() => seasonData(visits, null), [visits]);
     const [sel, setSel] = useState(null);
     return (React.createElement("div", { className: "sd-inline" },
-        React.createElement(SeasonDial, { data: data, sel: sel, onSel: (i, hover) => !hover && setSel(i) })));
+        React.createElement(SeasonDial, { data: data, sel: sel, onSel: setSel })));
 }
 /* сезонность — лучи по кругу */
 function SeasonChart({ months }) {
