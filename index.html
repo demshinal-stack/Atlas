@@ -1305,7 +1305,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "26.7";
+const APP_VERSION = "26.8";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -3181,7 +3181,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
             const side = n > 1 ? (idx - (n - 1) / 2) * 0.14 : 0;
             const A = [a.from.lon, a.from.lat];
             const B = [a.to.lon, a.to.lat];
-            const lift = 0.05 + (ai % 5) * 0.02;
+            const lift = a.lift != null ? a.lift : 0.05 + (ai % 5) * 0.02;
             const pts = [];
             for (let i = 0; i <= N; i++) {
                 const t = i / N;
@@ -6811,24 +6811,24 @@ function AirGlobe({ visits, home, air, geo, mapProps, onClose }) {
         };
     }, []);
     const arcList = useMemo(() => {
-        var _c;
         const far = Math.max(1, ...arcs.map((g) => g.km));
-        const selCode = sel ? (_c = arcs.find((g) => g.key === sel)) === null || _c === void 0 ? void 0 : _c.code : null;
-        return arcs.map((g) => {
+        const list = arcs.map((g, i) => {
             var _c;
             const on = sel === g.key;
-            const mine = selCode && g.code === selCode;
             return {
                 key: g.key,
                 from: g.from,
                 to: { lon: g.to.lon, lat: g.to.lat },
                 color: colorOf[g.code] || ((_c = AIRLINES[g.code]) === null || _c === void 0 ? void 0 : _c.arc) || "#e2b551",
-                width: on ? 3 : mine ? 2.2 : 1 + 1.2 * (g.km / far),
-                alpha: on || mine ? 1 : sel ? 0.22 : 0.85,
-                dot: on ? 4.2 : 2.6,
+                width: on ? 3.6 : 1.2 + 1.1 * (g.km / far),
+                alpha: on ? 1 : 0.9,
+                lift: on ? 0.2 : 0.05 + (i % 5) * 0.02,
+                dot: on ? 5 : 2.6,
                 dash: true,
             };
         });
+        // выбранную рисуем последней, чтобы она была поверх остальных
+        return list.sort((x, y) => (x.key === sel ? 1 : 0) - (y.key === sel ? 1 : 0));
     }, [arcs, sel, colorOf]);
     const selArc = arcs.find((g) => g.key === sel) || null;
     const code = (selArc === null || selArc === void 0 ? void 0 : selArc.code) || ((_c = air.rows[0]) === null || _c === void 0 ? void 0 : _c.code);
