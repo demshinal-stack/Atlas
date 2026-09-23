@@ -2445,7 +2445,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "31.1";
+const APP_VERSION = "31.2";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -9058,7 +9058,7 @@ function NearSync({ makePayload, onData, onClose, box }) {
                 React.createElement("i", { className: "near-knob" })),
             step === "idle" ? (React.createElement("button", { className: "btn-main wide", onClick: start }, "\u041E\u0431\u043C\u0435\u043D\u044F\u0442\u044C\u0441\u044F")) : step === "done" ? (React.createElement("button", { className: "btn-main wide", onClick: onClose }, "\u0413\u043E\u0442\u043E\u0432\u043E")) : (React.createElement("button", { className: "btn-ghost wide", onClick: reset }, "\u041E\u0442\u043C\u0435\u043D\u0430")),
             step === "pair" && !manual && (React.createElement(QrCamera, { facing: facing, hidden: true, onCode: onCode, onClose: () => { }, onStat: (x) => setStat((v) => ({ ...v, ...x })) })),
-            step !== "idle" && (React.createElement(React.Fragment, null,
+            (React.createElement(React.Fragment, null,
                 React.createElement("button", { className: "near-link", onClick: () => setDiag((v) => !v) }, diag ? "Скрыть подробности" : "Не получается?"),
                 diag && (React.createElement("div", { className: "near-diag" },
                     React.createElement("p", null,
@@ -9070,8 +9070,18 @@ function NearSync({ makePayload, onData, onClose, box }) {
                         "\u0421\u043E\u0435\u0434\u0438\u043D\u0435\u043D\u0438\u0435: ",
                         link || "—"),
                     React.createElement("p", null,
-                        "\u0420\u043E\u043B\u044C: ",
-                        role.current === "open" ? "ждём" : role.current === "offer" ? "предлагаю" : "отвечаю"),
+                        "\u0420\u043E\u043B\u044C:",
+                        " ",
+                        step === "idle"
+                            ? "не начали"
+                            : role.current === "open"
+                                ? "ждём"
+                                : role.current === "offer"
+                                    ? "предлагаю"
+                                    : "отвечаю"),
+                    React.createElement("p", null,
+                        "\u0412\u0435\u0440\u0441\u0438\u044F \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u044F: ",
+                        APP_VERSION),
                     React.createElement("div", { className: "near-diag-row" },
                         React.createElement("button", { onClick: () => setFacing((f) => (f === "user" ? "environment" : "user")) },
                             "\u041A\u0430\u043C\u0435\u0440\u0430: ",
@@ -12607,7 +12617,8 @@ body > div{max-width:100%;}
 .near-stage{height:200px; flex:none; display:flex; align-items:center; justify-content:center;}
 .near-hero{display:block; width:100%; max-width:340px; height:100%;}
 .near-status{flex:none; min-height:68px; display:flex; flex-direction:column; gap:8px; justify-content:center;}
-.near-zone{flex:1 1 auto; min-height:0; display:flex; flex-direction:column; gap:10px; justify-content:flex-start;}
+.near-zone{flex:1 1 auto; min-height:0; display:flex; flex-direction:column; gap:10px;
+  justify-content:flex-start; overflow-y:auto; overscroll-behavior:contain;}
 .near-zone .btn-main, .near-zone .btn-ghost{flex:none;}
 .btn-ghost{width:100%; padding:14px; border-radius:11px; border:1px solid var(--line);
   background:none; color:var(--dim); font-size:0.875rem; font-weight:600; cursor:pointer;}
