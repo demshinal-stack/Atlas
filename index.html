@@ -2445,7 +2445,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "30.8";
+const APP_VERSION = "30.9";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -6007,6 +6007,7 @@ function HomePicker({ home, onHome }) {
     var _c, _d;
     const [q, setQ] = useState("");
     const [busy, setBusy] = useState("");
+    const [open, setOpen] = useState(false);
     const found = useMemo(() => {
         const t = q.trim().toLowerCase();
         if (t.length < 2)
@@ -6077,25 +6078,31 @@ function HomePicker({ home, onHome }) {
                 home.lat,
                 ", ",
                 home.lon),
-            React.createElement("button", { className: "warn-skip", onClick: () => onHome(null), "aria-label": "\u0423\u0431\u0440\u0430\u0442\u044C" }, "\u2715"))) : (React.createElement("p", { className: "hint small" }, "\u041F\u043E\u043A\u0430 \u0434\u043E\u043C \u043D\u0435 \u0437\u0430\u0434\u0430\u043D, \u0440\u0430\u0441\u0441\u0442\u043E\u044F\u043D\u0438\u044F \u0441\u0447\u0438\u0442\u0430\u044E\u0442\u0441\u044F \u043E\u0442 \u0441\u0442\u0440\u0430\u043D\u044B, \u0433\u0434\u0435 \u0432\u044B \u0431\u044B\u0432\u0430\u0435\u0442\u0435 \u0447\u0430\u0449\u0435 \u0432\u0441\u0435\u0433\u043E.")),
-        React.createElement("div", { className: "home-row" },
-            React.createElement("label", { className: "tf" },
-                React.createElement("input", { className: "tf-input", value: q, onChange: (e) => setQ(e.target.value), placeholder: "\u0413\u043E\u0440\u043E\u0434, \u0433\u0434\u0435 \u0432\u044B \u0436\u0438\u0432\u0451\u0442\u0435" })),
-            React.createElement("button", { className: "warn-do", onClick: byGeo }, "\u041C\u043E\u0451 \u043C\u0435\u0441\u0442\u043E")),
-        busy && React.createElement("p", { className: "hint small" }, busy),
-        q.trim().length >= 2 && found.length === 0 && (React.createElement("p", { className: "hint small" }, "\u0422\u0430\u043A\u043E\u0433\u043E \u0433\u043E\u0440\u043E\u0434\u0430 \u0432 \u0441\u043F\u0440\u0430\u0432\u043E\u0447\u043D\u0438\u043A\u0435 \u043D\u0435\u0442. \u041D\u0430\u0436\u043C\u0438\u0442\u0435 \u00AB\u041C\u043E\u0451 \u043C\u0435\u0441\u0442\u043E\u00BB \u2014 \u0432\u043E\u0437\u044C\u043C\u0451\u043C \u0442\u043E\u0447\u043A\u0443 \u0441 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430, \u0438\u043B\u0438 \u0432\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0431\u043B\u0438\u0436\u0430\u0439\u0448\u0438\u0439 \u043A\u0440\u0443\u043F\u043D\u044B\u0439 \u0433\u043E\u0440\u043E\u0434.")),
-        found.length > 0 && (React.createElement("div", { className: "home-list" }, found.map((c) => {
-            var _c, _d;
-            return (React.createElement("button", { key: c.a3 + c.name, onClick: () => {
-                    onHome({ a3: c.a3, name: c.name, lat: c.lat, lon: c.lon, about: c.about });
-                    setQ("");
-                } },
-                flag(((_c = BY_A3[c.a3]) === null || _c === void 0 ? void 0 : _c.a2) || ""),
-                " ",
-                c.name,
-                c.about && React.createElement("u", null, "\u2248"),
-                React.createElement("em", null, ((_d = BY_A3[c.a3]) === null || _d === void 0 ? void 0 : _d.name) || c.a3)));
-        })))));
+            React.createElement("button", { className: "warn-skip", onClick: () => {
+                    onHome(null);
+                    setOpen(false);
+                }, "aria-label": "\u0423\u0431\u0440\u0430\u0442\u044C" }, "\u2715"))) : null,
+        !open ? (React.createElement("button", { className: "link-btn add-line", onClick: () => setOpen(true) }, home ? "✎ изменить город проживания" : "＋ город проживания")) : (React.createElement(React.Fragment, null,
+            React.createElement("div", { className: "home-row" },
+                React.createElement("label", { className: "tf" },
+                    React.createElement("input", { className: "tf-input", autoFocus: true, value: q, onChange: (e) => setQ(e.target.value), placeholder: "\u0413\u043E\u0440\u043E\u0434, \u0433\u0434\u0435 \u0432\u044B \u0436\u0438\u0432\u0451\u0442\u0435" })),
+                React.createElement("button", { className: "warn-do", onClick: byGeo }, "\u041C\u043E\u0451 \u043C\u0435\u0441\u0442\u043E")),
+            busy && React.createElement("p", { className: "hint small" }, busy),
+            q.trim().length >= 2 && found.length === 0 && (React.createElement("p", { className: "hint small" }, "\u0422\u0430\u043A\u043E\u0433\u043E \u0433\u043E\u0440\u043E\u0434\u0430 \u0432 \u0441\u043F\u0440\u0430\u0432\u043E\u0447\u043D\u0438\u043A\u0435 \u043D\u0435\u0442. \u041D\u0430\u0436\u043C\u0438\u0442\u0435 \u00AB\u041C\u043E\u0451 \u043C\u0435\u0441\u0442\u043E\u00BB \u2014 \u0432\u043E\u0437\u044C\u043C\u0451\u043C \u0442\u043E\u0447\u043A\u0443 \u0441 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430, \u0438\u043B\u0438 \u0432\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0431\u043B\u0438\u0436\u0430\u0439\u0448\u0438\u0439 \u043A\u0440\u0443\u043F\u043D\u044B\u0439 \u0433\u043E\u0440\u043E\u0434.")),
+            found.length > 0 && (React.createElement("div", { className: "home-list" }, found.map((c) => {
+                var _c, _d;
+                return (React.createElement("button", { key: c.a3 + c.name, onClick: () => {
+                        onHome({ a3: c.a3, name: c.name, lat: c.lat, lon: c.lon, about: c.about });
+                        setQ("");
+                        setOpen(false);
+                    } },
+                    flag(((_c = BY_A3[c.a3]) === null || _c === void 0 ? void 0 : _c.a2) || ""),
+                    " ",
+                    c.name,
+                    c.about && React.createElement("u", null, "\u2248"),
+                    React.createElement("em", null, ((_d = BY_A3[c.a3]) === null || _d === void 0 ? void 0 : _d.name) || c.a3)));
+            }))),
+            React.createElement("button", { className: "link-btn add-line", onClick: () => { setOpen(false); setQ(""); } }, "\u041E\u0442\u043C\u0435\u043D\u0430")))));
 }
 function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, since, onSince, people, onPeople, onReports, onShelf, onSettings, onFamily, onExport, onImport, onRestore, restoreMsg, doubles, onDoubles, visits, onMergeWho, home, onHome, regionGaps, onFillRegions, depGaps, onFillDeparture, }) {
     const [showAll, setShowAll] = useState(false);
@@ -6103,6 +6110,7 @@ function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, 
     const crew = useMemo(() => travelerStats(visits, people), [visits, people]);
     const [newName, setNewName] = useState("");
     const [newRole, setNewRole] = useState(ROLES[0]);
+    const [helpOpen, setHelpOpen] = useState(false);
     const [ask, setAsk] = useState(null);
     const [hidden, setHidden] = useState([]);
     const issues = useMemo(() => crewIssues(visits, people, name).filter((x) => !hidden.includes(x.who)), [visits, people, name, hidden]);
@@ -6159,104 +6167,6 @@ function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, 
                     YEARS.filter((y) => y <= NOW.getFullYear()).map((y) => (React.createElement("option", { key: y, value: y }, y)))))),
         React.createElement("p", { className: "step-title" }, "\u0414\u043E\u043C"),
         React.createElement(HomePicker, { home: home, onHome: onHome }),
-        React.createElement("p", { className: "step-title" }, "\u041D\u0430\u0433\u0440\u0430\u0434\u044B"),
-        (() => {
-            const st = awardStats(visits, since);
-            const rows = [];
-            AWARDS.forEach((a) => {
-                const value = st[a.id] || 0;
-                a.steps.forEach(([need, title, tier]) => {
-                    rows.push({
-                        key: a.id + need,
-                        title,
-                        tier,
-                        need,
-                        value,
-                        unitKey: a.unitKey,
-                        suffix: a.suffix || "",
-                        group: a.group,
-                        done: value >= need,
-                    });
-                });
-            });
-            const done = rows.filter((r) => r.done);
-            const left = rows.filter((r) => !r.done);
-            const best = done
-                .slice()
-                .sort((a, b) => b.tier - a.tier || b.need - a.need)[0];
-            const next = left
-                .slice()
-                .sort((a, b) => (a.need - a.value) / a.need - (b.need - b.value) / b.need)[0];
-            const metal = TIER_COLOR[(best === null || best === void 0 ? void 0 : best.tier) || 3];
-            return (React.createElement("div", { className: "awards-card" },
-                best ? (React.createElement("div", { className: "trophy" },
-                    React.createElement("svg", { viewBox: "0 0 92 92", className: "trophy-svg" },
-                        React.createElement("defs", null,
-                            React.createElement("radialGradient", { id: "halo" },
-                                React.createElement("stop", { offset: "0%", stopColor: metal, stopOpacity: "0.5" }),
-                                React.createElement("stop", { offset: "55%", stopColor: metal, stopOpacity: "0.14" }),
-                                React.createElement("stop", { offset: "100%", stopColor: metal, stopOpacity: "0" })),
-                            React.createElement("linearGradient", { id: "metal", x1: "0", y1: "0", x2: "1", y2: "1" },
-                                React.createElement("stop", { offset: "0%", stopColor: metal, stopOpacity: "0.75" }),
-                                React.createElement("stop", { offset: "45%", stopColor: "#ffffff", stopOpacity: "0.95" }),
-                                React.createElement("stop", { offset: "55%", stopColor: metal }),
-                                React.createElement("stop", { offset: "100%", stopColor: metal, stopOpacity: "0.7" }),
-                                React.createElement("animateTransform", { attributeName: "gradientTransform", type: "translate", values: "-0.7 -0.7; 0.7 0.7; -0.7 -0.7", dur: "4.5s", repeatCount: "indefinite" }))),
-                        React.createElement("circle", { cx: "46", cy: "44", r: "42", fill: "url(#halo)" },
-                            React.createElement("animate", { attributeName: "r", values: "36;44;36", dur: "4.5s", repeatCount: "indefinite" }),
-                            React.createElement("animate", { attributeName: "opacity", values: "0.55;1;0.55", dur: "4.5s", repeatCount: "indefinite" })),
-                        React.createElement("g", { transform: "translate(22 20) scale(2)" },
-                            React.createElement("path", { d: "M7 4h10v4.2a5 5 0 0 1-10 0z", fill: "url(#metal)" }),
-                            React.createElement("path", { d: "M7 5H4.4a2.6 2.6 0 0 0 2.6 4.2M17 5h2.6a2.6 2.6 0 0 1-2.6 4.2", fill: "none", stroke: "url(#metal)", strokeWidth: "1.3" }),
-                            React.createElement("path", { d: "M10.2 13.4h3.6v3.1H17V19H7v-2.5h3.2z", fill: "url(#metal)" }))),
-                    React.createElement("span", { className: "trophy-text" },
-                        React.createElement("b", null, best.title),
-                        React.createElement("em", null,
-                            best.group,
-                            " \u00B7 ",
-                            TIER_NAME[best.tier])))) : (React.createElement("p", { className: "hint small no-award" }, "\u041D\u0430\u0433\u0440\u0430\u0434 \u043F\u043E\u043A\u0430 \u043D\u0435\u0442. \u041F\u0435\u0440\u0432\u0430\u044F \u043F\u043E\u044F\u0432\u0438\u0442\u0441\u044F \u0441\u0440\u0430\u0437\u0443 \u043F\u043E\u0441\u043B\u0435 \u043F\u0435\u0440\u0432\u043E\u0439 \u043E\u0442\u043C\u0435\u0442\u043A\u0438.")),
-                React.createElement("button", { className: "awards-more", onClick: () => setShowAll((v) => !v) },
-                    React.createElement("span", null,
-                        React.createElement("b", null,
-                            done.length,
-                            " \u0438\u0437 ",
-                            np(rows.length, "award")),
-                        next && React.createElement("em", null,
-                            "\u0431\u043B\u0438\u0436\u0430\u0439\u0448\u0430\u044F: ",
-                            next.title)),
-                    React.createElement("i", null, showAll ? "▲" : "▼")),
-                showAll && (React.createElement("div", { className: "awards" }, rows.map((r) => (React.createElement("div", { key: r.key, className: "award" + (r.done ? " on" : "") },
-                    React.createElement("span", { className: "cup", style: r.done ? { color: TIER_COLOR[r.tier] } : undefined },
-                        React.createElement("svg", { viewBox: "0 0 24 24", width: "24", height: "24" },
-                            React.createElement("path", { d: "M7 4h10v4.2a5 5 0 0 1-10 0z", fill: "currentColor" }),
-                            React.createElement("path", { d: "M10.2 13.4h3.6v3.1H17V19H7v-2.5h3.2z", fill: "currentColor" }))),
-                    React.createElement("span", { className: "award-text" },
-                        React.createElement("b", null, r.title),
-                        React.createElement("em", null, r.done
-                            ? TIER_NAME[r.tier]
-                            : `ещё ${np(r.need - r.value, r.unitKey)}${r.suffix ? " " + r.suffix : ""}`)))))))));
-        })(),
-        React.createElement("p", { className: "step-title" }, "\u0420\u0430\u0437\u0434\u0435\u043B\u044B"),
-        React.createElement("button", { className: "switch-row", onClick: onSettings },
-            React.createElement("span", { className: "switch-text" },
-                "\u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438",
-                React.createElement("em", null, "\u041A\u0430\u0440\u0442\u0430, \u043E\u0444\u043E\u0440\u043C\u043B\u0435\u043D\u0438\u0435, \u0441\u043D\u0438\u043C\u043A\u0438, \u0434\u043E\u0441\u0442\u0443\u043F")),
-            React.createElement("span", { className: "step-pen" }, "\u2192")),
-        React.createElement("button", { className: "switch-row", onClick: onShelf },
-            React.createElement("span", { className: "switch-text" },
-                "\u041F\u043E\u043B\u043A\u0430 \u0441\u0443\u0432\u0435\u043D\u0438\u0440\u043E\u0432",
-                React.createElement("em", null, "\u0417\u043D\u0430\u0447\u043E\u043A \u0437\u0430 \u043A\u0430\u0436\u0434\u0443\u044E \u0441\u0442\u0440\u0430\u043D\u0443, \u0433\u0434\u0435 \u0432\u044B \u0431\u044B\u043B\u0438")),
-            React.createElement("span", { className: "step-pen" }, "\u2192")),
-        React.createElement("button", { className: "switch-row", onClick: onReports },
-            React.createElement("span", { className: "switch-text" },
-                "\u041E\u0442\u0447\u0451\u0442\u044B \u0438 \u0433\u0440\u0430\u0444\u0438\u043A\u0438",
-                React.createElement("em", null, "\u0422\u0440\u0435\u043D\u0434\u044B, \u0441\u0435\u0437\u043E\u043D\u043D\u043E\u0441\u0442\u044C, \u043A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u044C \u043F\u043E\u0435\u0437\u0434\u043E\u043A")),
-            React.createElement("span", { className: "step-pen" }, "\u2192")),
-        React.createElement("button", { className: "switch-row", onClick: onFamily },
-            React.createElement("span", { className: "switch-text" },
-                "\u041E\u0431\u043C\u0435\u043D \u0434\u0430\u043D\u043D\u044B\u043C\u0438",
-                React.createElement("em", null, "\u041F\u0435\u0440\u0435\u0434\u0430\u0442\u044C \u043F\u043E\u0435\u0437\u0434\u043A\u0438 \u043D\u0430 \u0441\u043E\u0441\u0435\u0434\u043D\u0438\u0439 \u0442\u0435\u043B\u0435\u0444\u043E\u043D")),
-            React.createElement("span", { className: "step-pen" }, "\u2192")),
         React.createElement("p", { className: "step-title" }, "\u041F\u0443\u0442\u0435\u0448\u0435\u0441\u0442\u0432\u0435\u043D\u043D\u0438\u043A\u0438"),
         people.length > 0 && (React.createElement("div", { className: "people" }, people.map((pr) => (React.createElement("div", { key: pr.id, className: "person" },
             React.createElement("span", { className: "person-name" },
@@ -6361,48 +6271,76 @@ function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, 
                     newName.trim(),
                     "\u00BB",
                     React.createElement("em", { className: "opt-role" }, newRole)))))) : (React.createElement("button", { className: "link-btn", onClick: () => setAddPerson(true) }, "\uFF0B \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u043F\u0443\u0442\u0435\u0448\u0435\u0441\u0442\u0432\u0435\u043D\u043D\u0438\u043A\u0430")),
-        React.createElement("p", { className: "step-title" }, "\u041C\u043E\u0438 \u0434\u0430\u043D\u043D\u044B\u0435"),
-        depGaps > 0 && home && (React.createElement("button", { className: "switch-row", onClick: () => setAsk({
-                title: "Проставить город вылета?",
-                text: `В ${np(depGaps, "trip")} он не указан — поставим ${home.name}. В любой поездке его можно поменять.`,
-                yes: "Проставить",
-                onYes: onFillDeparture,
-            }) },
+        React.createElement("p", { className: "step-title" }, "\u0420\u0430\u0437\u0434\u0435\u043B\u044B"),
+        React.createElement("button", { className: "switch-row", onClick: onSettings },
             React.createElement("span", { className: "switch-text" },
-                "\u0413\u043E\u0440\u043E\u0434 \u0432\u044B\u043B\u0435\u0442\u0430",
-                React.createElement("em", null,
-                    "\u041D\u0435 \u0443\u043A\u0430\u0437\u0430\u043D \u0432 ",
-                    np(depGaps, "trip"),
-                    " \u2014 \u043F\u043E\u0434\u0441\u0442\u0430\u0432\u0438\u0442\u044C ",
-                    home.name)),
-            React.createElement("span", { className: "step-pen" }, "\u2192"))),
-        (regionGaps === null || regionGaps === void 0 ? void 0 : regionGaps.trips) > 0 && (React.createElement("button", { className: "switch-row", onClick: () => setAsk({
-                title: "Проставить регионы?",
-                text: `Регионы подставятся по городам в ${np(regionGaps.trips, "trip")} — всего ${np(regionGaps.adds, "region")}. Уже указанные
-                    регионы останутся, лишнее можно убрать вручную.`,
-                yes: "Проставить",
-                onYes: onFillRegions,
-            }) },
+                "\u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438",
+                React.createElement("em", null, "\u041A\u0430\u0440\u0442\u0430, \u043E\u0444\u043E\u0440\u043C\u043B\u0435\u043D\u0438\u0435, \u0441\u043D\u0438\u043C\u043A\u0438, \u0434\u043E\u0441\u0442\u0443\u043F")),
+            React.createElement("span", { className: "step-pen" }, "\u2192")),
+        React.createElement("button", { className: "switch-row", onClick: onShelf },
             React.createElement("span", { className: "switch-text" },
-                "\u0420\u0435\u0433\u0438\u043E\u043D\u044B \u043F\u043E \u0433\u043E\u0440\u043E\u0434\u0430\u043C",
-                React.createElement("em", null,
-                    "\u041C\u043E\u0436\u043D\u043E \u043F\u0440\u043E\u0441\u0442\u0430\u0432\u0438\u0442\u044C \u0432 ",
-                    np(regionGaps.trips, "trip"),
-                    " \u2014 \u0441\u0435\u0439\u0447\u0430\u0441 \u0438\u0445 \u0442\u0430\u043C \u043D\u0435\u0442")),
-            React.createElement("span", { className: "step-pen" }, "\u2192"))),
-        doubles > 0 && (React.createElement("button", { className: "switch-row", onClick: onDoubles },
+                "\u041F\u043E\u043B\u043A\u0430 \u0441\u0443\u0432\u0435\u043D\u0438\u0440\u043E\u0432",
+                React.createElement("em", null, "\u0417\u043D\u0430\u0447\u043E\u043A \u0437\u0430 \u043A\u0430\u0436\u0434\u0443\u044E \u0441\u0442\u0440\u0430\u043D\u0443, \u0433\u0434\u0435 \u0432\u044B \u0431\u044B\u043B\u0438")),
+            React.createElement("span", { className: "step-pen" }, "\u2192")),
+        React.createElement("button", { className: "switch-row", onClick: onFamily },
             React.createElement("span", { className: "switch-text" },
-                "\u041F\u043E\u0445\u043E\u0436\u0438\u0435 \u043F\u043E\u0435\u0437\u0434\u043A\u0438",
-                React.createElement("em", null,
-                    "\u041D\u0430\u0448\u043B\u043E\u0441\u044C ",
-                    np(doubles, "trip"),
-                    " \u0441 \u043F\u0435\u0440\u0435\u0441\u0435\u043A\u0430\u044E\u0449\u0438\u043C\u0438\u0441\u044F \u0434\u0430\u0442\u0430\u043C\u0438 \u2014 \u043F\u043E\u0441\u043C\u043E\u0442\u0440\u0435\u0442\u044C \u0438 \u043E\u0431\u044A\u0435\u0434\u0438\u043D\u0438\u0442\u044C")),
-            React.createElement("span", { className: "step-pen" }, "\u2192"))),
-        React.createElement("button", { className: "switch-row", onClick: onRestore },
-            React.createElement("span", { className: "switch-text" },
-                "\u041D\u0430\u0439\u0442\u0438 \u043C\u043E\u0438 \u043F\u043E\u0435\u0437\u0434\u043A\u0438",
-                React.createElement("em", null, restoreMsg || "Поиск по всем хранилищам телефона")),
-            React.createElement("span", { className: "step-pen" }, "\u27F3")),
+                "\u041E\u0431\u043C\u0435\u043D \u0434\u0430\u043D\u043D\u044B\u043C\u0438",
+                React.createElement("em", null, "\u041F\u0435\u0440\u0435\u0434\u0430\u0442\u044C \u043F\u043E\u0435\u0437\u0434\u043A\u0438 \u043D\u0430 \u0441\u043E\u0441\u0435\u0434\u043D\u0438\u0439 \u0442\u0435\u043B\u0435\u0444\u043E\u043D")),
+            React.createElement("span", { className: "step-pen" }, "\u2192")),
+        (() => {
+            const helps = [];
+            if (depGaps > 0 && home)
+                helps.push({
+                    k: "dep",
+                    title: "Город вылета",
+                    text: `Не указан в ${np(depGaps, "trip")} — подставить ${home.name}`,
+                    run: () => setAsk({
+                        title: "Проставить город вылета?",
+                        text: `В ${np(depGaps, "trip")} он не указан — поставим ${home.name}. В любой поездке его можно поменять.`,
+                        yes: "Проставить",
+                        onYes: onFillDeparture,
+                    }),
+                });
+            if ((regionGaps === null || regionGaps === void 0 ? void 0 : regionGaps.trips) > 0)
+                helps.push({
+                    k: "reg",
+                    title: "Регионы по городам",
+                    text: `Можно проставить в ${np(regionGaps.trips, "trip")} — сейчас их там нет`,
+                    run: () => setAsk({
+                        title: "Проставить регионы?",
+                        text: `Регионы подставятся по городам в ${np(regionGaps.trips, "trip")} — всего ${np(regionGaps.adds, "region")}. Уже указанные
+                      регионы останутся, лишнее можно убрать вручную.`,
+                        yes: "Проставить",
+                        onYes: onFillRegions,
+                    }),
+                });
+            if (doubles > 0)
+                helps.push({
+                    k: "dbl",
+                    title: "Похожие поездки",
+                    text: `Нашлось ${np(doubles, "trip")} с пересекающимися датами — посмотреть и объединить`,
+                    run: onDoubles,
+                });
+            if (!helps.length)
+                return null;
+            return (React.createElement(React.Fragment, null,
+                React.createElement("p", { className: "step-title" }, "\u041F\u043E\u043C\u043E\u0449\u043D\u0438\u043A"),
+                React.createElement("button", { className: "switch-row" + (helpOpen ? " on" : ""), onClick: () => setHelpOpen((v) => !v) },
+                    React.createElement("span", { className: "switch-text" },
+                        "\u0427\u0442\u043E \u043C\u043E\u0436\u043D\u043E \u043F\u043E\u043F\u0440\u0430\u0432\u0438\u0442\u044C",
+                        React.createElement("em", null, helps.length === 1
+                            ? helps[0].title.toLowerCase()
+                            : `${helps.length} подсказки: ` +
+                                helps.map((h) => h.title.toLowerCase()).join(", "))),
+                    React.createElement("span", { className: "step-pen fold" + (helpOpen ? " up" : "") }, "\u2304")),
+                helpOpen &&
+                    helps.map((h) => (React.createElement("button", { key: h.k, className: "switch-row sub", onClick: h.run },
+                        React.createElement("span", { className: "switch-text" },
+                            h.title,
+                            React.createElement("em", null, h.text)),
+                        React.createElement("span", { className: "step-pen" }, "\u2192"))))));
+        })(),
+        React.createElement("p", { className: "step-title" }, "\u0420\u0435\u0437\u0435\u0440\u0432\u043D\u044B\u0435 \u043A\u043E\u043F\u0438\u0438"),
         React.createElement("button", { className: "switch-row", onClick: onExport },
             React.createElement("span", { className: "switch-text" },
                 "\u0412\u044B\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u0432 \u0444\u0430\u0439\u043B",
@@ -6411,7 +6349,7 @@ function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, 
         React.createElement("label", { className: "switch-row" },
             React.createElement("span", { className: "switch-text" },
                 "\u0417\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u0438\u0437 \u0444\u0430\u0439\u043B\u0430",
-                React.createElement("em", null, "\u0417\u0430\u043C\u0435\u043D\u0438\u0442 \u0442\u043E, \u0447\u0442\u043E \u0441\u0435\u0439\u0447\u0430\u0441 \u0432 \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0438")),
+                React.createElement("em", null, "\u041E\u0431\u044A\u0435\u0434\u0438\u043D\u0438\u0442\u044C \u0441 \u0432\u0430\u0448\u0438\u043C\u0438 \u043F\u043E\u0435\u0437\u0434\u043A\u0430\u043C\u0438 \u0438\u043B\u0438 \u0437\u0430\u043C\u0435\u043D\u0438\u0442\u044C \u0438\u0445")),
             React.createElement("span", { className: "step-pen" }, "\u2191"),
             React.createElement("input", { type: "file", accept: "application/json", style: { display: "none" }, onChange: (e) => {
                     var _c;
@@ -6420,10 +6358,85 @@ function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, 
                     if (f)
                         onImport(f);
                 } })),
+        React.createElement("p", { className: "step-title" }, "\u041D\u0430\u0433\u0440\u0430\u0434\u044B"),
+        (() => {
+            const st = awardStats(visits, since);
+            const rows = [];
+            AWARDS.forEach((a) => {
+                const value = st[a.id] || 0;
+                a.steps.forEach(([need, title, tier]) => {
+                    rows.push({
+                        key: a.id + need,
+                        title,
+                        tier,
+                        need,
+                        value,
+                        unitKey: a.unitKey,
+                        suffix: a.suffix || "",
+                        group: a.group,
+                        done: value >= need,
+                    });
+                });
+            });
+            const done = rows.filter((r) => r.done);
+            const left = rows.filter((r) => !r.done);
+            const best = done
+                .slice()
+                .sort((a, b) => b.tier - a.tier || b.need - a.need)[0];
+            const next = left
+                .slice()
+                .sort((a, b) => (a.need - a.value) / a.need - (b.need - b.value) / b.need)[0];
+            const metal = TIER_COLOR[(best === null || best === void 0 ? void 0 : best.tier) || 3];
+            return (React.createElement("div", { className: "awards-card" },
+                best ? (React.createElement("div", { className: "trophy" },
+                    React.createElement("svg", { viewBox: "0 0 92 92", className: "trophy-svg" },
+                        React.createElement("defs", null,
+                            React.createElement("radialGradient", { id: "halo" },
+                                React.createElement("stop", { offset: "0%", stopColor: metal, stopOpacity: "0.5" }),
+                                React.createElement("stop", { offset: "55%", stopColor: metal, stopOpacity: "0.14" }),
+                                React.createElement("stop", { offset: "100%", stopColor: metal, stopOpacity: "0" })),
+                            React.createElement("linearGradient", { id: "metal", x1: "0", y1: "0", x2: "1", y2: "1" },
+                                React.createElement("stop", { offset: "0%", stopColor: metal, stopOpacity: "0.75" }),
+                                React.createElement("stop", { offset: "45%", stopColor: "#ffffff", stopOpacity: "0.95" }),
+                                React.createElement("stop", { offset: "55%", stopColor: metal }),
+                                React.createElement("stop", { offset: "100%", stopColor: metal, stopOpacity: "0.7" }),
+                                React.createElement("animateTransform", { attributeName: "gradientTransform", type: "translate", values: "-0.7 -0.7; 0.7 0.7; -0.7 -0.7", dur: "4.5s", repeatCount: "indefinite" }))),
+                        React.createElement("circle", { cx: "46", cy: "44", r: "42", fill: "url(#halo)" },
+                            React.createElement("animate", { attributeName: "r", values: "36;44;36", dur: "4.5s", repeatCount: "indefinite" }),
+                            React.createElement("animate", { attributeName: "opacity", values: "0.55;1;0.55", dur: "4.5s", repeatCount: "indefinite" })),
+                        React.createElement("g", { transform: "translate(22 20) scale(2)" },
+                            React.createElement("path", { d: "M7 4h10v4.2a5 5 0 0 1-10 0z", fill: "url(#metal)" }),
+                            React.createElement("path", { d: "M7 5H4.4a2.6 2.6 0 0 0 2.6 4.2M17 5h2.6a2.6 2.6 0 0 1-2.6 4.2", fill: "none", stroke: "url(#metal)", strokeWidth: "1.3" }),
+                            React.createElement("path", { d: "M10.2 13.4h3.6v3.1H17V19H7v-2.5h3.2z", fill: "url(#metal)" }))),
+                    React.createElement("span", { className: "trophy-text" },
+                        React.createElement("b", null, best.title),
+                        React.createElement("em", null,
+                            best.group,
+                            " \u00B7 ",
+                            TIER_NAME[best.tier])))) : (React.createElement("p", { className: "hint small no-award" }, "\u041D\u0430\u0433\u0440\u0430\u0434 \u043F\u043E\u043A\u0430 \u043D\u0435\u0442. \u041F\u0435\u0440\u0432\u0430\u044F \u043F\u043E\u044F\u0432\u0438\u0442\u0441\u044F \u0441\u0440\u0430\u0437\u0443 \u043F\u043E\u0441\u043B\u0435 \u043F\u0435\u0440\u0432\u043E\u0439 \u043E\u0442\u043C\u0435\u0442\u043A\u0438.")),
+                React.createElement("button", { className: "awards-more", onClick: () => setShowAll((v) => !v) },
+                    React.createElement("span", null,
+                        React.createElement("b", null,
+                            done.length,
+                            " \u0438\u0437 ",
+                            np(rows.length, "award")),
+                        next && React.createElement("em", null,
+                            "\u0431\u043B\u0438\u0436\u0430\u0439\u0448\u0430\u044F: ",
+                            next.title)),
+                    React.createElement("i", null, showAll ? "▲" : "▼")),
+                showAll && (React.createElement("div", { className: "awards" }, rows.map((r) => (React.createElement("div", { key: r.key, className: "award" + (r.done ? " on" : "") },
+                    React.createElement("span", { className: "cup", style: r.done ? { color: TIER_COLOR[r.tier] } : undefined },
+                        React.createElement("svg", { viewBox: "0 0 24 24", width: "24", height: "24" },
+                            React.createElement("path", { d: "M7 4h10v4.2a5 5 0 0 1-10 0z", fill: "currentColor" }),
+                            React.createElement("path", { d: "M10.2 13.4h3.6v3.1H17V19H7v-2.5h3.2z", fill: "currentColor" }))),
+                    React.createElement("span", { className: "award-text" },
+                        React.createElement("b", null, r.title),
+                        React.createElement("em", null, r.done
+                            ? TIER_NAME[r.tier]
+                            : `ещё ${np(r.need - r.value, r.unitKey)}${r.suffix ? " " + r.suffix : ""}`)))))))));
+        })(),
         React.createElement(Ask, { ask: ask, onClose: () => setAsk(null), box: box })))));
 }
-/* шторка: настройки — поведение приложения */
-/* выбор отчётов и их порядка */
 function ReportsSetup({ cfg, onChange }) {
     const order = reportOrder(cfg);
     const off = (cfg === null || cfg === void 0 ? void 0 : cfg.off) || [];
@@ -12565,6 +12578,10 @@ body > div{max-width:100%;}
 .btn-ghost{width:100%; padding:14px; border-radius:11px; border:1px solid var(--line);
   background:none; color:var(--dim); font-size:0.875rem; font-weight:600; cursor:pointer;}
 .near-photos.off{opacity:.55;}
+.switch-row.sub{margin-left:12px; border-left:2px solid rgba(232,184,75,.4);}
+.step-pen.fold{transition:transform .2s ease; display:inline-block;}
+.step-pen.fold.up{transform:rotate(180deg);}
+.switch-row.on .switch-text{color:var(--gold);}
 /* высота окна не меняется: рисунок сменяется кодом внутри неё */
 .sheet-body.near{gap:10px; min-height:min(640px, calc(100dvh - var(--tabh) - 140px));}
 .near-bars.idle{opacity:.35;}
