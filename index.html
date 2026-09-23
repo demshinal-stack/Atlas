@@ -2445,7 +2445,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "30.2";
+const APP_VERSION = "30.3";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -8723,7 +8723,7 @@ function QrBox({ text, size = 240 }) {
     return React.createElement("canvas", { ref: cv, className: "qr-box" });
 }
 /* камера: ищем код в кадре системным читателем, иначе своим */
-function QrCamera({ onCode, onClose }) {
+function QrCamera({ onCode, onClose, facing = "environment", hidden = false }) {
     const video = useRef(null);
     const [err, setErr] = useState("");
     useEffect(() => {
@@ -8734,7 +8734,7 @@ function QrCamera({ onCode, onClose }) {
         (async () => {
             try {
                 stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: "environment", width: { ideal: 1280 } },
+                    video: { facingMode: facing, width: { ideal: 1280 } },
                     audio: false,
                 });
                 if (stop)
@@ -8796,7 +8796,11 @@ function QrCamera({ onCode, onClose }) {
             clearTimeout(timer);
             stream === null || stream === void 0 ? void 0 : stream.getTracks().forEach((t) => t.stop());
         };
-    }, [onCode]);
+    }, [onCode, facing]);
+    if (hidden)
+        return (React.createElement("div", { className: "qr-cam hidden" },
+            React.createElement("video", { ref: video, muted: true, playsInline: true }),
+            err ? React.createElement("p", { className: "near-state" }, err) : null));
     return (React.createElement("div", { className: "qr-cam" },
         React.createElement("video", { ref: video, muted: true, playsInline: true }),
         React.createElement("div", { className: "qr-frame" }),
@@ -8805,17 +8809,20 @@ function QrCamera({ onCode, onClose }) {
 }
 /* обмен поездками рядом: без интернета, по одной сети */
 function NearSync({ makePayload, onData, onClose, box }) {
-    // шаги: выбор роли → показать код → считать ответ → готово
-    const [step, setStep] = useState("pick"); // pick | show | scan | live | done
-    const [mode, setMode] = useState(null); // give | take
+    // одно нажатие на обоих телефонах: каждый показывает свой код и сам читает чужой
+    const [step, setStep] = useState("idle"); // idle | pair | live | done
     const [myCode, setMyCode] = useState("");
     const [state, setState] = useState("");
+    const [flip, setFlip] = useState(false);
     const [manual, setManual] = useState(false);
     const [theirCode, setTheirCode] = useState("");
     const [withPhotos, setWithPhotos] = useState(false);
-    const [sent, setSent] = useState(0); // 0..1
+    const [sent, setSent] = useState(0);
     const [got, setGot] = useState(0);
     const peer = useRef(null);
+    const role = useRef("open"); // open | offer | answer
+    const rank = useRef("");
+    const busy = useRef(false);
     useEffect(() => () => { var _c; return (_c = peer.current) === null || _c === void 0 ? void 0 : _c.pc.close(); }, []);
     const wire = (ch) => {
         readPackets(ch, (d) => {
@@ -8834,83 +8841,77 @@ function NearSync({ makePayload, onData, onClose, box }) {
             send();
         ch.onclose = () => setState("Соединение закрыто");
     };
-    const start = async (m) => {
-        setMode(m);
-        if (m === "give") {
-            setStep("show");
-            setState("Готовим код");
-            const p = localPeer();
-            peer.current = p;
-            const r = await p.offer();
-            wire(r.channel);
-            setMyCode(r.code);
-            setState("Второй телефон должен считать этот код");
-        }
-        else {
-            setStep("scan");
-            setState("Считайте код с первого телефона");
-        }
+    /* старт: показываем свой код и одновременно смотрим камерой на чужой */
+    const start = async () => {
+        setStep("pair");
+        setState("Поверните телефоны экранами друг к другу");
+        const r = Math.random().toString(36).slice(2, 6).toUpperCase().replace(/[^A-Z2-7]/g, "A");
+        rank.current = (r + "AAAA").slice(0, 4);
+        const p = localPeer();
+        peer.current = p;
+        const off = await p.offer();
+        wire(off.channel);
+        setMyCode("O" + rank.current + off.code);
     };
-    const takeCode = async (raw) => {
-        const code = String(raw !== null && raw !== void 0 ? raw : theirCode).trim().toUpperCase();
-        if (code.length < 40)
+    /* пришёл чужой код: либо отвечаем на предложение, либо принимаем ответ */
+    const onCode = async (raw) => {
+        var _c;
+        const code = String(raw || "").trim().toUpperCase();
+        if (!code || busy.current)
             return;
         try {
-            if (mode === "take") {
+            if (code[0] === "O" && role.current !== "answer") {
+                const theirRank = code.slice(1, 5);
+                // предлагает тот, чей код «старше»: иначе оба отвечали бы друг другу
+                if (role.current === "offer" || theirRank <= rank.current)
+                    return;
+                busy.current = true;
+                role.current = "answer";
+                (_c = peer.current) === null || _c === void 0 ? void 0 : _c.pc.close();
                 const p = localPeer();
                 peer.current = p;
-                const r = await p.answer(code, wire);
-                setMyCode(r.code);
-                setStep("show");
-                setState("Теперь первый телефон считает ответный код");
+                const r = await p.answer(code.slice(5), wire);
+                setMyCode("A" + rank.current + r.code);
+                setState("Покажите этот код второму телефону");
+                busy.current = false;
             }
-            else {
-                await peer.current.accept(code);
-                setStep("live");
+            else if (code[0] === "A" && role.current !== "answer") {
+                busy.current = true;
+                role.current = "offer";
+                await peer.current.accept(code.slice(5));
                 setState("Соединяемся");
+                busy.current = false;
             }
         }
         catch {
-            setState("Код не подошёл, попробуйте ещё раз");
+            busy.current = false;
+            setState("Код не подошёл, держите телефоны ровно");
         }
     };
     return (React.createElement(Sheet, { open: true, onClose: onClose, title: "\u041E\u0431\u043C\u0435\u043D \u0440\u044F\u0434\u043E\u043C", box: box }, () => (React.createElement("div", { className: "sheet-body near" },
-        step === "pick" && (React.createElement(React.Fragment, null,
-            React.createElement("p", { className: "hint small" }, "\u041E\u0431\u0430 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430 \u0432 \u043E\u0434\u043D\u043E\u0439 \u0441\u0435\u0442\u0438 Wi-Fi. \u0418\u043D\u0442\u0435\u0440\u043D\u0435\u0442 \u0438 \u0441\u0435\u0440\u0432\u0435\u0440 \u043D\u0435 \u043D\u0443\u0436\u043D\u044B."),
+        step === "idle" && (React.createElement(React.Fragment, null,
+            React.createElement("p", { className: "hint small" }, "\u041E\u0431\u0430 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430 \u0432 \u043E\u0434\u043D\u043E\u0439 \u0441\u0435\u0442\u0438 Wi-Fi. \u041E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u044D\u0442\u043E\u0442 \u044D\u043A\u0440\u0430\u043D \u043D\u0430 \u043E\u0431\u043E\u0438\u0445, \u043D\u0430\u0436\u043C\u0438\u0442\u0435 \u00AB\u041E\u0431\u043C\u0435\u043D\u044F\u0442\u044C\u0441\u044F\u00BB \u0438 \u043F\u043E\u0432\u0435\u0440\u043D\u0438\u0442\u0435 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u044B \u044D\u043A\u0440\u0430\u043D\u0430\u043C\u0438 \u0434\u0440\u0443\u0433 \u043A \u0434\u0440\u0443\u0433\u0443: \u043A\u0430\u0436\u0434\u044B\u0439 \u043F\u043E\u043A\u0430\u0436\u0435\u0442 \u0441\u0432\u043E\u0439 \u043A\u043E\u0434 \u0438 \u0441\u0430\u043C \u0441\u0447\u0438\u0442\u0430\u0435\u0442 \u0447\u0443\u0436\u043E\u0439."),
             React.createElement("label", { className: "near-photos" },
                 React.createElement("input", { type: "checkbox", checked: withPhotos, onChange: (e) => setWithPhotos(e.target.checked) }),
                 React.createElement("span", null,
                     "\u041F\u0435\u0440\u0435\u0434\u0430\u0442\u044C \u0438 \u0441\u043D\u0438\u043C\u043A\u0438",
                     React.createElement("em", null, "\u0434\u043E\u043B\u044C\u0448\u0435, \u0437\u0430\u0442\u043E \u0443 \u0440\u043E\u0434\u043D\u044B\u0445 \u0431\u0443\u0434\u0443\u0442 \u0444\u043E\u0442\u043E\u0433\u0440\u0430\u0444\u0438\u0438 \u043F\u043E\u0435\u0437\u0434\u043E\u043A"))),
-            React.createElement("div", { className: "near-pick" },
-                React.createElement("button", { onClick: () => start("give") },
-                    React.createElement("b", null, "\u041F\u043E\u043A\u0430\u0437\u0430\u0442\u044C \u0441\u0432\u043E\u0439 \u043A\u043E\u0434"),
-                    React.createElement("em", null, "\u0432\u0442\u043E\u0440\u043E\u0439 \u0442\u0435\u043B\u0435\u0444\u043E\u043D \u0441\u0447\u0438\u0442\u0430\u0435\u0442 \u0435\u0433\u043E \u043A\u0430\u043C\u0435\u0440\u043E\u0439")),
-                React.createElement("button", { onClick: () => start("take") },
-                    React.createElement("b", null, "\u0421\u0447\u0438\u0442\u0430\u0442\u044C \u0447\u0443\u0436\u043E\u0439 \u043A\u043E\u0434"),
-                    React.createElement("em", null, "\u043D\u0430\u0432\u0435\u0434\u0443 \u043A\u0430\u043C\u0435\u0440\u0443 \u043D\u0430 \u043F\u0435\u0440\u0432\u044B\u0439 \u0442\u0435\u043B\u0435\u0444\u043E\u043D"))))),
-        step === "show" && (React.createElement(React.Fragment, null,
-            React.createElement("p", { className: "near-step" },
-                mode === "give" ? "Шаг 1 из 2" : "Шаг 2 из 2",
-                " \u00B7 ",
-                state),
-            React.createElement("div", { className: "near-qr" }, myCode ? React.createElement(QrBox, { text: myCode }) : React.createElement("p", null, "\u0413\u043E\u0442\u043E\u0432\u0438\u043C \u043A\u043E\u0434\u2026")),
-            myCode && (React.createElement("details", { className: "near-more" },
-                React.createElement("summary", null, "\u041F\u043E\u043A\u0430\u0437\u0430\u0442\u044C \u043A\u043E\u0434 \u0442\u0435\u043A\u0441\u0442\u043E\u043C"),
-                React.createElement("textarea", { readOnly: true, value: myCode, onFocus: (e) => e.target.select() }))),
-            mode === "give" && myCode && (React.createElement("button", { className: "near-scan", onClick: () => setStep("scan") }, "\u0414\u0430\u043B\u044C\u0448\u0435: \u0441\u0447\u0438\u0442\u0430\u0442\u044C \u043E\u0442\u0432\u0435\u0442\u043D\u044B\u0439 \u043A\u043E\u0434")))),
-        step === "scan" && (React.createElement(React.Fragment, null,
-            React.createElement("p", { className: "near-step" },
-                mode === "give" ? "Шаг 2 из 2" : "Шаг 1 из 2",
-                " \u00B7",
-                " ",
-                mode === "give" ? "Считайте ответный код" : "Считайте код с первого телефона"),
+            React.createElement("button", { className: "ask-yes near-go", onClick: start }, "\u041E\u0431\u043C\u0435\u043D\u044F\u0442\u044C\u0441\u044F"))),
+        step === "pair" && (React.createElement(React.Fragment, null,
+            React.createElement("p", { className: "near-step" }, state),
+            React.createElement("div", { className: "near-card" + (flip ? " flip" : ""), onClick: () => setFlip((v) => !v) },
+                React.createElement("div", { className: "near-face near-front" }, myCode ? React.createElement(QrBox, { text: myCode, size: 230 }) : React.createElement("p", { className: "near-state" }, "\u0413\u043E\u0442\u043E\u0432\u0438\u043C \u043A\u043E\u0434\u2026")),
+                React.createElement("div", { className: "near-face near-back" },
+                    React.createElement("p", null, "\u041A\u043E\u0434 \u0434\u043B\u044F \u0440\u0443\u0447\u043D\u043E\u0433\u043E \u0432\u0432\u043E\u0434\u0430"),
+                    React.createElement("textarea", { readOnly: true, value: myCode, onFocus: (e) => e.target.select() }))),
+            React.createElement("p", { className: "hint small" }, "\u041D\u0430\u0436\u043C\u0438\u0442\u0435 \u043D\u0430 \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0443, \u0447\u0442\u043E\u0431\u044B \u0443\u0432\u0438\u0434\u0435\u0442\u044C \u043A\u043E\u0434 \u0442\u0435\u043A\u0441\u0442\u043E\u043C"),
             manual ? (React.createElement(React.Fragment, null,
                 React.createElement("label", { className: "tf near-in" },
                     React.createElement("textarea", { className: "tf-input", placeholder: "\u041A\u043E\u0434 \u0441 \u0434\u0440\u0443\u0433\u043E\u0433\u043E \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430", value: theirCode, onChange: (e) => setTheirCode(e.target.value) })),
-                React.createElement("button", { className: "ask-yes near-go", onClick: () => takeCode() }, "\u0421\u043E\u0435\u0434\u0438\u043D\u0438\u0442\u044C"),
-                React.createElement("button", { className: "near-link", onClick: () => setManual(false) }, "\u0412\u0435\u0440\u043D\u0443\u0442\u044C\u0441\u044F \u043A \u043A\u0430\u043C\u0435\u0440\u0435"))) : (React.createElement(QrCamera, { onCode: (code) => takeCode(code), onClose: () => setManual(true) })),
-            state && React.createElement("p", { className: "near-state" }, state))),
+                React.createElement("button", { className: "ask-yes near-go", onClick: () => onCode(theirCode) }, "\u0421\u043E\u0435\u0434\u0438\u043D\u0438\u0442\u044C"),
+                React.createElement("button", { className: "near-link", onClick: () => setManual(false) }, "\u0412\u0435\u0440\u043D\u0443\u0442\u044C\u0441\u044F \u043A \u043A\u0430\u043C\u0435\u0440\u0435"))) : (React.createElement(React.Fragment, null,
+                React.createElement(QrCamera, { facing: "user", hidden: true, onCode: onCode, onClose: () => setManual(true) }),
+                React.createElement("button", { className: "near-link", onClick: () => setManual(true) }, "\u0412\u0432\u0435\u0441\u0442\u0438 \u043A\u043E\u0434 \u0432\u0440\u0443\u0447\u043D\u0443\u044E"))))),
         (step === "live" || step === "done") && (React.createElement(React.Fragment, null,
             React.createElement("p", { className: "near-state" }, state),
             React.createElement("div", { className: "near-bars" },
@@ -12445,6 +12446,21 @@ body > div{max-width:100%;}
 .near-photos input{margin-top:2px; width:18px; height:18px; accent-color:var(--gold);}
 .near-photos span{display:flex; flex-direction:column; font-size:0.76rem;}
 .near-photos em{font-style:normal; font-size:0.64rem; color:var(--dim);}
+.near-step{margin:0; font-size:0.72rem; color:var(--gold); text-align:center;}
+.near-link{align-self:center; padding:6px; border:0; background:none; color:var(--gold); font-size:0.72rem; cursor:pointer;}
+.near-card{position:relative; align-self:center; width:min(260px, 76%); aspect-ratio:1; perspective:900px; cursor:pointer;}
+.near-face{position:absolute; inset:0; display:flex; flex-direction:column; align-items:center;
+  justify-content:center; gap:8px; border-radius:16px; backface-visibility:hidden;
+  transition:transform .5s cubic-bezier(.3,.8,.3,1);}
+.near-front{background:#f4efe2; transform:rotateY(0deg);}
+.near-back{background:var(--field); border:1px solid var(--line); transform:rotateY(180deg); padding:12px;}
+.near-card.flip .near-front{transform:rotateY(-180deg);}
+.near-card.flip .near-back{transform:rotateY(0deg);}
+.near-back p{margin:0; font-size:0.68rem; color:var(--dim);}
+.near-back textarea{width:100%; flex:1 1 auto; resize:none; border-radius:10px; border:1px solid var(--line);
+  background:rgba(0,0,0,.2); color:var(--text); font-size:0.58rem; padding:8px; letter-spacing:.04em;}
+.qr-cam.hidden{height:0; overflow:hidden;}
+.qr-cam.hidden video{display:none;}
 .near-scan{width:100%; padding:11px; border-radius:12px; border:1px solid rgba(232,184,75,.5);
   background:rgba(232,184,75,.08); color:var(--gold); font-size:0.78rem; cursor:pointer;}
 .qr-cam{position:relative; display:flex; flex-direction:column; gap:8px; align-items:center;}
