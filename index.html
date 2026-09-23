@@ -1342,7 +1342,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "28.5";
+const APP_VERSION = "28.6";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -6362,155 +6362,6 @@ function SplitChart({ rows }) {
                 React.createElement("i", { style: { background: C_BLUE } }),
                 "\u0432\u043C\u0435\u0441\u0442\u0435 \u0441 \u043A\u0435\u043C-\u0442\u043E"))));
 }
-/* кто открыл страну раньше всех в компании */
-function firstsOrder(rows) {
-    return rows
-        .slice()
-        .sort((a, b) => b.firsts - a.firsts ||
-        b.firstsJoint - a.firstsJoint ||
-        b.countries - a.countries);
-}
-/* полоска участников: имя и сколько стран открыл */
-function FirstsCrew({ list, cur, onPick }) {
-    return (React.createElement("div", { className: "fp-crew" }, list.map((r, i) => (React.createElement("button", { key: r.id, className: "fp-person" + (i === cur ? " on" : ""), onClick: () => onPick(i) },
-        React.createElement("i", { style: { borderColor: r.color, color: r.color } }, (r.name || "?").trim()[0].toUpperCase()),
-        React.createElement("span", null,
-            React.createElement("b", null, r.name),
-            React.createElement("em", null, np(r.firsts, "country"))))))));
-}
-/* строка страны: место, флаг, название, год */
-function FirstsCountry({ n, a3, y, onOpen }) {
-    var _c, _d;
-    return (React.createElement("button", { className: "fp-row", onClick: () => onOpen === null || onOpen === void 0 ? void 0 : onOpen(a3) },
-        React.createElement("span", { className: "fp-num" + (n === 1 ? " top" : "") }, n),
-        React.createElement("span", { className: "fp-flag" }, flag(((_c = BY_A3[a3]) === null || _c === void 0 ? void 0 : _c.a2) || "")),
-        React.createElement("span", { className: "fp-name" }, ((_d = BY_A3[a3]) === null || _d === void 0 ? void 0 : _d.name) || a3),
-        React.createElement("span", { className: "fp-year" }, y),
-        React.createElement("i", null, "\u203A")));
-}
-/* карточка отчёта: участники, плитки первых стран и ссылка на весь экран */
-function FirstsChart({ rows, onOpen, onOpenTrip }) {
-    const list = firstsOrder(rows);
-    const [cur, setCur] = useState(0);
-    const r = list[Math.min(cur, list.length - 1)];
-    if (!r)
-        return null;
-    const tiles = r.firstList.slice(0, 5);
-    return (React.createElement("div", { className: "firsts" },
-        React.createElement(FirstsCrew, { list: list, cur: cur, onPick: setCur }),
-        React.createElement("div", { className: "fp-head" },
-            React.createElement("span", null,
-                "\u0421\u0442\u0440\u0430\u043D\u044B, \u043A\u043E\u0442\u043E\u0440\u044B\u0435 \u043E\u0442\u043A\u0440\u044B\u043B",
-                r.id === ME ? "" : "а",
-                " ",
-                r.name),
-            React.createElement("em", null,
-                r.firsts,
-                " \u0438\u0437 ",
-                r.countries)),
-        tiles.length ? (React.createElement("div", { className: "fp-tiles" }, tiles.map((f) => {
-            var _c, _d;
-            return (React.createElement("button", { key: f.a3, className: "fp-tile", onClick: () => onOpenTrip === null || onOpenTrip === void 0 ? void 0 : onOpenTrip(f.a3) },
-                React.createElement("b", null, flag(((_c = BY_A3[f.a3]) === null || _c === void 0 ? void 0 : _c.a2) || "")),
-                React.createElement("span", null, ((_d = BY_A3[f.a3]) === null || _d === void 0 ? void 0 : _d.name) || f.a3),
-                React.createElement("em", null, f.y)));
-        }))) : (React.createElement("p", { className: "hint small" }, "\u041F\u043E\u043A\u0430 \u043D\u0435 \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u043B \u0441\u0442\u0440\u0430\u043D\u044B \u0440\u0430\u043D\u044C\u0448\u0435 \u043E\u0441\u0442\u0430\u043B\u044C\u043D\u044B\u0445.")),
-        React.createElement("button", { className: "fp-all", onClick: onOpen },
-            "\u041F\u043E\u043A\u0430\u0437\u0430\u0442\u044C \u0432\u0441\u0435 ",
-            React.createElement("i", null, "\u203A"))));
-}
-/* «Первооткрыватели» во весь экран: глобус, числа и список стран */
-function FirstsWin({ rows, home, geo, mapProps, onClose, onOpenTrip }) {
-    const list = firstsOrder(rows);
-    const [cur, setCur] = useState(0);
-    const r = list[Math.min(cur, list.length - 1)];
-    const [wide, setWide] = useState(typeof window !== "undefined" && window.innerWidth > window.innerHeight);
-    useEffect(() => {
-        const on = () => setWide(window.innerWidth > window.innerHeight);
-        window.addEventListener("resize", on);
-        window.addEventListener("orientationchange", on);
-        return () => {
-            window.removeEventListener("resize", on);
-            window.removeEventListener("orientationchange", on);
-        };
-    }, []);
-    const arcs = useMemo(() => {
-        if (!home || !r)
-            return [];
-        return r.firstList
-            .map((f) => {
-            var _c, _d;
-            const xy = distPoint(f.a3, null);
-            if (!xy)
-                return null;
-            return {
-                key: f.a3,
-                from: home,
-                to: { lon: xy[0], lat: xy[1] },
-                color: r.color || "#e2b551",
-                width: 1.8,
-                alpha: 0.95,
-                dot: 3,
-                tag: `${flag(((_c = BY_A3[f.a3]) === null || _c === void 0 ? void 0 : _c.a2) || "")} ${((_d = BY_A3[f.a3]) === null || _d === void 0 ? void 0 : _d.name) || f.a3}`,
-            };
-        })
-            .filter(Boolean);
-    }, [r, home]);
-    const all = new Set();
-    rows.forEach((p) => (p.list || []).forEach((v) => all.add(v.a3)));
-    const stats = (React.createElement("div", { className: "fp-stats" },
-        React.createElement("span", null,
-            React.createElement("b", null, all.size),
-            React.createElement("em", null, pw(all.size, "country"))),
-        React.createElement("span", null,
-            React.createElement("b", null, (r === null || r === void 0 ? void 0 : r.firstsJoint) || 0),
-            React.createElement("em", null, "\u0432\u043C\u0435\u0441\u0442\u0435")),
-        React.createElement("span", null,
-            React.createElement("b", null, list.filter((p) => p.firsts > 0).length),
-            React.createElement("em", null, pw(list.filter((p) => p.firsts > 0).length, "person")))));
-    const globe = (React.createElement("div", { className: "sd-stage" },
-        React.createElement(Globe, { ...(mapProps || {}), geo: geo, arcs: arcs, full: false, noFull: true, fitBox: true, playing: true, spinStep: 0.25, setPlaying: () => { }, onToggleFull: () => { }, onPick: () => { } })));
-    const head = (React.createElement("div", { className: "fp-title" },
-        React.createElement("b", null, "\u041F\u0435\u0440\u0432\u043E\u043E\u0442\u043A\u0440\u044B\u0432\u0430\u0442\u0435\u043B\u0438"),
-        React.createElement("em", null, "\u043A\u0442\u043E \u043F\u043E\u043F\u0430\u043B \u0432 \u0441\u0442\u0440\u0430\u043D\u0443 \u0440\u0430\u043D\u044C\u0448\u0435 \u043E\u0441\u0442\u0430\u043B\u044C\u043D\u044B\u0445")));
-    const listBlock = (React.createElement(React.Fragment, null,
-        React.createElement("div", { className: "fp-head" },
-            React.createElement("span", null,
-                "\u0421\u0442\u0440\u0430\u043D\u044B, \u043A\u043E\u0442\u043E\u0440\u044B\u0435 \u043E\u0442\u043A\u0440\u044B\u043B",
-                (r === null || r === void 0 ? void 0 : r.id) === ME ? "" : "а",
-                " ", r === null || r === void 0 ? void 0 :
-                r.name),
-            React.createElement("em", null, r === null || r === void 0 ? void 0 :
-                r.firsts,
-                " \u0438\u0437 ", r === null || r === void 0 ? void 0 :
-                r.countries)),
-        React.createElement("div", { className: "fp-list" }, (r === null || r === void 0 ? void 0 : r.firstList.length) ? (r.firstList.map((f, i) => (React.createElement(FirstsCountry, { key: f.a3, n: i + 1, a3: f.a3, y: f.y, onOpen: onOpenTrip })))) : (React.createElement("p", { className: "hint small" }, "\u041F\u043E\u043A\u0430 \u043D\u0435 \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u043B \u0441\u0442\u0440\u0430\u043D\u044B \u0440\u0430\u043D\u044C\u0448\u0435 \u043E\u0441\u0442\u0430\u043B\u044C\u043D\u044B\u0445."))),
-        React.createElement("div", { className: "fr-note" },
-            React.createElement("i", null, "\u24D8"),
-            React.createElement("span", null,
-                React.createElement("em", null, "\u0421\u0442\u0440\u0430\u043D\u0430 \u0441\u0447\u0438\u0442\u0430\u0435\u0442\u0441\u044F \u043E\u0442\u043A\u0440\u044B\u0442\u043E\u0439, \u0435\u0441\u043B\u0438 \u0432\u044B \u043F\u043E\u0431\u044B\u0432\u0430\u043B\u0438 \u0432 \u043D\u0435\u0439 \u0440\u0430\u043D\u044C\u0448\u0435 \u043E\u0441\u0442\u0430\u043B\u044C\u043D\u044B\u0445. \u0415\u0441\u043B\u0438 \u0432 \u0441\u0430\u043C\u044B\u0439 \u0440\u0430\u043D\u043D\u0438\u0439 \u0433\u043E\u0434 \u0442\u0443\u0434\u0430 \u0435\u0437\u0434\u0438\u043B\u0438 \u043D\u0435\u0441\u043A\u043E\u043B\u044C\u043A\u043E \u0447\u0435\u043B\u043E\u0432\u0435\u043A, \u0441\u0442\u0440\u0430\u043D\u0430 \u0441\u0447\u0438\u0442\u0430\u0435\u0442\u0441\u044F \u043E\u0442\u043A\u0440\u044B\u0442\u043E\u0439 \u0432\u043C\u0435\u0441\u0442\u0435.")))));
-    if (wide)
-        return (React.createElement("div", { className: "pg-wide", onClick: onClose },
-            React.createElement("div", { className: "pg-panel", onClick: (e) => e.stopPropagation() },
-                React.createElement("div", { className: "pg-map fp-map" },
-                    globe,
-                    stats),
-                React.createElement("div", { className: "pg-side ag-side" },
-                    React.createElement("div", { className: "pg-side-head fp-side-head" },
-                        head,
-                        React.createElement("button", { className: "zoom-x", onClick: onClose, "aria-label": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C" }, "\u2715")),
-                    React.createElement(FirstsCrew, { list: list, cur: cur, onPick: setCur }),
-                    React.createElement("div", { className: "ag-frame sd-frame" }, listBlock)))));
-    return (React.createElement("div", { className: "zoom-layer pg-layer", onClick: onClose },
-        React.createElement("div", { className: "zoom-box", onClick: (e) => e.stopPropagation() },
-            React.createElement("button", { className: "zoom-x", onClick: onClose, "aria-label": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C" }, "\u2715"),
-            React.createElement("div", { className: "zoom-body rep fp-port" },
-                head,
-                React.createElement(FirstsCrew, { list: list, cur: cur, onPick: setCur }),
-                React.createElement("div", { className: "pg-map far-map fp-map" }, globe),
-                stats,
-                React.createElement("div", { className: "ag-frame sd-frame" }, listBlock)))));
-}
 /* часовой пояс точки: из справочника, иначе по долготе */
 function tzHours(pt) {
     const raw = TZ[pt === null || pt === void 0 ? void 0 : pt.a3];
@@ -7817,7 +7668,6 @@ const REPORTS = [
     { id: "air", title: "Авиакомпании" },
     { id: "lanes", title: "Дорожки по годам" },
     { id: "split", title: "Свои и общие страны" },
-    { id: "first", title: "Первооткрыватели" },
     { id: "far", title: "Дальше всего от дома" },
     { id: "diff", title: "Двое: только разница" },
     { id: "radar", title: "Части света лепестками" },
@@ -8523,7 +8373,7 @@ function GridChart({ grid, planGrid, vague, years, onOpen }) {
             " \u043D\u0435\u0442\u043E\u0447\u043D\u0430\u044F \u0434\u0430\u0442\u0430")));
 }
 /* шторка отчётов */
-function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], onOpenTrip, geo, home, onPerson, onFar, onAir, onSeason, onConts, onFirsts, meName = "", repCfg = null }) {
+function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], onOpenTrip, geo, home, onPerson, onFar, onAir, onSeason, onConts, meName = "", repCfg = null }) {
     ME_NAME = meName;
     const r = useMemo(() => reportData(visits, since, people), [visits, since, people]);
     const crew = useMemo(() => travelerStats(visits, people), [visits, people, meName]);
@@ -8752,13 +8602,6 @@ function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], o
                     React.createElement("b", null, "\u0421\u0432\u043E\u0438 \u0438 \u043E\u0431\u0449\u0438\u0435 \u0441\u0442\u0440\u0430\u043D\u044B"),
                     React.createElement("em", null, "\u043A\u0442\u043E \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u0435\u0442 \u043D\u043E\u0432\u043E\u0435, \u0430 \u043A\u0442\u043E \u0435\u0437\u0434\u0438\u0442 \u0432\u043C\u0435\u0441\u0442\u0435"),
                     React.createElement(SplitChart, { rows: crewR.rows })),
-                React.createElement(Reveal, { rid: "first", className: "rep far-card", zoomable: false },
-                    React.createElement("b", null, "\u041F\u0435\u0440\u0432\u043E\u043E\u0442\u043A\u0440\u044B\u0432\u0430\u0442\u0435\u043B\u0438"),
-                    React.createElement("button", { className: "crew-globe far-open", onClick: () => onFirsts === null || onFirsts === void 0 ? void 0 : onFirsts({ rows: crewR.rows, home: homePoint }), "aria-label": "\u0412\u043E \u0432\u0435\u0441\u044C \u044D\u043A\u0440\u0430\u043D" },
-                        React.createElement("svg", { viewBox: "0 0 24 24", width: "18", height: "18" },
-                            React.createElement("path", { d: "M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5", fill: "none", stroke: "currentColor", strokeWidth: "1.7", strokeLinecap: "round" }))),
-                    React.createElement("em", null, "\u043A\u0442\u043E \u043F\u043E\u043F\u0430\u043B \u0432 \u0441\u0442\u0440\u0430\u043D\u0443 \u0440\u0430\u043D\u044C\u0448\u0435 \u043E\u0441\u0442\u0430\u043B\u044C\u043D\u044B\u0445"),
-                    React.createElement(FirstsChart, { rows: crewR.rows, onOpen: () => onFirsts === null || onFirsts === void 0 ? void 0 : onFirsts({ rows: crewR.rows, home: homePoint }), onOpenTrip: (a3) => onOpenTrip === null || onOpenTrip === void 0 ? void 0 : onOpenTrip(a3) })),
                 React.createElement(Reveal, { rid: "far", className: "rep far-card", zoomable: false },
                     React.createElement("b", null, "\u0414\u0430\u043B\u044C\u0448\u0435 \u0432\u0441\u0435\u0433\u043E \u043E\u0442 \u0434\u043E\u043C\u0430"),
                     React.createElement("button", { className: "crew-globe far-open", onClick: () => onFar === null || onFar === void 0 ? void 0 : onFar({ rows: crewR.rows, home: homePoint }), "aria-label": "\u041F\u043E\u043A\u0430\u0437\u0430\u0442\u044C \u043D\u0430 \u0433\u043B\u043E\u0431\u0443\u0441\u0435" },
@@ -9484,7 +9327,6 @@ function Atlas() {
     const [airWin, setAirWin] = useState(null);
     const [seasonWin, setSeasonWin] = useState(false);
     const [contsWin, setContsWin] = useState(false);
-    const [firstsWin, setFirstsWin] = useState(null);
     const [booksSize, setBooksSize] = useState(0);
     const [booksSaved, setBooksSaved] = useState(false);
     const [booksAt, setBooksAt] = useState("");
@@ -9615,14 +9457,13 @@ function Atlas() {
     /* нажатие на меню: закрыть всё, что открыто поверх, и перейти в раздел.
        Если поверх было открыто окно, а нажали текущий раздел — просто закрываем окно */
     const goTab = (tab, sheetName) => {
-        const over = !!(person || far || airWin || seasonWin || contsWin || firstsWin) ||
+        const over = !!(person || far || airWin || seasonWin || contsWin) ||
             (typeof document !== "undefined" && !!document.querySelector(".zoom-layer"));
         setPerson(null);
         setFar(null);
         setAirWin(null);
         setSeasonWin(false);
         setContsWin(false);
-        setFirstsWin(null);
         if (typeof window !== "undefined")
             window.dispatchEvent(new Event("atlas:closezoom"));
         setSheetBack(null);
@@ -10736,7 +10577,7 @@ function Atlas() {
                             setSheet(null);
                         } }),
                     React.createElement(DoublesSheet, { open: sheet === "doubles", onClose: () => setSheet("profile"), box: box, pairs: doubles, people: profile.people || [], home: profile.home || null, onJoin: joinDouble }),
-                    React.createElement(ReportsSheet, { open: sheet === "reports", onClose: () => setSheet(sheetBack === "profile" ? "profile" : null), box: box, visits: visits, since: profile.since, stats: stats, people: profile.people || [], home: profile.home || null, geo: geo, home: profile.home || null, onPerson: setPerson, onFar: setFar, onAir: setAirWin, onSeason: () => setSeasonWin(true), onConts: () => setContsWin(true), onFirsts: (rows) => setFirstsWin(rows), repCfg: profile.reports || null, meName: profile.name || "", onOpenTrip: (a3, id) => {
+                    React.createElement(ReportsSheet, { open: sheet === "reports", onClose: () => setSheet(sheetBack === "profile" ? "profile" : null), box: box, visits: visits, since: profile.since, stats: stats, people: profile.people || [], home: profile.home || null, geo: geo, home: profile.home || null, onPerson: setPerson, onFar: setFar, onAir: setAirWin, onSeason: () => setSeasonWin(true), onConts: () => setContsWin(true), repCfg: profile.reports || null, meName: profile.name || "", onOpenTrip: (a3, id) => {
                             setSelected(a3);
                             setEditId(id || null);
                             setSheet(null);
@@ -10757,25 +10598,6 @@ function Atlas() {
                         }, onFilters: openFilters }),
                     seasonWin && React.createElement(SeasonWin, { visits: visits, onClose: () => setSeasonWin(false) }),
                     contsWin && React.createElement(ContsWin, { visits: visits, geo: geo, onClose: () => setContsWin(false) }),
-                    (firstsWin === null || firstsWin === void 0 ? void 0 : firstsWin.rows) && (React.createElement(FirstsWin, { rows: firstsWin.rows, home: firstsWin.home, geo: geo, onClose: () => setFirstsWin(null), onOpenTrip: (a3) => {
-                            setFirstsWin(null);
-                            setSelected(a3);
-                            setSheet(null);
-                        }, mapProps: {
-                            isOn,
-                            selected: null,
-                            visitKey,
-                            home: lastTrip,
-                            boxWidth: 0,
-                            marks,
-                            light,
-                            playing: true,
-                            setPlaying: () => { },
-                            view: "globe",
-                            page: 0,
-                            setPage: () => { },
-                            isWish,
-                        } })),
                     (airWin === null || airWin === void 0 ? void 0 : airWin.air) && (React.createElement(AirGlobe, { visits: visits, home: profile.home || null, air: airWin.air, geo: geo, onClose: () => setAirWin(null), mapProps: {
                             isOn,
                             selected: null,
@@ -11149,124 +10971,7 @@ body > div{max-width:100%;}
 .grid-legend .lg{display:inline-flex; align-items:center; gap:4px; margin-right:8px;}
 .grid-legend .lg i{margin-left:0;}
 
-.firsts{display:flex; flex-direction:column; gap:10px;}
-.fp-crew{display:flex; gap:8px; overflow-x:auto; overscroll-behavior:contain; padding-bottom:2px;}
-.fp-person{flex:none; display:flex; align-items:center; gap:8px; padding:7px 11px 7px 8px; border-radius:13px;
-  border:1px solid var(--line); background:var(--field); color:var(--text); cursor:pointer; text-align:left;}
-.fp-person.on{border-color:rgba(232,184,75,.6); background:linear-gradient(135deg, rgba(232,184,75,.12), transparent 60%), var(--field);}
-.fp-person i{flex:none; width:28px; height:28px; border-radius:50%; border:1.5px solid; display:flex;
-  align-items:center; justify-content:center; font-style:normal; font-size:0.74rem; font-weight:600;}
-.fp-person span{display:flex; flex-direction:column; align-items:flex-start;}
-.fp-person b{font-size:0.78rem; font-weight:500;}
-.fp-person em{font-style:normal; font-size:0.62rem; color:var(--dim);}
-.fp-head{display:flex; align-items:baseline; justify-content:space-between; gap:10px;}
-.fp-head span{font-size:0.78rem;}
-.fp-head em{flex:none; font-style:normal; font-size:0.68rem; color:var(--dim);}
-.fp-tiles{display:grid; grid-template-columns:repeat(auto-fit, minmax(62px, 1fr)); gap:7px;}
-.fp-tile{display:flex; flex-direction:column; align-items:center; gap:3px; padding:9px 5px; border-radius:12px;
-  border:1px solid var(--line); background:var(--field); color:var(--text); cursor:pointer;}
-.fp-tile b{font-size:1.25rem; line-height:1;}
-.fp-tile span{font-size:0.62rem; text-align:center; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%;}
-.fp-tile em{font-style:normal; font-size:0.6rem; color:var(--dim);}
-.fp-all{display:flex; align-items:center; justify-content:space-between; padding:10px 12px; border-radius:12px;
-  border:1px solid var(--line); background:none; color:var(--text); font-size:0.76rem; cursor:pointer;}
-.fp-all i{font-style:normal; color:var(--dim);}
-.fp-list{display:flex; flex-direction:column; gap:5px;}
-.fp-row{display:flex; align-items:center; gap:10px; padding:8px 11px; border-radius:12px; border:1px solid var(--line);
-  background:var(--field); color:var(--text); cursor:pointer; text-align:left;}
-.fp-num{flex:none; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center;
-  font-size:0.7rem; color:var(--dim); border:1px solid var(--line);}
-.fp-num.top{background:var(--gold); border-color:var(--gold); color:#11202e; font-weight:600;}
-.fp-flag{flex:none; font-size:1.05rem;}
-.fp-name{flex:1 1 auto; min-width:0; font-size:0.8rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-.fp-year{flex:none; font-size:0.74rem; color:var(--dim);}
-.fp-row i{flex:none; font-style:normal; color:var(--dim);}
-.fp-stats{flex:none; display:flex; gap:14px; justify-content:center; padding:10px 12px;}
-.fp-stats span{display:flex; flex-direction:column; align-items:center;}
-.fp-stats b{font-size:1.2rem; font-weight:700; color:var(--gold); line-height:1.1;}
-.fp-stats em{font-style:normal; font-size:0.6rem; color:var(--dim);}
-.fp-title b{font-size:1rem;}
-.fp-title em{display:block; font-style:normal; font-size:0.7rem; color:var(--dim); margin-top:2px;}
-.fp-side-head{align-items:flex-start;}
-.pg-map.fp-map{flex-direction:column;}
-.fp-port{gap:10px;}
-.fr-row{display:grid; grid-template-columns:auto auto 1fr; gap:10px; align-items:center;
-  padding:11px 12px; border-radius:14px; border:1px solid var(--line); background:var(--field);}
-.fr-row.top{border-color:rgba(232,184,75,.55); background:linear-gradient(135deg, rgba(232,184,75,.1), transparent 55%), var(--field);}
-.fr-rank{position:relative; flex:none; width:28px; height:28px; border-radius:50%; display:flex; align-items:center;
-  justify-content:center; font-size:0.74rem; font-weight:600; color:var(--dim); border:1px solid var(--line);}
-.fr-row.top .fr-rank, .fw-card.top .fr-rank{color:#11202e; background:var(--gold); border-color:var(--gold);}
-.fr-rank u{position:absolute; top:-13px; left:50%; transform:translateX(-50%); text-decoration:none; color:var(--gold); font-size:0.7rem;}
-.fr-num{display:flex; flex-direction:column; align-items:center; justify-content:center; min-width:52px;
-  padding:6px 8px; border-radius:11px; border:1px solid var(--line); background:rgba(255,255,255,.03);}
-.fr-num b{font-size:1.25rem; font-weight:700; color:var(--gold); line-height:1;}
-.fr-num em{font-style:normal; font-size:0.58rem; color:var(--dim);}
-.fr-main{min-width:0; display:flex; flex-direction:column; gap:3px;}
-.fr-main > b{font-size:0.86rem;}
-.fr-main > em{font-style:normal; font-size:0.66rem; color:var(--dim);}
-.fr-chip{display:inline-flex; align-items:center; gap:5px; flex-wrap:wrap; align-self:flex-start;
-  padding:5px 9px; border-radius:10px; border:1px solid var(--line); background:rgba(255,255,255,.03);
-  font-size:0.68rem; color:var(--dim); margin-top:2px;}
-.fr-chip b{font-weight:500; color:var(--text);}
-.fr-chip i{font-style:normal; font-size:0.72rem;}
-.fr-row.top .fr-chip{border-color:rgba(232,184,75,.4);}
-.fr-dot em{white-space:nowrap;}
-.fr-line{display:flex; align-items:flex-start; gap:2px; margin-top:4px;}
-.fr-dot{flex:1 1 0; min-width:0; display:flex; flex-direction:column; align-items:center; gap:3px; position:relative;}
-.fr-dot::before{content:""; position:absolute; top:4px; left:-50%; width:100%; height:1px; background:var(--line);}
-.fr-dot:first-child::before{display:none;}
-.fr-dot i{width:8px; height:8px; border-radius:50%; background:#2f435a; position:relative;}
-.fr-dot.on i{background:#8fd4ff; box-shadow:0 0 8px rgba(143,212,255,.8);}
-.fr-line.gold .fr-dot.on i{background:var(--gold); box-shadow:0 0 9px rgba(232,184,75,.85);}
-.fr-dot em{font-style:normal; font-size:0.5rem; color:var(--dim);}
-.fr-dot.on em{color:var(--text);}
-.fr-note{display:flex; gap:10px; padding:11px 12px; border-radius:14px; border:1px solid var(--line); background:var(--field);}
-.fr-note i{flex:none; font-style:normal; color:#8fb3d6; font-size:1rem;}
-.fr-note span{display:flex; flex-direction:column; gap:3px;}
-.fr-note b{font-size:0.8rem;}
-.fr-note em{font-style:normal; font-size:0.68rem; color:var(--dim); line-height:1.4;}
 /* во весь экран */
-.fw-panel{flex-direction:column; gap:10px;}
-.fw-head{display:flex; align-items:flex-start; justify-content:space-between; gap:10px;}
-.fw-head b{font-size:1.05rem;}
-.fw-head em{display:block; font-style:normal; font-size:0.72rem; color:var(--dim); margin-top:2px;}
-.fw-head .zoom-x{position:static; flex:none;}
-.fw-cards{flex:1 1 auto; min-height:0; display:flex; gap:10px; overflow-x:auto; overscroll-behavior:contain;}
-.fw-card{flex:0 0 clamp(210px, 31%, 330px); min-width:0; display:flex; flex-direction:column; gap:9px; padding:12px;
-  border-radius:16px; border:1px solid var(--line); background:var(--field); text-align:left;}
-.fw-card .fr-rank, .fw-item .fr-rank{flex:none; width:28px; height:28px;}
-.fw-card{align-items:stretch;}
-.fw-card > *{align-self:stretch;}
-.fw-card .fw-card-head{justify-content:flex-start;}
-.fw-card .fw-more{justify-content:flex-start;}
-.fw-card.top{border-color:rgba(232,184,75,.55); background:linear-gradient(140deg, rgba(232,184,75,.1), transparent 60%), var(--field);}
-.fw-card-head{display:flex; align-items:center; gap:9px;}
-.fw-card-head b{font-size:0.9rem;}
-.fw-nums{display:grid; grid-template-columns:repeat(3, 1fr); gap:6px;}
-.fw-nums > span{flex:1 1 0; display:flex; flex-direction:column; align-items:center; padding:7px 4px; border-radius:11px;
-  background:rgba(255,255,255,.04);}
-.fw-nums b{font-size:1.15rem; font-weight:700; color:var(--gold); line-height:1;}
-.fw-nums em{font-style:normal; font-size:0.56rem; color:var(--dim);}
-.fw-first{display:flex; flex-direction:column; gap:2px; padding:8px 10px; border-radius:11px; border:1px solid var(--line);}
-.fw-first b{font-size:0.82rem;}
-.fw-first em{font-style:normal; font-size:0.62rem; color:var(--dim);}
-.fw-sum{flex:none; display:flex; gap:16px; padding:10px 12px; border-radius:14px; border:1px solid var(--line);
-  background:rgba(255,255,255,.02); text-align:left;}
-.fw-sum span{display:flex; flex-direction:column;}
-.fw-sum b{font-size:1.1rem; font-weight:700; color:var(--gold); line-height:1.1;}
-.fw-sum em{font-style:normal; font-size:0.6rem; color:var(--dim);}
-.fw-port{gap:10px;}
-.fw-list{display:flex; flex-direction:column; gap:6px;}
-.fw-item{display:flex; align-items:center; gap:10px; text-align:left; padding:9px 11px; border-radius:12px; border:1px solid var(--line);
-  background:var(--field); color:var(--text); cursor:pointer; text-align:left;}
-.fw-item > span:not(.fr-rank){flex:1 1 auto; min-width:0; display:flex; flex-direction:column; align-items:flex-start;}
-.fw-item b{font-size:0.8rem; font-weight:500;}
-.fw-item em{font-style:normal; font-size:0.64rem; color:var(--dim);}
-.fw-item i{flex:none; font-style:normal; color:var(--dim);}
-.fw-more{display:flex; flex-wrap:wrap; gap:6px;}
-.fw-more span{display:flex; align-items:center; gap:5px; padding:5px 9px; border-radius:10px;
-  border:1px solid var(--line); font-size:0.7rem;}
-.fw-more u{text-decoration:none; color:var(--dim); font-size:0.62rem;}
 .split{display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:9px 8px; font-size:0.68rem;}
 .split-n{color:var(--text); white-space:nowrap;}
 .split-bar{height:8px; border-radius:4px; background:var(--track); overflow:hidden; display:flex;}
