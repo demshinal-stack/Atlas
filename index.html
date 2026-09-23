@@ -1342,7 +1342,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "28.7";
+const APP_VERSION = "28.8";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -11084,14 +11084,22 @@ body > div{max-width:100%;}
 .sd-stage{flex:1 1 auto; align-self:stretch; width:100%; height:100%; min-height:0;
   display:flex; align-items:center; justify-content:center;}
 .sd-frame{gap:8px; overflow-y:auto; overscroll-behavior:contain; touch-action:pan-y;}
-/* в ленте отчётов: круг крупнее, легенда под ним в два столбца */
-.rep .donut-row:not(.donut-big){flex-direction:column; align-items:center; gap:14px; margin-top:6px;}
-.rep .donut-row:not(.donut-big) .donut{width:min(240px, 78%); height:auto; max-width:240px;}
-.rep .donut-row:not(.donut-big) .donut-legend{width:100%; display:grid; grid-template-columns:repeat(2, minmax(0, 1fr));
-  gap:8px 16px; font-size:0.78rem;}
-.rep .donut-legend div{display:flex; align-items:center; gap:8px;}
+/* в ленте отчётов: круг слева, легенда столбиком справа */
+.rep .donut-row:not(.donut-big){flex-direction:row; align-items:center; gap:14px; margin-top:6px;}
+.rep .donut-row:not(.donut-big) .donut{flex:none; width:min(215px, 58%); height:auto;}
+.rep .donut-row:not(.donut-big) .donut-legend{flex:1 1 auto; min-width:0; display:flex; flex-direction:column;
+  justify-content:center; gap:11px; font-size:0.78rem;}
+.rep .donut-legend div{display:flex; align-items:flex-start; gap:8px; line-height:1.25; white-space:normal;}
+.rep .donut-legend div i{margin-top:3px;}
+.rep .donut-legend div b{display:none; margin-left:auto; padding-left:6px;}
 .rep .donut-legend div.zero{opacity:.55; cursor:default;}
 .rep .donut-legend div.zero b{color:var(--dim);}
+/* на узких экранах названия ужимаются, поэтому возвращаем числа */
+@media (max-width:372px){
+  .rep .donut-row:not(.donut-big) .donut{width:min(180px, 52%);}
+  .rep .donut-legend div b{display:inline; color:var(--text);}
+  .rep .donut-row:not(.donut-big) .donut-legend{font-size:0.72rem; gap:9px;}
+}
 .donut-row.donut-big{width:100%; height:100%;}
 .donut-row.donut-big .donut{flex:1 1 auto; width:100%; height:100%; max-width:none;}
 .donut-row.donut-big .donut-legend{display:none !important;}
