@@ -1342,7 +1342,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "28.8";
+const APP_VERSION = "28.9";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -6900,6 +6900,8 @@ function AirGlobe({ visits, home, air, geo, mapProps, onClose }) {
     const arcs = useMemo(() => airArcs(visits, home), [visits, home]);
     // при открытии сразу выбран самый длинный перелёт, дальше — как решит пользователь
     const [sel, setSel] = useState(() => arcs.length ? arcs.reduce((a, b) => (b.km > a.km ? b : a)).key : null);
+    // авиакомпания, выбранная в списке: подсвечиваем все её дуги
+    const [selCode, setSelCode] = useState(() => arcs.length ? arcs.reduce((a, b) => (b.km > a.km ? b : a)).code : null);
     // у каждой авиакомпании свой цвет из справочника; если два похожи — второй меняем
     const colorOf = useMemo(() => {
         const out = {};
@@ -6935,34 +6937,40 @@ function AirGlobe({ visits, home, air, geo, mapProps, onClose }) {
             window.removeEventListener("orientationchange", on);
         };
     }, []);
+    const selArc = arcs.find((g) => g.key === sel) || null;
+    const code = (selArc === null || selArc === void 0 ? void 0 : selArc.code) || selCode;
     const arcList = useMemo(() => {
         const far = Math.max(1, ...arcs.map((g) => g.km));
+        const rank = (g) => (g.key === sel ? 2 : code && g.code === code ? 1 : 0);
         const list = arcs.map((g, i) => {
             var _c;
             const on = sel === g.key;
+            const mine = !on && code && g.code === code;
             return {
                 key: g.key,
                 from: g.from,
                 to: { lon: g.to.lon, lat: g.to.lat },
                 color: colorOf[g.code] || ((_c = airInfo(g.code)) === null || _c === void 0 ? void 0 : _c.arc) || "#e2b551",
-                width: on ? 3.6 : 1.2 + 1.1 * (g.km / far),
-                alpha: on ? 1 : 0.9,
-                lift: on ? 0.2 : 0.05 + (i % 5) * 0.02,
-                dot: on ? 5 : 2.6,
+                width: on ? 3.6 : mine ? 2.6 : 1.2 + 1.1 * (g.km / far),
+                alpha: on || mine ? 1 : code ? 0.3 : 0.9,
+                lift: on ? 0.2 : mine ? 0.16 : 0.05 + (i % 5) * 0.02,
+                dot: on ? 5 : mine ? 3.6 : 2.6,
                 dash: true,
+                rank: rank(g),
             };
         });
-        // выбранную рисуем последней, чтобы она была поверх остальных
-        return list.sort((x, y) => (x.key === sel ? 1 : 0) - (y.key === sel ? 1 : 0));
-    }, [arcs, sel, colorOf]);
-    const selArc = arcs.find((g) => g.key === sel) || null;
-    const code = (selArc === null || selArc === void 0 ? void 0 : selArc.code) || ((_c = air.rows[0]) === null || _c === void 0 ? void 0 : _c.code);
-    const a = airInfo(code);
-    const row = air.rows.find((r) => r.code === code);
-    const conts = [...new Set(arcs.filter((g) => g.code === code).map((g) => g.cont))]
-        .map((c) => CONTINENTS[c] || c)
-        .filter(Boolean);
-    const globe = (React.createElement(Globe, { ...(mapProps || {}), geo: geo, arcs: arcList, full: false, noFull: true, fitBox: true, playing: true, spinStep: 0.25, setPlaying: () => { }, onToggleFull: () => { }, onArcPick: (key) => setSel((v) => (key && v !== key ? key : null)), onPick: () => { } }));
+        return list.sort((x, y) => x.rank - y.rank);
+    }, [arcs, sel, code, colorOf]);
+    const globe = (React.createElement(Globe, { ...(mapProps || {}), geo: geo, arcs: arcList, full: false, noFull: true, fitBox: true, playing: true, spinStep: 0.25, setPlaying: () => { }, onToggleFull: () => { }, onArcPick: (key) => {
+            const g = arcs.find((x) => x.key === key);
+            if (!key || sel === key) {
+                setSel(null);
+                setSelCode(null);
+                return;
+            }
+            setSel(key);
+            setSelCode((g === null || g === void 0 ? void 0 : g.code) || null);
+        }, onPick: () => { } }));
     const tiles = (React.createElement("div", { className: "ag-tiles" },
         React.createElement("div", { className: "ag-tile" },
             React.createElement("b", null, air.rows.length),
@@ -6980,10 +6988,17 @@ function AirGlobe({ visits, home, air, geo, mapProps, onClose }) {
                 "\u2248 ",
                 (air.km / 40075).toLocaleString("ru-RU", { maximumFractionDigits: 1 }),
                 " \u0440\u0430\u0437\u0430 \u0432\u043E\u043A\u0440\u0443\u0433 \u0417\u0435\u043C\u043B\u0438"))));
+    const back = (label, onBack) => (React.createElement("button", { className: "ag-back", onClick: onBack },
+        "\u2039 ",
+        label));
     const card = (React.createElement("div", { className: "ag-frame" }, selArc ? (React.createElement("div", { className: "ag-sel" },
+        back("Все авиакомпании", () => {
+            setSel(null);
+            setSelCode(null);
+        }),
         React.createElement("div", { className: "ag-sel-head" },
             React.createElement("i", { className: "ag-dot", style: { background: colorOf[selArc.code] } }),
-            React.createElement("b", null, ((_d = airInfo(selArc.code)) === null || _d === void 0 ? void 0 : _d.name) || selArc.code),
+            React.createElement("b", null, ((_c = airInfo(selArc.code)) === null || _c === void 0 ? void 0 : _c.name) || selArc.code),
             React.createElement("em", null,
                 CONTINENTS[selArc.cont] || "",
                 " \u00B7 ",
@@ -6999,8 +7014,46 @@ function AirGlobe({ visits, home, air, geo, mapProps, onClose }) {
                         " ",
                         ((_d = BY_A3[c.a3]) === null || _d === void 0 ? void 0 : _d.name) || c.a3),
                     React.createElement("em", null, np(c.n, "trip")))));
-        })))) : (React.createElement("div", { className: "ag-sel ag-hint" },
-        React.createElement("p", null, "\u041A\u0430\u0436\u0434\u0430\u044F \u043F\u0443\u043D\u043A\u0442\u0438\u0440\u043D\u0430\u044F \u0434\u0443\u0433\u0430 \u2014 \u043E\u0434\u043D\u0430 \u0430\u0432\u0438\u0430\u043A\u043E\u043C\u043F\u0430\u043D\u0438\u044F \u0432 \u043E\u0434\u043D\u0443 \u0447\u0430\u0441\u0442\u044C \u0441\u0432\u0435\u0442\u0430. \u041D\u0430\u0436\u043C\u0438\u0442\u0435 \u0434\u0443\u0433\u0443, \u0447\u0442\u043E\u0431\u044B \u0443\u0432\u0438\u0434\u0435\u0442\u044C \u0441\u0442\u0440\u0430\u043D\u044B \u0438 \u0447\u0438\u0441\u043B\u043E \u043F\u043E\u0435\u0437\u0434\u043E\u043A.")))));
+        })))) : selCode ? (React.createElement("div", { className: "ag-sel" },
+        back("Все авиакомпании", () => setSelCode(null)),
+        React.createElement("div", { className: "ag-sel-head" },
+            React.createElement("i", { className: "ag-dot", style: { background: colorOf[selCode] } }),
+            React.createElement("b", null, ((_d = airInfo(selCode)) === null || _d === void 0 ? void 0 : _d.name) || selCode),
+            React.createElement("em", null, np(arcs
+                .filter((g) => g.code === selCode)
+                .reduce((t, g) => t + g.trips, 0), "trip"))),
+        React.createElement("div", { className: "ag-list" }, arcs
+            .filter((g) => g.code === selCode)
+            .sort((x, y) => y.trips - x.trips)
+            .map((g) => (React.createElement("button", { key: g.key, className: "ag-row", onClick: () => setSel(g.key) },
+            React.createElement("i", { className: "ag-dot", style: { background: colorOf[selCode] } }),
+            React.createElement(AirMark, { code: selCode }),
+            React.createElement("span", null,
+                React.createElement("b", null, CONTINENTS[g.cont] || "—"),
+                React.createElement("em", null,
+                    np(g.trips, "trip"),
+                    " \u00B7 ",
+                    np(g.countries, "country"))),
+            React.createElement("u", null, "\u203A"))))))) : (React.createElement("div", { className: "ag-sel" },
+        React.createElement("div", { className: "ag-sel-head" },
+            React.createElement("b", null, "\u0412\u0441\u0435 \u0430\u0432\u0438\u0430\u043A\u043E\u043C\u043F\u0430\u043D\u0438\u0438"),
+            React.createElement("em", null, np(air.rows.length, "airline"))),
+        React.createElement("div", { className: "ag-list" }, air.rows.map((r) => {
+            var _c;
+            return (React.createElement("button", { key: r.code, className: "ag-row", onClick: () => setSelCode(r.code) },
+                React.createElement("i", { className: "ag-dot", style: { background: colorOf[r.code] } }),
+                React.createElement(AirMark, { code: r.code }),
+                React.createElement("span", null,
+                    React.createElement("b", null, ((_c = airInfo(r.code)) === null || _c === void 0 ? void 0 : _c.name) || r.code),
+                    React.createElement("em", null,
+                        np(r.trips, "trip"),
+                        " \u00B7 ",
+                        np(r.countries, "country"),
+                        " \u00B7",
+                        " ",
+                        kmText(r.km))),
+                React.createElement("u", null, "\u203A")));
+        }))))));
     if (wide)
         return (React.createElement("div", { className: "pg-wide", onClick: onClose },
             React.createElement("div", { className: "pg-panel", onClick: (e) => e.stopPropagation() },
@@ -11022,7 +11075,10 @@ body > div{max-width:100%;}
 .ag-list{flex:1 1 auto; min-height:0; display:flex; flex-direction:column; gap:6px; overflow-y:auto;
   overscroll-behavior:contain; touch-action:pan-y;}
 .ag-row{flex:none; display:flex; align-items:center; gap:10px; padding:9px 12px; border-radius:12px;
-  border:1px solid var(--line); background:var(--field);}
+  border:1px solid var(--line); background:var(--field); color:var(--text); text-align:left; cursor:pointer;}
+.ag-row u{margin-left:auto; text-decoration:none; color:var(--dim);}
+.ag-back{align-self:flex-start; padding:4px 2px; border:0; background:none; color:var(--gold);
+  font-size:0.72rem; cursor:pointer;}
 .ag-row .air-mark{width:36px; height:24px; border-radius:7px; display:flex; align-items:center; justify-content:center;
   font-style:normal; font-size:0.64rem; font-weight:600; color:#fff;}
 .ag-row span{display:flex; flex-direction:column; min-width:0;}
