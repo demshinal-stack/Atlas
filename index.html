@@ -1342,7 +1342,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "28.6";
+const APP_VERSION = "28.7";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -7839,7 +7839,7 @@ function AreaChart({ points }) {
             React.createElement("text", { x: w - 2, y: h + 15, fill: C_DIM, fontSize: "9", textAnchor: "end" }, points[points.length - 1].y))));
 }
 /* кольцо по частям света */
-function DonutChart({ parts, total, sel = null, onSel, size = 168, big = false, geo = null }) {
+function DonutChart({ parts, total, sel = null, onSel, size = 168, big = false, geo = null, legend = null }) {
     var _c, _d;
     const cx = size / 2;
     const cy = size / 2;
@@ -7964,10 +7964,13 @@ function DonutChart({ parts, total, sel = null, onSel, size = 168, big = false, 
                 React.createElement("text", { x: cx, y: cy - size * 0.005, fill: C_GOLD, fontSize: size * 0.14, fontWeight: "700", textAnchor: "middle" }, sel ? (_d = (_c = parts.find((p) => p.k === sel)) === null || _c === void 0 ? void 0 : _c.v) !== null && _d !== void 0 ? _d : total : total),
                 React.createElement("text", { x: cx, y: cy + size * 0.075, fill: C_DIM, fontSize: size * 0.055, textAnchor: "middle" }, sel ? CONTINENTS[sel] : pw(total, "country")),
                 sel && (React.createElement("text", { x: cx, y: cy + size * 0.13, fill: C_GOLD, fontSize: size * 0.05, textAnchor: "middle" }, "\u21BA \u0432\u0441\u0435")))),
-        React.createElement("div", { className: "donut-legend" }, segs.map((p) => (React.createElement("div", { key: p.k, className: sel === p.k ? "on" : "", onClick: () => onSel === null || onSel === void 0 ? void 0 : onSel(sel === p.k ? null : p.k) },
-            React.createElement("i", { style: { background: p.color } }),
-            CONTINENTS[p.k],
-            React.createElement("b", null, p.v)))))));
+        React.createElement("div", { className: "donut-legend" }, (legend || segs).map((p) => {
+            const seg = segs.find((x) => x.k === p.k);
+            return (React.createElement("div", { key: p.k, className: (sel === p.k ? "on" : "") + (seg ? "" : " zero"), onClick: () => seg && (onSel === null || onSel === void 0 ? void 0 : onSel(sel === p.k ? null : p.k)) },
+                React.createElement("i", { style: { background: seg ? seg.color : "#2c3c4e" } }),
+                CONTINENTS[p.k],
+                React.createElement("b", null, p.v)));
+        }))));
 }
 /* контуры суши для маленького глобуса в центре кольца */
 function globePaths(geo, cx, cy, r) {
@@ -8431,7 +8434,7 @@ function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], o
                 React.createElement(DonutChart, { parts: CONT_ORDER.filter((k) => r.conts[k]).map((k) => ({
                         k,
                         v: r.conts[k],
-                    })), total: stats.countries })),
+                    })), legend: CONT_ORDER.map((k) => ({ k, v: r.conts[k] || 0 })), total: stats.countries })),
             React.createElement(Reveal, { rid: "season", className: "rep far-card", zoomable: false },
                 React.createElement("b", null, "\u0421\u0435\u0437\u043E\u043D\u043D\u043E\u0441\u0442\u044C"),
                 React.createElement("button", { className: "crew-globe far-open", onClick: () => onSeason === null || onSeason === void 0 ? void 0 : onSeason(), "aria-label": "\u0412\u043E \u0432\u0435\u0441\u044C \u044D\u043A\u0440\u0430\u043D" },
@@ -11081,6 +11084,14 @@ body > div{max-width:100%;}
 .sd-stage{flex:1 1 auto; align-self:stretch; width:100%; height:100%; min-height:0;
   display:flex; align-items:center; justify-content:center;}
 .sd-frame{gap:8px; overflow-y:auto; overscroll-behavior:contain; touch-action:pan-y;}
+/* в ленте отчётов: круг крупнее, легенда под ним в два столбца */
+.rep .donut-row:not(.donut-big){flex-direction:column; align-items:center; gap:14px; margin-top:6px;}
+.rep .donut-row:not(.donut-big) .donut{width:min(240px, 78%); height:auto; max-width:240px;}
+.rep .donut-row:not(.donut-big) .donut-legend{width:100%; display:grid; grid-template-columns:repeat(2, minmax(0, 1fr));
+  gap:8px 16px; font-size:0.78rem;}
+.rep .donut-legend div{display:flex; align-items:center; gap:8px;}
+.rep .donut-legend div.zero{opacity:.55; cursor:default;}
+.rep .donut-legend div.zero b{color:var(--dim);}
 .donut-row.donut-big{width:100%; height:100%;}
 .donut-row.donut-big .donut{flex:1 1 auto; width:100%; height:100%; max-width:none;}
 .donut-row.donut-big .donut-legend{display:none !important;}
