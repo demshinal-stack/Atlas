@@ -1133,6 +1133,1143 @@ function mergeVisits(mine, theirs, tombsA, tombsB) {
     Object.values(out).forEach((arr) => arr.sort((x, y) => y.y - x.y || (y.m || 0) - (x.m || 0)));
     return { visits: out, tombs };
 }
+/* ── QR-код: генерация матрицы, режим «буквы и цифры», уровень L ───── */
+const QR_AL = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ $%*+-./:";
+/* сколько байтов данных помещается и как они бьются на блоки: версия → [данные, блоков, ЕС на блок] */
+const QR_L = {
+    1: [19, 1, 7], 2: [34, 1, 10], 3: [55, 1, 15], 4: [80, 1, 20], 5: [108, 1, 26],
+    6: [136, 2, 18], 7: [156, 2, 20], 8: [194, 2, 24], 9: [232, 2, 30], 10: [274, 4, 18],
+    11: [324, 4, 20], 12: [370, 4, 24], 13: [428, 4, 26], 14: [461, 4, 30], 15: [523, 6, 22],
+    16: [589, 6, 24], 17: [647, 6, 28], 18: [721, 6, 30], 19: [795, 7, 28], 20: [861, 8, 28],
+};
+const QR_ALIGN = {
+    1: [], 2: [6, 18], 3: [6, 22], 4: [6, 26], 5: [6, 30], 6: [6, 34],
+    7: [6, 22, 38], 8: [6, 24, 42], 9: [6, 26, 46], 10: [6, 28, 50], 11: [6, 30, 54],
+    12: [6, 32, 58], 13: [6, 34, 62], 14: [6, 26, 46, 66], 15: [6, 26, 48, 70],
+    16: [6, 26, 50, 74], 17: [6, 30, 54, 78], 18: [6, 30, 56, 82], 19: [6, 30, 58, 86],
+    20: [6, 34, 62, 90],
+};
+const gfExp = new Uint8Array(512);
+const gfLog = new Uint8Array(256);
+(() => {
+    let x = 1;
+    for (let i = 0; i < 255; i++) {
+        gfExp[i] = x;
+        gfLog[x] = i;
+        x <<= 1;
+        if (x & 0x100)
+            x ^= 0x11d;
+    }
+    for (let i = 255; i < 512; i++)
+        gfExp[i] = gfExp[i - 255];
+})();
+const gfMul = (a, b) => (a && b ? gfExp[gfLog[a] + gfLog[b]] : 0);
+function rsPoly(n) {
+    let poly = [1];
+    for (let i = 0; i < n; i++) {
+        const next = new Array(poly.length + 1).fill(0);
+        for (let j = 0; j < poly.length; j++) {
+            next[j] ^= poly[j];
+            next[j + 1] ^= gfMul(poly[j], gfExp[i]);
+        }
+        poly = next;
+    }
+    return poly;
+}
+function rsBytes(data, n) {
+    const gen = rsPoly(n);
+    const out = new Array(n).fill(0);
+    data.forEach((b) => {
+        const f = b ^ out[0];
+        out.shift();
+        out.push(0);
+        for (let i = 0; i < n; i++)
+            out[i] ^= gfMul(gen[i + 1], f);
+    });
+    return out;
+}
+/* матрица QR: true — чёрный модуль */
+function qrMatrix(text) {
+    const up = String(text).toUpperCase();
+    if ([...up].some((c) => QR_AL.indexOf(c) < 0))
+        throw new Error("не те символы");
+    // биты данных
+    const bits = [];
+    const push = (v, n) => {
+        for (let i = n - 1; i >= 0; i--)
+            bits.push((v >> i) & 1);
+    };
+    const chars = [...up];
+    let ver = 0;
+    for (let v = 1; v <= 20; v++) {
+        const cap = QR_L[v][0] * 8;
+        const cnt = v < 10 ? 9 : 11;
+        const need = 4 + cnt + Math.floor(chars.length / 2) * 11 + (chars.length % 2 ? 6 : 0);
+        if (need + 4 <= cap) {
+            ver = v;
+            break;
+        }
+    }
+    if (!ver)
+        throw new Error("слишком длинный код");
+    const [dataBytes, blocks, ecPer] = QR_L[ver];
+    push(0b0010, 4);
+    push(chars.length, ver < 10 ? 9 : 11);
+    for (let i = 0; i < chars.length; i += 2) {
+        if (i + 1 < chars.length)
+            push(QR_AL.indexOf(chars[i]) * 45 + QR_AL.indexOf(chars[i + 1]), 11);
+        else
+            push(QR_AL.indexOf(chars[i]), 6);
+    }
+    const cap = dataBytes * 8;
+    for (let i = 0; i < 4 && bits.length < cap; i++)
+        bits.push(0);
+    while (bits.length % 8)
+        bits.push(0);
+    const bytes = [];
+    for (let i = 0; i < bits.length; i += 8) {
+        let b = 0;
+        for (let k = 0; k < 8; k++)
+            b = (b << 1) | bits[i + k];
+        bytes.push(b);
+    }
+    const pad = [0xec, 0x11];
+    let pi = 0;
+    while (bytes.length < dataBytes)
+        bytes.push(pad[pi++ % 2]);
+    // блоки и байты коррекции
+    const short = Math.floor(dataBytes / blocks);
+    const longCount = dataBytes % blocks;
+    const dataBlocks = [];
+    const ecBlocks = [];
+    let p = 0;
+    for (let i = 0; i < blocks; i++) {
+        const len = short + (i >= blocks - longCount ? 1 : 0);
+        const blk = bytes.slice(p, p + len);
+        p += len;
+        dataBlocks.push(blk);
+        ecBlocks.push(rsBytes(blk, ecPer));
+    }
+    const out = [];
+    for (let i = 0; i < Math.max(...dataBlocks.map((b) => b.length)); i++)
+        dataBlocks.forEach((b) => i < b.length && out.push(b[i]));
+    for (let i = 0; i < ecPer; i++)
+        ecBlocks.forEach((b) => out.push(b[i]));
+    // сетка
+    const size = 17 + ver * 4;
+    const m = Array.from({ length: size }, () => new Array(size).fill(null));
+    const put = (r, c, v) => {
+        if (r >= 0 && c >= 0 && r < size && c < size)
+            m[r][c] = v;
+    };
+    const finder = (r, c) => {
+        for (let i = -1; i <= 7; i++)
+            for (let j = -1; j <= 7; j++) {
+                const on = i >= 0 && i <= 6 && j >= 0 && j <= 6 &&
+                    (i === 0 || i === 6 || j === 0 || j === 6 || (i >= 2 && i <= 4 && j >= 2 && j <= 4));
+                put(r + i, c + j, on);
+            }
+    };
+    finder(0, 0);
+    finder(0, size - 7);
+    finder(size - 7, 0);
+    for (let i = 8; i < size - 8; i++) {
+        const on = i % 2 === 0;
+        if (m[6][i] === null)
+            m[6][i] = on;
+        if (m[i][6] === null)
+            m[i][6] = on;
+    }
+    const al = QR_ALIGN[ver];
+    al.forEach((r) => al.forEach((c) => {
+        if ((r === 6 && c === 6) || (r === 6 && c === size - 7) || (r === size - 7 && c === 6))
+            return;
+        for (let i = -2; i <= 2; i++)
+            for (let j = -2; j <= 2; j++)
+                put(r + i, c + j, Math.max(Math.abs(i), Math.abs(j)) !== 1);
+    }));
+    put(size - 8, 8, true); // тёмный модуль
+    // места под служебные данные резервируем
+    const reserved = Array.from({ length: size }, () => new Array(size).fill(false));
+    const reserve = (r, c) => {
+        if (r >= 0 && c >= 0 && r < size && c < size)
+            reserved[r][c] = true;
+    };
+    for (let i = 0; i < 9; i++) {
+        reserve(8, i);
+        reserve(i, 8);
+    }
+    for (let i = 0; i < 8; i++) {
+        reserve(8, size - 1 - i);
+        reserve(size - 1 - i, 8);
+    }
+    if (ver >= 7)
+        for (let i = 0; i < 6; i++)
+            for (let j = 0; j < 3; j++) {
+                reserve(i, size - 11 + j);
+                reserve(size - 11 + j, i);
+            }
+    // данные змейкой, маска 0
+    let bit = 0;
+    const stream = [];
+    out.forEach((b) => {
+        for (let i = 7; i >= 0; i--)
+            stream.push((b >> i) & 1);
+    });
+    let up2 = true;
+    for (let col = size - 1; col > 0; col -= 2) {
+        if (col === 6)
+            col--;
+        for (let k = 0; k < size; k++) {
+            const row = up2 ? size - 1 - k : k;
+            for (let c = 0; c < 2; c++) {
+                const cc = col - c;
+                if (m[row][cc] !== null || reserved[row][cc])
+                    continue;
+                let v = bit < stream.length ? stream[bit++] === 1 : false;
+                if ((row + cc) % 2 === 0)
+                    v = !v; // маска 0
+                m[row][cc] = v;
+            }
+        }
+        up2 = !up2;
+    }
+    // формат: уровень L (01), маска 0
+    const fmtBits = (() => {
+        let d = (0b01 << 3) | 0;
+        let v = d << 10;
+        for (let i = 4; i >= 0; i--)
+            if (v & (1 << (i + 10)))
+                v ^= 0b10100110111 << i;
+        return ((d << 10) | v) ^ 0b101010000010010;
+    })();
+    const fmtBit = (i) => ((fmtBits >> i) & 1) === 1;
+    // первая копия: столбец 8 сверху и строка 8 слева
+    for (let i = 0; i <= 5; i++)
+        m[i][8] = fmtBit(i);
+    m[7][8] = fmtBit(6);
+    m[8][8] = fmtBit(7);
+    m[8][7] = fmtBit(8);
+    for (let i = 9; i < 15; i++)
+        m[8][14 - i] = fmtBit(i);
+    // вторая копия: строка 8 справа и столбец 8 снизу
+    for (let i = 0; i < 8; i++)
+        m[8][size - 1 - i] = fmtBit(i);
+    for (let i = 8; i < 15; i++)
+        m[size - 15 + i][8] = fmtBit(i);
+    m[size - 8][8] = true;
+    if (ver >= 7) {
+        let rem = ver;
+        for (let i = 0; i < 12; i++)
+            rem = (rem << 1) ^ ((rem >>> 11) * 0x1f25);
+        const bitsV = (ver << 12) | (rem & 0xfff);
+        for (let i = 0; i < 18; i++) {
+            const on = ((bitsV >>> i) & 1) === 1;
+            const r = Math.floor(i / 3);
+            const c = size - 11 + (i % 3);
+            m[r][c] = on;
+            m[c][r] = on;
+        }
+    }
+    return m.map((row) => row.map((v) => v === true));
+}
+/* ── чтение QR с картинки: поиск, выравнивание, коррекция ошибок ───── */
+const qrGf = (() => {
+    const exp = new Uint8Array(512);
+    const log = new Uint8Array(256);
+    let x = 1;
+    for (let i = 0; i < 255; i++) {
+        exp[i] = x;
+        log[x] = i;
+        x <<= 1;
+        if (x & 0x100)
+            x ^= 0x11d;
+    }
+    for (let i = 255; i < 512; i++)
+        exp[i] = exp[i - 255];
+    const mul = (a, b) => (a && b ? exp[log[a] + log[b]] : 0);
+    const div = (a, b) => (a ? exp[(log[a] + 255 - log[b]) % 255] : 0);
+    return { exp, log, mul, div };
+})();
+/* деление многочленов и исправление ошибок (Берлекэмп–Мэсси + Форни) */
+function rsFix(bytes, ecLen) {
+    const n = bytes.length;
+    const synd = new Array(ecLen).fill(0);
+    let bad = false;
+    for (let i = 0; i < ecLen; i++) {
+        let s = 0;
+        for (let j = 0; j < n; j++)
+            s = qrGf.mul(s, qrGf.exp[i]) ^ bytes[j];
+        synd[i] = s;
+        if (s)
+            bad = true;
+    }
+    if (!bad)
+        return bytes;
+    let err = [1];
+    let old = [1];
+    for (let i = 0; i < ecLen; i++) {
+        old = [...old, 0];
+        let delta = synd[i];
+        for (let j = 1; j < err.length; j++)
+            delta ^= qrGf.mul(err[err.length - 1 - j], synd[i - j]);
+        if (delta) {
+            if (old.length > err.length) {
+                let neu = old.map((v) => qrGf.mul(v, delta));
+                old = err.map((v) => qrGf.div(v, delta));
+                err = neu;
+            }
+            const scale = old.map((v) => qrGf.mul(v, delta));
+            const out = new Array(Math.max(err.length, scale.length)).fill(0);
+            for (let k = 0; k < err.length; k++)
+                out[out.length - err.length + k] ^= err[k];
+            for (let k = 0; k < scale.length; k++)
+                out[out.length - scale.length + k] ^= scale[k];
+            err = out;
+        }
+    }
+    const errs = err.length - 1;
+    if (errs * 2 > ecLen)
+        return null;
+    const pos = [];
+    for (let i = 0; i < n; i++) {
+        let s = 0;
+        for (let j = 0; j < err.length; j++)
+            s = qrGf.mul(s, qrGf.exp[i]) ^ err[j];
+        if (s === 0)
+            pos.push(n - 1 - i);
+    }
+    if (pos.length !== errs)
+        return null;
+    // значения ошибок
+    const out = bytes.slice();
+    const synPoly = synd.slice().reverse();
+    const q = new Array(synPoly.length + err.length - 1).fill(0);
+    for (let i = 0; i < synPoly.length; i++)
+        for (let j = 0; j < err.length; j++)
+            q[i + j] ^= qrGf.mul(synPoly[i], err[j]);
+    const omega = q.slice(q.length - ecLen);
+    pos.forEach((p) => {
+        const xi = qrGf.exp[(n - 1 - p) % 255];
+        const xiInv = qrGf.div(1, xi);
+        let num = 0;
+        for (let i = 0; i < omega.length; i++)
+            num = qrGf.mul(num, xiInv) ^ omega[i];
+        let den = 0;
+        for (let i = err.length - 1 - ((err.length - 1) % 2); i >= 0; i -= 2)
+            den = den ^ qrGf.mul(err[err.length - 1 - i], qrGf.exp[(i * (n - 1 - p)) % 255]);
+        if (den)
+            out[p] ^= qrGf.div(num, den);
+    });
+    // проверяем ещё раз
+    for (let i = 0; i < ecLen; i++) {
+        let s = 0;
+        for (let j = 0; j < n; j++)
+            s = qrGf.mul(s, qrGf.exp[i]) ^ out[j];
+        if (s)
+            return null;
+    }
+    return out;
+}
+/* чёрно-белая картинка из кадра */
+function qrBinary(data, w, h, mode = 0) {
+    const g = new Uint8Array(w * h);
+    for (let i = 0; i < w * h; i++) {
+        const p = i * 4;
+        g[i] = (data[p] * 299 + data[p + 1] * 587 + data[p + 2] * 114) / 1000;
+    }
+    if (mode === 2) {
+        // общий порог по методу Оцу — помогает на размытых кадрах
+        const hist = new Uint32Array(256);
+        for (let i = 0; i < g.length; i++)
+            hist[g[i]]++;
+        const total = g.length;
+        let sum = 0;
+        for (let i = 0; i < 256; i++)
+            sum += i * hist[i];
+        let sumB = 0;
+        let wB = 0;
+        let bestVar = -1;
+        let thr = 128;
+        for (let i = 0; i < 256; i++) {
+            wB += hist[i];
+            if (!wB)
+                continue;
+            const wF = total - wB;
+            if (!wF)
+                break;
+            sumB += i * hist[i];
+            const mB = sumB / wB;
+            const mF = (sum - sumB) / wF;
+            const v = wB * wF * (mB - mF) * (mB - mF);
+            if (v > bestVar) {
+                bestVar = v;
+                thr = i;
+            }
+        }
+        const out = new Uint8Array(w * h);
+        for (let i = 0; i < out.length; i++)
+            out[i] = g[i] < thr ? 1 : 0;
+        return out;
+    }
+    // локальный порог по блокам
+    const B = mode === 1 ? 8 : 16;
+    const bw = Math.ceil(w / B);
+    const bh = Math.ceil(h / B);
+    const avg = new Float32Array(bw * bh);
+    for (let by = 0; by < bh; by++)
+        for (let bx = 0; bx < bw; bx++) {
+            let sum = 0;
+            let n = 0;
+            for (let y = by * B; y < Math.min(h, by * B + B); y++)
+                for (let x = bx * B; x < Math.min(w, bx * B + B); x++) {
+                    sum += g[y * w + x];
+                    n++;
+                }
+            avg[by * bw + bx] = n ? sum / n : 128;
+        }
+    const bin = new Uint8Array(w * h);
+    for (let y = 0; y < h; y++)
+        for (let x = 0; x < w; x++) {
+            const bx = Math.min(bw - 1, Math.floor(x / B));
+            const by = Math.min(bh - 1, Math.floor(y / B));
+            let s = 0;
+            let n = 0;
+            for (let j = -1; j <= 1; j++)
+                for (let i = -1; i <= 1; i++) {
+                    const xx = bx + i;
+                    const yy = by + j;
+                    if (xx >= 0 && yy >= 0 && xx < bw && yy < bh) {
+                        s += avg[yy * bw + xx];
+                        n++;
+                    }
+                }
+            bin[y * w + x] = g[y * w + x] < s / n - (mode === 1 ? 0 : 4) ? 1 : 0;
+        }
+    return bin;
+}
+/* поиск трёх «глаз» по соотношению 1:1:3:1:1 */
+function qrFinders(bin, w, h) {
+    const hits = [];
+    const check = (run) => {
+        const [a, b, c, d, e] = run;
+        const m = (a + b + d + e + c / 3) / 7;
+        const t = m * 0.6;
+        return (Math.abs(a - m) < t && Math.abs(b - m) < t && Math.abs(d - m) < t &&
+            Math.abs(e - m) < t && Math.abs(c - 3 * m) < 3 * t && m > 0.8);
+    };
+    const step = Math.max(1, Math.floor(h / 500));
+    for (let y = 0; y < h; y += step) {
+        let run = [0, 0, 0, 0, 0];
+        let cur = 0;
+        for (let x = 0; x < w; x++) {
+            const v = bin[y * w + x];
+            if (v === cur)
+                run[4]++;
+            else {
+                run = [run[1], run[2], run[3], run[4], 1];
+                cur = v;
+            }
+            if (cur === 1 && check(run)) {
+                const width = run.reduce((s, v2) => s + v2, 0);
+                hits.push({ x: x - width / 2, y, size: width / 7 });
+            }
+        }
+    }
+    // объединяем близкие находки
+    const groups = [];
+    hits.forEach((p) => {
+        const g = groups.find((q) => Math.hypot(q.x / q.n - p.x, q.y / q.n - p.y) < p.size * 3.5);
+        if (g) {
+            g.x += p.x;
+            g.y += p.y;
+            g.size += p.size;
+            g.n += 1;
+        }
+        else
+            groups.push({ x: p.x, y: p.y, size: p.size, n: 1 });
+    });
+    const found = groups
+        .filter((g) => g.n >= 2)
+        .map((g) => ({ x: g.x / g.n, y: g.y / g.n, size: g.size / g.n }));
+    // проверяем, что по вертикали тоже 1:1:3:1:1
+    const spanUp = (cx, cy, want) => {
+        let n2 = 0;
+        let y = cy;
+        while (y > 0 && bin[y * w + cx] === want) {
+            y--;
+            n2++;
+        }
+        return { n: n2, y };
+    };
+    const spanDown = (cx, cy, want) => {
+        let n2 = 0;
+        let y = cy;
+        while (y < h - 1 && bin[y * w + cx] === want) {
+            y++;
+            n2++;
+        }
+        return { n: n2, y };
+    };
+    return found.filter((g) => {
+        const cx = Math.round(g.x);
+        const cy = Math.round(g.y);
+        if (cx < 1 || cy < 1 || cx >= w - 1 || cy >= h - 1 || !bin[cy * w + cx])
+            return false;
+        const up1 = spanUp(cx, cy, 1);
+        const dn1 = spanDown(cx, cy, 1);
+        const core = up1.n + dn1.n - 1;
+        const up2 = spanUp(cx, up1.y, 0);
+        const dn2 = spanDown(cx, dn1.y, 0);
+        const up3 = spanUp(cx, up2.y, 1);
+        const dn3 = spanDown(cx, dn2.y, 1);
+        const m = (up2.n + dn2.n + up3.n + dn3.n + core / 3) / 7;
+        const t = m * 0.85;
+        return (m > 0.8 &&
+            Math.abs(up2.n - m) < t && Math.abs(dn2.n - m) < t &&
+            Math.abs(up3.n - m) < t && Math.abs(dn3.n - m) < t &&
+            Math.abs(core - 3 * m) < 3 * t &&
+            Math.abs(m - g.size) < g.size * 1.1);
+    });
+}
+/* из кандидатов собираем все тройки, похожие на углы квадрата */
+function qrTriples(pts) {
+    const list = pts.slice(0, 14);
+    const out = [];
+    for (let i = 0; i < list.length; i++)
+        for (let j = i + 1; j < list.length; j++)
+            for (let k = j + 1; k < list.length; k++) {
+                const t = [list[i], list[j], list[k]];
+                const sizes = t.map((p) => p.size);
+                if (Math.max(...sizes) > Math.min(...sizes) * 1.6)
+                    continue;
+                const d = [
+                    Math.hypot(t[0].x - t[1].x, t[0].y - t[1].y),
+                    Math.hypot(t[0].x - t[2].x, t[0].y - t[2].y),
+                    Math.hypot(t[1].x - t[2].x, t[1].y - t[2].y),
+                ].sort((a, b) => a - b);
+                const ok = Math.abs(d[0] - d[1]) < d[1] * 0.25 &&
+                    Math.abs(d[2] - d[1] * Math.SQRT2) < d[2] * 0.25 &&
+                    d[0] > Math.min(...sizes) * 6;
+                if (ok)
+                    out.push({ t, score: d[0] + d[1] });
+            }
+    return out.sort((a, b) => b.score - a.score).slice(0, 6).map((x) => x.t);
+}
+/* уточняем центр метки: середина тёмного ядра по строке и столбцу */
+function qrRefine(bin, w, h, p) {
+    const at = (x, y) => (x >= 0 && y >= 0 && x < w && y < h ? bin[y * w + x] : 0);
+    let cx = Math.round(p.x);
+    let cy = Math.round(p.y);
+    for (let pass = 0; pass < 3; pass++) {
+        if (!at(cx, cy))
+            break;
+        let x1 = cx;
+        while (at(x1 - 1, cy))
+            x1--;
+        let x2 = cx;
+        while (at(x2 + 1, cy))
+            x2++;
+        let y1 = cy;
+        while (at(cx, y1 - 1))
+            y1--;
+        let y2 = cy;
+        while (at(cx, y2 + 1))
+            y2++;
+        const nx = (x1 + x2) / 2;
+        const ny = (y1 + y2) / 2;
+        if (Math.abs(nx - cx) < 0.5 && Math.abs(ny - cy) < 0.5) {
+            cx = nx;
+            cy = ny;
+            break;
+        }
+        cx = Math.round(nx);
+        cy = Math.round(ny);
+    }
+    return { x: cx, y: cy, size: p.size };
+}
+/* преобразование «модули → точки кадра» по четырём углам */
+function qrHomography(src, dst) {
+    // решаем систему 8×8 методом Гаусса
+    const A = [];
+    const b = [];
+    for (let i = 0; i < 4; i++) {
+        const { x: X, y: Y } = src[i];
+        const { x, y } = dst[i];
+        A.push([X, Y, 1, 0, 0, 0, -X * x, -Y * x]);
+        b.push(x);
+        A.push([0, 0, 0, X, Y, 1, -X * y, -Y * y]);
+        b.push(y);
+    }
+    for (let col = 0; col < 8; col++) {
+        let piv = col;
+        for (let r = col + 1; r < 8; r++)
+            if (Math.abs(A[r][col]) > Math.abs(A[piv][col]))
+                piv = r;
+        if (Math.abs(A[piv][col]) < 1e-9)
+            return null;
+        [A[col], A[piv]] = [A[piv], A[col]];
+        [b[col], b[piv]] = [b[piv], b[col]];
+        for (let r = 0; r < 8; r++) {
+            if (r === col)
+                continue;
+            const f = A[r][col] / A[col][col];
+            if (!f)
+                continue;
+            for (let c = col; c < 8; c++)
+                A[r][c] -= f * A[col][c];
+            b[r] -= f * b[col];
+        }
+    }
+    const h = b.map((v, i) => v / A[i][i]);
+    return (X, Y) => {
+        const d = h[6] * X + h[7] * Y + 1;
+        return {
+            x: (h[0] * X + h[1] * Y + h[2]) / d,
+            y: (h[3] * X + h[4] * Y + h[5]) / d,
+        };
+    };
+}
+/* по трём «глазам» строим сетку и снимаем модули */
+function qrGrid(bin, w, h, ptsRaw, verWant, nudge) {
+    const pts = ptsRaw.map((p) => qrRefine(bin, w, h, p));
+    const d = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+    let tl = 0;
+    let best = 1e9;
+    for (let i = 0; i < 3; i++) {
+        const [a, b] = [0, 1, 2].filter((k) => k !== i).map((k) => pts[k]);
+        const p = pts[i];
+        const v1 = { x: a.x - p.x, y: a.y - p.y };
+        const v2 = { x: b.x - p.x, y: b.y - p.y };
+        const cos = Math.abs((v1.x * v2.x + v1.y * v2.y) / (Math.hypot(v1.x, v1.y) * Math.hypot(v2.x, v2.y)));
+        if (cos < best) {
+            best = cos;
+            tl = i;
+        }
+    }
+    const P = pts[tl];
+    const rest = [0, 1, 2].filter((k) => k !== tl).map((k) => pts[k]);
+    const cross = (a, b) => (a.x - P.x) * (b.y - P.y) - (a.y - P.y) * (b.x - P.x);
+    const [R, B] = cross(rest[0], rest[1]) > 0 ? [rest[0], rest[1]] : [rest[1], rest[0]];
+    const mod = (P.size + R.size + B.size) / 3;
+    const n = verWant ? verWant * 4 + 17 : Math.round(d(P, R) / mod) + 7;
+    const ver = Math.round((n - 17) / 4);
+    if (ver < 1 || ver > 20)
+        return null;
+    const size = ver * 4 + 17;
+    // шаг сетки считаем по расстоянию между метками: так он не зависит от наклона
+    const modG = d(P, R) / (size - 7);
+    // четвёртый угол: по вспомогательной метке, если она есть
+    let map = null;
+    let alFound = null;
+    const corners = [
+        { x: 3.5, y: 3.5 },
+        { x: size - 3.5, y: 3.5 },
+        { x: 3.5, y: size - 3.5 },
+    ];
+    if (ver >= 2) {
+        const alPos = size - 6.5; // центр правой нижней вспомогательной метки
+        const affine = (X, Y) => ({
+            x: P.x + ((R.x - P.x) / (size - 7)) * (X - 3.5) + ((B.x - P.x) / (size - 7)) * (Y - 3.5),
+            y: P.y + ((R.y - P.y) / (size - 7)) * (X - 3.5) + ((B.y - P.y) / (size - 7)) * (Y - 3.5),
+        });
+        const guess = affine(alPos, alPos);
+        const win = Math.max(4, Math.round(modG * 4));
+        const step = Math.max(1, Math.round(modG));
+        const okAt = (x, y) => {
+            if (x < step * 2 || y < step * 2 || x >= w - step * 2 || y >= h - step * 2)
+                return false;
+            // центр тёмный, кольцо вокруг светлое, следующее кольцо тёмное
+            if (!bin[y * w + x])
+                return false;
+            const light = !bin[y * w + x + step] && !bin[y * w + x - step] &&
+                !bin[(y + step) * w + x] && !bin[(y - step) * w + x];
+            const dark = bin[y * w + x + step * 2] && bin[y * w + x - step * 2] &&
+                bin[(y + step * 2) * w + x] && bin[(y - step * 2) * w + x];
+            return light && dark;
+        };
+        let found = null;
+        let bestD = 1e9;
+        for (let r = -win; r <= win; r++)
+            for (let c = -win; c <= win; c++) {
+                const x = Math.round(guess.x + c);
+                const y = Math.round(guess.y + r);
+                if (!okAt(x, y))
+                    continue;
+                const dist = Math.hypot(c, r);
+                if (dist < bestD) {
+                    bestD = dist;
+                    found = qrRefine(bin, w, h, { x, y, size: modG });
+                }
+            }
+        alFound = found;
+        if (found)
+            map = qrHomography([...corners, { x: alPos, y: alPos }], [P, R, B, found]);
+    }
+    if (!map || nudge) {
+        // подгоняем четвёртый угол: при небольшом перекосе это выправляет сетку
+        const ux2 = (R.x - P.x) / (size - 7);
+        const uy2 = (R.y - P.y) / (size - 7);
+        const vx2 = (B.x - P.x) / (size - 7);
+        const vy2 = (B.y - P.y) / (size - 7);
+        const k = nudge || { x: 0, y: 0 };
+        const D = {
+            x: R.x + B.x - P.x + ux2 * k.x + vx2 * k.y,
+            y: R.y + B.y - P.y + uy2 * k.x + vy2 * k.y,
+        };
+        map = qrHomography([...corners, { x: size - 3.5, y: size - 3.5 }], [P, R, B, D]);
+    }
+    if (!map)
+        return null;
+    const m = [];
+    for (let r = 0; r < size; r++) {
+        const row = [];
+        for (let c = 0; c < size; c++) {
+            const { x, y } = map(c + 0.5, r + 0.5);
+            const xi = Math.round(x);
+            const yi = Math.round(y);
+            let on = 0;
+            let cnt = 0;
+            for (let dy = -1; dy <= 1; dy++)
+                for (let dx = -1; dx <= 1; dx++) {
+                    const xx = xi + dx;
+                    const yy = yi + dy;
+                    if (xx >= 0 && yy >= 0 && xx < w && yy < h) {
+                        on += bin[yy * w + xx];
+                        cnt++;
+                    }
+                }
+            row.push(cnt ? on * 2 > cnt : false);
+        }
+        m.push(row);
+    }
+    return { m, ver, n: size, al: alFound };
+}
+/* матрица → текст: снимаем маску, собираем блоки, исправляем ошибки */
+function qrDecodeMatrix(m, ver) {
+    const n = m.length;
+    const fmtBit = (i) => {
+        const pos = [
+            [8, 0], [8, 1], [8, 2], [8, 3], [8, 4], [8, 5], [8, 7], [8, 8],
+        ];
+        return i < 6 ? m[i][8] : i === 6 ? m[7][8] : i === 7 ? m[8][8] : i === 8 ? m[8][7] : m[8][14 - i];
+    };
+    let fmt = 0;
+    for (let i = 14; i >= 0; i--)
+        fmt = (fmt << 1) | (fmtBit(i) ? 1 : 0);
+    fmt ^= 0b101010000010010;
+    const ecc = (fmt >> 13) & 3;
+    const mask = (fmt >> 10) & 7;
+    const maskFn = [
+        (r, c) => (r + c) % 2 === 0,
+        (r) => r % 2 === 0,
+        (r, c) => c % 3 === 0,
+        (r, c) => (r + c) % 3 === 0,
+        (r, c) => (Math.floor(r / 2) + Math.floor(c / 3)) % 2 === 0,
+        (r, c) => ((r * c) % 2) + ((r * c) % 3) === 0,
+        (r, c) => (((r * c) % 2) + ((r * c) % 3)) % 2 === 0,
+        (r, c) => (((r + c) % 2) + ((r * c) % 3)) % 2 === 0,
+    ][mask];
+    const fn = Array.from({ length: n }, () => new Array(n).fill(false));
+    const mark = (r, c) => {
+        if (r >= 0 && c >= 0 && r < n && c < n)
+            fn[r][c] = true;
+    };
+    [[0, 0], [0, n - 7], [n - 7, 0]].forEach(([r, c]) => {
+        for (let i = -1; i <= 7; i++)
+            for (let j = -1; j <= 7; j++)
+                mark(r + i, c + j);
+    });
+    for (let i = 0; i < n; i++) {
+        mark(6, i);
+        mark(i, 6);
+    }
+    const al = QR_ALIGN[ver] || [];
+    al.forEach((r) => al.forEach((c) => {
+        if ((r === 6 && c === 6) || (r === 6 && c === n - 7) || (r === n - 7 && c === 6))
+            return;
+        for (let i = -2; i <= 2; i++)
+            for (let j = -2; j <= 2; j++)
+                mark(r + i, c + j);
+    }));
+    for (let i = 0; i < 9; i++) {
+        mark(8, i);
+        mark(i, 8);
+    }
+    for (let i = 0; i < 8; i++) {
+        mark(8, n - 1 - i);
+        mark(n - 1 - i, 8);
+    }
+    if (ver >= 7)
+        for (let i = 0; i < 6; i++)
+            for (let j = 0; j < 3; j++) {
+                mark(i, n - 11 + j);
+                mark(n - 11 + j, i);
+            }
+    const bits = [];
+    let up = true;
+    for (let col = n - 1; col > 0; col -= 2) {
+        if (col === 6)
+            col--;
+        for (let k = 0; k < n; k++) {
+            const row = up ? n - 1 - k : k;
+            for (let c = 0; c < 2; c++) {
+                const cc = col - c;
+                if (fn[row][cc])
+                    continue;
+                let v = m[row][cc];
+                if (maskFn(row, cc))
+                    v = !v;
+                bits.push(v ? 1 : 0);
+            }
+        }
+        up = !up;
+    }
+    const bytes = [];
+    for (let i = 0; i + 8 <= bits.length; i += 8) {
+        let b = 0;
+        for (let k = 0; k < 8; k++)
+            b = (b << 1) | bits[i + k];
+        bytes.push(b);
+    }
+    if (ecc !== 1)
+        return null; // ждём уровень L
+    const [dataBytes, blocks, ecPer] = QR_L[ver];
+    const short = Math.floor(dataBytes / blocks);
+    const longCount = dataBytes % blocks;
+    const lens = Array.from({ length: blocks }, (_, i) => short + (i >= blocks - longCount ? 1 : 0));
+    const dataBlk = lens.map(() => []);
+    let p = 0;
+    for (let i = 0; i < Math.max(...lens); i++)
+        for (let b = 0; b < blocks; b++)
+            if (i < lens[b])
+                dataBlk[b].push(bytes[p++]);
+    const ecBlk = Array.from({ length: blocks }, () => []);
+    for (let i = 0; i < ecPer; i++)
+        for (let b = 0; b < blocks; b++)
+            ecBlk[b].push(bytes[p++]);
+    const out = [];
+    for (let b = 0; b < blocks; b++) {
+        const fixed = rsFix([...dataBlk[b], ...ecBlk[b]], ecPer);
+        if (!fixed)
+            return null;
+        out.push(...fixed.slice(0, dataBlk[b].length));
+    }
+    // читаем режим «буквы и цифры»
+    let bi = 0;
+    const take = (k) => {
+        let v = 0;
+        for (let i = 0; i < k; i++) {
+            const byte = out[(bi + i) >> 3];
+            v = (v << 1) | ((byte >> (7 - ((bi + i) & 7))) & 1);
+        }
+        bi += k;
+        return v;
+    };
+    const mode = take(4);
+    if (mode !== 0b0010)
+        return null;
+    const count = take(ver < 10 ? 9 : 11);
+    let text = "";
+    for (let i = 0; i + 2 <= count; i += 2) {
+        const v = take(11);
+        text += QR_AL[Math.floor(v / 45)] + QR_AL[v % 45];
+    }
+    if (count % 2)
+        text += QR_AL[take(6)];
+    return text;
+}
+/* весь путь: кадр → текст */
+function qrRead(data, w, h) {
+    for (let mode = 0; mode < 3; mode++) {
+        const text = qrReadOne(data, w, h, mode);
+        if (text)
+            return text;
+    }
+    return null;
+}
+function qrReadOne(data, w, h, mode) {
+    const bin = qrBinary(data, w, h, mode);
+    const pts = qrFinders(bin, w, h).sort((a, b) => b.size - a.size);
+    for (const three of qrTriples(pts)) {
+        const base = qrGrid(bin, w, h, three);
+        if (!base)
+            continue;
+        // размер мог определиться с ошибкой в шаг — пробуем соседние версии
+        const tryVers = [];
+        for (let k = 0; k <= 5; k++) {
+            tryVers.push(base.ver - k, base.ver + k);
+        }
+        for (const v of [...new Set(tryVers)]) {
+            if (v < 1 || v > 20)
+                continue;
+            for (const nudge of [null, { x: 0, y: 0 }, { x: 1.5, y: 1.5 }, { x: -1.5, y: -1.5 },
+                { x: 3, y: 3 }, { x: -3, y: -3 }, { x: 1.5, y: -1.5 }, { x: -1.5, y: 1.5 }]) {
+                const grid = qrGrid(bin, w, h, three, v, nudge);
+                if (!grid)
+                    continue;
+                try {
+                    const text = qrDecodeMatrix(grid.m, grid.ver);
+                    if (text)
+                        return text;
+                }
+                catch {
+                    /* следующая попытка */
+                }
+            }
+        }
+    }
+    return null;
+}
+/* ── короткий код соединения: из него собирается полный SDP ────────── */
+const B32 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+const toB32 = (bytes) => {
+    let bits = 0;
+    let val = 0;
+    let out = "";
+    bytes.forEach((b) => {
+        val = (val << 8) | b;
+        bits += 8;
+        while (bits >= 5) {
+            out += B32[(val >>> (bits - 5)) & 31];
+            bits -= 5;
+        }
+    });
+    if (bits)
+        out += B32[(val << (5 - bits)) & 31];
+    return out;
+};
+const fromB32 = (str) => {
+    let bits = 0;
+    let val = 0;
+    const out = [];
+    [...String(str).toUpperCase()].forEach((c) => {
+        const i = B32.indexOf(c);
+        if (i < 0)
+            return;
+        val = (val << 5) | i;
+        bits += 5;
+        if (bits >= 8) {
+            out.push((val >>> (bits - 8)) & 255);
+            bits -= 8;
+        }
+    });
+    return new Uint8Array(out);
+};
+const utf8 = (str) => new TextEncoder().encode(str);
+const unutf8 = (arr) => new TextDecoder().decode(arr);
+/* выжимка из SDP: всё, что нужно, чтобы собрать его заново */
+function packSdp(sdp) {
+    const get = (re) => (sdp.match(re) || [])[1] || "";
+    const ufrag = get(/a=ice-ufrag:(\S+)/);
+    const pwd = get(/a=ice-pwd:(\S+)/);
+    const fp = get(/a=fingerprint:sha-256 (\S+)/).replace(/:/g, "");
+    const setup = get(/a=setup:(\S+)/);
+    // адрес может быть и обычным, и вида xxxx.local — берём как есть
+    const cands = [...sdp.matchAll(/a=candidate:\S+ 1 udp \d+ (\S+) (\d+) typ (host|srflx)/g)]
+        .map((m) => `${m[1]}@${m[2]}`)
+        .filter((v, i, a) => a.indexOf(v) === i)
+        .slice(0, 4);
+    const role = setup === "actpass" ? "A" : setup === "active" ? "C" : "P";
+    const txt = [ufrag, pwd, fp, role, cands.join(",")].join("|");
+    return toB32(utf8(txt));
+}
+/* обратная сборка: из кода получаем рабочий SDP */
+function unpackSdp(code, type) {
+    const [ufrag, pwd, fp, setup, cands] = unutf8(fromB32(code)).split("|");
+    const fpColon = (fp.match(/.{2}/g) || []).join(":").toUpperCase();
+    const lines = [
+        "v=0",
+        "o=- 1 1 IN IP4 0.0.0.0",
+        "s=-",
+        "t=0 0",
+        "a=group:BUNDLE 0",
+        "m=application 9 UDP/DTLS/SCTP webrtc-datachannel",
+        "c=IN IP4 0.0.0.0",
+        "a=mid:0",
+        `a=ice-ufrag:${ufrag}`,
+        `a=ice-pwd:${pwd}`,
+        "a=ice-options:trickle",
+        `a=fingerprint:sha-256 ${fpColon}`,
+        `a=setup:${setup === "C" ? "active" : setup === "P" ? "passive" : "actpass"}`,
+        "a=sctp-port:5000",
+        "a=max-message-size:262144",
+    ];
+    (cands || "")
+        .split(",")
+        .filter(Boolean)
+        .forEach((c, i) => {
+        const [ip, port] = c.split("@");
+        lines.push(`a=candidate:${i + 1} 1 udp ${2130706431 - i} ${ip} ${port} typ host generation 0`);
+    });
+    lines.push("a=end-of-candidates");
+    return { type, sdp: lines.join("\r\n") + "\r\n" };
+}
+/* соединение двух телефонов в одной сети: без сервера, обмен кодами */
+function localPeer() {
+    const pc = new RTCPeerConnection({ iceServers: [] });
+    const ready = () => new Promise((res) => {
+        if (pc.iceGatheringState === "complete")
+            return res();
+        const on = () => {
+            if (pc.iceGatheringState === "complete") {
+                pc.removeEventListener("icegatheringstatechange", on);
+                res();
+            }
+        };
+        pc.addEventListener("icegatheringstatechange", on);
+        setTimeout(res, 2500); // не ждём вечно
+    });
+    return {
+        pc,
+        /* сторона, которая передаёт первой */
+        async offer() {
+            const ch = pc.createDataChannel("atlas", { ordered: true });
+            const d = await pc.createOffer();
+            await pc.setLocalDescription(d);
+            await ready();
+            return { code: packSdp(pc.localDescription.sdp), channel: ch };
+        },
+        /* сторона, которая приняла код: канал придёт позже, отдаём его через onChannel */
+        async answer(code, onChannel) {
+            pc.ondatachannel = (e) => onChannel === null || onChannel === void 0 ? void 0 : onChannel(e.channel);
+            await pc.setRemoteDescription(unpackSdp(code, "offer"));
+            const d = await pc.createAnswer();
+            await pc.setLocalDescription(d);
+            await ready();
+            return { code: packSdp(pc.localDescription.sdp) };
+        },
+        async accept(code) {
+            await pc.setRemoteDescription(unpackSdp(code, "answer"));
+        },
+    };
+}
+/* передача пакета по каналу кусками: канал не любит большие сообщения */
+function sendPacket(channel, obj) {
+    const text = JSON.stringify(obj);
+    const size = 8000;
+    channel.send(JSON.stringify({ n: Math.ceil(text.length / size) }));
+    for (let i = 0; i < text.length; i += size)
+        channel.send(text.slice(i, i + size));
+}
+function readPackets(channel, onDone) {
+    let need = 0;
+    let parts = [];
+    channel.onmessage = (e) => {
+        const s2 = typeof e.data === "string" ? e.data : "";
+        if (!need) {
+            try {
+                const head = JSON.parse(s2);
+                if (head && head.n) {
+                    need = head.n;
+                    parts = [];
+                    return;
+                }
+            }
+            catch {
+                /* не заголовок */
+            }
+        }
+        parts.push(s2);
+        if (parts.length >= need) {
+            const all = parts.join("");
+            need = 0;
+            parts = [];
+            try {
+                onDone(JSON.parse(all));
+            }
+            catch {
+                /* повреждённый пакет */
+            }
+        }
+    };
+}
+/* ── разбор обмена: что нового, что удалено, где расхождения ───────── */
+const TRIP_FIELDS = [
+    ["y", "год"],
+    ["m", "месяц"],
+    ["from", "начало"],
+    ["to", "конец"],
+    ["cities", "города"],
+    ["regions", "регионы"],
+    ["hotels", "отели"],
+    ["who", "состав"],
+    ["move", "транспорт"],
+    ["air", "авиакомпании"],
+    ["dep", "город вылета"],
+    ["plan", "план"],
+];
+const sameVal = (a, b) => JSON.stringify(a !== null && a !== void 0 ? a : null) === JSON.stringify(b !== null && b !== void 0 ? b : null);
+const tripDiff = (a, b) => TRIP_FIELDS.filter(([k]) => !sameVal(a === null || a === void 0 ? void 0 : a[k], b === null || b === void 0 ? void 0 : b[k])).map(([, t]) => t);
+/* что изменится при обмене: новые, удалённые и спорные поездки */
+function syncPlan(mine, theirs, tombsMine, tombsTheirs) {
+    const my = new Map();
+    Object.entries(mine || {}).forEach(([a3, arr]) => (arr || []).forEach((t) => my.set(t.id, { a3, t: normTrip(t) })));
+    const add = [];
+    const del = [];
+    const conflicts = [];
+    let same = 0;
+    Object.entries(theirs || {}).forEach(([a3, arr]) => (arr || []).forEach((raw) => {
+        const t = normTrip(raw);
+        const dead = (tombsMine || {})[t.id];
+        if (dead && dead >= (t.at || 0))
+            return; // я это удалил позже их правки
+        const was = my.get(t.id);
+        if (!was) {
+            add.push({ a3, t });
+            return;
+        }
+        const diff = tripDiff(was.t, t);
+        if (!diff.length) {
+            same += 1;
+            return;
+        }
+        conflicts.push({
+            id: t.id,
+            a3,
+            diff,
+            mine: was.t,
+            theirs: t,
+            // по умолчанию берём более свежую правку
+            pick: (t.at || 0) > (was.t.at || 0) ? "theirs" : "mine",
+        });
+    }));
+    Object.entries(tombsTheirs || {}).forEach(([id, at]) => {
+        const was = my.get(id);
+        if (was && at >= (was.t.at || 0))
+            del.push({ a3: was.a3, t: was.t, at });
+    });
+    return { add, del, conflicts, same };
+}
+/* применяем разобранный обмен с учётом выбора пользователя */
+function applyPlan(mine, tombsMine, theirs, tombsTheirs, plan, picks) {
+    const chosen = { ...(theirs || {}) };
+    const keepMine = [];
+    const copies = [];
+    (plan.conflicts || []).forEach((c) => {
+        const pick = (picks === null || picks === void 0 ? void 0 : picks[c.id]) || c.pick;
+        if (pick === "theirs")
+            return;
+        // их версию не берём: убираем её из входящих данных
+        chosen[c.a3] = (chosen[c.a3] || []).filter((t) => t.id !== c.id);
+        keepMine.push(c.id);
+        if (pick === "both")
+            copies.push({ a3: c.a3, t: { ...c.theirs, id: uid(), at: Date.now() } });
+    });
+    copies.forEach(({ a3, t }) => {
+        chosen[a3] = [...(chosen[a3] || []), t];
+    });
+    const res = mergeVisits(mine, chosen, tombsMine, tombsTheirs);
+    // если оставили свою версию, правка родных не должна её перебить
+    keepMine.forEach((id) => {
+        Object.entries(mine || {}).forEach(([a3, arr]) => (arr || []).forEach((t) => {
+            if (t.id !== id)
+                return;
+            res.visits[a3] = (res.visits[a3] || []).map((x) => x.id === id ? { ...normTrip(t), at: Date.now() } : x);
+        }));
+    });
+    return res;
+}
 /* похожие поездки: одна страна и пересекающиеся даты */
 function findDoubles(visits) {
     const pairs = [];
@@ -1263,55 +2400,6 @@ function familyPayload(visits, tombs, people, meName) {
     };
 }
 /* отправка и приём одним вызовом — для фонового обмена */
-async function familySync(family, payload) {
-    const base = family.server.replace(/\/+$/, "");
-    await fetch(base + "/put/" + family.id, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-            who: family.me || "me",
-            ...(await sealPacket(family.raw, payload)),
-        }),
-    });
-    const r = await fetch(base + "/get/" + family.id, { cache: "no-store" });
-    const list = await r.json();
-    const out = [];
-    for (const packet of list || []) {
-        try {
-            out.push(await openPacket(family.raw, packet));
-        }
-        catch {
-            /* чужой ключ */
-        }
-    }
-    return out;
-}
-/* проверка сервера: отвечает ли и умеет ли принимать */
-async function pingServer(url) {
-    if (!url)
-        return false;
-    try {
-        const r = await fetch(url.replace(/\/+$/, "") + "/ping", {
-            method: "GET",
-            cache: "no-store",
-        });
-        return r.ok;
-    }
-    catch {
-        return false;
-    }
-}
-/* сколько осталось до поездки: дни, часы, минуты, секунды */
-const startsAt = (t) => {
-    if (!t)
-        return null;
-    const a = dParts(t.from);
-    if (a)
-        return new Date(a.y, a.m - 1, a.d, 0, 0, 0);
-    if (!t.y || t.approx)
-        return null;
-    return new Date(t.y, (t.m || 1) - 1, 1, 0, 0, 0);
-};
 function useCountdown(target) {
     const [left, setLeft] = useState(() => target ? target.getTime() - Date.now() : 0);
     useEffect(() => {
@@ -1347,7 +2435,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "29.3";
+const APP_VERSION = "29.8";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -4999,7 +6087,7 @@ function HomePicker({ home, onHome }) {
                 React.createElement("em", null, ((_d = BY_A3[c.a3]) === null || _d === void 0 ? void 0 : _d.name) || c.a3)));
         })))));
 }
-function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, since, onSince, people, onPeople, onReports, onShelf, onSettings, onFamily, familyOn, onExport, onImport, onRestore, restoreMsg, doubles, onDoubles, visits, onMergeWho, home, onHome, regionGaps, onFillRegions, depGaps, onFillDeparture, }) {
+function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, since, onSince, people, onPeople, onReports, onShelf, onSettings, onFamily, onExport, onImport, onRestore, restoreMsg, doubles, onDoubles, visits, onMergeWho, home, onHome, regionGaps, onFillRegions, depGaps, onFillDeparture, }) {
     const [showAll, setShowAll] = useState(false);
     const [addPerson, setAddPerson] = useState(false);
     const crew = useMemo(() => travelerStats(visits, people), [visits, people]);
@@ -5157,9 +6245,7 @@ function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, 
         React.createElement("button", { className: "switch-row", onClick: onFamily },
             React.createElement("span", { className: "switch-text" },
                 "\u0421\u0435\u043C\u044C\u044F",
-                React.createElement("em", null, familyOn
-                    ? "Обмен поездками с близкими настроен"
-                    : "Обмениваться поездками с близкими")),
+                React.createElement("em", null, "\u041E\u0431\u043C\u0435\u043D \u043F\u043E\u0435\u0437\u0434\u043A\u0430\u043C\u0438 \u0441 \u0431\u043B\u0438\u0437\u043A\u0438\u043C\u0438, \u043A\u043E\u0433\u0434\u0430 \u0432\u044B \u0440\u044F\u0434\u043E\u043C")),
             React.createElement("span", { className: "step-pen" }, "\u2192")),
         React.createElement("p", { className: "step-title" }, "\u041F\u0443\u0442\u0435\u0448\u0435\u0441\u0442\u0432\u0435\u043D\u043D\u0438\u043A\u0438"),
         people.length > 0 && (React.createElement("div", { className: "people" }, people.map((pr) => (React.createElement("div", { key: pr.id, className: "person" },
@@ -7587,6 +8673,316 @@ function RadarChart({ rows }) {
             r.name))))));
 }
 /* подтверждение перед удалением — чтобы не снести лишнее случайно */
+/* короткое описание поездки для экрана обмена */
+function tripLine(t) {
+    const when = t.m ? `${MONTHS[t.m - 1]} ${t.y}` : String(t.y || "");
+    const where = (t.cities || []).join(", ");
+    return [when, where].filter(Boolean).join(" · ");
+}
+/* QR-код как картинка */
+function QrBox({ text, size = 240 }) {
+    const cv = useRef(null);
+    useEffect(() => {
+        const c = cv.current;
+        if (!c || !text)
+            return;
+        let m;
+        try {
+            m = qrMatrix(text);
+        }
+        catch {
+            return;
+        }
+        const n = m.length;
+        const pad = 4;
+        const dpr = window.devicePixelRatio || 1;
+        const cell = Math.max(2, Math.floor((size * dpr) / (n + pad * 2)));
+        const px = cell * (n + pad * 2);
+        c.width = px;
+        c.height = px;
+        c.style.width = c.style.height = `${px / dpr}px`;
+        const x = c.getContext("2d");
+        x.fillStyle = "#f4efe2";
+        x.fillRect(0, 0, px, px);
+        x.fillStyle = "#0b1622";
+        for (let r = 0; r < n; r++)
+            for (let q = 0; q < n; q++)
+                if (m[r][q])
+                    x.fillRect((q + pad) * cell, (r + pad) * cell, cell, cell);
+    }, [text, size]);
+    return React.createElement("canvas", { ref: cv, className: "qr-box" });
+}
+/* камера: ищем код в кадре системным читателем, иначе своим */
+function QrCamera({ onCode, onClose }) {
+    const video = useRef(null);
+    const [err, setErr] = useState("");
+    useEffect(() => {
+        let stop = false;
+        let stream = null;
+        let timer = 0;
+        const cv = document.createElement("canvas");
+        (async () => {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: "environment", width: { ideal: 1280 } },
+                    audio: false,
+                });
+                if (stop)
+                    return stream.getTracks().forEach((t) => t.stop());
+                const v = video.current;
+                v.srcObject = stream;
+                v.setAttribute("playsinline", "true");
+                await v.play();
+                let detector = null;
+                try {
+                    if (window.BarcodeDetector)
+                        detector = new window.BarcodeDetector({ formats: ["qr_code"] });
+                }
+                catch {
+                    detector = null;
+                }
+                const tick = async () => {
+                    var _c;
+                    if (stop)
+                        return;
+                    const w = v.videoWidth;
+                    const h = v.videoHeight;
+                    if (w && h) {
+                        const side = Math.min(w, h);
+                        const size = 520;
+                        cv.width = size;
+                        cv.height = size;
+                        const x = cv.getContext("2d", { willReadFrequently: true });
+                        x.drawImage(v, (w - side) / 2, (h - side) / 2, side, side, 0, 0, size, size);
+                        let text = null;
+                        if (detector) {
+                            try {
+                                const found = await detector.detect(cv);
+                                text = ((_c = found[0]) === null || _c === void 0 ? void 0 : _c.rawValue) || null;
+                            }
+                            catch {
+                                detector = null;
+                            }
+                        }
+                        if (!text) {
+                            const img = x.getImageData(0, 0, size, size);
+                            text = qrRead(img.data, size, size);
+                        }
+                        if (text) {
+                            onCode(text);
+                            return;
+                        }
+                    }
+                    timer = setTimeout(tick, 180);
+                };
+                tick();
+            }
+            catch (e) {
+                setErr("Камера недоступна — введите код вручную");
+            }
+        })();
+        return () => {
+            stop = true;
+            clearTimeout(timer);
+            stream === null || stream === void 0 ? void 0 : stream.getTracks().forEach((t) => t.stop());
+        };
+    }, [onCode]);
+    return (React.createElement("div", { className: "qr-cam" },
+        React.createElement("video", { ref: video, muted: true, playsInline: true }),
+        React.createElement("div", { className: "qr-frame" }),
+        err ? React.createElement("p", { className: "near-state" }, err) : React.createElement("p", null, "\u041D\u0430\u0432\u0435\u0434\u0438\u0442\u0435 \u043D\u0430 \u043A\u043E\u0434 \u0432\u0442\u043E\u0440\u043E\u0433\u043E \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430"),
+        React.createElement("button", { className: "ask-no", onClick: onClose }, "\u0412\u0432\u0435\u0441\u0442\u0438 \u043A\u043E\u0434 \u0432\u0440\u0443\u0447\u043D\u0443\u044E")));
+}
+/* обмен поездками рядом: без интернета, по одной сети */
+function NearSync({ makePayload, onData, onClose }) {
+    const [mode, setMode] = useState(null); // give | take
+    const [myCode, setMyCode] = useState("");
+    const [theirCode, setTheirCode] = useState("");
+    const [state, setState] = useState("");
+    const [cam, setCam] = useState(false);
+    const [withPhotos, setWithPhotos] = useState(false);
+    const [phase, setPhase] = useState("idle"); // idle | wait | live | done
+    const peer = useRef(null);
+    const chan = useRef(null);
+    useEffect(() => () => { var _c; return (_c = peer.current) === null || _c === void 0 ? void 0 : _c.pc.close(); }, []);
+    const wire = (ch) => {
+        chan.current = ch;
+        readPackets(ch, (d) => {
+            setPhase("done");
+            setState("Данные получены");
+            onData(d);
+        });
+        const send = async () => {
+            setPhase("live");
+            setState(withPhotos ? "Соединились, передаём поездки и снимки" : "Соединились, передаём");
+            sendPacket(ch, await makePayload(withPhotos));
+        };
+        ch.onopen = send;
+        if (ch.readyState === "open")
+            send();
+        ch.onclose = () => setState("Соединение закрыто");
+    };
+    const start = async (m) => {
+        setMode(m);
+        setState(m === "give" ? "Готовим код" : "Введите код с первого телефона");
+        setPhase("wait");
+        if (m !== "give")
+            return;
+        const p = localPeer();
+        peer.current = p;
+        const r = await p.offer();
+        wire(r.channel);
+        setMyCode(r.code);
+        setState("Покажите код второму телефону");
+    };
+    const takeCode = async (raw) => {
+        const code = String(raw !== null && raw !== void 0 ? raw : theirCode).trim().toUpperCase();
+        if (code.length < 40)
+            return;
+        try {
+            if (mode === "take") {
+                const p = localPeer();
+                peer.current = p;
+                const r = await p.answer(code, wire);
+                setMyCode(r.code);
+                setState("Покажите ответный код первому телефону");
+            }
+            else {
+                await peer.current.accept(code);
+                setState("Соединяемся");
+            }
+        }
+        catch {
+            setState("Код не подошёл");
+        }
+    };
+    return (React.createElement("div", { className: "ask-layer sync-layer" },
+        React.createElement("div", { className: "sync near", onClick: (e) => e.stopPropagation() },
+            React.createElement("div", { className: "sync-head" },
+                React.createElement("b", null, "\u041E\u0431\u043C\u0435\u043D \u0440\u044F\u0434\u043E\u043C"),
+                React.createElement("em", null, "\u041E\u0431\u0430 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430 \u0432 \u043E\u0434\u043D\u043E\u0439 \u0441\u0435\u0442\u0438 Wi-Fi. \u0418\u043D\u0442\u0435\u0440\u043D\u0435\u0442 \u0438 \u0441\u0435\u0440\u0432\u0435\u0440 \u043D\u0435 \u043D\u0443\u0436\u043D\u044B.")),
+            React.createElement("div", { className: "near-sky " + phase },
+                Array.from({ length: 26 }, (_, i) => (React.createElement("i", { key: i, style: {
+                        "--a": `${(i / 26) * 360}deg`,
+                        "--d": `${22 + ((i * 37) % 62)}px`,
+                        "--t": `${(i % 7) * 0.22}s`,
+                    } }))),
+                React.createElement("u", null)),
+            !mode && (React.createElement("div", { className: "near-pick" },
+                React.createElement("button", { onClick: () => start("give") },
+                    React.createElement("b", null, "\u041F\u0435\u0440\u0435\u0434\u0430\u0442\u044C"),
+                    React.createElement("em", null, "\u043F\u043E\u043A\u0430\u0436\u0443 \u043A\u043E\u0434 \u043D\u0430 \u044D\u0442\u043E\u043C \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0435")),
+                React.createElement("button", { onClick: () => start("take") },
+                    React.createElement("b", null, "\u041F\u0440\u0438\u043D\u044F\u0442\u044C"),
+                    React.createElement("em", null, "\u0432\u0432\u0435\u0434\u0443 \u043A\u043E\u0434 \u0441 \u0434\u0440\u0443\u0433\u043E\u0433\u043E \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430")))),
+            mode && (React.createElement("div", { className: "sync-body" },
+                myCode && (React.createElement("div", { className: "near-qr" },
+                    React.createElement(QrBox, { text: myCode }),
+                    React.createElement("p", null, "\u041D\u0430\u0432\u0435\u0434\u0438\u0442\u0435 \u043A\u0430\u043C\u0435\u0440\u0443 \u0432\u0442\u043E\u0440\u043E\u0433\u043E \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430 \u0438\u043B\u0438 \u043F\u0435\u0440\u0435\u043F\u0438\u0448\u0438\u0442\u0435 \u043A\u043E\u0434"),
+                    React.createElement("textarea", { readOnly: true, value: myCode, onFocus: (e) => e.target.select() }))),
+                cam ? (React.createElement(QrCamera, { onCode: (code) => {
+                        setCam(false);
+                        setTheirCode(code);
+                        takeCode(code);
+                    }, onClose: () => setCam(false) })) : (React.createElement("button", { className: "near-scan", onClick: () => setCam(true) }, "\u0421\u043A\u0430\u043D\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u043A\u043E\u0434 \u043A\u0430\u043C\u0435\u0440\u043E\u0439")),
+                React.createElement("label", { className: "near-photos" },
+                    React.createElement("input", { type: "checkbox", checked: withPhotos, onChange: (e) => setWithPhotos(e.target.checked) }),
+                    React.createElement("span", null,
+                        "\u041F\u0435\u0440\u0435\u0434\u0430\u0442\u044C \u0438 \u0441\u043D\u0438\u043C\u043A\u0438",
+                        React.createElement("em", null, "\u0434\u043E\u043B\u044C\u0448\u0435, \u0437\u0430\u0442\u043E \u0443 \u0440\u043E\u0434\u043D\u044B\u0445 \u0431\u0443\u0434\u0443\u0442 \u0444\u043E\u0442\u043E\u0433\u0440\u0430\u0444\u0438\u0438 \u043F\u043E\u0435\u0437\u0434\u043E\u043A"))),
+                React.createElement("label", { className: "tf near-in" },
+                    React.createElement("textarea", { className: "tf-input", placeholder: mode === "take" ? "Код с первого телефона" : "Ответный код", value: theirCode, onChange: (e) => setTheirCode(e.target.value) })),
+                React.createElement("button", { className: "ask-yes near-go", onClick: takeCode }, "\u0421\u043E\u0435\u0434\u0438\u043D\u0438\u0442\u044C"),
+                state && React.createElement("p", { className: "near-state" }, state))),
+            React.createElement("div", { className: "ask-btns" },
+                React.createElement("button", { className: "ask-no", onClick: onClose }, "\u0417\u0430\u043A\u0440\u044B\u0442\u044C")))));
+}
+/* разбор обмена: что придёт, что уйдёт и чьи данные оставить */
+function SyncSheet({ plan, from, onCancel, onApply, box }) {
+    const [picks, setPicks] = useState({});
+    if (!plan)
+        return null;
+    const { add = [], del = [], conflicts = [], same = 0 } = plan;
+    const set = (id, v) => setPicks((p) => ({ ...p, [id]: v }));
+    const allTheirs = () => {
+        const next = {};
+        conflicts.forEach((c) => (next[c.id] = "theirs"));
+        setPicks(next);
+    };
+    const nothing = !add.length && !del.length && !conflicts.length;
+    return (React.createElement("div", { className: "ask-layer sync-layer", style: box ? { left: box.left, width: box.width } : undefined },
+        React.createElement("div", { className: "sync", onClick: (e) => e.stopPropagation() },
+            React.createElement("div", { className: "sync-head" },
+                React.createElement("b", null, "\u041E\u0431\u043C\u0435\u043D \u043F\u043E\u0435\u0437\u0434\u043A\u0430\u043C\u0438"),
+                React.createElement("em", null, nothing
+                    ? `${from ? "От: " + from + " · " : ""}всё уже совпадает`
+                    : [
+                        from ? `От: ${from}` : "",
+                        add.length ? `новых ${add.length}` : "",
+                        conflicts.length ? `расхождений ${conflicts.length}` : "",
+                        del.length ? `удалено у родных ${del.length}` : "",
+                        same ? `совпадает ${same}` : "",
+                    ]
+                        .filter(Boolean)
+                        .join(" · "))),
+            React.createElement("div", { className: "sync-body" },
+                add.length > 0 && (React.createElement("div", { className: "sync-group" },
+                    React.createElement("p", null, "\u041F\u043E\u044F\u0432\u044F\u0442\u0441\u044F \u0443 \u0432\u0430\u0441"),
+                    add.slice(0, 20).map(({ a3, t }) => {
+                        var _c, _d;
+                        return (React.createElement("div", { key: t.id, className: "sync-row" },
+                            React.createElement("span", { className: "sync-flag" }, flag(((_c = BY_A3[a3]) === null || _c === void 0 ? void 0 : _c.a2) || "")),
+                            React.createElement("span", { className: "sync-main" },
+                                React.createElement("b", null, ((_d = BY_A3[a3]) === null || _d === void 0 ? void 0 : _d.name) || a3),
+                                React.createElement("em", null, tripLine(t))),
+                            React.createElement("u", { className: "sync-new" }, "\u043D\u043E\u0432\u0430\u044F")));
+                    }),
+                    add.length > 20 && React.createElement("em", { className: "sync-more" },
+                        "\u0438 \u0435\u0449\u0451 ",
+                        add.length - 20))),
+                conflicts.length > 0 && (React.createElement("div", { className: "sync-group" },
+                    React.createElement("p", null,
+                        "\u041F\u0440\u0430\u0432\u0438\u043B\u0438 \u0441 \u0434\u0432\u0443\u0445 \u0441\u0442\u043E\u0440\u043E\u043D",
+                        React.createElement("button", { className: "link-btn", onClick: allTheirs }, "\u0432\u0437\u044F\u0442\u044C \u0432\u0441\u0435 \u0438\u0445")),
+                    conflicts.map((c) => {
+                        var _c, _d;
+                        const pick = picks[c.id] || c.pick;
+                        return (React.createElement("div", { key: c.id, className: "sync-row sync-conf" },
+                            React.createElement("span", { className: "sync-flag" }, flag(((_c = BY_A3[c.a3]) === null || _c === void 0 ? void 0 : _c.a2) || "")),
+                            React.createElement("span", { className: "sync-main" },
+                                React.createElement("b", null, ((_d = BY_A3[c.a3]) === null || _d === void 0 ? void 0 : _d.name) || c.a3),
+                                React.createElement("em", null,
+                                    "\u0420\u0430\u0437\u043D\u043E\u0435: ",
+                                    c.diff.join(", ")),
+                                React.createElement("em", { className: "sync-vs" },
+                                    "\u043C\u043E\u044F: ",
+                                    tripLine(c.mine),
+                                    " \u00B7 \u0438\u0445: ",
+                                    tripLine(c.theirs)),
+                                React.createElement("span", { className: "sync-pick" }, [
+                                    ["mine", "моя"],
+                                    ["theirs", "их"],
+                                    ["both", "обе"],
+                                ].map(([k, t]) => (React.createElement("button", { key: k, className: pick === k ? "on" : "", onClick: () => set(c.id, k) }, t)))))));
+                    }))),
+                del.length > 0 && (React.createElement("div", { className: "sync-group" },
+                    React.createElement("p", null, "\u0423\u0434\u0430\u043B\u0435\u043D\u044B \u0443 \u0440\u043E\u0434\u043D\u044B\u0445 \u2014 \u0443\u0439\u0434\u0443\u0442 \u0438 \u0443 \u0432\u0430\u0441"),
+                    del.slice(0, 10).map(({ a3, t }) => {
+                        var _c, _d;
+                        return (React.createElement("div", { key: t.id, className: "sync-row" },
+                            React.createElement("span", { className: "sync-flag" }, flag(((_c = BY_A3[a3]) === null || _c === void 0 ? void 0 : _c.a2) || "")),
+                            React.createElement("span", { className: "sync-main" },
+                                React.createElement("b", null, ((_d = BY_A3[a3]) === null || _d === void 0 ? void 0 : _d.name) || a3),
+                                React.createElement("em", null, tripLine(t))),
+                            React.createElement("u", { className: "sync-del" }, "\u0443\u0434\u0430\u043B\u0438\u0442\u044C")));
+                    }),
+                    del.length > 10 && React.createElement("em", { className: "sync-more" },
+                        "\u0438 \u0435\u0449\u0451 ",
+                        del.length - 10)))),
+            React.createElement("div", { className: "ask-btns" },
+                React.createElement("button", { className: "ask-no", onClick: onCancel }, "\u041E\u0442\u043C\u0435\u043D\u0430"),
+                React.createElement("button", { className: "ask-yes", onClick: () => onApply(picks) }, nothing ? "Понятно" : "Принять")))));
+}
 function Ask({ ask, onClose, box }) {
     if (!ask)
         return null;
@@ -8757,219 +10153,21 @@ function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], o
                 React.createElement(GridChart, { grid: r.grid, planGrid: r.planGrid, vague: r.vague, years: years.slice(-8), onOpen: onOpenTrip })))))))));
 }
 /* шторка: семья — ключ, способ обмена, отправка и приём */
-function FamilySheet({ open, onClose, box, family, onFamily, visits, tombs, people, meName, onReceive, }) {
-    const [words, setWords] = useState("");
-    const [busy, setBusy] = useState("");
-    const [serverOk, setServerOk] = useState(null);
-    const [addr, setAddr] = useState((family === null || family === void 0 ? void 0 : family.server) || "");
-    /* проверяем сервер при открытии и после смены адреса */
-    useEffect(() => {
-        if (!open)
-            return;
-        let dead = false;
-        setServerOk(null);
-        pingServer(family === null || family === void 0 ? void 0 : family.server).then((ok) => !dead && setServerOk(ok));
-        return () => {
-            dead = true;
-        };
-    }, [open, family === null || family === void 0 ? void 0 : family.server]);
-    const viaServer = (family === null || family === void 0 ? void 0 : family.via) === "server" && serverOk;
-    const create = async () => {
-        try {
-            const key = await makeFamilyKey();
-            onFamily({ ...key, via: "file", server: (family === null || family === void 0 ? void 0 : family.server) || "" });
-        }
-        catch {
-            setBusy("Не получилось создать ключ — нужен защищённый адрес (https)");
-        }
-    };
-    const join = async () => {
-        const list = words.trim().toLowerCase().split(/[\s,]+/).filter(Boolean);
-        if (list.length < 12) {
-            setBusy("Нужно двенадцать слов");
-            return;
-        }
-        const bad = list.slice(0, 12).find((w) => !WORDS.includes(w));
-        if (bad) {
-            setBusy(`Слова «${bad}» нет в списке — проверьте написание`);
-            return;
-        }
-        const words = list.slice(0, 12);
-        let raw;
-        try {
-            raw = await keyFromWords(words);
-        }
-        catch {
-            setBusy("Не получилось собрать ключ — нужен защищённый адрес (https)");
-            return;
-        }
-        onFamily({
-            raw,
-            words,
-            id: await keyFingerprint(raw),
-            via: "file",
-            server: (family === null || family === void 0 ? void 0 : family.server) || "",
-        });
-        setWords("");
-        setBusy("Группа подключена");
-    };
-    /* отправка файлом — работает всегда */
-    const sendFile = async () => {
-        try {
-            const payload = familyPayload(visits, tombs, people, meName);
-            const packet = (family === null || family === void 0 ? void 0 : family.raw)
-                ? await sealPacket(family.raw, payload)
-                : payload;
-            const body = JSON.stringify((family === null || family === void 0 ? void 0 : family.raw) ? { family: family.id, ...packet } : payload);
-            const blob = new Blob([body], { type: "application/json" });
-            const a = document.createElement("a");
-            a.href = URL.createObjectURL(blob);
-            a.download = `atlas-family-${new Date().toISOString().slice(0, 10)}.json`;
-            a.click();
-            a.remove();
-            setBusy("Файл готов — отправьте его близким");
-        }
-        catch {
-            setBusy("Не удалось собрать файл");
-        }
-    };
-    /* отправка через сервер */
-    const sendServer = async () => {
-        setBusy("Отправляем…");
-        try {
-            const payload = familyPayload(visits, tombs, people, meName);
-            const packet = await sealPacket(family.raw, payload);
-            const r = await fetch(family.server.replace(/\/+$/, "") + "/put/" + family.id, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ who: meName || "me", ...packet }),
-            });
-            setBusy(r.ok ? "Отправлено" : "Сервер не принял");
-        }
-        catch {
-            setBusy("Не получилось — попробуйте через файл");
-        }
-    };
-    const fetchServer = async () => {
-        setBusy("Забираем…");
-        try {
-            const r = await fetch(family.server.replace(/\/+$/, "") + "/get/" + family.id, { cache: "no-store" });
-            const list = await r.json();
-            let got = 0;
-            for (const packet of list || []) {
-                try {
-                    const data = await openPacket(family.raw, packet);
-                    onReceive(data);
-                    got += 1;
-                }
-                catch {
-                    /* чужой ключ — пропускаем */
-                }
-            }
-            setBusy(got ? `Получено пакетов: ${got}` : "Нового ничего нет");
-        }
-        catch {
-            setBusy("Сервер не ответил");
-        }
-    };
-    return (React.createElement(Sheet, { open: open, onClose: onClose, title: "\u0421\u0435\u043C\u044C\u044F", box: box }, () => (React.createElement("div", { className: "sheet-body" }, !(family === null || family === void 0 ? void 0 : family.raw) ? (React.createElement(React.Fragment, null,
-        React.createElement("p", { className: "hint small" }, "\u0421\u0435\u043C\u0435\u0439\u043D\u0430\u044F \u0433\u0440\u0443\u043F\u043F\u0430 \u043F\u043E\u0437\u0432\u043E\u043B\u044F\u0435\u0442 \u043E\u0431\u043C\u0435\u043D\u0438\u0432\u0430\u0442\u044C\u0441\u044F \u043F\u043E\u0435\u0437\u0434\u043A\u0430\u043C\u0438, \u0432 \u043A\u043E\u0442\u043E\u0440\u044B\u0445 \u043E\u0442\u043C\u0435\u0447\u0435\u043D\u044B \u0435\u0451 \u0443\u0447\u0430\u0441\u0442\u043D\u0438\u043A\u0438. \u041A\u043B\u044E\u0447 \u0441\u043E\u0437\u0434\u0430\u0451\u0442\u0441\u044F \u043D\u0430 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0435 \u0438 \u043D\u0438\u043A\u0443\u0434\u0430 \u043D\u0435 \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u044F\u0435\u0442\u0441\u044F \u2014 \u0431\u0435\u0437 \u043D\u0435\u0433\u043E \u0434\u0430\u043D\u043D\u044B\u0435 \u043F\u0440\u043E\u0447\u0438\u0442\u0430\u0442\u044C \u043D\u0435\u043B\u044C\u0437\u044F."),
-        React.createElement("button", { className: "btn-main wide", onClick: create }, "\u0421\u043E\u0437\u0434\u0430\u0442\u044C \u0433\u0440\u0443\u043F\u043F\u0443"),
-        React.createElement("p", { className: "step-title" }, "\u041F\u0440\u0438\u0441\u043E\u0435\u0434\u0438\u043D\u0438\u0442\u044C\u0441\u044F"),
-        React.createElement("input", { className: "field", value: words, placeholder: "\u0414\u0432\u0435\u043D\u0430\u0434\u0446\u0430\u0442\u044C \u0441\u043B\u043E\u0432 \u0447\u0435\u0440\u0435\u0437 \u043F\u0440\u043E\u0431\u0435\u043B", onChange: (e) => setWords(e.target.value), autoComplete: "off", autoCorrect: "off", spellCheck: "false" }),
-        React.createElement("button", { className: "switch-row", onClick: join },
+function FamilySheet({ onNear, open, onClose, box, people = [] }) {
+    return (React.createElement(Sheet, { open: open, onClose: onClose, title: "\u0421\u0435\u043C\u044C\u044F", box: box }, () => (React.createElement("div", { className: "sheet-body" },
+        React.createElement("p", { className: "hint small" }, "\u041F\u043E\u0435\u0437\u0434\u043A\u0430\u043C\u0438 \u043C\u043E\u0436\u043D\u043E \u043E\u0431\u043C\u0435\u043D\u044F\u0442\u044C\u0441\u044F \u0441 \u0442\u0435\u043C\u0438, \u043A\u0442\u043E \u0440\u044F\u0434\u043E\u043C: \u043E\u0431\u0430 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430 \u0432 \u043E\u0434\u043D\u043E\u0439 \u0441\u0435\u0442\u0438 Wi-Fi, \u0438\u043D\u0442\u0435\u0440\u043D\u0435\u0442 \u0438 \u0441\u0435\u0440\u0432\u0435\u0440 \u043D\u0435 \u043D\u0443\u0436\u043D\u044B. \u041F\u0435\u0440\u0435\u0434\u0430\u044E\u0442\u0441\u044F \u043F\u043E\u0435\u0437\u0434\u043A\u0438, \u0433\u0434\u0435 \u043E\u0442\u043C\u0435\u0447\u0435\u043D\u044B \u0443\u0447\u0430\u0441\u0442\u043D\u0438\u043A\u0438, \u0441\u043D\u0438\u043C\u043A\u0438 \u043E\u0441\u0442\u0430\u044E\u0442\u0441\u044F \u043D\u0430 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0435."),
+        React.createElement("button", { className: "switch-row", onClick: onNear },
             React.createElement("span", { className: "switch-text" },
-                "\u041F\u043E\u0434\u043A\u043B\u044E\u0447\u0438\u0442\u044C\u0441\u044F \u043A \u0433\u0440\u0443\u043F\u043F\u0435",
-                React.createElement("em", null, busy || "Слова даст тот, кто создал группу")),
-            React.createElement("span", { className: "step-pen" }, "\u2192")))) : (React.createElement(React.Fragment, null,
-        React.createElement("div", { className: "fam-key" },
-            React.createElement("b", null, "\u041A\u043B\u044E\u0447 \u0433\u0440\u0443\u043F\u043F\u044B"),
-            React.createElement("div", { className: "fam-words" }, family.words.map((w, i) => (React.createElement("span", { key: i },
-                React.createElement("i", null, i + 1),
-                w)))),
-            React.createElement("em", null, "\u041F\u0435\u0440\u0435\u0434\u0430\u0439\u0442\u0435 \u044D\u0442\u0438 \u0441\u043B\u043E\u0432\u0430 \u0431\u043B\u0438\u0437\u043A\u0438\u043C \u043B\u0438\u0447\u043D\u043E. \u041A\u0442\u043E \u0438\u0445 \u0437\u043D\u0430\u0435\u0442 \u2014 \u0442\u043E\u0442 \u0432\u0445\u043E\u0434\u0438\u0442 \u0432 \u0433\u0440\u0443\u043F\u043F\u0443."),
-            React.createElement("div", { className: "fam-share" },
-                React.createElement("button", { onClick: async () => {
-                        const text = family.words.join(" ");
-                        try {
-                            await navigator.clipboard.writeText(text);
-                            setBusy("Слова скопированы");
-                        }
-                        catch {
-                            setBusy(text);
-                        }
-                    } }, "\u0421\u043A\u043E\u043F\u0438\u0440\u043E\u0432\u0430\u0442\u044C"),
-                navigator.share && (React.createElement("button", { onClick: () => navigator
-                        .share({
-                        title: "Ключ семейной группы «Атлас»",
-                        text: family.words.join(" "),
-                    })
-                        .catch(() => { }) }, "\u041E\u0442\u043F\u0440\u0430\u0432\u0438\u0442\u044C")))),
-        React.createElement("p", { className: "step-title" }, "\u041A\u0430\u043A \u043E\u0431\u043C\u0435\u043D\u0438\u0432\u0430\u0442\u044C\u0441\u044F"),
-        React.createElement("div", { className: "theme-row" },
-            React.createElement("button", { className: "theme-cell" + (family.via === "file" ? " on" : ""), onClick: () => onFamily({ ...family, via: "file" }) }, "\u0424\u0430\u0439\u043B\u043E\u043C"),
-            React.createElement("button", { className: "theme-cell" +
-                    (family.via === "server" ? " on" : "") +
-                    (serverOk ? "" : " off"), disabled: !serverOk, onClick: () => onFamily({ ...family, via: "server" }) }, "\u0427\u0435\u0440\u0435\u0437 \u0441\u0435\u0440\u0432\u0435\u0440")),
-        React.createElement("p", { className: "hint small" }, serverOk === null
-            ? "Проверяем сервер…"
-            : serverOk
-                ? "Сервер на связи. Обмен идёт сам, данные шифруются ключом группы."
-                : "Сервер не настроен или не отвечает — работает обмен файлом. Файл тоже зашифрован."),
-        React.createElement("p", { className: "step-title" }, "\u041E\u0442\u043F\u0440\u0430\u0432\u0438\u0442\u044C \u0441\u0432\u043E\u0438\u043C"),
-        React.createElement("button", { className: "switch-row", onClick: sendFile },
-            React.createElement("span", { className: "switch-text" },
-                "\u0412\u044B\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u0444\u0430\u0439\u043B \u0434\u043B\u044F \u0441\u0435\u043C\u044C\u0438",
-                React.createElement("em", null, "\u041E\u0442\u043F\u0440\u0430\u0432\u044C\u0442\u0435 \u0435\u0433\u043E \u0432 \u043C\u0435\u0441\u0441\u0435\u043D\u0434\u0436\u0435\u0440\u0435 \u2014 \u0440\u0430\u0431\u043E\u0442\u0430\u0435\u0442 \u0431\u0435\u0437 \u0441\u0435\u0440\u0432\u0435\u0440\u0430")),
-            React.createElement("span", { className: "step-pen" }, "\u2193")),
-        viaServer && (React.createElement("button", { className: "switch-row", onClick: sendServer },
-            React.createElement("span", { className: "switch-text" },
-                "\u041E\u0442\u043F\u0440\u0430\u0432\u0438\u0442\u044C \u0447\u0435\u0440\u0435\u0437 \u0441\u0435\u0440\u0432\u0435\u0440",
-                React.createElement("em", null, busy || "Зашифрованный пакет уйдёт в группу")),
-            React.createElement("span", { className: "step-pen" }, "\u2191"))),
-        React.createElement("p", { className: "step-title" }, "\u041F\u0440\u0438\u043D\u044F\u0442\u044C \u043E\u0442 \u0441\u0432\u043E\u0438\u0445"),
-        React.createElement("label", { className: "switch-row" },
-            React.createElement("span", { className: "switch-text" },
-                "\u0417\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u0444\u0430\u0439\u043B \u043E\u0442 \u0440\u043E\u0434\u043D\u044B\u0445",
-                React.createElement("em", null, "\u041F\u043E\u0435\u0437\u0434\u043A\u0438 \u0434\u043E\u0431\u0430\u0432\u044F\u0442\u0441\u044F \u043A \u0432\u0430\u0448\u0438\u043C, \u043D\u0438\u0447\u0435\u0433\u043E \u043D\u0435 \u0437\u0430\u0442\u0440\u0451\u0442\u0441\u044F")),
-            React.createElement("span", { className: "step-pen" }, "\u2191"),
-            React.createElement("input", { type: "file", accept: "application/json", style: { display: "none" }, onChange: async (e) => {
-                    var _c;
-                    const f = (_c = e.target.files) === null || _c === void 0 ? void 0 : _c[0];
-                    e.target.value = "";
-                    if (!f)
-                        return;
-                    try {
-                        const raw = JSON.parse(await f.text());
-                        const data = raw.data
-                            ? await openPacket(family.raw, raw)
-                            : raw;
-                        onReceive(data);
-                        setBusy("Данные приняты");
-                    }
-                    catch {
-                        setBusy("Не удалось прочитать: другой ключ или файл");
-                    }
-                } })),
-        viaServer && (React.createElement("button", { className: "switch-row", onClick: fetchServer },
-            React.createElement("span", { className: "switch-text" },
-                "\u0417\u0430\u0431\u0440\u0430\u0442\u044C \u0441 \u0441\u0435\u0440\u0432\u0435\u0440\u0430",
-                React.createElement("em", null, busy || "Проверить, что прислали родные")),
-            React.createElement("span", { className: "step-pen" }, "\u2193"))),
-        React.createElement("p", { className: "step-title" }, "\u0421\u0435\u0440\u0432\u0435\u0440"),
-        React.createElement("input", { className: "field", value: addr, placeholder: "https://\u0430\u0434\u0440\u0435\u0441-\u0441\u0435\u0440\u0432\u0435\u0440\u0430", onChange: (e) => setAddr(e.target.value), autoComplete: "off", autoCorrect: "off", spellCheck: "false" }),
-        React.createElement("button", { className: "switch-row", onClick: () => onFamily({ ...family, server: addr.trim() }) },
-            React.createElement("span", { className: "switch-text" },
-                "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C \u0430\u0434\u0440\u0435\u0441",
-                React.createElement("em", null, "\u041E\u0441\u0442\u0430\u0432\u044C\u0442\u0435 \u043F\u0443\u0441\u0442\u044B\u043C, \u0435\u0441\u043B\u0438 \u0441\u0435\u0440\u0432\u0435\u0440\u0430 \u043D\u0435\u0442")),
-            React.createElement("span", { className: "step-pen" }, "\u2713")),
-        React.createElement("button", { className: "switch-row danger-row", onClick: () => onFamily(null) },
-            React.createElement("span", { className: "switch-text" },
-                "\u0412\u044B\u0439\u0442\u0438 \u0438\u0437 \u0433\u0440\u0443\u043F\u043F\u044B",
-                React.createElement("em", null, "\u041A\u043B\u044E\u0447 \u0443\u0434\u0430\u043B\u0438\u0442\u0441\u044F \u0441 \u044D\u0442\u043E\u0433\u043E \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430")),
-            React.createElement("span", { className: "step-pen" }, "\u2192"))))))));
+                "\u041E\u0431\u043C\u0435\u043D\u044F\u0442\u044C\u0441\u044F \u043F\u043E\u0435\u0437\u0434\u043A\u0430\u043C\u0438",
+                React.createElement("em", null, "\u041F\u043E\u043A\u0430\u0437\u0430\u0442\u044C \u043A\u043E\u0434 \u0438\u043B\u0438 \u0441\u0447\u0438\u0442\u0430\u0442\u044C \u0435\u0433\u043E \u0441 \u0434\u0440\u0443\u0433\u043E\u0433\u043E \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430")),
+            React.createElement("span", { className: "step-pen" }, "\u2192")),
+        people.length > 0 && (React.createElement(React.Fragment, null,
+            React.createElement("p", { className: "step-title" }, "\u0423\u0447\u0430\u0441\u0442\u043D\u0438\u043A\u0438"),
+            React.createElement("div", { className: "fam-people" }, people.map((p) => (React.createElement("span", { key: p.id },
+                p.name,
+                p.role ? React.createElement("em", null, p.role) : null)))))),
+        React.createElement("p", { className: "hint small" }, "\u0415\u0441\u043B\u0438 \u043F\u043E\u0435\u0437\u0434\u043E\u043A \u043C\u043D\u043E\u0433\u043E, \u043E\u0431\u043C\u0435\u043D \u0437\u0430\u043D\u0438\u043C\u0430\u0435\u0442 \u043F\u0430\u0440\u0443 \u0441\u0435\u043A\u0443\u043D\u0434. \u041F\u043E\u0441\u043B\u0435 \u043D\u0435\u0433\u043E \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0435 \u043F\u043E\u043A\u0430\u0436\u0435\u0442, \u0447\u0442\u043E \u043D\u043E\u0432\u043E\u0433\u043E, \u0447\u0442\u043E \u0438\u0437\u043C\u0435\u043D\u0438\u043B\u043E\u0441\u044C \u0438 \u0433\u0434\u0435 \u0432\u044B \u0440\u0435\u0448\u0430\u0435\u0442\u0435, \u0447\u044C\u044E \u0432\u0435\u0440\u0441\u0438\u044E \u043E\u0441\u0442\u0430\u0432\u0438\u0442\u044C.")))));
 }
-/* плашка обратного отсчёта: дни, часы, минуты, секунды */
 function Countdown({ trip }) {
     const target = useMemo(() => startsAt(trip), [trip === null || trip === void 0 ? void 0 : trip.from, trip === null || trip === void 0 ? void 0 : trip.y, trip === null || trip === void 0 ? void 0 : trip.m]);
     const left = useCountdown(target);
@@ -9354,7 +10552,6 @@ function Atlas() {
     const tombsRef = useRef({});
     const visitsRef = useRef({});
     const profileRef = useRef(null);
-    const familyRef = useRef(null);
     const receiveRef = useRef(() => { });
     const saveProfile = useCallback(async (prof) => {
         setProfile(prof);
@@ -9426,6 +10623,9 @@ function Atlas() {
     const [airWin, setAirWin] = useState(null);
     const [seasonWin, setSeasonWin] = useState(false);
     const [contsWin, setContsWin] = useState(false);
+    // разбор обмена с родными: показываем, пока пользователь не решит
+    const [sync, setSync] = useState(null);
+    const [near, setNear] = useState(false);
     const [booksSize, setBooksSize] = useState(0);
     const [booksSaved, setBooksSaved] = useState(false);
     const [booksAt, setBooksAt] = useState("");
@@ -9529,6 +10729,7 @@ function Atlas() {
     }, [theme, photoQuality, spinStart, mapView]);
     const [geo, setGeo] = useState(null);
     const [visits, setVisits] = useState({});
+    visitsRef.current = visits;
     const [tombs, setTombs] = useState({});
     const [selected, setSelected] = useState(null);
     const [full, setFull] = useState(false);
@@ -9872,9 +11073,6 @@ function Atlas() {
             catch {
                 setBooksFrom("none");
             }
-            const fam = await store.get(K_FAMILY);
-            if (fam === null || fam === void 0 ? void 0 : fam.raw)
-                setFamilyState(fam);
             // свой идентификатор в группе — чтобы было видно, кто добавил запись
             if (prof0 && !prof0.deviceId) {
                 const withId = { ...prof0, deviceId: uid("u") };
@@ -10238,7 +11436,13 @@ function Atlas() {
                 }
             }
             if (mode === "merge") {
-                const res = mergeVisits(visits, d.visits, tombsRef.current, d.tombs);
+                // тот же разбор, что и при обмене с родными
+                const plan = syncPlan(visitsRef.current, d.visits, tombsRef.current, d.tombs);
+                if (plan.conflicts.length || plan.del.length) {
+                    setSync({ plan, data: d, from: d.from || "файла" });
+                    return;
+                }
+                const res = applyPlan(visitsRef.current, tombsRef.current, d.visits, d.tombs, plan, {});
                 tombsRef.current = res.tombs;
                 setTombs(res.tombs);
                 setVisits(res.visits);
@@ -10312,18 +11516,65 @@ function Atlas() {
     }, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [visits]);
-    const [family, setFamilyState] = useState(null);
-    familyRef.current = family;
-    const setFamily = useCallback(async (f) => {
-        setFamilyState(f);
-        await store.set(K_FAMILY, f || {});
+    /* приём данных от родных: разбираем, спорное показываем, остальное сливаем */
+    /* пакет для обмена рядом: поездки, при желании со снимками */
+    const nearPayload = useCallback(async (withPhotos) => {
+        var _c, _d;
+        const base = familyPayload(visitsRef.current, tombsRef.current, (_c = profileRef.current) === null || _c === void 0 ? void 0 : _c.people, (_d = profileRef.current) === null || _d === void 0 ? void 0 : _d.name);
+        if (!withPhotos)
+            return base;
+        const photos = {};
+        const ids = [];
+        Object.values(visitsRef.current || {}).forEach((arr) => (arr || []).forEach((t) => (t.photos || []).forEach((id) => ids.push(id))));
+        for (const id of ids) {
+            const v = await store.get(photoKey(id));
+            if (v === null || v === void 0 ? void 0 : v.full)
+                photos[id] = v.full;
+        }
+        // снимки идут вместе со своими поездками
+        const visits = {};
+        Object.entries(visitsRef.current || {}).forEach(([a3, arr]) => {
+            const list = (arr || []).filter((t) => othersOf(t).length > 0);
+            if (list.length)
+                visits[a3] = list;
+        });
+        return { ...base, visits, photos };
     }, []);
-    /* приём данных от родных: объединяем, ничего не затирая */
+    const applySync = useCallback(async (data, picks) => {
+        const plan = syncPlan(visitsRef.current, data.visits, tombsRef.current, data.tombs);
+        const res = applyPlan(visitsRef.current, tombsRef.current, data.visits, data.tombs, plan, picks || {});
+        tombsRef.current = res.tombs;
+        setTombs(res.tombs);
+        setVisits(res.visits);
+        await store.set(K_DATA, {
+            visits: res.visits,
+            tombs: res.tombs,
+            at: Date.now(),
+        });
+    }, [visits]);
     const receiveFamily = useCallback((data) => {
         var _c;
         if (!(data === null || data === void 0 ? void 0 : data.visits))
             return;
-        const res = mergeVisits(visits, data.visits, tombsRef.current, data.tombs);
+        // снимки, если прислали, складываем сразу
+        if (data.photos)
+            (async () => {
+                for (const [id, full] of Object.entries(data.photos)) {
+                    try {
+                        const img = await loadImage(full);
+                        await store.set(photoKey(id), { full, thumb: scaleTo(img, 260, 0.6) });
+                    }
+                    catch {
+                        await store.set(photoKey(id), { full, thumb: full });
+                    }
+                }
+            })();
+        const plan = syncPlan(visitsRef.current, data.visits, tombsRef.current, data.tombs);
+        if (plan.conflicts.length || plan.del.length) {
+            setSync({ plan, data, from: data.from || "" });
+            return;
+        }
+        const res = applyPlan(visitsRef.current, tombsRef.current, data.visits, data.tombs, plan, {});
         tombsRef.current = res.tombs;
         setTombs(res.tombs);
         save(res.visits);
@@ -10341,42 +11592,6 @@ function Atlas() {
     }, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [visits, profile]);
-    /* сам обменивается с роднёй, когда сервер настроен */
-    const syncing = useRef(false);
-    const autoSync = useCallback(async () => {
-        var _c, _d;
-        const f = familyRef.current;
-        if (!(f === null || f === void 0 ? void 0 : f.raw) || f.via !== "server" || !f.server || syncing.current)
-            return;
-        if (!navigator.onLine)
-            return;
-        syncing.current = true;
-        try {
-            const payload = familyPayload(visitsRef.current, tombsRef.current, (_c = profileRef.current) === null || _c === void 0 ? void 0 : _c.people, (_d = profileRef.current) === null || _d === void 0 ? void 0 : _d.name);
-            const list = await familySync(f, payload);
-            list.forEach((d) => receiveRef.current(d));
-        }
-        catch {
-            /* нет связи — обменяемся в другой раз */
-        }
-        syncing.current = false;
-    }, []);
-    useEffect(() => {
-        if (!(family === null || family === void 0 ? void 0 : family.raw))
-            return;
-        const t = setTimeout(autoSync, 1500);
-        const onShow = () => {
-            if (!document.hidden)
-                autoSync();
-        };
-        document.addEventListener("visibilitychange", onShow);
-        const id = setInterval(autoSync, 15 * 60 * 1000);
-        return () => {
-            clearTimeout(t);
-            clearInterval(id);
-            document.removeEventListener("visibilitychange", onShow);
-        };
-    }, [family === null || family === void 0 ? void 0 : family.raw, family === null || family === void 0 ? void 0 : family.via, family === null || family === void 0 ? void 0 : family.server, autoSync]);
     const [restoreMsg, setRestoreMsg] = useState("");
     const importAsk = useCallback((file) => setAsk({
         title: "Что сделать с файлом?",
@@ -10630,7 +11845,7 @@ function Atlas() {
                         }, onReports: () => {
                             setSheetBack("profile");
                             setSheet("reports");
-                        }, onSettings: () => setSheet("settings"), onShelf: () => setSheet("shelf"), onFamily: () => setSheet("family"), familyOn: !!(family === null || family === void 0 ? void 0 : family.raw), onSince: async (v) => {
+                        }, onSettings: () => setSheet("settings"), onShelf: () => setSheet("shelf"), onFamily: () => setSheet("family"), onSince: async (v) => {
                             const prof = { ...profile, since: v };
                             await saveProfile(prof);
                         }, home: profile.home || null, onHome: async (h) => {
@@ -10669,7 +11884,7 @@ function Atlas() {
                         } }),
                     React.createElement(CountrySheet, { country: sel, open: sheet === "country" && !!sel, onClose: () => setSheet(null), box: box }),
                     React.createElement(PhotoModeSheet, { open: sheet === "photomode", onClose: () => setSheet("settings"), box: box, quality: photoQuality, usage: photoUsage }),
-                    React.createElement(FamilySheet, { open: sheet === "family", onClose: () => setSheet("profile"), box: box, family: family, onFamily: setFamily, visits: visits, tombs: tombs, people: profile.people || [], home: profile.home || null, meName: profile.name || "", onReceive: receiveFamily }),
+                    React.createElement(FamilySheet, { onNear: () => setNear(true), open: sheet === "family", onClose: () => setSheet("profile"), box: box, people: profile.people || [] }),
                     React.createElement(ShelfSheet, { open: sheet === "shelf", onClose: () => setSheet("profile"), box: box, isOn: isOn, isWish: isWish, onPick: (a3) => {
                             setSelected(a3);
                             setEditId(null);
@@ -10741,6 +11956,15 @@ function Atlas() {
                             page: 0,
                             setPage: () => { },
                             isWish,
+                        } })),
+                    near && (React.createElement(NearSync, { makePayload: nearPayload, onData: (d) => {
+                            var _c;
+                            setNear(false);
+                            (_c = receiveRef.current) === null || _c === void 0 ? void 0 : _c.call(receiveRef, d);
+                        }, onClose: () => setNear(false) })),
+                    sync && (React.createElement(SyncSheet, { plan: sync.plan, from: sync.from, box: box, onCancel: () => setSync(null), onApply: (picks) => {
+                            applySync(sync.data, picks);
+                            setSync(null);
                         } })),
                     React.createElement(Ask, { ask: ask, onClose: () => setAsk(null), box: box }),
                     React.createElement("nav", { className: "tabbar" },
@@ -11150,6 +12374,70 @@ body > div{max-width:100%;}
 .pg-layer .ag-tiles{margin-top:8px;}
 .pg-layer .ag-card{flex:none; margin-top:8px;}
 .rep-body{display:flex; flex-direction:column;}
+.sync-layer{align-items:center;}
+.sync{display:flex; flex-direction:column; gap:10px; width:min(440px, 94%); max-height:82vh; padding:16px;
+  border-radius:18px; border:1px solid var(--line); background:var(--el); box-shadow:0 18px 50px rgba(0,0,0,.5);}
+.sync-head b{font-size:1rem;}
+.sync-head em{display:block; font-style:normal; font-size:0.72rem; color:var(--dim); margin-top:3px;}
+.sync-body{flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain; display:flex;
+  flex-direction:column; gap:12px;}
+.sync-group{display:flex; flex-direction:column; gap:6px;}
+.sync-group > p{display:flex; align-items:center; justify-content:space-between; gap:8px; margin:0;
+  font-size:0.72rem; color:var(--dim);}
+.sync-group > p .link-btn{padding:0 !important; font-size:0.7rem !important;}
+.sync-row{display:flex; align-items:flex-start; gap:9px; padding:9px 11px; border-radius:12px;
+  border:1px solid var(--line); background:var(--field);}
+.sync-flag{flex:none; font-size:1.05rem;}
+.sync-main{flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:2px;}
+.sync-main b{font-size:0.8rem; font-weight:500;}
+.sync-main em{font-style:normal; font-size:0.66rem; color:var(--dim);}
+.sync-vs{opacity:.85;}
+.sync-new, .sync-del{flex:none; text-decoration:none; font-size:0.62rem; padding:3px 8px; border-radius:9px;}
+.sync-new{color:#8fd4ff; border:1px solid rgba(143,212,255,.4);}
+.sync-del{color:#ff9b9b; border:1px solid rgba(255,155,155,.35);}
+.sync-pick{display:flex; gap:6px; margin-top:6px;}
+.sync-pick button{padding:5px 11px; border-radius:9px; border:1px solid var(--line); background:none;
+  color:var(--dim); font-size:0.7rem; cursor:pointer;}
+.sync-pick button.on{border-color:var(--gold); color:var(--gold); background:rgba(232,184,75,.1);}
+.sync-more{font-style:normal; font-size:0.66rem; color:var(--dim);}
+.near-pick{display:flex; flex-direction:column; gap:8px;}
+.near-pick button{display:flex; flex-direction:column; gap:3px; padding:12px 14px; border-radius:14px;
+  border:1px solid var(--line); background:var(--field); color:var(--text); text-align:left; cursor:pointer;}
+.near-pick b{font-size:0.86rem;}
+.near-pick em{font-style:normal; font-size:0.68rem; color:var(--dim);}
+.near-qr{display:flex; flex-direction:column; align-items:center; gap:8px;}
+.qr-box{border-radius:12px; background:#f4efe2;}
+.near-qr p{margin:0; font-size:0.68rem; color:var(--dim); text-align:center;}
+.near-qr textarea{width:100%; height:54px; resize:none; border-radius:10px; border:1px solid var(--line);
+  background:var(--field); color:var(--dim); font-size:0.6rem; padding:7px 9px; letter-spacing:.04em;}
+.near-in textarea{height:64px; resize:none; letter-spacing:.04em; font-size:0.66rem;}
+.near-go{width:100%;}
+.near-state{margin:0; font-size:0.7rem; color:var(--gold); text-align:center;}
+.near-sky{position:relative; height:104px; margin:2px 0 4px; overflow:hidden;}
+.near-sky i{position:absolute; top:50%; left:50%; width:5px; height:5px; margin:-2.5px; border-radius:50%;
+  background:var(--gold); opacity:.25;
+  transform:rotate(var(--a)) translateX(var(--d)) rotate(calc(-1 * var(--a)));
+  animation:skyPulse 2.6s ease-in-out infinite; animation-delay:var(--t);}
+.near-sky u{position:absolute; top:50%; left:50%; width:14px; height:14px; margin:-7px; border-radius:50%;
+  background:radial-gradient(circle, rgba(232,184,75,.9), rgba(232,184,75,0) 70%);}
+.near-sky.wait i{animation:skyPulse 1.6s ease-in-out infinite;}
+.near-sky.live i{animation:skyPull 1s cubic-bezier(.3,.8,.3,1) forwards; opacity:.9;}
+.near-sky.done i{opacity:0; transition:opacity .4s ease;}
+@keyframes skyPulse{0%,100%{opacity:.18} 50%{opacity:.5}}
+@keyframes skyPull{to{transform:rotate(var(--a)) translateX(0) rotate(calc(-1 * var(--a))); opacity:0;}}
+@media (prefers-reduced-motion: reduce){ .near-sky i{animation:none !important;} }
+.near-photos{display:flex; align-items:flex-start; gap:10px; padding:9px 11px; border-radius:12px;
+  border:1px solid var(--line); background:var(--field); cursor:pointer;}
+.near-photos input{margin-top:2px; width:18px; height:18px; accent-color:var(--gold);}
+.near-photos span{display:flex; flex-direction:column; font-size:0.76rem;}
+.near-photos em{font-style:normal; font-size:0.64rem; color:var(--dim);}
+.near-scan{width:100%; padding:11px; border-radius:12px; border:1px solid rgba(232,184,75,.5);
+  background:rgba(232,184,75,.08); color:var(--gold); font-size:0.78rem; cursor:pointer;}
+.qr-cam{position:relative; display:flex; flex-direction:column; gap:8px; align-items:center;}
+.qr-cam video{width:100%; max-height:46vh; border-radius:14px; background:#000; object-fit:cover;}
+.qr-cam p{margin:0; font-size:0.7rem; color:var(--dim); text-align:center;}
+.qr-frame{position:absolute; top:8px; left:50%; transform:translateX(-50%); width:62%; aspect-ratio:1;
+  border:2px solid rgba(232,184,75,.6); border-radius:14px; pointer-events:none;}
 .reveal.rep{position:relative;}
 .rep-tools{position:absolute; top:12px; right:12px; display:flex; gap:6px; z-index:2;}
 .rep-tool{width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center;
