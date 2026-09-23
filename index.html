@@ -290,7 +290,7 @@ VU|VUT|Вануату|OC|-16.3|167.5
 /* справочники живут отдельно: на сервере, а по желанию — на устройстве */
 const K_BOOKS = "atlas:books";
 /* версия справочников: меняется, когда данные обновились на сервере */
-const BOOKS_VER = 17;
+const BOOKS_VER = 19;
 const BOOKS = [
     { id: "cities", file: "cities.txt", title: "Города" },
     { id: "regions", file: "regions.txt", title: "Регионы" },
@@ -413,11 +413,15 @@ const parseCityRegions = (raw) => {
 };
 const regionOf = (a3, city) => (CITY_REG[a3] || {})[city] || null;
 /* авиакомпания по коду; «~Название» — своя, которой нет в справочнике */
+// коды, которые сменились: старые записи в поездках продолжают работать
+const AIR_ALIAS = { KC2: "FS", QH2: "QH", RM: "6A" };
 const airInfo = (code) => {
     if (!code)
         return undefined;
     if (AIRLINES[code])
         return AIRLINES[code];
+    if (AIR_ALIAS[code] && AIRLINES[AIR_ALIAS[code]])
+        return AIRLINES[AIR_ALIAS[code]];
     if (!String(code).startsWith("~"))
         return undefined;
     const name = String(code).slice(1);
@@ -450,7 +454,7 @@ let AIRLINES = {};
 const parseAirlines = (raw) => {
     const out = {};
     (raw || "").split("\n").forEach((row) => {
-        const [code, name, a3, year, routes, alliance, color, arc] = row.split("|");
+        const [code, name, a3, year, routes, alliance, color, arc, icao] = row.split("|");
         if (!code || !name)
             return;
         out[code.trim()] = {
@@ -462,6 +466,7 @@ const parseAirlines = (raw) => {
             alliance: (alliance || "").trim().replace("—", ""),
             color: (color || "#2b4a68").trim(),
             arc: (arc || color || "#e2b551").trim(),
+            icao: (icao || "").trim(),
         };
     });
     return out;
@@ -1342,7 +1347,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "28.9";
+const APP_VERSION = "29.1";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -4778,6 +4783,10 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, onRemove, mode
                             airInfo(airShown).alliance
                                 ? ` · ${airInfo(airShown).alliance}`
                                 : ""),
+                        React.createElement("em", { className: "air-codes" },
+                            "IATA ",
+                            airInfo(airShown).code,
+                            airInfo(airShown).icao ? ` · ICAO ${airInfo(airShown).icao}` : ""),
                         React.createElement("span", null, airInfo(airShown).routes))),
                     addAir ? (React.createElement(AirPicker, { exclude: draft.air || [], onAdd: (code) => {
                             patch({ air: [...(draft.air || []), code] });
@@ -6896,7 +6905,7 @@ const ARC_SPARE = [
 ];
 /* авиакомпании во весь экран: логика окна путешественника */
 function AirGlobe({ visits, home, air, geo, mapProps, onClose }) {
-    var _c, _d;
+    var _c, _d, _e, _f;
     const arcs = useMemo(() => airArcs(visits, home), [visits, home]);
     // при открытии сразу выбран самый длинный перелёт, дальше — как решит пользователь
     const [sel, setSel] = useState(() => arcs.length ? arcs.reduce((a, b) => (b.km > a.km ? b : a)).key : null);
@@ -7002,7 +7011,10 @@ function AirGlobe({ visits, home, air, geo, mapProps, onClose }) {
             React.createElement("em", null,
                 CONTINENTS[selArc.cont] || "",
                 " \u00B7 ",
-                np(selArc.trips, "trip"))),
+                np(selArc.trips, "trip"),
+                ((_d = airInfo(selArc.code)) === null || _d === void 0 ? void 0 : _d.icao)
+                    ? ` · ICAO ${airInfo(selArc.code).icao}`
+                    : "")),
         React.createElement("div", { className: "ag-list" }, selArc.list.map((c) => {
             var _c, _d;
             return (React.createElement("div", { key: c.a3, className: "ag-row" },
@@ -7018,10 +7030,14 @@ function AirGlobe({ visits, home, air, geo, mapProps, onClose }) {
         back("Все авиакомпании", () => setSelCode(null)),
         React.createElement("div", { className: "ag-sel-head" },
             React.createElement("i", { className: "ag-dot", style: { background: colorOf[selCode] } }),
-            React.createElement("b", null, ((_d = airInfo(selCode)) === null || _d === void 0 ? void 0 : _d.name) || selCode),
-            React.createElement("em", null, np(arcs
-                .filter((g) => g.code === selCode)
-                .reduce((t, g) => t + g.trips, 0), "trip"))),
+            React.createElement("b", null, ((_e = airInfo(selCode)) === null || _e === void 0 ? void 0 : _e.name) || selCode),
+            React.createElement("em", null,
+                np(arcs
+                    .filter((g) => g.code === selCode)
+                    .reduce((t, g) => t + g.trips, 0), "trip"),
+                ((_f = airInfo(selCode)) === null || _f === void 0 ? void 0 : _f.icao)
+                    ? ` · IATA ${selCode} · ICAO ${airInfo(selCode).icao}`
+                    : "")),
         React.createElement("div", { className: "ag-list" }, arcs
             .filter((g) => g.code === selCode)
             .sort((x, y) => y.trips - x.trips)
@@ -11379,6 +11395,7 @@ body > div{max-width:100%;}
   display:flex; flex-direction:column; gap:3px;}
 .air-info b{font-size:0.78rem; font-weight:500;}
 .air-info em{font-style:normal; font-size:0.64rem; color:var(--dim);}
+.air-info .air-codes{margin-top:2px; letter-spacing:.02em;}
 .air-info span{font-size:0.68rem; color:var(--text);}
 .air-pick{display:flex; flex-direction:column; gap:8px;}
 .air-own{display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:11px;
