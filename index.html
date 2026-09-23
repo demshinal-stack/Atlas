@@ -2445,7 +2445,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "30.6";
+const APP_VERSION = "30.7";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -8865,6 +8865,17 @@ function NearHero() {
             React.createElement("rect", { x: "18", y: "100", width: "38", height: "6", rx: "3", fill: "var(--gold)" }),
             React.createElement("rect", { x: "26", y: "114", width: "44", height: "3", rx: "1.5", fill: "rgba(143,179,214,.5)" }))));
 }
+/* обмен завершён: галочка и два телефона */
+function NearDone() {
+    return (React.createElement("svg", { className: "near-hero", viewBox: "0 0 360 200", "aria-hidden": "true" },
+        React.createElement("circle", { cx: "180", cy: "100", r: "62", fill: "rgba(232,184,75,.12)" }),
+        React.createElement("circle", { cx: "180", cy: "100", r: "62", fill: "none", stroke: "rgba(232,184,75,.55)", strokeWidth: "2" }),
+        React.createElement("path", { d: "M152 100l20 20 38-42", fill: "none", stroke: "var(--gold)", strokeWidth: "7", strokeLinecap: "round", strokeLinejoin: "round" }),
+        React.createElement("g", { opacity: ".8" },
+            React.createElement("rect", { x: "36", y: "52", width: "60", height: "96", rx: "12", fill: "#16273a", stroke: "rgba(143,179,214,.4)" }),
+            React.createElement("rect", { x: "264", y: "52", width: "60", height: "96", rx: "12", fill: "#16273a", stroke: "rgba(143,179,214,.4)" }),
+            React.createElement("path", { d: "M100 100h34M226 100h34", stroke: "rgba(232,184,75,.5)", strokeWidth: "2", strokeDasharray: "5 5", strokeLinecap: "round" }))));
+}
 function NearSync({ makePayload, onData, onClose, box }) {
     // одно нажатие на обоих телефонах: каждый показывает свой код и сам читает чужой
     const [step, setStep] = useState("idle"); // idle | pair | live | done
@@ -8885,8 +8896,23 @@ function NearSync({ makePayload, onData, onClose, box }) {
         readPackets(ch, (d) => {
             setGot(1);
             setStep("done");
-            setState("Поездки получены");
+            setState("Обмен завершён");
             onData(d);
+            // через несколько секунд экран возвращается к началу
+            setTimeout(() => {
+                var _c;
+                (_c = peer.current) === null || _c === void 0 ? void 0 : _c.pc.close();
+                peer.current = null;
+                role.current = "open";
+                setMyCode("");
+                setFlip(false);
+                setManual(false);
+                setTheirCode("");
+                setSent(0);
+                setGot(0);
+                setState("");
+                setStep("idle");
+            }, 3500);
         }, (k) => setGot(k));
         const send = async () => {
             setStep("live");
@@ -8949,14 +8975,18 @@ function NearSync({ makePayload, onData, onClose, box }) {
             "\u041E\u0431\u043C\u0435\u043D ",
             React.createElement("span", { className: "t-gold" }, "\u0440\u044F\u0434\u043E\u043C")), box: box }, () => (React.createElement("div", { className: "sheet-body near" },
         React.createElement("p", { className: "hint small" }, "\u041F\u043E\u0435\u0437\u0434\u043A\u0438, \u043C\u0430\u0440\u0448\u0440\u0443\u0442\u044B \u0438 \u043F\u043B\u0430\u043D\u044B \u2014 \u043F\u0440\u044F\u043C\u043E \u043D\u0430 \u0441\u043E\u0441\u0435\u0434\u043D\u0438\u0439 \u0442\u0435\u043B\u0435\u0444\u043E\u043D"),
-        React.createElement("div", { className: "near-stage" }, step === "idle" ? (React.createElement(NearHero, null)) : (React.createElement("div", { className: "near-card" + (flip ? " flip" : ""), onClick: () => setFlip((v) => !v) },
-            React.createElement("div", { className: "near-face near-front" }, myCode ? (React.createElement(QrBox, { text: myCode, size: 200 })) : (React.createElement("p", { className: "near-state" }, "\u0413\u043E\u0442\u043E\u0432\u0438\u043C \u043A\u043E\u0434\u2026"))),
+        React.createElement("div", { className: "near-stage" }, step === "done" ? (React.createElement(NearDone, null)) : step === "idle" ? (React.createElement(NearHero, null)) : (React.createElement("div", { className: "near-card" + (flip ? " flip" : ""), onClick: () => setFlip((v) => !v) },
+            React.createElement("div", { className: "near-face near-front" }, myCode ? (React.createElement(QrBox, { text: myCode, size: 196 })) : (React.createElement("p", { className: "near-state" }, "\u0413\u043E\u0442\u043E\u0432\u0438\u043C \u043A\u043E\u0434\u2026"))),
             React.createElement("div", { className: "near-face near-back" },
                 React.createElement("p", null, "\u041A\u043E\u0434 \u0434\u043B\u044F \u0440\u0443\u0447\u043D\u043E\u0433\u043E \u0432\u0432\u043E\u0434\u0430"),
                 React.createElement("textarea", { readOnly: true, value: myCode, onFocus: (e) => e.target.select() }))))),
         React.createElement("div", { className: "near-status" },
-            React.createElement("p", { className: "near-step" }, step === "idle" ? "Нажмите «Обменяться» на обоих телефонах" : state),
-            React.createElement("div", { className: "near-bars" + (step === "idle" || step === "pair" ? " idle" : "") },
+            React.createElement("p", { className: "near-step" }, step === "idle"
+                ? "Нажмите «Обменяться» на обоих телефонах"
+                : step === "pair"
+                    ? state || "Поверните телефоны экранами друг к другу"
+                    : state),
+            React.createElement("div", { className: "near-bars" + (step === "idle" ? " idle" : "") },
                 React.createElement("span", null,
                     React.createElement("em", null, "\u041E\u0442\u0434\u0430\u0451\u043C"),
                     React.createElement("i", null,
@@ -8971,47 +9001,48 @@ function NearSync({ makePayload, onData, onClose, box }) {
                     React.createElement("b", null,
                         Math.round(got * 100),
                         "%")))),
-        step === "idle" && (React.createElement(React.Fragment, null,
-            React.createElement("div", { className: "near-guide" },
-                React.createElement("ol", { className: "near-steps" },
-                    React.createElement("li", null,
-                        React.createElement("b", null, "1"),
-                        React.createElement("i", null,
-                            React.createElement("svg", { viewBox: "0 0 24 24", width: "18", height: "18" },
-                                React.createElement("rect", { x: "7", y: "3", width: "10", height: "18", rx: "2.5", fill: "none", stroke: "currentColor", strokeWidth: "1.6" }),
-                                React.createElement("path", { d: "M11 18.5h2", stroke: "currentColor", strokeWidth: "1.6", strokeLinecap: "round" }))),
-                        React.createElement("span", null, "\u041E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u044D\u0442\u043E\u0442 \u044D\u043A\u0440\u0430\u043D \u043D\u0430 \u043E\u0431\u043E\u0438\u0445 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430\u0445")),
-                    React.createElement("li", null,
-                        React.createElement("b", null, "2"),
-                        React.createElement("i", null,
-                            React.createElement("svg", { viewBox: "0 0 24 24", width: "18", height: "18" },
-                                React.createElement("path", { d: "M4 9h16l-3-3M20 15H4l3 3", fill: "none", stroke: "currentColor", strokeWidth: "1.6", strokeLinecap: "round", strokeLinejoin: "round" }))),
-                        React.createElement("span", null, "\u041D\u0430\u0436\u043C\u0438\u0442\u0435 \u00AB\u041E\u0431\u043C\u0435\u043D\u044F\u0442\u044C\u0441\u044F\u00BB \u043D\u0430 \u043A\u0430\u0436\u0434\u043E\u043C")),
-                    React.createElement("li", null,
-                        React.createElement("b", null, "3"),
-                        React.createElement("i", null,
-                            React.createElement("svg", { viewBox: "0 0 24 24", width: "18", height: "18" },
-                                React.createElement("rect", { x: "3.5", y: "4", width: "7", height: "16", rx: "2", fill: "none", stroke: "currentColor", strokeWidth: "1.6" }),
-                                React.createElement("rect", { x: "13.5", y: "4", width: "7", height: "16", rx: "2", fill: "none", stroke: "currentColor", strokeWidth: "1.6" }))),
-                        React.createElement("span", null, "\u041F\u043E\u0432\u0435\u0440\u043D\u0438\u0442\u0435 \u044D\u043A\u0440\u0430\u043D\u0430\u043C\u0438 \u0434\u0440\u0443\u0433 \u043A \u0434\u0440\u0443\u0433\u0443, \u043D\u0430 \u0440\u0430\u0441\u0441\u0442\u043E\u044F\u043D\u0438\u0438 \u0434\u043E 20 \u0441\u043C"))),
-                React.createElement("p", null, "\u041E\u0431\u0430 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430 \u0432 \u043E\u0434\u043D\u043E\u0439 \u0441\u0435\u0442\u0438 Wi-Fi. \u0418\u043D\u0442\u0435\u0440\u043D\u0435\u0442 \u0438 \u0441\u0435\u0440\u0432\u0435\u0440 \u043D\u0435 \u043D\u0443\u0436\u043D\u044B: \u043F\u043E\u0435\u0437\u0434\u043A\u0438 \u0438\u0434\u0443\u0442 \u043D\u0430\u043F\u0440\u044F\u043C\u0443\u044E \u0441 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430 \u043D\u0430 \u0442\u0435\u043B\u0435\u0444\u043E\u043D.")),
-            React.createElement("label", { className: "near-photos" },
-                React.createElement("span", null,
-                    "\u041F\u0435\u0440\u0435\u0434\u0430\u0442\u044C \u0438 \u0441\u043D\u0438\u043C\u043A\u0438",
-                    React.createElement("em", null, "\u0434\u043E\u043B\u044C\u0448\u0435, \u0437\u0430\u0442\u043E \u0443 \u0440\u043E\u0434\u043D\u044B\u0445 \u0431\u0443\u0434\u0443\u0442 \u0444\u043E\u0442\u043E\u0433\u0440\u0430\u0444\u0438\u0438 \u043F\u043E\u0435\u0437\u0434\u043E\u043A")),
-                React.createElement("input", { type: "checkbox", className: "near-toggle", checked: withPhotos, onChange: (e) => setWithPhotos(e.target.checked) }),
-                React.createElement("i", { className: "near-knob" })),
-            React.createElement("button", { className: "btn-main wide", onClick: start }, "\u041E\u0431\u043C\u0435\u043D\u044F\u0442\u044C\u0441\u044F"))),
-        step === "pair" && (React.createElement(React.Fragment, null,
-            React.createElement("p", { className: "hint small center" }, "\u041D\u0430\u0436\u043C\u0438\u0442\u0435 \u043D\u0430 \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0443 \u2014 \u043A\u043E\u0434 \u0442\u0435\u043A\u0441\u0442\u043E\u043C"),
-            manual ? (React.createElement(React.Fragment, null,
-                React.createElement("label", { className: "tf near-in" },
-                    React.createElement("textarea", { className: "tf-input", placeholder: "\u041A\u043E\u0434 \u0441 \u0434\u0440\u0443\u0433\u043E\u0433\u043E \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430", value: theirCode, onChange: (e) => setTheirCode(e.target.value) })),
-                React.createElement("button", { className: "btn-main wide", onClick: () => onCode(theirCode) }, "\u0421\u043E\u0435\u0434\u0438\u043D\u0438\u0442\u044C"),
-                React.createElement("button", { className: "near-link", onClick: () => setManual(false) }, "\u0412\u0435\u0440\u043D\u0443\u0442\u044C\u0441\u044F \u043A \u043A\u0430\u043C\u0435\u0440\u0435"))) : (React.createElement(React.Fragment, null,
-                React.createElement(QrCamera, { facing: "user", hidden: true, onCode: onCode, onClose: () => setManual(true) }),
-                React.createElement("button", { className: "near-link", onClick: () => setManual(true) }, "\u0412\u0432\u0435\u0441\u0442\u0438 \u043A\u043E\u0434 \u0432\u0440\u0443\u0447\u043D\u0443\u044E"))))),
-        step === "done" && (React.createElement("button", { className: "btn-main wide", onClick: onClose }, "\u0413\u043E\u0442\u043E\u0432\u043E"))))));
+        React.createElement("div", { className: "near-zone" },
+            step === "idle" && (React.createElement(React.Fragment, null,
+                React.createElement("div", { className: "near-guide" },
+                    React.createElement("ol", { className: "near-steps" },
+                        React.createElement("li", null,
+                            React.createElement("b", null, "1"),
+                            React.createElement("i", null,
+                                React.createElement("svg", { viewBox: "0 0 24 24", width: "18", height: "18" },
+                                    React.createElement("rect", { x: "7", y: "3", width: "10", height: "18", rx: "2.5", fill: "none", stroke: "currentColor", strokeWidth: "1.6" }),
+                                    React.createElement("path", { d: "M11 18.5h2", stroke: "currentColor", strokeWidth: "1.6", strokeLinecap: "round" }))),
+                            React.createElement("span", null, "\u041E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u044D\u0442\u043E\u0442 \u044D\u043A\u0440\u0430\u043D \u043D\u0430 \u043E\u0431\u043E\u0438\u0445 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430\u0445")),
+                        React.createElement("li", null,
+                            React.createElement("b", null, "2"),
+                            React.createElement("i", null,
+                                React.createElement("svg", { viewBox: "0 0 24 24", width: "18", height: "18" },
+                                    React.createElement("path", { d: "M4 9h16l-3-3M20 15H4l3 3", fill: "none", stroke: "currentColor", strokeWidth: "1.6", strokeLinecap: "round", strokeLinejoin: "round" }))),
+                            React.createElement("span", null, "\u041D\u0430\u0436\u043C\u0438\u0442\u0435 \u00AB\u041E\u0431\u043C\u0435\u043D\u044F\u0442\u044C\u0441\u044F\u00BB \u043D\u0430 \u043A\u0430\u0436\u0434\u043E\u043C")),
+                        React.createElement("li", null,
+                            React.createElement("b", null, "3"),
+                            React.createElement("i", null,
+                                React.createElement("svg", { viewBox: "0 0 24 24", width: "18", height: "18" },
+                                    React.createElement("rect", { x: "3.5", y: "4", width: "7", height: "16", rx: "2", fill: "none", stroke: "currentColor", strokeWidth: "1.6" }),
+                                    React.createElement("rect", { x: "13.5", y: "4", width: "7", height: "16", rx: "2", fill: "none", stroke: "currentColor", strokeWidth: "1.6" }))),
+                            React.createElement("span", null, "\u041F\u043E\u0432\u0435\u0440\u043D\u0438\u0442\u0435 \u044D\u043A\u0440\u0430\u043D\u0430\u043C\u0438 \u0434\u0440\u0443\u0433 \u043A \u0434\u0440\u0443\u0433\u0443, \u043D\u0430 \u0440\u0430\u0441\u0441\u0442\u043E\u044F\u043D\u0438\u0438 \u0434\u043E 20 \u0441\u043C"))),
+                    React.createElement("p", null, "\u041E\u0431\u0430 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430 \u0432 \u043E\u0434\u043D\u043E\u0439 \u0441\u0435\u0442\u0438 Wi-Fi. \u0418\u043D\u0442\u0435\u0440\u043D\u0435\u0442 \u0438 \u0441\u0435\u0440\u0432\u0435\u0440 \u043D\u0435 \u043D\u0443\u0436\u043D\u044B: \u043F\u043E\u0435\u0437\u0434\u043A\u0438 \u0438\u0434\u0443\u0442 \u043D\u0430\u043F\u0440\u044F\u043C\u0443\u044E \u0441 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430 \u043D\u0430 \u0442\u0435\u043B\u0435\u0444\u043E\u043D.")),
+                React.createElement("label", { className: "near-photos" },
+                    React.createElement("span", null,
+                        "\u041F\u0435\u0440\u0435\u0434\u0430\u0442\u044C \u0438 \u0441\u043D\u0438\u043C\u043A\u0438",
+                        React.createElement("em", null, "\u0434\u043E\u043B\u044C\u0448\u0435, \u0437\u0430\u0442\u043E \u0443 \u0440\u043E\u0434\u043D\u044B\u0445 \u0431\u0443\u0434\u0443\u0442 \u0444\u043E\u0442\u043E\u0433\u0440\u0430\u0444\u0438\u0438 \u043F\u043E\u0435\u0437\u0434\u043E\u043A")),
+                    React.createElement("input", { type: "checkbox", className: "near-toggle", checked: withPhotos, onChange: (e) => setWithPhotos(e.target.checked) }),
+                    React.createElement("i", { className: "near-knob" })),
+                React.createElement("button", { className: "btn-main wide", onClick: start }, "\u041E\u0431\u043C\u0435\u043D\u044F\u0442\u044C\u0441\u044F"))),
+            step === "pair" && (React.createElement(React.Fragment, null,
+                React.createElement("p", { className: "hint small center" }, "\u041D\u0430\u0436\u043C\u0438\u0442\u0435 \u043D\u0430 \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0443 \u2014 \u043A\u043E\u0434 \u0442\u0435\u043A\u0441\u0442\u043E\u043C"),
+                manual ? (React.createElement(React.Fragment, null,
+                    React.createElement("label", { className: "tf near-in" },
+                        React.createElement("textarea", { className: "tf-input", placeholder: "\u041A\u043E\u0434 \u0441 \u0434\u0440\u0443\u0433\u043E\u0433\u043E \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430", value: theirCode, onChange: (e) => setTheirCode(e.target.value) })),
+                    React.createElement("button", { className: "btn-main wide", onClick: () => onCode(theirCode) }, "\u0421\u043E\u0435\u0434\u0438\u043D\u0438\u0442\u044C"),
+                    React.createElement("button", { className: "near-link", onClick: () => setManual(false) }, "\u0412\u0435\u0440\u043D\u0443\u0442\u044C\u0441\u044F \u043A \u043A\u0430\u043C\u0435\u0440\u0435"))) : (React.createElement(React.Fragment, null,
+                    React.createElement(QrCamera, { facing: "user", hidden: true, onCode: onCode, onClose: () => setManual(true) }),
+                    React.createElement("button", { className: "near-link", onClick: () => setManual(true) }, "\u0412\u0432\u0435\u0441\u0442\u0438 \u043A\u043E\u0434 \u0432\u0440\u0443\u0447\u043D\u0443\u044E"))))),
+            step === "done" && (React.createElement("p", { className: "hint small center" }, "\u0414\u0430\u043D\u043D\u044B\u0435 \u0440\u0430\u0437\u043B\u043E\u0436\u0435\u043D\u044B \u043F\u043E \u043F\u043E\u0435\u0437\u0434\u043A\u0430\u043C")))))));
 }
 /* разбор обмена: что придёт, что уйдёт и чьи данные оставить */
 function SyncSheet({ plan, from, onCancel, onApply, box }) {
@@ -11945,7 +11976,10 @@ function Atlas() {
                         }, onReports: () => {
                             setSheetBack("profile");
                             setSheet("reports");
-                        }, onSettings: () => setSheet("settings"), onShelf: () => setSheet("shelf"), onFamily: () => setNear(true), onSince: async (v) => {
+                        }, onSettings: () => setSheet("settings"), onShelf: () => setSheet("shelf"), onFamily: () => {
+                            setSheet(null);
+                            setNear(true);
+                        }, onSince: async (v) => {
                             const prof = { ...profile, since: v };
                             await saveProfile(prof);
                         }, home: profile.home || null, onHome: async (h) => {
@@ -12519,13 +12553,16 @@ body > div{max-width:100%;}
 .near-lead b{display:block; font-size:1.75rem; font-weight:700; line-height:1.1;}
 .near-lead b span{color:var(--gold);}
 .near-lead em{display:block; margin-top:6px; font-style:normal; font-size:0.8rem; color:var(--dim); line-height:1.4;}
-.near-stage{height:240px; display:flex; align-items:center; justify-content:center;}
-.near-hero{display:block; width:100%; max-width:360px; height:100%;}
-.near-status{min-height:78px; display:flex; flex-direction:column; gap:9px; justify-content:center;}
+.near-stage{height:200px; flex:none; display:flex; align-items:center; justify-content:center;}
+.near-hero{display:block; width:100%; max-width:340px; height:100%;}
+.near-status{flex:none; min-height:68px; display:flex; flex-direction:column; gap:8px; justify-content:center;}
+.near-zone{flex:1 1 auto; min-height:0; display:flex; flex-direction:column; gap:10px; justify-content:flex-start;}
+/* высота окна не меняется: рисунок сменяется кодом внутри неё */
+.sheet-body.near{gap:10px; min-height:min(640px, calc(100dvh - var(--tabh) - 140px));}
 .near-bars.idle{opacity:.35;}
-.near-guide{padding:14px; border-radius:16px; border:1px solid var(--line); background:var(--field);
-  display:flex; flex-direction:column; gap:12px;}
-.near-guide > p{margin:0; font-size:0.7rem; color:var(--dim); line-height:1.45;}
+.near-guide{padding:12px 13px; border-radius:16px; border:1px solid var(--line); background:var(--field);
+  display:flex; flex-direction:column; gap:9px;}
+.near-guide > p{margin:0; font-size:0.66rem; color:var(--dim); line-height:1.4;}
 .near-steps li{display:flex; align-items:center; gap:10px;}
 .near-steps i{flex:none; display:flex; color:#8fb3d6;}
 .near-bars{display:flex; flex-direction:column; gap:8px; transition:opacity .3s ease;}
@@ -12534,7 +12571,7 @@ body > div{max-width:100%;}
 .near-bars i{height:8px; border-radius:5px; background:rgba(255,255,255,.07); overflow:hidden;}
 .near-bars u{display:block; height:100%; border-radius:5px; background:var(--gold); transition:width .25s ease;}
 .near-bars b{font-size:0.7rem; color:var(--gold); min-width:38px; text-align:right;}
-.near-photos{align-items:center; justify-content:space-between; position:relative; padding:12px 14px;}
+.near-photos{align-items:center; justify-content:space-between; position:relative; padding:10px 13px;}
 .near-photos .near-toggle{appearance:none; -webkit-appearance:none; flex:none; width:46px; height:27px;
   border-radius:14px; background:rgba(255,255,255,.1); border:1px solid var(--line); margin:0;
   transition:background .2s ease;}
@@ -12542,14 +12579,14 @@ body > div{max-width:100%;}
 .near-knob{position:absolute; right:37px; width:21px; height:21px; border-radius:50%; background:#f4efe2;
   pointer-events:none; transition:transform .2s ease;}
 .near-photos .near-toggle:checked ~ .near-knob{transform:translateX(18px);}
-.near-card{width:232px; height:232px; aspect-ratio:auto;}
+.near-card{width:196px; height:196px; aspect-ratio:auto;}
 .near-how{display:block; width:100%; max-width:320px; margin:2px auto 0;}
 .near-top .near-how{max-width:200px; opacity:.7;}
-.near-steps{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:9px;}
+.near-steps{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:7px;}
 .near-steps li{display:flex; align-items:flex-start; gap:10px;}
 .near-steps b{flex:none; width:22px; height:22px; border-radius:50%; display:flex; align-items:center;
   justify-content:center; font-size:0.68rem; font-weight:600; color:#11202e; background:var(--gold);}
-.near-steps span{font-size:0.78rem; line-height:1.4;}
+.near-steps span{font-size:0.74rem; line-height:1.35;}
 .hint.small.center{text-align:center;}
 .near-link{align-self:center; padding:6px; border:0; background:none; color:var(--gold); font-size:0.72rem; cursor:pointer;}
 .near-card{position:relative; align-self:center; width:min(260px, 76%); aspect-ratio:1; perspective:900px; cursor:pointer;}
