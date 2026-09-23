@@ -1,176 +1,176 @@
-SU|Аэрофлот|RUS|1923|Москва (Шереметьево) · вся Россия, СНГ, Азия, Ближний Восток|SkyTeam|#00256b|#53ea7f
-S7|S7 Airlines|RUS|1992|Новосибирск, Москва (Домодедово) · Сибирь, Азия, Кавказ|oneworld|#96bf0d|#bc77ee
-U6|Уральские авиалинии|RUS|1943|Екатеринбург · Урал, Сибирь, юг России, Средняя Азия|—|#0f4e9c|#e6d137
-UT|ЮТэйр|RUS|1967|Тюмень, Сургут, Москва (Внуково) · север и регионы России|—|#0069b4|#e05ca4
-DP|Победа|RUS|2014|Москва (Внуково) · внутренние рейсы, Турция, ОАЭ|—|#00a650|#98e77e
-FV|Россия|RUS|1934|Санкт-Петербург, Москва · курорты и регионы России|SkyTeam|#0b3d91|#db7643
-N4|Nordwind|RUS|2008|Москва (Шереметьево) · Турция, Египет, ОАЭ, Азия|—|#e2001a|#4bf1b3
-5N|Smartavia|RUS|1963|Архангельск, Санкт-Петербург · север и центр России|—|#f05a28|#ea71f4
-WZ|Red Wings|RUS|1999|Москва (Домодедово), Екатеринбург · регионы России, юг|—|#d81e05|#c7ef2e
-ZF|Azur Air|RUS|2014|чартеры · Турция, Египет, Таиланд, Вьетнам|—|#2b3f8c|#ea5372
-A4|Азимут|RUS|2014|Ростов-на-Дону, Краснодар, Минводы · юг России|—|#7b2382|#77ee81
-IO|ИрАэро|RUS|1999|Иркутск · Сибирь и Дальний Восток|—|#0a5ca8|#7937e6
-HZ|Аврора|RUS|2013|Владивосток, Южно-Сахалинск · Дальний Восток, Япония, Корея|—|#00a0df|#e0b45c
-R3|Якутия|RUS|2002|Якутск · Дальний Восток, Сибирь|—|#0d6ab5|#db43b5
-EK|Emirates|ARE|1985|Дубай · весь мир через хаб в Дубае|—|#d71921|#97f14b
-EY|Etihad Airways|ARE|2003|Абу-Даби · Европа, Азия, Австралия|—|#bd8b13|#f48271
-FZ|flydubai|ARE|2008|Дубай · Ближний Восток, СНГ, Индия, Африка|—|#f58220|#2eef7f
-G9|Air Arabia|ARE|2003|Шарджа · Ближний Восток, Индия, Средняя Азия|—|#e4002b|#be53ea
-QR|Qatar Airways|QAT|1993|Доха · весь мир через хаб в Дохе|oneworld|#5c0632|#eeee77
-GF|Gulf Air|BHR|1950|Манама · Ближний Восток, Европа, Азия|—|#c8a862|#e63780
-WY|Oman Air|OMN|1993|Маскат · Ближний Восток, Азия, Европа|—|#6b1f4b|#6ce05c
-SV|Saudia|SAU|1945|Джидда, Эр-Рияд · Ближний Восток, Азия, Европа|SkyTeam|#00843d|#907ee7
-MS|EgyptAir|EGY|1932|Каир · Африка, Ближний Восток, Европа|Star Alliance|#005baa|#db8943
-TK|Turkish Airlines|TUR|1933|Стамбул · более ста стран, крупнейшая сеть|Star Alliance|#c70a0c|#4bf1c8
-PC|Pegasus|TUR|1990|Стамбул (Сабиха) · Турция, Европа, СНГ|—|#f9a01b|#f471ee
-XQ|SunExpress|TUR|1989|Анталья, Измир · курорты Турции и Европа|—|#f5821f|#aeef2e
-AZ|ITA Airways|ITA|2021|Рим (Фьюмичино) · Европа, Америка, Азия|SkyTeam|#00529b|#ea535e
-LH|Lufthansa|DEU|1953|Франкфурт, Мюнхен · весь мир|Star Alliance|#05164d|#77ee90
-AF|Air France|FRA|1933|Париж (Шарль-де-Голль) · весь мир|SkyTeam|#002157|#9037e6
-KL|KLM|NLD|1919|Амстердам · весь мир, старейшая авиакомпания|SkyTeam|#00a1de|#e0c55c
-BA|British Airways|GBR|1974|Лондон (Хитроу) · весь мир|oneworld|#075aaa|#7edde7
-IB|Iberia|ESP|1927|Мадрид · Европа, Латинская Америка|oneworld|#d7192d|#db43a1
-VY|Vueling|ESP|2004|Барселона · Европа, Средиземноморье|—|#ffcc00|#81f14b
-FR|Ryanair|IRL|1984|Дублин и база по всей Европе · дешёвые рейсы|—|#073590|#f49271
-U2|easyJet|GBR|1995|Лондон (Гатвик) · Европа|—|#ff6600|#2eef98
-W6|Wizz Air|HUN|2003|Будапешт · Восточная Европа, Ближний Восток|—|#c6007e|#d153ea
-LO|LOT|POL|1929|Варшава · Европа, Азия, Америка|Star Alliance|#11397e|#dfee77
-OS|Austrian|AUT|1957|Вена · Европа, Ближний Восток, Азия|Star Alliance|#cc0000|#e63769
-LX|SWISS|CHE|2002|Цюрих · Европа, Америка, Азия|Star Alliance|#e2001a|#5ce05d
-SK|SAS|SWE|1946|Копенгаген, Стокгольм, Осло · Скандинавия и мир|SkyTeam|#003d6b|#9e7ee7
-AY|Finnair|FIN|1923|Хельсинки · Европа и Азия коротким путём|oneworld|#0b1560|#db9d43
-TP|TAP Portugal|PRT|1945|Лиссабон · Европа, Бразилия, Африка|Star Alliance|#00a04a|#4bf1de
-A3|Aegean|GRC|1987|Афины · Греция, Европа, Ближний Восток|Star Alliance|#00447c|#f471dd
-OK|Czech Airlines|CZE|1923|Прага · Европа|SkyTeam|#003a70|#95ef2e
-JU|Air Serbia|SRB|1927|Белград · Европа, Ближний Восток|—|#0c2340|#ea5a53
-RO|TAROM|ROU|1954|Бухарест · Европа, Ближний Восток|SkyTeam|#0d4f9b|#77eea0
-FB|Bulgaria Air|BGR|2002|София · Европа|—|#0a3d7c|#a637e6
-BT|airBaltic|LVA|1995|Рига · Европа, Скандинавия|—|#98d500|#e0d65c
-PS|Ukraine Intl|UKR|1992|Киев · Европа, Ближний Восток|—|#1a3a7a|#61db43
-B2|Belavia|BLR|1996|Минск · СНГ, Европа, Ближний Восток|—|#e30613|#f18b4b
-KC|Air Astana|KAZ|2001|Алматы, Астана · Средняя Азия, Европа, Азия|—|#0b3a70|#71f4ca
-KC2|FlyArystan|KAZ|2019|Алматы · дешёвые рейсы по Казахстану и СНГ|—|#f2a900|#e92eef
-HY|Uzbekistan Airways|UZB|1992|Ташкент · СНГ, Азия, Европа|—|#009fe3|#c3ea53
-7J|Tajik Air|TJK|1924|Душанбе · СНГ, Азия|—|#006847|#ee778a
-QH|Air Kyrgyzstan|KGZ|2001|Бишкек · СНГ|—|#d40000|#37e64f
-J2|AZAL|AZE|1992|Баку · СНГ, Европа, Ближний Восток|—|#0072ce|#945ce0
-A9|Georgian Airways|GEO|1993|Тбилиси · Европа, Ближний Восток|—|#b4131c|#e7c97e
-RM|Armenia Airways|ARM|2019|Ереван · СНГ, Ближний Восток|—|#d90012|#43dadb
-CA|Air China|CHN|1988|Пекин · Азия, Европа, Америка|Star Alliance|#c8102e|#f14bbf
-MU|China Eastern|CHN|1988|Шанхай · Азия, Европа, Америка|SkyTeam|#c8102e|#a6f471
-CZ|China Southern|CHN|1988|Гуанчжоу · Азия, Европа, Океания|—|#0066b3|#ef502e
-HU|Hainan Airlines|CHN|1993|Хайкоу, Пекин · Китай, Азия, Европа|—|#d71921|#53ea99
-CX|Cathay Pacific|HKG|1946|Гонконг · Азия, Европа, Америка|oneworld|#005d63|#d277ee
-NH|ANA|JPN|1952|Токио (Ханеда) · Япония, Азия, Америка|Star Alliance|#13448f|#dde637
-JL|Japan Airlines|JPN|1951|Токио (Ханеда) · Япония, Азия, Америка|oneworld|#c8102e|#e05c8c
-KE|Korean Air|KOR|1969|Сеул (Инчхон) · Азия, Америка, Европа|SkyTeam|#00256c|#86e77e
-OZ|Asiana|KOR|1988|Сеул (Инчхон) · Азия, Америка|Star Alliance|#d21f3c|#6443db
-SQ|Singapore Airlines|SGP|1947|Сингапур · Азия, Европа, Океания|Star Alliance|#f99f1c|#f1a04b
-TG|Thai Airways|THA|1960|Бангкок · Азия, Европа, Океания|Star Alliance|#4b0082|#71f4da
-FD|Thai AirAsia|THA|2003|Бангкок (Дон Мыанг) · Таиланд и Азия|—|#e31837|#ef2edd
-VN|Vietnam Airlines|VNM|1956|Ханой, Хошимин · Азия, Европа, Австралия|SkyTeam|#00629b|#afea53
-VJ|VietJet|VNM|2007|Хошимин · Вьетнам и Азия|—|#e2231a|#ee777a
-MH|Malaysia Airlines|MYS|1947|Куала-Лумпур · Азия, Океания|oneworld|#006e51|#37e665
-AK|AirAsia|MYS|1993|Куала-Лумпур · Азия, дешёвые рейсы|—|#e31837|#a55ce0
-GA|Garuda Indonesia|IDN|1949|Джакарта · Индонезия, Азия, Австралия|SkyTeam|#00539f|#e7d67e
-QZ|Indonesia AirAsia|IDN|1999|Джакарта, Денпасар · Индонезия и Азия|—|#e31837|#43c6db
-AI|Air India|IND|1932|Дели, Мумбаи · Индия, Европа, Америка|Star Alliance|#d81939|#f14baa
-6E|IndiGo|IND|2006|Дели · Индия, Ближний Восток, Азия|—|#09327b|#95f471
-UL|SriLankan|LKA|1979|Коломбо · Азия, Ближний Восток|oneworld|#134b8e|#ef692e
-MV|Maldivian|MDV|2000|Мале · Мальдивы и Индия|—|#e10600|#53eaad
-PG|Bangkok Airways|THA|1968|Бангкок, Самуи · курорты Таиланда|—|#00529b|#e177ee
-BR|EVA Air|TWN|1989|Тайбэй · Азия, Америка, Европа|Star Alliance|#00653a|#c7e637
-CI|China Airlines|TWN|1959|Тайбэй · Азия, Америка, Европа|SkyTeam|#ba0c2f|#e05c7b
-NZ|Air New Zealand|NZL|1940|Окленд · Океания, Азия, Америка|Star Alliance|#00205b|#7ee784
-QF|Qantas|AUS|1920|Сидней · Австралия, Азия, Америка, Европа|oneworld|#e40000|#7743db
-JQ|Jetstar|AUS|2003|Мельбурн · Австралия и Азия|—|#ff5307|#f1b54b
-AA|American Airlines|USA|1926|Даллас, Шарлотт · Америка и весь мир|oneworld|#0078d2|#71f4eb
-DL|Delta|USA|1925|Атланта · Америка, Европа, Азия|SkyTeam|#003a70|#ef2ec4
-UA|United|USA|1926|Чикаго, Ньюарк · Америка и весь мир|Star Alliance|#002244|#9cea53
-WN|Southwest|USA|1967|Даллас · внутренние рейсы США|—|#304cb2|#ee8377
-B6|JetBlue|USA|1998|Нью-Йорк · США, Карибы, Европа|—|#003876|#37e67c
-AS|Alaska Airlines|USA|1932|Сиэтл · запад США, Мексика|oneworld|#01426a|#b65ce0
-AC|Air Canada|CAN|1937|Торонто, Монреаль · Америка, Европа, Азия|Star Alliance|#d22630|#e7e47e
-AM|Aeroméxico|MEX|1934|Мехико · Америка, Европа, Азия|SkyTeam|#0b2265|#db4386
-CM|Copa Airlines|PAN|1947|Панама · Латинская Америка|Star Alliance|#003da5|#64f14b
-AV|Avianca|COL|1919|Богота · Латинская Америка, США, Европа|Star Alliance|#da291c|#8371f4
-LA|LATAM|CHL|1929|Сантьяго, Сан-Паулу · Южная Америка и мир|—|#e30613|#ef822e
-G3|Gol|BRA|2000|Сан-Паулу · Бразилия и Южная Америка|—|#f37021|#53eac0
-AR|Aerolíneas Argentinas|ARG|1950|Буэнос-Айрес · Южная Америка, Европа|SkyTeam|#74acdf|#ee77ec
-CU|Cubana|CUB|1929|Гавана · Куба и Латинская Америка|—|#cf142b|#b0e637
-ET|Ethiopian|ETH|1945|Аддис-Абеба · Африка, Азия, Европа|Star Alliance|#78be20|#e05c6b
-KQ|Kenya Airways|KEN|1977|Найроби · Африка, Европа, Азия|SkyTeam|#c8102e|#7ee792
-SA|South African|ZAF|1934|Йоханнесбург · Африка, Европа|—|#0b3d91|#8b43db
-AT|Royal Air Maroc|MAR|1957|Касабланка · Африка, Европа, Америка|oneworld|#c1272d|#f1cb4b
-TU|Tunisair|TUN|1948|Тунис · Европа, Африка, Ближний Восток|—|#e30613|#71edf4
-MK|Air Mauritius|MUS|1967|Маврикий · Африка, Европа, Азия|—|#c8102e|#ef2eac
-LY|EL AL|ISR|1948|Тель-Авив · Европа, Америка, Азия|—|#0b3d91|#89ea53
-FI|Icelandair|ISL|1937|Рейкьявик · Европа и Северная Америка|—|#003d7d|#ee9277
-DY|Norwegian|NOR|1993|Осло · Европа, дешёвые рейсы|—|#d81939|#37e692
-HV|Transavia|NLD|1965|Амстердам · курорты Европы и Африки|—|#00a54f|#dce77e
-EW|Eurowings|DEU|1996|Дюссельдорф · Европа, курорты|—|#a5057c|#db4373
-XC|Corendon|TUR|2004|Анталья · курорты Турции и Европы|—|#e4002b|#4ff14b
-3F|FlyOne Armenia|ARM|2021|Ереван · Европа, Ближний Восток, СНГ|—|#ff5a00|#58eeaf
-5F|FLYONE|MDA|2016|Кишинёв · Европа, Ближний Восток|—|#ff5a00|#d43cec
-IK|Ангара|RUS|2000|Иркутск · Восточная Сибирь|—|#1f4e79|#e0f27d
-YC|Ямал|RUS|1997|Салехард, Тюмень · север, Урал, юг России|—|#0055a5|#e36384
-Y7|NordStar|RUS|2008|Красноярск, Норильск · Сибирь, юг России|—|#0a2a66|#49df4e
-EO|Pegas Fly|RUS|2006|чартеры · Турция, Таиланд, Вьетнам, Шри-Ланка|—|#e30613|#a686ea
-F7|iFly|RUS|2009|чартеры · Турция, Египет, Азия|—|#1d71b8|#f6b751
-RT|ЮВТ Аэро|RUS|2005|Казань, Уфа · регионы России|—|#e41e26|#34f4e3
-D2|Северсталь|RUS|1998|Череповец · северо-запад и юг России|—|#005baa|#f877de
-RL|Royal Flight|RUS|1992|чартеры · Турция, Таиланд, Доминикана|—|#b8962e|#a4ee58
-DV|SCAT|KAZ|1997|Шымкент, Астана · Казахстан, СНГ|—|#00a0e3|#ec4a3c
-IQ|Qazaq Air|KAZ|2015|Астана · внутренние рейсы Казахстана|—|#00a0e3|#7df2a8
-SZ|Somon Air|TJK|2008|Душанбе · Россия, Турция, ОАЭ|—|#d4af37|#b863e3
-T5|Turkmenistan Airlines|TKM|1992|Ашхабад · СНГ, Европа, Азия|—|#009a44|#dfd849
-OM|MIAT Mongolian|MNG|1956|Улан-Батор · Азия, Европа|—|#003f87|#ea86b4
-D7|AirAsia X|MYS|2006|Куала-Лумпур · дальние рейсы Азии|—|#e31837|#6df651
-SL|Thai Lion Air|THA|2013|Бангкок (Дон Мыанг) · Таиланд и Азия|—|#e4002b|#f48334
-VZ|Thai VietJet|THA|2014|Бангкок · Таиланд и Азия|—|#e2231a|#77f8d2
-QH2|Bamboo Airways|VNM|2017|Ханой · Вьетнам, Азия|—|#00a651|#ee58ee
-HX|Hong Kong Airlines|HKG|2006|Гонконг · Азия|—|#c8102e|#b9ec3c
-9C|Spring Airlines|CHN|2004|Шанхай · Китай, Азия|—|#00a651|#f27d8c
-3U|Sichuan Airlines|CHN|1986|Чэнду · Китай, Азия, Европа|—|#c8102e|#63e378
-MF|Xiamen Airlines|CHN|1984|Сямынь · Китай, Азия|—|#004b8d|#8d49df
-ZH|Shenzhen Airlines|CHN|1992|Шэньчжэнь · Китай, Азия|—|#d71921|#ead086
-HO|Juneyao Air|CHN|2006|Шанхай · Китай, Азия, Европа|—|#b8102e|#51f0f6
-ID|Batik Air|IDN|2013|Джакарта · Индонезия, Азия|—|#7a1f3d|#f434b5
-JT|Lion Air|IDN|2000|Джакарта · Индонезия|—|#e4002b|#a8f877
-5J|Cebu Pacific|PHL|1996|Манила · Филиппины, Азия|—|#fdb913|#ee7758
-PR|Philippine Airlines|PHL|1941|Манила · Азия, Америка, Австралия|—|#003a8c|#3cec93
-TR|Scoot|SGP|2011|Сингапур · Азия, Австралия|—|#ffd400|#d97df2
-7C|Jeju Air|KOR|2005|Сеул · Корея, Азия|—|#ff5000|#d9e363
-TW|T'way Air|KOR|2010|Сеул · Корея, Азия|—|#d6001c|#df497b
-MM|Peach|JPN|2011|Осака (Кансай) · Япония, Азия|—|#d6006f|#8aea86
-NX|Air Macau|MAC|1994|Макао · Китай, Азия|—|#c8102e|#7951f6
-JX|STARLUX|TWN|2018|Тайбэй · Азия, Америка|—|#b08d57|#f49b34
-IX|Air India Express|IND|2005|Кочи, Дели · Индия, Ближний Восток|—|#e4002b|#77f8e2
-SG|SpiceJet|IND|2005|Дели · Индия, Ближний Восток|—|#e41e26|#ee58dc
-XY|flynas|SAU|2007|Эр-Рияд · Ближний Восток, Азия|—|#00a0af|#a3ec3c
-J9|Jazeera Airways|KWT|2004|Кувейт · Ближний Восток, Азия|—|#003a70|#f27d7d
-KU|Kuwait Airways|KWT|1954|Кувейт · Ближний Восток, Европа, Азия|—|#004990|#63e388
-RJ|Royal Jordanian|JOR|1963|Амман · Ближний Восток, Европа|—|#b8962e|#a049df
-ME|Middle East Airlines|LBN|1945|Бейрут · Ближний Восток, Европа|—|#006a4e|#eadd86
-HM|Air Seychelles|SYC|1977|Маэ · Индийский океан, ОАЭ|—|#e4002b|#51dbf6
-SN|Brussels Airlines|BEL|2006|Брюссель · Европа, Африка|Star Alliance|#003f87|#f4349c
-EI|Aer Lingus|IRL|1936|Дублин · Европа, Северная Америка|—|#008752|#98f877
-DE|Condor|DEU|1955|Франкфурт · курорты Европы, Америка|—|#f5c400|#ee8a58
-X3|TUI fly|DEU|2007|Ганновер · курорты Европы и Африки|—|#d40e14|#3cecaa
-V7|Volotea|ESP|2011|Барселона · Европа|—|#e4007c|#e87df2
-OU|Croatia Airlines|HRV|1989|Загреб · Европа|Star Alliance|#0055a5|#c9e363
-QS|Smartwings|CZE|1997|Прага · Европа, курорты|—|#0055a5|#df4968
-NO|Neos|ITA|2001|Милан · курорты, Азия, Америка|—|#003a70|#86ea8e
-UX|Air Europa|ESP|1986|Мадрид · Европа, Латинская Америка|SkyTeam|#003d7d|#8f51f6
-WK|Edelweiss|CHE|1995|Цюрих · курорты мира|—|#c8102e|#f4b434
-TS|Air Transat|CAN|1986|Монреаль · Америка, Европа|—|#00a0df|#77f8f3
-WS|WestJet|CAN|1996|Калгари · Канада, США, Мексика|—|#00a1b3|#ee58c9
-NK|Spirit Airlines|USA|1983|Флорида · США, Карибы|—|#ffec00|#8cec3c
-F9|Frontier|USA|1994|Денвер · США, Мексика|—|#00764d|#f28c7d
-Y4|Volaris|MEX|2005|Мехико · Мексика, США|—|#a4007b|#63e399
-AD|Azul|BRA|2008|Сан-Паулу · Бразилия|—|#0072ce|#b349df
-WB|RwandAir|RWA|2002|Кигали · Африка, Европа|—|#00a1de|#e9ea86
-TC|Air Tanzania|TZA|1977|Дар-эс-Салам · Африка, Азия|—|#0081c6|#f65195
-AH|Air Algérie|DZA|1947|Алжир · Африка, Европа|—|#d52b1e|#4bf434
-ZO|Air Montenegro|MNE|2021|Подгорица · Европа|—|#1f3f7a|#8d77f8
-6R|АЛРОСА|RUS|1992|Мирный · Якутия, Сибирь|—|#1d4e89|#ee9d58
+SU|Аэрофлот|RUS|1923|Москва (Шереметьево) · вся Россия, СНГ, Азия, Ближний Восток|SkyTeam|#00256b|#53ea7f|AFL
+S7|S7 Airlines|RUS|1992|Новосибирск, Москва (Домодедово) · Сибирь, Азия, Кавказ|oneworld|#96bf0d|#bc77ee|SBI
+U6|Уральские авиалинии|RUS|1943|Екатеринбург · Урал, Сибирь, юг России, Средняя Азия|—|#0f4e9c|#e6d137|SVR
+UT|ЮТэйр|RUS|1967|Тюмень, Сургут, Москва (Внуково) · север и регионы России|—|#0069b4|#e05ca4|UTA
+DP|Победа|RUS|2014|Москва (Внуково) · внутренние рейсы, Турция, ОАЭ|—|#00a650|#98e77e|PBD
+FV|Россия|RUS|1934|Санкт-Петербург, Москва · курорты и регионы России|SkyTeam|#0b3d91|#db7643|SDM
+N4|Nordwind|RUS|2008|Москва (Шереметьево) · Турция, Египет, ОАЭ, Азия|—|#e2001a|#4bf1b3|NWS
+5N|Smartavia|RUS|1963|Архангельск, Санкт-Петербург · север и центр России|—|#f05a28|#ea71f4|AUL
+WZ|Red Wings|RUS|1999|Москва (Домодедово), Екатеринбург · регионы России, юг|—|#d81e05|#c7ef2e|RWZ
+ZF|Azur Air|RUS|2014|чартеры · Турция, Египет, Таиланд, Вьетнам|—|#2b3f8c|#ea5372|AZV
+A4|Азимут|RUS|2014|Ростов-на-Дону, Краснодар, Минводы · юг России|—|#7b2382|#77ee81|AZO
+IO|ИрАэро|RUS|1999|Иркутск · Сибирь и Дальний Восток|—|#0a5ca8|#7937e6|IAE
+HZ|Аврора|RUS|2013|Владивосток, Южно-Сахалинск · Дальний Восток, Япония, Корея|—|#00a0df|#e0b45c|SHU
+R3|Якутия|RUS|2002|Якутск · Дальний Восток, Сибирь|—|#0d6ab5|#db43b5|SYL
+EK|Emirates|ARE|1985|Дубай · весь мир через хаб в Дубае|—|#d71921|#97f14b|UAE
+EY|Etihad Airways|ARE|2003|Абу-Даби · Европа, Азия, Австралия|—|#bd8b13|#f48271|ETD
+FZ|flydubai|ARE|2008|Дубай · Ближний Восток, СНГ, Индия, Африка|—|#f58220|#2eef7f|FDB
+G9|Air Arabia|ARE|2003|Шарджа · Ближний Восток, Индия, Средняя Азия|—|#e4002b|#be53ea|ABY
+QR|Qatar Airways|QAT|1993|Доха · весь мир через хаб в Дохе|oneworld|#5c0632|#eeee77|QTR
+GF|Gulf Air|BHR|1950|Манама · Ближний Восток, Европа, Азия|—|#c8a862|#e63780|GFA
+WY|Oman Air|OMN|1993|Маскат · Ближний Восток, Азия, Европа|—|#6b1f4b|#6ce05c|OMA
+SV|Saudia|SAU|1945|Джидда, Эр-Рияд · Ближний Восток, Азия, Европа|SkyTeam|#00843d|#907ee7|SVA
+MS|EgyptAir|EGY|1932|Каир · Африка, Ближний Восток, Европа|Star Alliance|#005baa|#db8943|MSR
+TK|Turkish Airlines|TUR|1933|Стамбул · более ста стран, крупнейшая сеть|Star Alliance|#c70a0c|#4bf1c8|THY
+PC|Pegasus|TUR|1990|Стамбул (Сабиха) · Турция, Европа, СНГ|—|#f9a01b|#f471ee|PGT
+XQ|SunExpress|TUR|1989|Анталья, Измир · курорты Турции и Европа|—|#f5821f|#aeef2e|SXS
+AZ|ITA Airways|ITA|2021|Рим (Фьюмичино) · Европа, Америка, Азия|SkyTeam|#00529b|#ea535e|ITY
+LH|Lufthansa|DEU|1953|Франкфурт, Мюнхен · весь мир|Star Alliance|#05164d|#77ee90|DLH
+AF|Air France|FRA|1933|Париж (Шарль-де-Голль) · весь мир|SkyTeam|#002157|#9037e6|AFR
+KL|KLM|NLD|1919|Амстердам · весь мир, старейшая авиакомпания|SkyTeam|#00a1de|#e0c55c|KLM
+BA|British Airways|GBR|1974|Лондон (Хитроу) · весь мир|oneworld|#075aaa|#7edde7|BAW
+IB|Iberia|ESP|1927|Мадрид · Европа, Латинская Америка|oneworld|#d7192d|#db43a1|IBE
+VY|Vueling|ESP|2004|Барселона · Европа, Средиземноморье|—|#ffcc00|#81f14b|VLG
+FR|Ryanair|IRL|1984|Дублин и база по всей Европе · дешёвые рейсы|—|#073590|#f49271|RYR
+U2|easyJet|GBR|1995|Лондон (Гатвик) · Европа|—|#ff6600|#2eef98|EZY
+W6|Wizz Air|HUN|2003|Будапешт · Восточная Европа, Ближний Восток|—|#c6007e|#d153ea|WZZ
+LO|LOT|POL|1929|Варшава · Европа, Азия, Америка|Star Alliance|#11397e|#dfee77|LOT
+OS|Austrian|AUT|1957|Вена · Европа, Ближний Восток, Азия|Star Alliance|#cc0000|#e63769|AUA
+LX|SWISS|CHE|2002|Цюрих · Европа, Америка, Азия|Star Alliance|#e2001a|#5ce05d|SWR
+SK|SAS|SWE|1946|Копенгаген, Стокгольм, Осло · Скандинавия и мир|SkyTeam|#003d6b|#9e7ee7|SAS
+AY|Finnair|FIN|1923|Хельсинки · Европа и Азия коротким путём|oneworld|#0b1560|#db9d43|FIN
+TP|TAP Portugal|PRT|1945|Лиссабон · Европа, Бразилия, Африка|Star Alliance|#00a04a|#4bf1de|TAP
+A3|Aegean|GRC|1987|Афины · Греция, Европа, Ближний Восток|Star Alliance|#00447c|#f471dd|AEE
+OK|Czech Airlines|CZE|1923|Прага · Европа|SkyTeam|#003a70|#95ef2e|CSA
+JU|Air Serbia|SRB|1927|Белград · Европа, Ближний Восток|—|#0c2340|#ea5a53|ASL
+RO|TAROM|ROU|1954|Бухарест · Европа, Ближний Восток|SkyTeam|#0d4f9b|#77eea0|ROT
+FB|Bulgaria Air|BGR|2002|София · Европа|—|#0a3d7c|#a637e6|LZB
+BT|airBaltic|LVA|1995|Рига · Европа, Скандинавия|—|#98d500|#e0d65c|BTI
+PS|Ukraine Intl|UKR|1992|Киев · Европа, Ближний Восток|—|#1a3a7a|#61db43|AUI
+B2|Belavia|BLR|1996|Минск · СНГ, Европа, Ближний Восток|—|#e30613|#f18b4b|BRU
+KC|Air Astana|KAZ|2001|Алматы, Астана · Средняя Азия, Европа, Азия|—|#0b3a70|#71f4ca|KZR
+FS|FlyArystan|KAZ|2019|Алматы · дешёвые рейсы по Казахстану и СНГ|—|#f2a900|#e92eef|AYN
+HY|Uzbekistan Airways|UZB|1992|Ташкент · СНГ, Азия, Европа|—|#009fe3|#c3ea53|UZB
+7J|Tajik Air|TJK|1924|Душанбе · СНГ, Азия|—|#006847|#ee778a|TJK
+YK|Avia Traffic Company|KGZ|2001|Бишкек · Кыргызстан, Россия, ОАЭ|—|#d40000|#37e64f|AVJ
+J2|AZAL|AZE|1992|Баку · СНГ, Европа, Ближний Восток|—|#0072ce|#945ce0|AHY
+A9|Georgian Airways|GEO|1993|Тбилиси · Европа, Ближний Восток|—|#b4131c|#e7c97e|TGZ
+6A|Armenia Airways|ARM|2019|Ереван · СНГ, Ближний Восток|—|#d90012|#43dadb|AMW
+CA|Air China|CHN|1988|Пекин · Азия, Европа, Америка|Star Alliance|#c8102e|#f14bbf|CCA
+MU|China Eastern|CHN|1988|Шанхай · Азия, Европа, Америка|SkyTeam|#c8102e|#a6f471|CES
+CZ|China Southern|CHN|1988|Гуанчжоу · Азия, Европа, Океания|—|#0066b3|#ef502e|CSN
+HU|Hainan Airlines|CHN|1993|Хайкоу, Пекин · Китай, Азия, Европа|—|#d71921|#53ea99|CHH
+CX|Cathay Pacific|HKG|1946|Гонконг · Азия, Европа, Америка|oneworld|#005d63|#d277ee|CPA
+NH|ANA|JPN|1952|Токио (Ханеда) · Япония, Азия, Америка|Star Alliance|#13448f|#dde637|ANA
+JL|Japan Airlines|JPN|1951|Токио (Ханеда) · Япония, Азия, Америка|oneworld|#c8102e|#e05c8c|JAL
+KE|Korean Air|KOR|1969|Сеул (Инчхон) · Азия, Америка, Европа|SkyTeam|#00256c|#86e77e|KAL
+OZ|Asiana|KOR|1988|Сеул (Инчхон) · Азия, Америка|Star Alliance|#d21f3c|#6443db|AAR
+SQ|Singapore Airlines|SGP|1947|Сингапур · Азия, Европа, Океания|Star Alliance|#f99f1c|#f1a04b|SIA
+TG|Thai Airways|THA|1960|Бангкок · Азия, Европа, Океания|Star Alliance|#4b0082|#71f4da|THA
+FD|Thai AirAsia|THA|2003|Бангкок (Дон Мыанг) · Таиланд и Азия|—|#e31837|#ef2edd|AIQ
+VN|Vietnam Airlines|VNM|1956|Ханой, Хошимин · Азия, Европа, Австралия|SkyTeam|#00629b|#afea53|HVN
+VJ|VietJet|VNM|2007|Хошимин · Вьетнам и Азия|—|#e2231a|#ee777a|VJC
+MH|Malaysia Airlines|MYS|1947|Куала-Лумпур · Азия, Океания|oneworld|#006e51|#37e665|MAS
+AK|AirAsia|MYS|1993|Куала-Лумпур · Азия, дешёвые рейсы|—|#e31837|#a55ce0|AXM
+GA|Garuda Indonesia|IDN|1949|Джакарта · Индонезия, Азия, Австралия|SkyTeam|#00539f|#e7d67e|GIA
+QZ|Indonesia AirAsia|IDN|1999|Джакарта, Денпасар · Индонезия и Азия|—|#e31837|#43c6db|AWQ
+AI|Air India|IND|1932|Дели, Мумбаи · Индия, Европа, Америка|Star Alliance|#d81939|#f14baa|AIC
+6E|IndiGo|IND|2006|Дели · Индия, Ближний Восток, Азия|—|#09327b|#95f471|IGO
+UL|SriLankan|LKA|1979|Коломбо · Азия, Ближний Восток|oneworld|#134b8e|#ef692e|ALK
+MV|Maldivian|MDV|2000|Мале · Мальдивы и Индия|—|#e10600|#53eaad|MDV
+PG|Bangkok Airways|THA|1968|Бангкок, Самуи · курорты Таиланда|—|#00529b|#e177ee|BKP
+BR|EVA Air|TWN|1989|Тайбэй · Азия, Америка, Европа|Star Alliance|#00653a|#c7e637|EVA
+CI|China Airlines|TWN|1959|Тайбэй · Азия, Америка, Европа|SkyTeam|#ba0c2f|#e05c7b|CAL
+NZ|Air New Zealand|NZL|1940|Окленд · Океания, Азия, Америка|Star Alliance|#00205b|#7ee784|ANZ
+QF|Qantas|AUS|1920|Сидней · Австралия, Азия, Америка, Европа|oneworld|#e40000|#7743db|QFA
+JQ|Jetstar|AUS|2003|Мельбурн · Австралия и Азия|—|#ff5307|#f1b54b|JST
+AA|American Airlines|USA|1926|Даллас, Шарлотт · Америка и весь мир|oneworld|#0078d2|#71f4eb|AAL
+DL|Delta|USA|1925|Атланта · Америка, Европа, Азия|SkyTeam|#003a70|#ef2ec4|DAL
+UA|United|USA|1926|Чикаго, Ньюарк · Америка и весь мир|Star Alliance|#002244|#9cea53|UAL
+WN|Southwest|USA|1967|Даллас · внутренние рейсы США|—|#304cb2|#ee8377|SWA
+B6|JetBlue|USA|1998|Нью-Йорк · США, Карибы, Европа|—|#003876|#37e67c|JBU
+AS|Alaska Airlines|USA|1932|Сиэтл · запад США, Мексика|oneworld|#01426a|#b65ce0|ASA
+AC|Air Canada|CAN|1937|Торонто, Монреаль · Америка, Европа, Азия|Star Alliance|#d22630|#e7e47e|ACA
+AM|Aeroméxico|MEX|1934|Мехико · Америка, Европа, Азия|SkyTeam|#0b2265|#db4386|AMX
+CM|Copa Airlines|PAN|1947|Панама · Латинская Америка|Star Alliance|#003da5|#64f14b|CMP
+AV|Avianca|COL|1919|Богота · Латинская Америка, США, Европа|Star Alliance|#da291c|#8371f4|AVA
+LA|LATAM|CHL|1929|Сантьяго, Сан-Паулу · Южная Америка и мир|—|#e30613|#ef822e|LAN
+G3|Gol|BRA|2000|Сан-Паулу · Бразилия и Южная Америка|—|#f37021|#53eac0|GLO
+AR|Aerolíneas Argentinas|ARG|1950|Буэнос-Айрес · Южная Америка, Европа|SkyTeam|#74acdf|#ee77ec|ARG
+CU|Cubana|CUB|1929|Гавана · Куба и Латинская Америка|—|#cf142b|#b0e637|CUB
+ET|Ethiopian|ETH|1945|Аддис-Абеба · Африка, Азия, Европа|Star Alliance|#78be20|#e05c6b|ETH
+KQ|Kenya Airways|KEN|1977|Найроби · Африка, Европа, Азия|SkyTeam|#c8102e|#7ee792|KQA
+SA|South African|ZAF|1934|Йоханнесбург · Африка, Европа|—|#0b3d91|#8b43db|SAA
+AT|Royal Air Maroc|MAR|1957|Касабланка · Африка, Европа, Америка|oneworld|#c1272d|#f1cb4b|RAM
+TU|Tunisair|TUN|1948|Тунис · Европа, Африка, Ближний Восток|—|#e30613|#71edf4|TAR
+MK|Air Mauritius|MUS|1967|Маврикий · Африка, Европа, Азия|—|#c8102e|#ef2eac|MAU
+LY|EL AL|ISR|1948|Тель-Авив · Европа, Америка, Азия|—|#0b3d91|#89ea53|ELY
+FI|Icelandair|ISL|1937|Рейкьявик · Европа и Северная Америка|—|#003d7d|#ee9277|ICE
+DY|Norwegian|NOR|1993|Осло · Европа, дешёвые рейсы|—|#d81939|#37e692|NOR
+HV|Transavia|NLD|1965|Амстердам · курорты Европы и Африки|—|#00a54f|#dce77e|TRA
+EW|Eurowings|DEU|1996|Дюссельдорф · Европа, курорты|—|#a5057c|#db4373|EWG
+XC|Corendon|TUR|2004|Анталья · курорты Турции и Европы|—|#e4002b|#4ff14b|CAI
+3F|FlyOne Armenia|ARM|2021|Ереван · Европа, Ближний Восток, СНГ|—|#ff5a00|#58eeaf|FIE
+5F|FLYONE|MDA|2016|Кишинёв · Европа, Ближний Восток|—|#ff5a00|#d43cec|FIA
+IK|Ангара|RUS|2000|Иркутск · Восточная Сибирь|—|#1f4e79|#e0f27d|ANG
+YC|Ямал|RUS|1997|Салехард, Тюмень · север, Урал, юг России|—|#0055a5|#e36384|LLM
+Y7|NordStar|RUS|2008|Красноярск, Норильск · Сибирь, юг России|—|#0a2a66|#49df4e|TAI
+EO|Pegas Fly|RUS|2006|чартеры · Турция, Таиланд, Вьетнам, Шри-Ланка|—|#e30613|#a686ea|KAR
+F7|iFly|RUS|2009|чартеры · Турция, Египет, Азия|—|#1d71b8|#f6b751|RSY
+RT|ЮВТ Аэро|RUS|2005|Казань, Уфа · регионы России|—|#e41e26|#34f4e3|UVT
+D2|Северсталь|RUS|1998|Череповец · северо-запад и юг России|—|#005baa|#f877de|SSF
+RL|Royal Flight|RUS|1992|чартеры · Турция, Таиланд, Доминикана|—|#b8962e|#a4ee58|ABG
+DV|SCAT|KAZ|1997|Шымкент, Астана · Казахстан, СНГ|—|#00a0e3|#ec4a3c|VSV
+IQ|Qazaq Air|KAZ|2015|Астана · внутренние рейсы Казахстана|—|#00a0e3|#7df2a8|QAZ
+SZ|Somon Air|TJK|2008|Душанбе · Россия, Турция, ОАЭ|—|#d4af37|#b863e3|SMR
+T5|Turkmenistan Airlines|TKM|1992|Ашхабад · СНГ, Европа, Азия|—|#009a44|#dfd849|TUA
+OM|MIAT Mongolian|MNG|1956|Улан-Батор · Азия, Европа|—|#003f87|#ea86b4|MGL
+D7|AirAsia X|MYS|2006|Куала-Лумпур · дальние рейсы Азии|—|#e31837|#6df651|XAX
+SL|Thai Lion Air|THA|2013|Бангкок (Дон Мыанг) · Таиланд и Азия|—|#e4002b|#f48334|TLM
+VZ|Thai VietJet|THA|2014|Бангкок · Таиланд и Азия|—|#e2231a|#77f8d2|TVJ
+QH|Bamboo Airways|VNM|2017|Ханой · Вьетнам, Азия|—|#00a651|#ee58ee|BAV
+HX|Hong Kong Airlines|HKG|2006|Гонконг · Азия|—|#c8102e|#b9ec3c|CRK
+9C|Spring Airlines|CHN|2004|Шанхай · Китай, Азия|—|#00a651|#f27d8c|CQH
+3U|Sichuan Airlines|CHN|1986|Чэнду · Китай, Азия, Европа|—|#c8102e|#63e378|CSC
+MF|Xiamen Airlines|CHN|1984|Сямынь · Китай, Азия|—|#004b8d|#8d49df|CXA
+ZH|Shenzhen Airlines|CHN|1992|Шэньчжэнь · Китай, Азия|—|#d71921|#ead086|CSZ
+HO|Juneyao Air|CHN|2006|Шанхай · Китай, Азия, Европа|—|#b8102e|#51f0f6|DKH
+ID|Batik Air|IDN|2013|Джакарта · Индонезия, Азия|—|#7a1f3d|#f434b5|BTK
+JT|Lion Air|IDN|2000|Джакарта · Индонезия|—|#e4002b|#a8f877|LNI
+5J|Cebu Pacific|PHL|1996|Манила · Филиппины, Азия|—|#fdb913|#ee7758|CEB
+PR|Philippine Airlines|PHL|1941|Манила · Азия, Америка, Австралия|—|#003a8c|#3cec93|PAL
+TR|Scoot|SGP|2011|Сингапур · Азия, Австралия|—|#ffd400|#d97df2|TGW
+7C|Jeju Air|KOR|2005|Сеул · Корея, Азия|—|#ff5000|#d9e363|JJA
+TW|T'way Air|KOR|2010|Сеул · Корея, Азия|—|#d6001c|#df497b|TWB
+MM|Peach|JPN|2011|Осака (Кансай) · Япония, Азия|—|#d6006f|#8aea86|APJ
+NX|Air Macau|MAC|1994|Макао · Китай, Азия|—|#c8102e|#7951f6|AMU
+JX|STARLUX|TWN|2018|Тайбэй · Азия, Америка|—|#b08d57|#f49b34|SJX
+IX|Air India Express|IND|2005|Кочи, Дели · Индия, Ближний Восток|—|#e4002b|#77f8e2|AXB
+SG|SpiceJet|IND|2005|Дели · Индия, Ближний Восток|—|#e41e26|#ee58dc|SEJ
+XY|flynas|SAU|2007|Эр-Рияд · Ближний Восток, Азия|—|#00a0af|#a3ec3c|KNE
+J9|Jazeera Airways|KWT|2004|Кувейт · Ближний Восток, Азия|—|#003a70|#f27d7d|JZR
+KU|Kuwait Airways|KWT|1954|Кувейт · Ближний Восток, Европа, Азия|—|#004990|#63e388|KAC
+RJ|Royal Jordanian|JOR|1963|Амман · Ближний Восток, Европа|—|#b8962e|#a049df|RJA
+ME|Middle East Airlines|LBN|1945|Бейрут · Ближний Восток, Европа|—|#006a4e|#eadd86|MEA
+HM|Air Seychelles|SYC|1977|Маэ · Индийский океан, ОАЭ|—|#e4002b|#51dbf6|SEY
+SN|Brussels Airlines|BEL|2006|Брюссель · Европа, Африка|Star Alliance|#003f87|#f4349c|BEL
+EI|Aer Lingus|IRL|1936|Дублин · Европа, Северная Америка|—|#008752|#98f877|EIN
+DE|Condor|DEU|1955|Франкфурт · курорты Европы, Америка|—|#f5c400|#ee8a58|CFG
+X3|TUI fly|DEU|2007|Ганновер · курорты Европы и Африки|—|#d40e14|#3cecaa|TUI
+V7|Volotea|ESP|2011|Барселона · Европа|—|#e4007c|#e87df2|VOE
+OU|Croatia Airlines|HRV|1989|Загреб · Европа|Star Alliance|#0055a5|#c9e363|CTN
+QS|Smartwings|CZE|1997|Прага · Европа, курорты|—|#0055a5|#df4968|TVS
+NO|Neos|ITA|2001|Милан · курорты, Азия, Америка|—|#003a70|#86ea8e|NOS
+UX|Air Europa|ESP|1986|Мадрид · Европа, Латинская Америка|SkyTeam|#003d7d|#8f51f6|AEA
+WK|Edelweiss|CHE|1995|Цюрих · курорты мира|—|#c8102e|#f4b434|EDW
+TS|Air Transat|CAN|1986|Монреаль · Америка, Европа|—|#00a0df|#77f8f3|TSC
+WS|WestJet|CAN|1996|Калгари · Канада, США, Мексика|—|#00a1b3|#ee58c9|WJA
+NK|Spirit Airlines|USA|1983|Флорида · США, Карибы|—|#ffec00|#8cec3c|NKS
+F9|Frontier|USA|1994|Денвер · США, Мексика|—|#00764d|#f28c7d|FFT
+Y4|Volaris|MEX|2005|Мехико · Мексика, США|—|#a4007b|#63e399|VOI
+AD|Azul|BRA|2008|Сан-Паулу · Бразилия|—|#0072ce|#b349df|AZU
+WB|RwandAir|RWA|2002|Кигали · Африка, Европа|—|#00a1de|#e9ea86|RWD
+TC|Air Tanzania|TZA|1977|Дар-эс-Салам · Африка, Азия|—|#0081c6|#f65195|ATC
+AH|Air Algérie|DZA|1947|Алжир · Африка, Европа|—|#d52b1e|#4bf434|DAH
+ZO|Air Montenegro|MNE|2021|Подгорица · Европа|—|#1f3f7a|#8d77f8|MGX
+6R|АЛРОСА|RUS|1992|Мирный · Якутия, Сибирь|—|#1d4e89|#ee9d58|DRU
