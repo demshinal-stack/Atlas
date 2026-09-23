@@ -2445,7 +2445,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "30.9";
+const APP_VERSION = "31.0";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -6388,42 +6388,19 @@ function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, 
                 .sort((a, b) => (a.need - a.value) / a.need - (b.need - b.value) / b.need)[0];
             const metal = TIER_COLOR[(best === null || best === void 0 ? void 0 : best.tier) || 3];
             return (React.createElement("div", { className: "awards-card" },
-                best ? (React.createElement("div", { className: "trophy" },
-                    React.createElement("svg", { viewBox: "0 0 92 92", className: "trophy-svg" },
-                        React.createElement("defs", null,
-                            React.createElement("radialGradient", { id: "halo" },
-                                React.createElement("stop", { offset: "0%", stopColor: metal, stopOpacity: "0.5" }),
-                                React.createElement("stop", { offset: "55%", stopColor: metal, stopOpacity: "0.14" }),
-                                React.createElement("stop", { offset: "100%", stopColor: metal, stopOpacity: "0" })),
-                            React.createElement("linearGradient", { id: "metal", x1: "0", y1: "0", x2: "1", y2: "1" },
-                                React.createElement("stop", { offset: "0%", stopColor: metal, stopOpacity: "0.75" }),
-                                React.createElement("stop", { offset: "45%", stopColor: "#ffffff", stopOpacity: "0.95" }),
-                                React.createElement("stop", { offset: "55%", stopColor: metal }),
-                                React.createElement("stop", { offset: "100%", stopColor: metal, stopOpacity: "0.7" }),
-                                React.createElement("animateTransform", { attributeName: "gradientTransform", type: "translate", values: "-0.7 -0.7; 0.7 0.7; -0.7 -0.7", dur: "4.5s", repeatCount: "indefinite" }))),
-                        React.createElement("circle", { cx: "46", cy: "44", r: "42", fill: "url(#halo)" },
-                            React.createElement("animate", { attributeName: "r", values: "36;44;36", dur: "4.5s", repeatCount: "indefinite" }),
-                            React.createElement("animate", { attributeName: "opacity", values: "0.55;1;0.55", dur: "4.5s", repeatCount: "indefinite" })),
-                        React.createElement("g", { transform: "translate(22 20) scale(2)" },
-                            React.createElement("path", { d: "M7 4h10v4.2a5 5 0 0 1-10 0z", fill: "url(#metal)" }),
-                            React.createElement("path", { d: "M7 5H4.4a2.6 2.6 0 0 0 2.6 4.2M17 5h2.6a2.6 2.6 0 0 1-2.6 4.2", fill: "none", stroke: "url(#metal)", strokeWidth: "1.3" }),
-                            React.createElement("path", { d: "M10.2 13.4h3.6v3.1H17V19H7v-2.5h3.2z", fill: "url(#metal)" }))),
-                    React.createElement("span", { className: "trophy-text" },
-                        React.createElement("b", null, best.title),
+                React.createElement("button", { className: "switch-row aw-row" + (showAll ? " on" : ""), onClick: () => setShowAll((v) => !v) },
+                    React.createElement("span", { className: "aw-cup", style: { color: metal } },
+                        React.createElement("svg", { viewBox: "0 0 24 24", width: "22", height: "22" },
+                            React.createElement("path", { d: "M7 4h10v4.2a5 5 0 0 1-10 0z", fill: "currentColor" }),
+                            React.createElement("path", { d: "M10.2 13.4h3.6v3.1H17V19H7v-2.5h3.2z", fill: "currentColor" }))),
+                    React.createElement("span", { className: "switch-text" },
+                        done.length,
+                        " \u0438\u0437 ",
+                        np(rows.length, "award"),
                         React.createElement("em", null,
-                            best.group,
-                            " \u00B7 ",
-                            TIER_NAME[best.tier])))) : (React.createElement("p", { className: "hint small no-award" }, "\u041D\u0430\u0433\u0440\u0430\u0434 \u043F\u043E\u043A\u0430 \u043D\u0435\u0442. \u041F\u0435\u0440\u0432\u0430\u044F \u043F\u043E\u044F\u0432\u0438\u0442\u0441\u044F \u0441\u0440\u0430\u0437\u0443 \u043F\u043E\u0441\u043B\u0435 \u043F\u0435\u0440\u0432\u043E\u0439 \u043E\u0442\u043C\u0435\u0442\u043A\u0438.")),
-                React.createElement("button", { className: "awards-more", onClick: () => setShowAll((v) => !v) },
-                    React.createElement("span", null,
-                        React.createElement("b", null,
-                            done.length,
-                            " \u0438\u0437 ",
-                            np(rows.length, "award")),
-                        next && React.createElement("em", null,
-                            "\u0431\u043B\u0438\u0436\u0430\u0439\u0448\u0430\u044F: ",
-                            next.title)),
-                    React.createElement("i", null, showAll ? "▲" : "▼")),
+                            best ? `лучшая: ${best.title}` : "пока пусто",
+                            next ? ` · ближайшая: ${next.title}` : "")),
+                    React.createElement("span", { className: "step-pen fold" + (showAll ? " up" : "") }, "\u2304")),
                 showAll && (React.createElement("div", { className: "awards" }, rows.map((r) => (React.createElement("div", { key: r.key, className: "award" + (r.done ? " on" : "") },
                     React.createElement("span", { className: "cup", style: r.done ? { color: TIER_COLOR[r.tier] } : undefined },
                         React.createElement("svg", { viewBox: "0 0 24 24", width: "24", height: "24" },
@@ -10772,6 +10749,7 @@ function Atlas() {
     // разбор обмена с родными: показываем, пока пользователь не решит
     const [sync, setSync] = useState(null);
     const [near, setNear] = useState(false);
+    const [nearBack, setNearBack] = useState(null);
     const [booksSize, setBooksSize] = useState(0);
     const [booksSaved, setBooksSaved] = useState(false);
     const [booksAt, setBooksAt] = useState("");
@@ -10910,6 +10888,7 @@ function Atlas() {
         setAirWin(null);
         setSeasonWin(false);
         setNear(false);
+        setNearBack(null);
         setSync(null);
         setContsWin(false);
         if (typeof window !== "undefined")
@@ -11994,6 +11973,7 @@ function Atlas() {
                             setSheetBack("profile");
                             setSheet("reports");
                         }, onSettings: () => setSheet("settings"), onShelf: () => setSheet("shelf"), onFamily: () => {
+                            setNearBack(sheet);
                             setSheet(null);
                             setNear(true);
                         }, onSince: async (v) => {
@@ -12111,7 +12091,12 @@ function Atlas() {
                             var _c;
                             setNear(false);
                             (_c = receiveRef.current) === null || _c === void 0 ? void 0 : _c.call(receiveRef, d);
-                        }, onClose: () => setNear(false) })),
+                        }, onClose: () => {
+                            setNear(false);
+                            if (nearBack)
+                                setSheet(nearBack);
+                            setNearBack(null);
+                        } })),
                     sync && (React.createElement(SyncSheet, { plan: sync.plan, from: sync.from, box: box, onCancel: () => setSync(null), onApply: (picks) => {
                             applySync(sync.data, picks);
                             setSync(null);
@@ -12582,6 +12567,9 @@ body > div{max-width:100%;}
 .step-pen.fold{transition:transform .2s ease; display:inline-block;}
 .step-pen.fold.up{transform:rotate(180deg);}
 .switch-row.on .switch-text{color:var(--gold);}
+.aw-row{gap:10px;}
+.aw-cup{flex:none; display:flex;}
+.awards-card{display:flex; flex-direction:column; gap:8px;}
 /* высота окна не меняется: рисунок сменяется кодом внутри неё */
 .sheet-body.near{gap:10px; min-height:min(640px, calc(100dvh - var(--tabh) - 140px));}
 .near-bars.idle{opacity:.35;}
