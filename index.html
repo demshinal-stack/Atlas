@@ -2145,14 +2145,22 @@ function localPeer() {
     };
 }
 /* передача пакета по каналу кусками: канал не любит большие сообщения */
-function sendPacket(channel, obj) {
+async function sendPacket(channel, obj, onStep) {
     const text = JSON.stringify(obj);
     const size = 8000;
-    channel.send(JSON.stringify({ n: Math.ceil(text.length / size) }));
-    for (let i = 0; i < text.length; i += size)
-        channel.send(text.slice(i, i + size));
+    const total = Math.ceil(text.length / size);
+    channel.send(JSON.stringify({ n: total }));
+    for (let i = 0; i < total; i++) {
+        // не наливаем в канал больше, чем он успевает отдать
+        while (channel.readyState === "open" && channel.bufferedAmount > 512 * 1024)
+            await new Promise((r) => setTimeout(r, 30));
+        if (channel.readyState !== "open")
+            return;
+        channel.send(text.slice(i * size, (i + 1) * size));
+        onStep === null || onStep === void 0 ? void 0 : onStep((i + 1) / total, total);
+    }
 }
-function readPackets(channel, onDone) {
+function readPackets(channel, onDone, onStep) {
     let need = 0;
     let parts = [];
     channel.onmessage = (e) => {
@@ -2163,6 +2171,7 @@ function readPackets(channel, onDone) {
                 if (head && head.n) {
                     need = head.n;
                     parts = [];
+                    onStep === null || onStep === void 0 ? void 0 : onStep(0, need);
                     return;
                 }
             }
@@ -2171,6 +2180,7 @@ function readPackets(channel, onDone) {
             }
         }
         parts.push(s2);
+        onStep === null || onStep === void 0 ? void 0 : onStep(parts.length / need, need);
         if (parts.length >= need) {
             const all = parts.join("");
             need = 0;
@@ -2435,7 +2445,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "29.9";
+const APP_VERSION = "30.2";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -8795,27 +8805,29 @@ function QrCamera({ onCode, onClose }) {
 }
 /* обмен поездками рядом: без интернета, по одной сети */
 function NearSync({ makePayload, onData, onClose, box }) {
+    // шаги: выбор роли → показать код → считать ответ → готово
+    const [step, setStep] = useState("pick"); // pick | show | scan | live | done
     const [mode, setMode] = useState(null); // give | take
     const [myCode, setMyCode] = useState("");
-    const [theirCode, setTheirCode] = useState("");
     const [state, setState] = useState("");
-    const [cam, setCam] = useState(false);
+    const [manual, setManual] = useState(false);
+    const [theirCode, setTheirCode] = useState("");
     const [withPhotos, setWithPhotos] = useState(false);
-    const [phase, setPhase] = useState("idle"); // idle | wait | live | done
+    const [sent, setSent] = useState(0); // 0..1
+    const [got, setGot] = useState(0);
     const peer = useRef(null);
-    const chan = useRef(null);
     useEffect(() => () => { var _c; return (_c = peer.current) === null || _c === void 0 ? void 0 : _c.pc.close(); }, []);
     const wire = (ch) => {
-        chan.current = ch;
         readPackets(ch, (d) => {
-            setPhase("done");
-            setState("Данные получены");
+            setGot(1);
+            setStep("done");
+            setState("Поездки получены");
             onData(d);
-        });
+        }, (k) => setGot(k));
         const send = async () => {
-            setPhase("live");
-            setState(withPhotos ? "Соединились, передаём поездки и снимки" : "Соединились, передаём");
-            sendPacket(ch, await makePayload(withPhotos));
+            setStep("live");
+            setState(withPhotos ? "Передаём поездки и снимки" : "Передаём поездки");
+            await sendPacket(ch, await makePayload(withPhotos), (k) => setSent(k));
         };
         ch.onopen = send;
         if (ch.readyState === "open")
@@ -8824,16 +8836,20 @@ function NearSync({ makePayload, onData, onClose, box }) {
     };
     const start = async (m) => {
         setMode(m);
-        setState(m === "give" ? "Готовим код" : "Введите код с первого телефона");
-        setPhase("wait");
-        if (m !== "give")
-            return;
-        const p = localPeer();
-        peer.current = p;
-        const r = await p.offer();
-        wire(r.channel);
-        setMyCode(r.code);
-        setState("Покажите код второму телефону");
+        if (m === "give") {
+            setStep("show");
+            setState("Готовим код");
+            const p = localPeer();
+            peer.current = p;
+            const r = await p.offer();
+            wire(r.channel);
+            setMyCode(r.code);
+            setState("Второй телефон должен считать этот код");
+        }
+        else {
+            setStep("scan");
+            setState("Считайте код с первого телефона");
+        }
     };
     const takeCode = async (raw) => {
         const code = String(raw !== null && raw !== void 0 ? raw : theirCode).trim().toUpperCase();
@@ -8845,52 +8861,74 @@ function NearSync({ makePayload, onData, onClose, box }) {
                 peer.current = p;
                 const r = await p.answer(code, wire);
                 setMyCode(r.code);
-                setState("Покажите ответный код первому телефону");
+                setStep("show");
+                setState("Теперь первый телефон считает ответный код");
             }
             else {
                 await peer.current.accept(code);
+                setStep("live");
                 setState("Соединяемся");
             }
         }
         catch {
-            setState("Код не подошёл");
+            setState("Код не подошёл, попробуйте ещё раз");
         }
     };
     return (React.createElement(Sheet, { open: true, onClose: onClose, title: "\u041E\u0431\u043C\u0435\u043D \u0440\u044F\u0434\u043E\u043C", box: box }, () => (React.createElement("div", { className: "sheet-body near" },
-        React.createElement("p", { className: "hint small" }, "\u041E\u0431\u0430 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430 \u0432 \u043E\u0434\u043D\u043E\u0439 \u0441\u0435\u0442\u0438 Wi-Fi. \u0418\u043D\u0442\u0435\u0440\u043D\u0435\u0442 \u0438 \u0441\u0435\u0440\u0432\u0435\u0440 \u043D\u0435 \u043D\u0443\u0436\u043D\u044B."),
-        React.createElement("div", { className: "near-sky " + phase },
-            Array.from({ length: 26 }, (_, i) => (React.createElement("i", { key: i, style: {
-                    "--a": `${(i / 26) * 360}deg`,
-                    "--d": `${22 + ((i * 37) % 62)}px`,
-                    "--t": `${(i % 7) * 0.22}s`,
-                } }))),
-            React.createElement("u", null)),
-        !mode && (React.createElement("div", { className: "near-pick" },
-            React.createElement("button", { onClick: () => start("give") },
-                React.createElement("b", null, "\u041F\u0435\u0440\u0435\u0434\u0430\u0442\u044C"),
-                React.createElement("em", null, "\u043F\u043E\u043A\u0430\u0436\u0443 \u043A\u043E\u0434 \u043D\u0430 \u044D\u0442\u043E\u043C \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0435")),
-            React.createElement("button", { onClick: () => start("take") },
-                React.createElement("b", null, "\u041F\u0440\u0438\u043D\u044F\u0442\u044C"),
-                React.createElement("em", null, "\u0432\u0432\u0435\u0434\u0443 \u043A\u043E\u0434 \u0441 \u0434\u0440\u0443\u0433\u043E\u0433\u043E \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430")))),
-        mode && (React.createElement("div", { className: "sync-body" },
-            myCode && (React.createElement("div", { className: "near-qr" },
-                React.createElement(QrBox, { text: myCode }),
-                React.createElement("p", null, "\u041D\u0430\u0432\u0435\u0434\u0438\u0442\u0435 \u043A\u0430\u043C\u0435\u0440\u0443 \u0432\u0442\u043E\u0440\u043E\u0433\u043E \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430 \u0438\u043B\u0438 \u043F\u0435\u0440\u0435\u043F\u0438\u0448\u0438\u0442\u0435 \u043A\u043E\u0434"),
-                React.createElement("textarea", { readOnly: true, value: myCode, onFocus: (e) => e.target.select() }))),
-            cam ? (React.createElement(QrCamera, { onCode: (code) => {
-                    setCam(false);
-                    setTheirCode(code);
-                    takeCode(code);
-                }, onClose: () => setCam(false) })) : (React.createElement("button", { className: "near-scan", onClick: () => setCam(true) }, "\u0421\u043A\u0430\u043D\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u043A\u043E\u0434 \u043A\u0430\u043C\u0435\u0440\u043E\u0439")),
+        step === "pick" && (React.createElement(React.Fragment, null,
+            React.createElement("p", { className: "hint small" }, "\u041E\u0431\u0430 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430 \u0432 \u043E\u0434\u043D\u043E\u0439 \u0441\u0435\u0442\u0438 Wi-Fi. \u0418\u043D\u0442\u0435\u0440\u043D\u0435\u0442 \u0438 \u0441\u0435\u0440\u0432\u0435\u0440 \u043D\u0435 \u043D\u0443\u0436\u043D\u044B."),
             React.createElement("label", { className: "near-photos" },
                 React.createElement("input", { type: "checkbox", checked: withPhotos, onChange: (e) => setWithPhotos(e.target.checked) }),
                 React.createElement("span", null,
                     "\u041F\u0435\u0440\u0435\u0434\u0430\u0442\u044C \u0438 \u0441\u043D\u0438\u043C\u043A\u0438",
                     React.createElement("em", null, "\u0434\u043E\u043B\u044C\u0448\u0435, \u0437\u0430\u0442\u043E \u0443 \u0440\u043E\u0434\u043D\u044B\u0445 \u0431\u0443\u0434\u0443\u0442 \u0444\u043E\u0442\u043E\u0433\u0440\u0430\u0444\u0438\u0438 \u043F\u043E\u0435\u0437\u0434\u043E\u043A"))),
-            React.createElement("label", { className: "tf near-in" },
-                React.createElement("textarea", { className: "tf-input", placeholder: mode === "take" ? "Код с первого телефона" : "Ответный код", value: theirCode, onChange: (e) => setTheirCode(e.target.value) })),
-            React.createElement("button", { className: "ask-yes near-go", onClick: takeCode }, "\u0421\u043E\u0435\u0434\u0438\u043D\u0438\u0442\u044C"),
-            state && React.createElement("p", { className: "near-state" }, state)))))));
+            React.createElement("div", { className: "near-pick" },
+                React.createElement("button", { onClick: () => start("give") },
+                    React.createElement("b", null, "\u041F\u043E\u043A\u0430\u0437\u0430\u0442\u044C \u0441\u0432\u043E\u0439 \u043A\u043E\u0434"),
+                    React.createElement("em", null, "\u0432\u0442\u043E\u0440\u043E\u0439 \u0442\u0435\u043B\u0435\u0444\u043E\u043D \u0441\u0447\u0438\u0442\u0430\u0435\u0442 \u0435\u0433\u043E \u043A\u0430\u043C\u0435\u0440\u043E\u0439")),
+                React.createElement("button", { onClick: () => start("take") },
+                    React.createElement("b", null, "\u0421\u0447\u0438\u0442\u0430\u0442\u044C \u0447\u0443\u0436\u043E\u0439 \u043A\u043E\u0434"),
+                    React.createElement("em", null, "\u043D\u0430\u0432\u0435\u0434\u0443 \u043A\u0430\u043C\u0435\u0440\u0443 \u043D\u0430 \u043F\u0435\u0440\u0432\u044B\u0439 \u0442\u0435\u043B\u0435\u0444\u043E\u043D"))))),
+        step === "show" && (React.createElement(React.Fragment, null,
+            React.createElement("p", { className: "near-step" },
+                mode === "give" ? "Шаг 1 из 2" : "Шаг 2 из 2",
+                " \u00B7 ",
+                state),
+            React.createElement("div", { className: "near-qr" }, myCode ? React.createElement(QrBox, { text: myCode }) : React.createElement("p", null, "\u0413\u043E\u0442\u043E\u0432\u0438\u043C \u043A\u043E\u0434\u2026")),
+            myCode && (React.createElement("details", { className: "near-more" },
+                React.createElement("summary", null, "\u041F\u043E\u043A\u0430\u0437\u0430\u0442\u044C \u043A\u043E\u0434 \u0442\u0435\u043A\u0441\u0442\u043E\u043C"),
+                React.createElement("textarea", { readOnly: true, value: myCode, onFocus: (e) => e.target.select() }))),
+            mode === "give" && myCode && (React.createElement("button", { className: "near-scan", onClick: () => setStep("scan") }, "\u0414\u0430\u043B\u044C\u0448\u0435: \u0441\u0447\u0438\u0442\u0430\u0442\u044C \u043E\u0442\u0432\u0435\u0442\u043D\u044B\u0439 \u043A\u043E\u0434")))),
+        step === "scan" && (React.createElement(React.Fragment, null,
+            React.createElement("p", { className: "near-step" },
+                mode === "give" ? "Шаг 2 из 2" : "Шаг 1 из 2",
+                " \u00B7",
+                " ",
+                mode === "give" ? "Считайте ответный код" : "Считайте код с первого телефона"),
+            manual ? (React.createElement(React.Fragment, null,
+                React.createElement("label", { className: "tf near-in" },
+                    React.createElement("textarea", { className: "tf-input", placeholder: "\u041A\u043E\u0434 \u0441 \u0434\u0440\u0443\u0433\u043E\u0433\u043E \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430", value: theirCode, onChange: (e) => setTheirCode(e.target.value) })),
+                React.createElement("button", { className: "ask-yes near-go", onClick: () => takeCode() }, "\u0421\u043E\u0435\u0434\u0438\u043D\u0438\u0442\u044C"),
+                React.createElement("button", { className: "near-link", onClick: () => setManual(false) }, "\u0412\u0435\u0440\u043D\u0443\u0442\u044C\u0441\u044F \u043A \u043A\u0430\u043C\u0435\u0440\u0435"))) : (React.createElement(QrCamera, { onCode: (code) => takeCode(code), onClose: () => setManual(true) })),
+            state && React.createElement("p", { className: "near-state" }, state))),
+        (step === "live" || step === "done") && (React.createElement(React.Fragment, null,
+            React.createElement("p", { className: "near-state" }, state),
+            React.createElement("div", { className: "near-bars" },
+                React.createElement("span", null,
+                    React.createElement("em", null, "\u041E\u0442\u0434\u0430\u0451\u043C"),
+                    React.createElement("i", null,
+                        React.createElement("u", { style: { width: `${Math.round(sent * 100)}%` } })),
+                    React.createElement("b", null,
+                        Math.round(sent * 100),
+                        "%")),
+                React.createElement("span", null,
+                    React.createElement("em", null, "\u041F\u0440\u0438\u043D\u0438\u043C\u0430\u0435\u043C"),
+                    React.createElement("i", null,
+                        React.createElement("u", { style: { width: `${Math.round(got * 100)}%` } })),
+                    React.createElement("b", null,
+                        Math.round(got * 100),
+                        "%"))),
+            step === "done" && (React.createElement("button", { className: "ask-yes near-go", onClick: onClose }, "\u0413\u043E\u0442\u043E\u0432\u043E"))))))));
 }
 /* разбор обмена: что придёт, что уйдёт и чьи данные оставить */
 function SyncSheet({ plan, from, onCancel, onApply, box }) {
@@ -12402,19 +12440,6 @@ body > div{max-width:100%;}
 .near-in textarea{height:64px; resize:none; letter-spacing:.04em; font-size:0.66rem;}
 .near-go{width:100%;}
 .near-state{margin:0; font-size:0.7rem; color:var(--gold); text-align:center;}
-.near-sky{position:relative; height:104px; margin:2px 0 4px; overflow:hidden;}
-.near-sky i{position:absolute; top:50%; left:50%; width:5px; height:5px; margin:-2.5px; border-radius:50%;
-  background:var(--gold); opacity:.25;
-  transform:rotate(var(--a)) translateX(var(--d)) rotate(calc(-1 * var(--a)));
-  animation:skyPulse 2.6s ease-in-out infinite; animation-delay:var(--t);}
-.near-sky u{position:absolute; top:50%; left:50%; width:14px; height:14px; margin:-7px; border-radius:50%;
-  background:radial-gradient(circle, rgba(232,184,75,.9), rgba(232,184,75,0) 70%);}
-.near-sky.wait i{animation:skyPulse 1.6s ease-in-out infinite;}
-.near-sky.live i{animation:skyPull 1s cubic-bezier(.3,.8,.3,1) forwards; opacity:.9;}
-.near-sky.done i{opacity:0; transition:opacity .4s ease;}
-@keyframes skyPulse{0%,100%{opacity:.18} 50%{opacity:.5}}
-@keyframes skyPull{to{transform:rotate(var(--a)) translateX(0) rotate(calc(-1 * var(--a))); opacity:0;}}
-@media (prefers-reduced-motion: reduce){ .near-sky i{animation:none !important;} }
 .near-photos{display:flex; align-items:flex-start; gap:10px; padding:9px 11px; border-radius:12px;
   border:1px solid var(--line); background:var(--field); cursor:pointer;}
 .near-photos input{margin-top:2px; width:18px; height:18px; accent-color:var(--gold);}
