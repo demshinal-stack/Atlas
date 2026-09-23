@@ -1342,7 +1342,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "28.4";
+const APP_VERSION = "28.5";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -3260,6 +3260,29 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                 ctx.shadowBlur = 0;
                 ctx.globalAlpha = 1;
                 ctx.fill();
+                if (a.tag) {
+                    // плашка с флагом у конца дуги
+                    ctx.font = "13px system-ui, -apple-system, sans-serif";
+                    const tw = ctx.measureText(a.tag).width + 14;
+                    const tx = Math.min(size - tw - 4, Math.max(4, end[0] - tw / 2));
+                    const ty = Math.max(14, end[1] - 22);
+                    ctx.fillStyle = "rgba(10,20,32,.88)";
+                    ctx.strokeStyle = "rgba(143,179,214,.35)";
+                    ctx.lineWidth = 1;
+                    const rr = 7;
+                    ctx.beginPath();
+                    ctx.moveTo(tx + rr, ty);
+                    ctx.arcTo(tx + tw, ty, tx + tw, ty + 20, rr);
+                    ctx.arcTo(tx + tw, ty + 20, tx, ty + 20, rr);
+                    ctx.arcTo(tx, ty + 20, tx, ty, rr);
+                    ctx.arcTo(tx, ty, tx + tw, ty, rr);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+                    ctx.fillStyle = "#e6edf4";
+                    ctx.textBaseline = "middle";
+                    ctx.fillText(a.tag, tx + 7, ty + 11);
+                }
             }
             ctx.restore();
         });
@@ -6347,83 +6370,61 @@ function firstsOrder(rows) {
         b.firstsJoint - a.firstsJoint ||
         b.countries - a.countries);
 }
-/* годы для дорожки: от самого раннего открытия до нынешнего года, не больше 9 меток */
-function firstsYears(list) {
-    const ys = list.map((r) => { var _c; return (_c = r.firstList[0]) === null || _c === void 0 ? void 0 : _c.y; }).filter(Boolean);
-    const now = NOW.getFullYear();
-    const from = ys.length ? Math.min(...ys) : now;
-    const span = Math.max(1, now - from);
-    const step = Math.ceil(span / 5);
-    const out = [];
-    for (let y = from; y <= now; y += step)
-        out.push(y);
-    if (out[out.length - 1] !== now)
-        out.push(now);
-    return out;
-}
-function FirstsLine({ years, y, gold, ends = false }) {
-    return (React.createElement("div", { className: "fr-line" + (gold ? " gold" : "") }, years.map((yy, i) => {
-        const near = y == null
-            ? -1
-            : years.reduce((b, v, k) => (Math.abs(v - y) < Math.abs(years[b] - y) ? k : b), 0);
-        const on = i === near;
-        const showY = !ends || on || i === 0 || i === years.length - 1;
-        return (React.createElement("span", { key: yy, className: "fr-dot" + (on ? " on" : "") },
-            React.createElement("i", null),
-            React.createElement("em", null, showY ? yy : "")));
-    })));
-}
-/* строка участника: место, число открытий, имя, первая страна и дорожка лет */
-function FirstsRow({ r, place, years, wide = false }) {
-    var _c, _d;
-    const first = r.firstList[0];
-    return (React.createElement("div", { className: "fr-row" + (place === 1 ? " top" : "") },
-        React.createElement("span", { className: "fr-rank" },
-            place === 1 && React.createElement("u", null, "\u265B"),
-            place),
-        React.createElement("span", { className: "fr-num" },
-            React.createElement("b", null, r.firsts),
-            React.createElement("em", null, pw(r.firsts, "country"))),
-        React.createElement("span", { className: "fr-main" },
+/* полоска участников: имя и сколько стран открыл */
+function FirstsCrew({ list, cur, onPick }) {
+    return (React.createElement("div", { className: "fp-crew" }, list.map((r, i) => (React.createElement("button", { key: r.id, className: "fp-person" + (i === cur ? " on" : ""), onClick: () => onPick(i) },
+        React.createElement("i", { style: { borderColor: r.color, color: r.color } }, (r.name || "?").trim()[0].toUpperCase()),
+        React.createElement("span", null,
             React.createElement("b", null, r.name),
-            React.createElement("em", null,
-                "\u043E\u0442\u043A\u0440\u044B\u043B ",
-                r.firsts,
-                " \u00B7 \u0432\u043C\u0435\u0441\u0442\u0435 ",
-                r.firstsJoint,
-                " \u00B7 \u0432\u0441\u0435\u0433\u043E \u0431\u044B\u043B \u0432 ",
-                r.countries),
-            first && (React.createElement("span", { className: "fr-chip" },
-                React.createElement("i", null, "\uD83C\uDF10"),
-                " \u041F\u0435\u0440\u0432\u044B\u043C \u043E\u0442\u043A\u0440\u044B\u043B",
-                " ",
-                React.createElement("b", null,
-                    flag(((_c = BY_A3[first.a3]) === null || _c === void 0 ? void 0 : _c.a2) || ""),
-                    " ",
-                    ((_d = BY_A3[first.a3]) === null || _d === void 0 ? void 0 : _d.name) || first.a3),
-                " ",
-                "\u0432 ",
-                first.y)),
-            React.createElement(FirstsLine, { years: years, y: first === null || first === void 0 ? void 0 : first.y, gold: place === 1 }))));
+            React.createElement("em", null, np(r.firsts, "country"))))))));
 }
-function FirstsChart({ rows, onOpen }) {
-    const list = firstsOrder(rows);
-    const years = firstsYears(list);
-    return (React.createElement("div", { className: "firsts" },
-        list.map((r, i) => (React.createElement(FirstsRow, { key: r.id, r: r, place: i + 1, years: years }))),
-        React.createElement("div", { className: "fr-note" },
-            React.createElement("i", null, "\u24D8"),
-            React.createElement("span", null,
-                React.createElement("b", null, "\u041A\u0430\u043A \u0441\u0447\u0438\u0442\u0430\u0435\u0442\u0441\u044F"),
-                React.createElement("em", null, "\u0421\u0442\u0440\u0430\u043D\u0430 \u0437\u0430\u0441\u0447\u0438\u0442\u044B\u0432\u0430\u0435\u0442\u0441\u044F \u0442\u043E\u043C\u0443, \u043A\u0442\u043E \u043F\u043E\u0431\u044B\u0432\u0430\u043B \u0432 \u043D\u0435\u0439 \u0440\u0430\u043D\u044C\u0448\u0435 \u043E\u0441\u0442\u0430\u043B\u044C\u043D\u044B\u0445. \u0415\u0441\u043B\u0438 \u0432 \u0441\u0430\u043C\u044B\u0439 \u0440\u0430\u043D\u043D\u0438\u0439 \u0433\u043E\u0434 \u0442\u0443\u0434\u0430 \u0435\u0437\u0434\u0438\u043B\u0438 \u043D\u0435\u0441\u043A\u043E\u043B\u044C\u043A\u043E \u0447\u0435\u043B\u043E\u0432\u0435\u043A, \u0441\u0442\u0440\u0430\u043D\u0430 \u0441\u0447\u0438\u0442\u0430\u0435\u0442\u0441\u044F \u043E\u0442\u043A\u0440\u044B\u0442\u043E\u0439 \u0432\u043C\u0435\u0441\u0442\u0435.")))));
+/* строка страны: место, флаг, название, год */
+function FirstsCountry({ n, a3, y, onOpen }) {
+    var _c, _d;
+    return (React.createElement("button", { className: "fp-row", onClick: () => onOpen === null || onOpen === void 0 ? void 0 : onOpen(a3) },
+        React.createElement("span", { className: "fp-num" + (n === 1 ? " top" : "") }, n),
+        React.createElement("span", { className: "fp-flag" }, flag(((_c = BY_A3[a3]) === null || _c === void 0 ? void 0 : _c.a2) || "")),
+        React.createElement("span", { className: "fp-name" }, ((_d = BY_A3[a3]) === null || _d === void 0 ? void 0 : _d.name) || a3),
+        React.createElement("span", { className: "fp-year" }, y),
+        React.createElement("i", null, "\u203A")));
 }
-/* «Первооткрыватели» во весь экран */
-function FirstsWin({ rows, onClose }) {
-    var _c, _d, _e;
+/* карточка отчёта: участники, плитки первых стран и ссылка на весь экран */
+function FirstsChart({ rows, onOpen, onOpenTrip }) {
     const list = firstsOrder(rows);
-    const years = firstsYears(list);
-    const [wide, setWide] = useState(typeof window !== "undefined" && window.innerWidth > window.innerHeight);
     const [cur, setCur] = useState(0);
+    const r = list[Math.min(cur, list.length - 1)];
+    if (!r)
+        return null;
+    const tiles = r.firstList.slice(0, 5);
+    return (React.createElement("div", { className: "firsts" },
+        React.createElement(FirstsCrew, { list: list, cur: cur, onPick: setCur }),
+        React.createElement("div", { className: "fp-head" },
+            React.createElement("span", null,
+                "\u0421\u0442\u0440\u0430\u043D\u044B, \u043A\u043E\u0442\u043E\u0440\u044B\u0435 \u043E\u0442\u043A\u0440\u044B\u043B",
+                r.id === ME ? "" : "а",
+                " ",
+                r.name),
+            React.createElement("em", null,
+                r.firsts,
+                " \u0438\u0437 ",
+                r.countries)),
+        tiles.length ? (React.createElement("div", { className: "fp-tiles" }, tiles.map((f) => {
+            var _c, _d;
+            return (React.createElement("button", { key: f.a3, className: "fp-tile", onClick: () => onOpenTrip === null || onOpenTrip === void 0 ? void 0 : onOpenTrip(f.a3) },
+                React.createElement("b", null, flag(((_c = BY_A3[f.a3]) === null || _c === void 0 ? void 0 : _c.a2) || "")),
+                React.createElement("span", null, ((_d = BY_A3[f.a3]) === null || _d === void 0 ? void 0 : _d.name) || f.a3),
+                React.createElement("em", null, f.y)));
+        }))) : (React.createElement("p", { className: "hint small" }, "\u041F\u043E\u043A\u0430 \u043D\u0435 \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u043B \u0441\u0442\u0440\u0430\u043D\u044B \u0440\u0430\u043D\u044C\u0448\u0435 \u043E\u0441\u0442\u0430\u043B\u044C\u043D\u044B\u0445.")),
+        React.createElement("button", { className: "fp-all", onClick: onOpen },
+            "\u041F\u043E\u043A\u0430\u0437\u0430\u0442\u044C \u0432\u0441\u0435 ",
+            React.createElement("i", null, "\u203A"))));
+}
+/* «Первооткрыватели» во весь экран: глобус, числа и список стран */
+function FirstsWin({ rows, home, geo, mapProps, onClose, onOpenTrip }) {
+    const list = firstsOrder(rows);
+    const [cur, setCur] = useState(0);
+    const r = list[Math.min(cur, list.length - 1)];
+    const [wide, setWide] = useState(typeof window !== "undefined" && window.innerWidth > window.innerHeight);
     useEffect(() => {
         const on = () => setWide(window.innerWidth > window.innerHeight);
         window.addEventListener("resize", on);
@@ -6433,111 +6434,82 @@ function FirstsWin({ rows, onClose }) {
             window.removeEventListener("orientationchange", on);
         };
     }, []);
-    const totalCountries = new Set();
-    rows.forEach((r) => (r.list || []).forEach((v) => totalCountries.add(v.a3)));
-    const together = Math.max(0, ...list.map((r) => r.firstsJoint));
-    const discoverers = list.filter((r) => r.firsts > 0).length;
-    const summary = (React.createElement("div", { className: "fw-sum" },
+    const arcs = useMemo(() => {
+        if (!home || !r)
+            return [];
+        return r.firstList
+            .map((f) => {
+            var _c, _d;
+            const xy = distPoint(f.a3, null);
+            if (!xy)
+                return null;
+            return {
+                key: f.a3,
+                from: home,
+                to: { lon: xy[0], lat: xy[1] },
+                color: r.color || "#e2b551",
+                width: 1.8,
+                alpha: 0.95,
+                dot: 3,
+                tag: `${flag(((_c = BY_A3[f.a3]) === null || _c === void 0 ? void 0 : _c.a2) || "")} ${((_d = BY_A3[f.a3]) === null || _d === void 0 ? void 0 : _d.name) || f.a3}`,
+            };
+        })
+            .filter(Boolean);
+    }, [r, home]);
+    const all = new Set();
+    rows.forEach((p) => (p.list || []).forEach((v) => all.add(v.a3)));
+    const stats = (React.createElement("div", { className: "fp-stats" },
         React.createElement("span", null,
-            React.createElement("b", null, totalCountries.size || ((_c = list[0]) === null || _c === void 0 ? void 0 : _c.countries) || 0),
-            React.createElement("em", null, pw(totalCountries.size, "country"))),
+            React.createElement("b", null, all.size),
+            React.createElement("em", null, pw(all.size, "country"))),
         React.createElement("span", null,
-            React.createElement("b", null, together),
+            React.createElement("b", null, (r === null || r === void 0 ? void 0 : r.firstsJoint) || 0),
             React.createElement("em", null, "\u0432\u043C\u0435\u0441\u0442\u0435")),
         React.createElement("span", null,
-            React.createElement("b", null, discoverers),
-            React.createElement("em", null, pw(discoverers, "person")))));
+            React.createElement("b", null, list.filter((p) => p.firsts > 0).length),
+            React.createElement("em", null, pw(list.filter((p) => p.firsts > 0).length, "person")))));
+    const globe = (React.createElement("div", { className: "sd-stage" },
+        React.createElement(Globe, { ...(mapProps || {}), geo: geo, arcs: arcs, full: false, noFull: true, fitBox: true, playing: true, spinStep: 0.25, setPlaying: () => { }, onToggleFull: () => { }, onPick: () => { } })));
+    const head = (React.createElement("div", { className: "fp-title" },
+        React.createElement("b", null, "\u041F\u0435\u0440\u0432\u043E\u043E\u0442\u043A\u0440\u044B\u0432\u0430\u0442\u0435\u043B\u0438"),
+        React.createElement("em", null, "\u043A\u0442\u043E \u043F\u043E\u043F\u0430\u043B \u0432 \u0441\u0442\u0440\u0430\u043D\u0443 \u0440\u0430\u043D\u044C\u0448\u0435 \u043E\u0441\u0442\u0430\u043B\u044C\u043D\u044B\u0445")));
+    const listBlock = (React.createElement(React.Fragment, null,
+        React.createElement("div", { className: "fp-head" },
+            React.createElement("span", null,
+                "\u0421\u0442\u0440\u0430\u043D\u044B, \u043A\u043E\u0442\u043E\u0440\u044B\u0435 \u043E\u0442\u043A\u0440\u044B\u043B",
+                (r === null || r === void 0 ? void 0 : r.id) === ME ? "" : "а",
+                " ", r === null || r === void 0 ? void 0 :
+                r.name),
+            React.createElement("em", null, r === null || r === void 0 ? void 0 :
+                r.firsts,
+                " \u0438\u0437 ", r === null || r === void 0 ? void 0 :
+                r.countries)),
+        React.createElement("div", { className: "fp-list" }, (r === null || r === void 0 ? void 0 : r.firstList.length) ? (r.firstList.map((f, i) => (React.createElement(FirstsCountry, { key: f.a3, n: i + 1, a3: f.a3, y: f.y, onOpen: onOpenTrip })))) : (React.createElement("p", { className: "hint small" }, "\u041F\u043E\u043A\u0430 \u043D\u0435 \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u043B \u0441\u0442\u0440\u0430\u043D\u044B \u0440\u0430\u043D\u044C\u0448\u0435 \u043E\u0441\u0442\u0430\u043B\u044C\u043D\u044B\u0445."))),
+        React.createElement("div", { className: "fr-note" },
+            React.createElement("i", null, "\u24D8"),
+            React.createElement("span", null,
+                React.createElement("em", null, "\u0421\u0442\u0440\u0430\u043D\u0430 \u0441\u0447\u0438\u0442\u0430\u0435\u0442\u0441\u044F \u043E\u0442\u043A\u0440\u044B\u0442\u043E\u0439, \u0435\u0441\u043B\u0438 \u0432\u044B \u043F\u043E\u0431\u044B\u0432\u0430\u043B\u0438 \u0432 \u043D\u0435\u0439 \u0440\u0430\u043D\u044C\u0448\u0435 \u043E\u0441\u0442\u0430\u043B\u044C\u043D\u044B\u0445. \u0415\u0441\u043B\u0438 \u0432 \u0441\u0430\u043C\u044B\u0439 \u0440\u0430\u043D\u043D\u0438\u0439 \u0433\u043E\u0434 \u0442\u0443\u0434\u0430 \u0435\u0437\u0434\u0438\u043B\u0438 \u043D\u0435\u0441\u043A\u043E\u043B\u044C\u043A\u043E \u0447\u0435\u043B\u043E\u0432\u0435\u043A, \u0441\u0442\u0440\u0430\u043D\u0430 \u0441\u0447\u0438\u0442\u0430\u0435\u0442\u0441\u044F \u043E\u0442\u043A\u0440\u044B\u0442\u043E\u0439 \u0432\u043C\u0435\u0441\u0442\u0435.")))));
     if (wide)
         return (React.createElement("div", { className: "pg-wide", onClick: onClose },
-            React.createElement("div", { className: "pg-panel fw-panel", onClick: (e) => e.stopPropagation() },
-                React.createElement("div", { className: "fw-head" },
-                    React.createElement("span", null,
-                        React.createElement("b", null, "\u041F\u0435\u0440\u0432\u043E\u043E\u0442\u043A\u0440\u044B\u0432\u0430\u0442\u0435\u043B\u0438"),
-                        React.createElement("em", null, "\u043A\u0442\u043E \u043F\u043E\u043F\u0430\u043B \u0432 \u0441\u0442\u0440\u0430\u043D\u0443 \u0440\u0430\u043D\u044C\u0448\u0435 \u043E\u0441\u0442\u0430\u043B\u044C\u043D\u044B\u0445")),
-                    React.createElement("button", { className: "zoom-x", onClick: onClose, "aria-label": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C" }, "\u2715")),
-                React.createElement("div", { className: "fw-cards" }, list.map((r, i) => {
-                    var _c, _d;
-                    const first = r.firstList[0];
-                    return (React.createElement("div", { key: r.id, className: "fw-card" + (i === 0 ? " top" : "") },
-                        React.createElement("div", { className: "fw-card-head" },
-                            React.createElement("span", { className: "fr-rank" },
-                                i === 0 && React.createElement("u", null, "\u265B"),
-                                i + 1),
-                            React.createElement("b", null, r.name)),
-                        React.createElement("div", { className: "fw-nums" },
-                            React.createElement("span", null,
-                                React.createElement("b", null, r.firsts),
-                                React.createElement("em", null, pw(r.firsts, "country"))),
-                            React.createElement("span", null,
-                                React.createElement("b", null, r.firstsJoint),
-                                React.createElement("em", null, "\u0432\u043C\u0435\u0441\u0442\u0435")),
-                            React.createElement("span", null,
-                                React.createElement("b", null, r.countries),
-                                React.createElement("em", null, "\u0432\u0441\u0435\u0433\u043E"))),
-                        first ? (React.createElement("div", { className: "fw-first" },
-                            React.createElement("em", null, "\u041F\u0435\u0440\u0432\u044B\u043C \u043E\u0442\u043A\u0440\u044B\u043B"),
-                            React.createElement("b", null,
-                                flag(((_c = BY_A3[first.a3]) === null || _c === void 0 ? void 0 : _c.a2) || ""),
-                                " ",
-                                ((_d = BY_A3[first.a3]) === null || _d === void 0 ? void 0 : _d.name) || first.a3),
-                            React.createElement("em", null,
-                                "\u0432 ",
-                                first.y,
-                                " \u0433\u043E\u0434\u0443"))) : (React.createElement("div", { className: "fw-first" },
-                            React.createElement("em", null, "\u041F\u043E\u043A\u0430 \u043D\u0435 \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u043B \u0441\u0442\u0440\u0430\u043D\u044B \u043F\u0435\u0440\u0432\u044B\u043C"))),
-                        React.createElement(FirstsLine, { years: years, y: first === null || first === void 0 ? void 0 : first.y, gold: i === 0, ends: true })));
-                })),
-                summary)));
-    const r = list[cur];
-    const first = r === null || r === void 0 ? void 0 : r.firstList[0];
+            React.createElement("div", { className: "pg-panel", onClick: (e) => e.stopPropagation() },
+                React.createElement("div", { className: "pg-map fp-map" },
+                    globe,
+                    stats),
+                React.createElement("div", { className: "pg-side ag-side" },
+                    React.createElement("div", { className: "pg-side-head fp-side-head" },
+                        head,
+                        React.createElement("button", { className: "zoom-x", onClick: onClose, "aria-label": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C" }, "\u2715")),
+                    React.createElement(FirstsCrew, { list: list, cur: cur, onPick: setCur }),
+                    React.createElement("div", { className: "ag-frame sd-frame" }, listBlock)))));
     return (React.createElement("div", { className: "zoom-layer pg-layer", onClick: onClose },
         React.createElement("div", { className: "zoom-box", onClick: (e) => e.stopPropagation() },
             React.createElement("button", { className: "zoom-x", onClick: onClose, "aria-label": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C" }, "\u2715"),
-            React.createElement("div", { className: "zoom-body rep fw-port" },
-                React.createElement("b", null, "\u041F\u0435\u0440\u0432\u043E\u043E\u0442\u043A\u0440\u044B\u0432\u0430\u0442\u0435\u043B\u0438"),
-                React.createElement("em", null, "\u043A\u0442\u043E \u043F\u043E\u043F\u0430\u043B \u0432 \u0441\u0442\u0440\u0430\u043D\u0443 \u0440\u0430\u043D\u044C\u0448\u0435 \u043E\u0441\u0442\u0430\u043B\u044C\u043D\u044B\u0445"),
-                r && (React.createElement("div", { className: "fw-card top" },
-                    React.createElement("div", { className: "fw-card-head" },
-                        React.createElement("span", { className: "fr-rank" },
-                            cur === 0 && React.createElement("u", null, "\u265B"),
-                            cur + 1),
-                        React.createElement("b", null, r.name)),
-                    React.createElement("div", { className: "fw-nums" },
-                        React.createElement("span", null,
-                            React.createElement("b", null, r.firsts),
-                            React.createElement("em", null, pw(r.firsts, "country"))),
-                        React.createElement("span", null,
-                            React.createElement("b", null, r.firstsJoint),
-                            React.createElement("em", null, "\u0432\u043C\u0435\u0441\u0442\u0435")),
-                        React.createElement("span", null,
-                            React.createElement("b", null, r.countries),
-                            React.createElement("em", null, "\u0432\u0441\u0435\u0433\u043E"))),
-                    first && (React.createElement("div", { className: "fw-first" },
-                        React.createElement("em", null, "\u041F\u0435\u0440\u0432\u044B\u043C \u043E\u0442\u043A\u0440\u044B\u043B"),
-                        React.createElement("b", null,
-                            flag(((_d = BY_A3[first.a3]) === null || _d === void 0 ? void 0 : _d.a2) || ""),
-                            " ",
-                            ((_e = BY_A3[first.a3]) === null || _e === void 0 ? void 0 : _e.name) || first.a3),
-                        React.createElement("em", null,
-                            "\u0432 ",
-                            first.y,
-                            " \u0433\u043E\u0434\u0443"))),
-                    React.createElement(FirstsLine, { years: years, y: first === null || first === void 0 ? void 0 : first.y, gold: cur === 0 }),
-                    r.firstList.length > 1 && (React.createElement("div", { className: "fw-more" }, r.firstList.slice(1, 6).map((f) => {
-                        var _c, _d;
-                        return (React.createElement("span", { key: f.a3 },
-                            flag(((_c = BY_A3[f.a3]) === null || _c === void 0 ? void 0 : _c.a2) || ""),
-                            " ",
-                            ((_d = BY_A3[f.a3]) === null || _d === void 0 ? void 0 : _d.name) || f.a3,
-                            React.createElement("u", null, f.y)));
-                    }))))),
-                React.createElement("div", { className: "fw-list" }, list.map((p, i) => i === cur ? null : (React.createElement("button", { key: p.id, className: "fw-item", onClick: () => setCur(i) },
-                    React.createElement("span", { className: "fr-rank" }, i + 1),
-                    React.createElement("span", null,
-                        React.createElement("b", null, p.name),
-                        React.createElement("em", null, p.firsts ? `${np(p.firsts, "country")} первым` : "нет открытий")),
-                    React.createElement("i", null, "\u203A"))))),
-                summary))));
+            React.createElement("div", { className: "zoom-body rep fp-port" },
+                head,
+                React.createElement(FirstsCrew, { list: list, cur: cur, onPick: setCur }),
+                React.createElement("div", { className: "pg-map far-map fp-map" }, globe),
+                stats,
+                React.createElement("div", { className: "ag-frame sd-frame" }, listBlock)))));
 }
 /* часовой пояс точки: из справочника, иначе по долготе */
 function tzHours(pt) {
@@ -8782,11 +8754,11 @@ function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], o
                     React.createElement(SplitChart, { rows: crewR.rows })),
                 React.createElement(Reveal, { rid: "first", className: "rep far-card", zoomable: false },
                     React.createElement("b", null, "\u041F\u0435\u0440\u0432\u043E\u043E\u0442\u043A\u0440\u044B\u0432\u0430\u0442\u0435\u043B\u0438"),
-                    React.createElement("button", { className: "crew-globe far-open", onClick: () => onFirsts === null || onFirsts === void 0 ? void 0 : onFirsts(crewR.rows), "aria-label": "\u0412\u043E \u0432\u0435\u0441\u044C \u044D\u043A\u0440\u0430\u043D" },
+                    React.createElement("button", { className: "crew-globe far-open", onClick: () => onFirsts === null || onFirsts === void 0 ? void 0 : onFirsts({ rows: crewR.rows, home: homePoint }), "aria-label": "\u0412\u043E \u0432\u0435\u0441\u044C \u044D\u043A\u0440\u0430\u043D" },
                         React.createElement("svg", { viewBox: "0 0 24 24", width: "18", height: "18" },
                             React.createElement("path", { d: "M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5", fill: "none", stroke: "currentColor", strokeWidth: "1.7", strokeLinecap: "round" }))),
                     React.createElement("em", null, "\u043A\u0442\u043E \u043F\u043E\u043F\u0430\u043B \u0432 \u0441\u0442\u0440\u0430\u043D\u0443 \u0440\u0430\u043D\u044C\u0448\u0435 \u043E\u0441\u0442\u0430\u043B\u044C\u043D\u044B\u0445"),
-                    React.createElement(FirstsChart, { rows: crewR.rows })),
+                    React.createElement(FirstsChart, { rows: crewR.rows, onOpen: () => onFirsts === null || onFirsts === void 0 ? void 0 : onFirsts({ rows: crewR.rows, home: homePoint }), onOpenTrip: (a3) => onOpenTrip === null || onOpenTrip === void 0 ? void 0 : onOpenTrip(a3) })),
                 React.createElement(Reveal, { rid: "far", className: "rep far-card", zoomable: false },
                     React.createElement("b", null, "\u0414\u0430\u043B\u044C\u0448\u0435 \u0432\u0441\u0435\u0433\u043E \u043E\u0442 \u0434\u043E\u043C\u0430"),
                     React.createElement("button", { className: "crew-globe far-open", onClick: () => onFar === null || onFar === void 0 ? void 0 : onFar({ rows: crewR.rows, home: homePoint }), "aria-label": "\u041F\u043E\u043A\u0430\u0437\u0430\u0442\u044C \u043D\u0430 \u0433\u043B\u043E\u0431\u0443\u0441\u0435" },
@@ -10785,7 +10757,25 @@ function Atlas() {
                         }, onFilters: openFilters }),
                     seasonWin && React.createElement(SeasonWin, { visits: visits, onClose: () => setSeasonWin(false) }),
                     contsWin && React.createElement(ContsWin, { visits: visits, geo: geo, onClose: () => setContsWin(false) }),
-                    firstsWin && React.createElement(FirstsWin, { rows: firstsWin, onClose: () => setFirstsWin(null) }),
+                    (firstsWin === null || firstsWin === void 0 ? void 0 : firstsWin.rows) && (React.createElement(FirstsWin, { rows: firstsWin.rows, home: firstsWin.home, geo: geo, onClose: () => setFirstsWin(null), onOpenTrip: (a3) => {
+                            setFirstsWin(null);
+                            setSelected(a3);
+                            setSheet(null);
+                        }, mapProps: {
+                            isOn,
+                            selected: null,
+                            visitKey,
+                            home: lastTrip,
+                            boxWidth: 0,
+                            marks,
+                            light,
+                            playing: true,
+                            setPlaying: () => { },
+                            view: "globe",
+                            page: 0,
+                            setPage: () => { },
+                            isWish,
+                        } })),
                     (airWin === null || airWin === void 0 ? void 0 : airWin.air) && (React.createElement(AirGlobe, { visits: visits, home: profile.home || null, air: airWin.air, geo: geo, onClose: () => setAirWin(null), mapProps: {
                             isOn,
                             selected: null,
@@ -11159,7 +11149,47 @@ body > div{max-width:100%;}
 .grid-legend .lg{display:inline-flex; align-items:center; gap:4px; margin-right:8px;}
 .grid-legend .lg i{margin-left:0;}
 
-.firsts{display:flex; flex-direction:column; gap:8px;}
+.firsts{display:flex; flex-direction:column; gap:10px;}
+.fp-crew{display:flex; gap:8px; overflow-x:auto; overscroll-behavior:contain; padding-bottom:2px;}
+.fp-person{flex:none; display:flex; align-items:center; gap:8px; padding:7px 11px 7px 8px; border-radius:13px;
+  border:1px solid var(--line); background:var(--field); color:var(--text); cursor:pointer; text-align:left;}
+.fp-person.on{border-color:rgba(232,184,75,.6); background:linear-gradient(135deg, rgba(232,184,75,.12), transparent 60%), var(--field);}
+.fp-person i{flex:none; width:28px; height:28px; border-radius:50%; border:1.5px solid; display:flex;
+  align-items:center; justify-content:center; font-style:normal; font-size:0.74rem; font-weight:600;}
+.fp-person span{display:flex; flex-direction:column; align-items:flex-start;}
+.fp-person b{font-size:0.78rem; font-weight:500;}
+.fp-person em{font-style:normal; font-size:0.62rem; color:var(--dim);}
+.fp-head{display:flex; align-items:baseline; justify-content:space-between; gap:10px;}
+.fp-head span{font-size:0.78rem;}
+.fp-head em{flex:none; font-style:normal; font-size:0.68rem; color:var(--dim);}
+.fp-tiles{display:grid; grid-template-columns:repeat(auto-fit, minmax(62px, 1fr)); gap:7px;}
+.fp-tile{display:flex; flex-direction:column; align-items:center; gap:3px; padding:9px 5px; border-radius:12px;
+  border:1px solid var(--line); background:var(--field); color:var(--text); cursor:pointer;}
+.fp-tile b{font-size:1.25rem; line-height:1;}
+.fp-tile span{font-size:0.62rem; text-align:center; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%;}
+.fp-tile em{font-style:normal; font-size:0.6rem; color:var(--dim);}
+.fp-all{display:flex; align-items:center; justify-content:space-between; padding:10px 12px; border-radius:12px;
+  border:1px solid var(--line); background:none; color:var(--text); font-size:0.76rem; cursor:pointer;}
+.fp-all i{font-style:normal; color:var(--dim);}
+.fp-list{display:flex; flex-direction:column; gap:5px;}
+.fp-row{display:flex; align-items:center; gap:10px; padding:8px 11px; border-radius:12px; border:1px solid var(--line);
+  background:var(--field); color:var(--text); cursor:pointer; text-align:left;}
+.fp-num{flex:none; width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+  font-size:0.7rem; color:var(--dim); border:1px solid var(--line);}
+.fp-num.top{background:var(--gold); border-color:var(--gold); color:#11202e; font-weight:600;}
+.fp-flag{flex:none; font-size:1.05rem;}
+.fp-name{flex:1 1 auto; min-width:0; font-size:0.8rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.fp-year{flex:none; font-size:0.74rem; color:var(--dim);}
+.fp-row i{flex:none; font-style:normal; color:var(--dim);}
+.fp-stats{flex:none; display:flex; gap:14px; justify-content:center; padding:10px 12px;}
+.fp-stats span{display:flex; flex-direction:column; align-items:center;}
+.fp-stats b{font-size:1.2rem; font-weight:700; color:var(--gold); line-height:1.1;}
+.fp-stats em{font-style:normal; font-size:0.6rem; color:var(--dim);}
+.fp-title b{font-size:1rem;}
+.fp-title em{display:block; font-style:normal; font-size:0.7rem; color:var(--dim); margin-top:2px;}
+.fp-side-head{align-items:flex-start;}
+.pg-map.fp-map{flex-direction:column;}
+.fp-port{gap:10px;}
 .fr-row{display:grid; grid-template-columns:auto auto 1fr; gap:10px; align-items:center;
   padding:11px 12px; border-radius:14px; border:1px solid var(--line); background:var(--field);}
 .fr-row.top{border-color:rgba(232,184,75,.55); background:linear-gradient(135deg, rgba(232,184,75,.1), transparent 55%), var(--field);}
