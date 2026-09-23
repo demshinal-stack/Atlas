@@ -2445,7 +2445,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "30.4";
+const APP_VERSION = "30.5";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -8808,45 +8808,62 @@ function QrCamera({ onCode, onClose, facing = "environment", hidden = false }) {
         React.createElement("button", { className: "ask-no", onClick: onClose }, "\u0412\u0432\u0435\u0441\u0442\u0438 \u043A\u043E\u0434 \u0432\u0440\u0443\u0447\u043D\u0443\u044E")));
 }
 /* обмен поездками рядом: без интернета, по одной сети */
-/* как держать телефоны: два экрана друг напротив друга */
-function NearHow() {
-    return (React.createElement("svg", { className: "near-how", viewBox: "0 0 320 150", "aria-hidden": "true" },
+/* заставка обмена: два телефона над шаром и летящие карточки поездок */
+function NearHero() {
+    return (React.createElement("svg", { className: "near-hero", viewBox: "0 0 360 230", "aria-hidden": "true" },
         React.createElement("defs", null,
+            React.createElement("radialGradient", { id: "nhGlobe", cx: "50%", cy: "45%", r: "60%" },
+                React.createElement("stop", { offset: "0", stopColor: "#1d3b58" }),
+                React.createElement("stop", { offset: "1", stopColor: "#0b1724" })),
             React.createElement("linearGradient", { id: "nhBeam", x1: "0", y1: "0", x2: "1", y2: "0" },
-                React.createElement("stop", { offset: "0", stopColor: "rgba(232,184,75,0)" }),
-                React.createElement("stop", { offset: "0.5", stopColor: "rgba(232,184,75,.75)" }),
-                React.createElement("stop", { offset: "1", stopColor: "rgba(232,184,75,0)" }))),
-        React.createElement("g", { transform: "translate(26 18) rotate(-6 44 57)" },
-            React.createElement("rect", { width: "88", height: "132", rx: "14", fill: "#16273a", stroke: "rgba(143,179,214,.35)" }),
-            React.createElement("rect", { x: "6", y: "9", width: "76", height: "114", rx: "9", fill: "#0d1a27" }),
-            React.createElement("rect", { x: "32", y: "4", width: "24", height: "4", rx: "2", fill: "rgba(143,179,214,.4)" }),
-            React.createElement("g", { fill: "var(--gold)", opacity: ".9" },
-                React.createElement("rect", { x: "22", y: "34", width: "44", height: "44", rx: "4", fill: "#f4efe2" }),
-                React.createElement("rect", { x: "27", y: "39", width: "11", height: "11", fill: "#12202e" }),
-                React.createElement("rect", { x: "50", y: "39", width: "11", height: "11", fill: "#12202e" }),
-                React.createElement("rect", { x: "27", y: "62", width: "11", height: "11", fill: "#12202e" }),
-                React.createElement("rect", { x: "42", y: "55", width: "6", height: "6", fill: "#12202e" }),
-                React.createElement("rect", { x: "52", y: "62", width: "6", height: "6", fill: "#12202e" }),
-                React.createElement("rect", { x: "44", y: "68", width: "6", height: "6", fill: "#12202e" })),
-            React.createElement("circle", { cx: "44", cy: "17", r: "3", fill: "rgba(143,212,255,.85)" })),
-        React.createElement("g", { transform: "translate(206 18) rotate(6 44 57)" },
-            React.createElement("rect", { width: "88", height: "132", rx: "14", fill: "#16273a", stroke: "rgba(143,179,214,.35)" }),
-            React.createElement("rect", { x: "6", y: "9", width: "76", height: "114", rx: "9", fill: "#0d1a27" }),
-            React.createElement("rect", { x: "32", y: "4", width: "24", height: "4", rx: "2", fill: "rgba(143,179,214,.4)" }),
-            React.createElement("g", { fill: "#f4efe2", opacity: ".92" },
-                React.createElement("rect", { x: "22", y: "34", width: "44", height: "44", rx: "4" }),
-                React.createElement("rect", { x: "27", y: "39", width: "11", height: "11", fill: "#12202e" }),
-                React.createElement("rect", { x: "50", y: "39", width: "11", height: "11", fill: "#12202e" }),
-                React.createElement("rect", { x: "27", y: "62", width: "11", height: "11", fill: "#12202e" }),
-                React.createElement("rect", { x: "45", y: "46", width: "6", height: "6", fill: "#12202e" }),
-                React.createElement("rect", { x: "41", y: "62", width: "6", height: "6", fill: "#12202e" }),
-                React.createElement("rect", { x: "53", y: "68", width: "6", height: "6", fill: "#12202e" })),
-            React.createElement("circle", { cx: "44", cy: "17", r: "3", fill: "rgba(143,212,255,.85)" })),
-        React.createElement("rect", { x: "112", y: "72", width: "96", height: "6", rx: "3", fill: "url(#nhBeam)" }),
-        React.createElement("path", { d: "M126 60c18-10 50-10 68 0", fill: "none", stroke: "rgba(143,212,255,.5)", strokeWidth: "1.4", strokeDasharray: "4 4" }),
-        React.createElement("path", { d: "M126 90c18 10 50 10 68 0", fill: "none", stroke: "rgba(143,212,255,.5)", strokeWidth: "1.4", strokeDasharray: "4 4" }),
-        React.createElement("circle", { cx: "160", cy: "75", r: "7", fill: "rgba(232,184,75,.18)", stroke: "rgba(232,184,75,.6)" }),
-        React.createElement("path", { d: "M157 75l2.5 2.5L164 72", fill: "none", stroke: "var(--gold)", strokeWidth: "1.6", strokeLinecap: "round", strokeLinejoin: "round" })));
+                React.createElement("stop", { offset: "0", stopColor: "rgba(143,212,255,0)" }),
+                React.createElement("stop", { offset: ".5", stopColor: "rgba(143,212,255,.55)" }),
+                React.createElement("stop", { offset: "1", stopColor: "rgba(143,212,255,0)" })),
+            React.createElement("linearGradient", { id: "nhPhone", x1: "0", y1: "0", x2: "0", y2: "1" },
+                React.createElement("stop", { offset: "0", stopColor: "#203449" }),
+                React.createElement("stop", { offset: "1", stopColor: "#101e2c" }))),
+        React.createElement("circle", { cx: "180", cy: "120", r: "96", fill: "url(#nhGlobe)" }),
+        React.createElement("g", { fill: "none", stroke: "rgba(143,179,214,.18)" },
+            React.createElement("circle", { cx: "180", cy: "120", r: "96" }),
+            React.createElement("ellipse", { cx: "180", cy: "120", rx: "96", ry: "34" }),
+            React.createElement("ellipse", { cx: "180", cy: "120", rx: "60", ry: "96" })),
+        React.createElement("path", { d: "M96 66c52-26 128-26 176 8", fill: "none", stroke: "rgba(232,184,75,.5)", strokeWidth: "1.4", strokeDasharray: "5 5" }),
+        React.createElement("path", { d: "M262 62l10-5-3 9z", fill: "rgba(232,184,75,.8)" }),
+        React.createElement("rect", { x: "120", y: "116", width: "120", height: "8", rx: "4", fill: "url(#nhBeam)" }),
+        React.createElement("g", null,
+            React.createElement("g", { transform: "rotate(-10 150 96)" },
+                React.createElement("rect", { x: "132", y: "80", width: "34", height: "30", rx: "5", fill: "#f2efe6" }),
+                React.createElement("rect", { x: "136", y: "84", width: "26", height: "14", rx: "2", fill: "#7fb2d8" }),
+                React.createElement("rect", { x: "136", y: "101", width: "18", height: "3", rx: "1.5", fill: "#9fb0c0" })),
+            React.createElement("g", { transform: "rotate(8 200 104)" },
+                React.createElement("rect", { x: "186", y: "92", width: "34", height: "30", rx: "5", fill: "#f2efe6" }),
+                React.createElement("rect", { x: "190", y: "96", width: "26", height: "14", rx: "2", fill: "#e0b25a" }),
+                React.createElement("rect", { x: "190", y: "113", width: "20", height: "3", rx: "1.5", fill: "#9fb0c0" })),
+            React.createElement("g", { transform: "rotate(-4 172 140)" },
+                React.createElement("rect", { x: "158", y: "128", width: "30", height: "26", rx: "5", fill: "#f2efe6" }),
+                React.createElement("rect", { x: "162", y: "132", width: "22", height: "12", rx: "2", fill: "#86c6a8" }),
+                React.createElement("rect", { x: "162", y: "147", width: "14", height: "3", rx: "1.5", fill: "#9fb0c0" })),
+            React.createElement("circle", { cx: "152", cy: "126", r: "3.5", fill: "rgba(232,184,75,.9)" }),
+            React.createElement("circle", { cx: "212", cy: "78", r: "3", fill: "rgba(143,212,255,.9)" }),
+            React.createElement("circle", { cx: "196", cy: "146", r: "2.5", fill: "rgba(232,184,75,.7)" })),
+        React.createElement("g", { transform: "translate(14 36) rotate(-7 48 78)" },
+            React.createElement("rect", { width: "96", height: "156", rx: "16", fill: "url(#nhPhone)", stroke: "rgba(143,179,214,.45)" }),
+            React.createElement("rect", { x: "7", y: "10", width: "82", height: "136", rx: "11", fill: "#0c1a27" }),
+            React.createElement("rect", { x: "36", y: "5", width: "24", height: "4", rx: "2", fill: "rgba(143,179,214,.45)" }),
+            [0, 1, 2, 3].map((k) => (React.createElement("g", { key: k, transform: `translate(14 ${22 + k * 30})` },
+                React.createElement("rect", { width: "22", height: "22", rx: "4", fill: ["#7fb2d8", "#e0b25a", "#86c6a8", "#b58fd8"][k], opacity: ".8" }),
+                React.createElement("rect", { x: "28", y: "4", width: "38", height: "4", rx: "2", fill: "rgba(230,237,244,.8)" }),
+                React.createElement("rect", { x: "28", y: "13", width: "26", height: "3", rx: "1.5", fill: "rgba(143,179,214,.6)" }))))),
+        React.createElement("g", { transform: "translate(250 36) rotate(7 48 78)" },
+            React.createElement("rect", { width: "96", height: "156", rx: "16", fill: "url(#nhPhone)", stroke: "rgba(143,179,214,.45)" }),
+            React.createElement("rect", { x: "7", y: "10", width: "82", height: "136", rx: "11", fill: "#0c1a27" }),
+            React.createElement("rect", { x: "36", y: "5", width: "24", height: "4", rx: "2", fill: "rgba(143,179,214,.45)" }),
+            React.createElement("g", { transform: "translate(48 62)" },
+                React.createElement("circle", { r: "18", fill: "none", stroke: "rgba(143,212,255,.75)", strokeWidth: "2" }),
+                React.createElement("path", { d: "M-18 0h36M0-18c8 8 8 28 0 36M0-18c-8 8-8 28 0 36", fill: "none", stroke: "rgba(143,212,255,.6)", strokeWidth: "1.4" })),
+            React.createElement("rect", { x: "18", y: "100", width: "60", height: "6", rx: "3", fill: "rgba(255,255,255,.12)" }),
+            React.createElement("rect", { x: "18", y: "100", width: "38", height: "6", rx: "3", fill: "var(--gold)" }),
+            React.createElement("rect", { x: "26", y: "114", width: "44", height: "3", rx: "1.5", fill: "rgba(143,179,214,.5)" }))));
 }
 function NearSync({ makePayload, onData, onClose, box }) {
     // одно нажатие на обоих телефонах: каждый показывает свой код и сам читает чужой
@@ -8928,35 +8945,51 @@ function NearSync({ makePayload, onData, onClose, box }) {
             setState("Код не подошёл, держите телефоны ровно");
         }
     };
-    return (React.createElement(Sheet, { open: true, onClose: onClose, title: "\u041E\u0431\u043C\u0435\u043D \u0440\u044F\u0434\u043E\u043C", box: box }, () => (React.createElement("div", { className: "sheet-body near" },
+    return (React.createElement(Sheet, { open: true, onClose: onClose, title: step === "idle" ? "" : "Обмен рядом", box: box }, () => (React.createElement("div", { className: "sheet-body near" },
         step === "idle" && (React.createElement(React.Fragment, null,
-            React.createElement(NearHow, null),
-            React.createElement("ol", { className: "near-steps" },
-                React.createElement("li", null,
-                    React.createElement("b", null, "1"),
-                    React.createElement("span", null, "\u041E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u044D\u0442\u043E\u0442 \u044D\u043A\u0440\u0430\u043D \u043D\u0430 \u043E\u0431\u043E\u0438\u0445 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430\u0445")),
-                React.createElement("li", null,
-                    React.createElement("b", null, "2"),
-                    React.createElement("span", null, "\u041D\u0430\u0436\u043C\u0438\u0442\u0435 \u00AB\u041E\u0431\u043C\u0435\u043D\u044F\u0442\u044C\u0441\u044F\u00BB \u043D\u0430 \u043A\u0430\u0436\u0434\u043E\u043C")),
-                React.createElement("li", null,
-                    React.createElement("b", null, "3"),
-                    React.createElement("span", null, "\u041F\u043E\u0432\u0435\u0440\u043D\u0438\u0442\u0435 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u044B \u044D\u043A\u0440\u0430\u043D\u0430\u043C\u0438 \u0434\u0440\u0443\u0433 \u043A \u0434\u0440\u0443\u0433\u0443, \u0441\u0430\u043D\u0442\u0438\u043C\u0435\u0442\u0440\u043E\u0432 \u0441 \u0434\u0432\u0430\u0434\u0446\u0430\u0442\u0438"))),
-            React.createElement("p", { className: "hint small" }, "\u041E\u0431\u0430 \u0434\u043E\u043B\u0436\u043D\u044B \u0431\u044B\u0442\u044C \u0432 \u043E\u0434\u043D\u043E\u0439 \u0441\u0435\u0442\u0438 Wi-Fi. \u0418\u043D\u0442\u0435\u0440\u043D\u0435\u0442 \u0438 \u0441\u0435\u0440\u0432\u0435\u0440 \u043D\u0435 \u043D\u0443\u0436\u043D\u044B: \u043F\u043E\u0435\u0437\u0434\u043A\u0438 \u0438\u0434\u0443\u0442 \u043D\u0430\u043F\u0440\u044F\u043C\u0443\u044E \u0441 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430 \u043D\u0430 \u0442\u0435\u043B\u0435\u0444\u043E\u043D."),
+            React.createElement("div", { className: "near-lead" },
+                React.createElement("b", null,
+                    "\u041E\u0431\u043C\u0435\u043D ",
+                    React.createElement("span", null, "\u0440\u044F\u0434\u043E\u043C")),
+                React.createElement("em", null, "\u041F\u043E\u0435\u0437\u0434\u043A\u0438, \u043C\u0430\u0440\u0448\u0440\u0443\u0442\u044B \u0438 \u043F\u043B\u0430\u043D\u044B \u2014 \u043F\u0440\u044F\u043C\u043E \u043D\u0430 \u0441\u043E\u0441\u0435\u0434\u043D\u0438\u0439 \u0442\u0435\u043B\u0435\u0444\u043E\u043D")),
+            React.createElement(NearHero, null),
+            React.createElement("div", { className: "near-guide" },
+                React.createElement("ol", { className: "near-steps" },
+                    React.createElement("li", null,
+                        React.createElement("b", null, "1"),
+                        React.createElement("i", null,
+                            React.createElement("svg", { viewBox: "0 0 24 24", width: "18", height: "18" },
+                                React.createElement("rect", { x: "7", y: "3", width: "10", height: "18", rx: "2.5", fill: "none", stroke: "currentColor", strokeWidth: "1.6" }),
+                                React.createElement("path", { d: "M11 18.5h2", stroke: "currentColor", strokeWidth: "1.6", strokeLinecap: "round" }))),
+                        React.createElement("span", null, "\u041E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u044D\u0442\u043E\u0442 \u044D\u043A\u0440\u0430\u043D \u043D\u0430 \u043E\u0431\u043E\u0438\u0445 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430\u0445")),
+                    React.createElement("li", null,
+                        React.createElement("b", null, "2"),
+                        React.createElement("i", null,
+                            React.createElement("svg", { viewBox: "0 0 24 24", width: "18", height: "18" },
+                                React.createElement("path", { d: "M4 9h16l-3-3M20 15H4l3 3", fill: "none", stroke: "currentColor", strokeWidth: "1.6", strokeLinecap: "round", strokeLinejoin: "round" }))),
+                        React.createElement("span", null, "\u041D\u0430\u0436\u043C\u0438\u0442\u0435 \u00AB\u041E\u0431\u043C\u0435\u043D\u044F\u0442\u044C\u0441\u044F\u00BB \u043D\u0430 \u043A\u0430\u0436\u0434\u043E\u043C")),
+                    React.createElement("li", null,
+                        React.createElement("b", null, "3"),
+                        React.createElement("i", null,
+                            React.createElement("svg", { viewBox: "0 0 24 24", width: "18", height: "18" },
+                                React.createElement("rect", { x: "3.5", y: "4", width: "7", height: "16", rx: "2", fill: "none", stroke: "currentColor", strokeWidth: "1.6" }),
+                                React.createElement("rect", { x: "13.5", y: "4", width: "7", height: "16", rx: "2", fill: "none", stroke: "currentColor", strokeWidth: "1.6" }))),
+                        React.createElement("span", null, "\u041F\u043E\u0432\u0435\u0440\u043D\u0438\u0442\u0435 \u044D\u043A\u0440\u0430\u043D\u0430\u043C\u0438 \u0434\u0440\u0443\u0433 \u043A \u0434\u0440\u0443\u0433\u0443, \u043D\u0430 \u0440\u0430\u0441\u0441\u0442\u043E\u044F\u043D\u0438\u0438 \u0434\u043E 20 \u0441\u043C"))),
+                React.createElement("p", null, "\u041E\u0431\u0430 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430 \u0432 \u043E\u0434\u043D\u043E\u0439 \u0441\u0435\u0442\u0438 Wi-Fi. \u0418\u043D\u0442\u0435\u0440\u043D\u0435\u0442 \u0438 \u0441\u0435\u0440\u0432\u0435\u0440 \u043D\u0435 \u043D\u0443\u0436\u043D\u044B: \u043F\u043E\u0435\u0437\u0434\u043A\u0438 \u0438\u0434\u0443\u0442 \u043D\u0430\u043F\u0440\u044F\u043C\u0443\u044E \u0441 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430 \u043D\u0430 \u0442\u0435\u043B\u0435\u0444\u043E\u043D.")),
             React.createElement("label", { className: "near-photos" },
-                React.createElement("input", { type: "checkbox", checked: withPhotos, onChange: (e) => setWithPhotos(e.target.checked) }),
                 React.createElement("span", null,
                     "\u041F\u0435\u0440\u0435\u0434\u0430\u0442\u044C \u0438 \u0441\u043D\u0438\u043C\u043A\u0438",
-                    React.createElement("em", null, "\u0434\u043E\u043B\u044C\u0448\u0435, \u0437\u0430\u0442\u043E \u0443 \u0440\u043E\u0434\u043D\u044B\u0445 \u0431\u0443\u0434\u0443\u0442 \u0444\u043E\u0442\u043E\u0433\u0440\u0430\u0444\u0438\u0438 \u043F\u043E\u0435\u0437\u0434\u043E\u043A"))),
+                    React.createElement("em", null, "\u0434\u043E\u043B\u044C\u0448\u0435, \u0437\u0430\u0442\u043E \u0443 \u0440\u043E\u0434\u043D\u044B\u0445 \u0431\u0443\u0434\u0443\u0442 \u0444\u043E\u0442\u043E\u0433\u0440\u0430\u0444\u0438\u0438 \u043F\u043E\u0435\u0437\u0434\u043E\u043A")),
+                React.createElement("input", { type: "checkbox", className: "near-toggle", checked: withPhotos, onChange: (e) => setWithPhotos(e.target.checked) }),
+                React.createElement("i", { className: "near-knob" })),
             React.createElement("button", { className: "btn-main wide", onClick: start }, "\u041E\u0431\u043C\u0435\u043D\u044F\u0442\u044C\u0441\u044F"))),
         step === "pair" && (React.createElement(React.Fragment, null,
-            React.createElement("div", { className: "near-top" },
-                React.createElement(NearHow, null),
-                React.createElement("p", { className: "near-step" }, state)),
             React.createElement("div", { className: "near-card" + (flip ? " flip" : ""), onClick: () => setFlip((v) => !v) },
                 React.createElement("div", { className: "near-face near-front" }, myCode ? React.createElement(QrBox, { text: myCode, size: 230 }) : React.createElement("p", { className: "near-state" }, "\u0413\u043E\u0442\u043E\u0432\u0438\u043C \u043A\u043E\u0434\u2026")),
                 React.createElement("div", { className: "near-face near-back" },
                     React.createElement("p", null, "\u041A\u043E\u0434 \u0434\u043B\u044F \u0440\u0443\u0447\u043D\u043E\u0433\u043E \u0432\u0432\u043E\u0434\u0430"),
                     React.createElement("textarea", { readOnly: true, value: myCode, onFocus: (e) => e.target.select() }))),
+            React.createElement("p", { className: "near-step" }, state),
             React.createElement("p", { className: "hint small center" }, "\u041D\u0430\u0436\u043C\u0438\u0442\u0435 \u043D\u0430 \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0443 \u2014 \u043A\u043E\u0434 \u0442\u0435\u043A\u0441\u0442\u043E\u043C"),
             manual ? (React.createElement(React.Fragment, null,
                 React.createElement("label", { className: "tf near-in" },
@@ -12500,6 +12533,24 @@ body > div{max-width:100%;}
 .near-photos span{display:flex; flex-direction:column; font-size:0.76rem;}
 .near-photos em{font-style:normal; font-size:0.64rem; color:var(--dim);}
 .near-step{margin:0; font-size:0.74rem; color:var(--gold); text-align:center;}
+.near-lead b{display:block; font-size:1.75rem; font-weight:700; line-height:1.1;}
+.near-lead b span{color:var(--gold);}
+.near-lead em{display:block; margin-top:6px; font-style:normal; font-size:0.8rem; color:var(--dim); line-height:1.4;}
+.near-hero{display:block; width:100%; max-width:360px; margin:2px auto;}
+.near-guide{padding:14px; border-radius:16px; border:1px solid var(--line); background:var(--field);
+  display:flex; flex-direction:column; gap:12px;}
+.near-guide > p{margin:0; font-size:0.7rem; color:var(--dim); line-height:1.45;}
+.near-steps li{display:flex; align-items:center; gap:10px;}
+.near-steps i{flex:none; display:flex; color:#8fb3d6;}
+.near-photos{align-items:center; justify-content:space-between; position:relative; padding:12px 14px;}
+.near-photos .near-toggle{appearance:none; -webkit-appearance:none; flex:none; width:46px; height:27px;
+  border-radius:14px; background:rgba(255,255,255,.1); border:1px solid var(--line); margin:0;
+  transition:background .2s ease;}
+.near-photos .near-toggle:checked{background:var(--gold); border-color:var(--gold);}
+.near-knob{position:absolute; right:37px; width:21px; height:21px; border-radius:50%; background:#f4efe2;
+  pointer-events:none; transition:transform .2s ease;}
+.near-photos .near-toggle:checked ~ .near-knob{transform:translateX(18px);}
+.near-card{width:min(300px, 88%);}
 .near-how{display:block; width:100%; max-width:320px; margin:2px auto 0;}
 .near-top .near-how{max-width:200px; opacity:.7;}
 .near-steps{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:9px;}
