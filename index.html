@@ -2469,7 +2469,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "32.0";
+const APP_VERSION = "32.1";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -4166,26 +4166,42 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                         const xy = proj([p.lon, p.lat]);
                         if (!xy)
                             return;
-                        const h = 40 * show;
+                        const h = 46 * show;
+                        const top = xy[1] - h;
                         ctx.globalAlpha = show;
-                        // иголка
-                        ctx.strokeStyle = "rgba(244,239,226,.9)";
-                        ctx.lineWidth = 1.6;
+                        // тёмная обводка иглы — чтобы её было видно и на светлой стороне
+                        ctx.strokeStyle = "rgba(8,16,26,.85)";
+                        ctx.lineWidth = 3.6;
                         ctx.beginPath();
                         ctx.moveTo(xy[0], xy[1]);
-                        ctx.lineTo(xy[0], xy[1] - h);
+                        ctx.lineTo(xy[0], top);
                         ctx.stroke();
-                        ctx.fillStyle = "rgba(244,239,226,.95)";
-                        ctx.beginPath();
-                        ctx.arc(xy[0], xy[1], 2.6, 0, Math.PI * 2);
-                        ctx.fill();
-                        // сам флаг — крупно, без плашки
-                        ctx.font = "26px system-ui, -apple-system, sans-serif";
-                        ctx.textAlign = "center";
-                        ctx.textBaseline = "bottom";
-                        ctx.shadowColor = "rgba(0,0,0,.55)";
+                        ctx.strokeStyle = "#f4efe2";
+                        ctx.lineWidth = 1.8;
+                        ctx.shadowColor = "rgba(255,240,200,.9)";
                         ctx.shadowBlur = 6;
-                        ctx.fillText(p.flag, xy[0] + 11, xy[1] - h + 9);
+                        ctx.beginPath();
+                        ctx.moveTo(xy[0], xy[1]);
+                        ctx.lineTo(xy[0], top);
+                        ctx.stroke();
+                        ctx.fillStyle = "#f4efe2";
+                        ctx.beginPath();
+                        ctx.arc(xy[0], xy[1], 3, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.shadowBlur = 0;
+                        // светлое пятно под флагом: виден и на ночной стороне
+                        const size = 34;
+                        ctx.fillStyle = "rgba(244,239,226,.16)";
+                        ctx.beginPath();
+                        ctx.arc(xy[0] + size * 0.42, top + 2, size * 0.62, 0, Math.PI * 2);
+                        ctx.fill();
+                        // сам флаг на игле
+                        ctx.font = `${size}px system-ui, -apple-system, sans-serif`;
+                        ctx.textAlign = "left";
+                        ctx.textBaseline = "middle";
+                        ctx.shadowColor = "rgba(0,0,0,.6)";
+                        ctx.shadowBlur = 8;
+                        ctx.fillText(p.flag, xy[0] + 1, top + 2);
                         ctx.shadowBlur = 0;
                         ctx.globalAlpha = 1;
                     });
@@ -4552,6 +4568,10 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         };
         anim.current = requestAnimationFrame(step);
     }, [requestDraw]);
+    /* подсветка и флажки меняются — перерисовываем, даже если шар стоит */
+    useEffect(() => {
+        requestDraw();
+    }, [glow, pins, isOn, requestDraw]);
     /* доворот к точке, если её сейчас не видно (для показа истории) */
     useEffect(() => {
         if (!lookAt || !isFinite(lookAt.lon))
@@ -9975,6 +9995,8 @@ function WorldWin({ visits, geo, mapProps, onClose }) {
     const [year, setYear] = useState(years[0] || NOW.getFullYear());
     const [play, setPlay] = useState(true); // история идёт сразу при открытии
     const [spin, setSpin] = useState(false); // вращение после показа
+    const [run, setRun] = useState(0); // номер прогона истории
+    const [keepPins, setKeepPins] = useState(true); // флажки снимаем через пару секунд
     const [sel, setSel] = useState(null);
     const listRef = useRef(null);
     const [wide, setWide] = useState(typeof window !== "undefined" && window.innerWidth > window.innerHeight);
@@ -9992,6 +10014,7 @@ function WorldWin({ visits, geo, mapProps, onClose }) {
         if (!play || !years.length)
             return;
         setSpin(false);
+        setKeepPins(true);
         let i = years.indexOf(year);
         if (i >= years.length - 1) {
             i = -1;
@@ -10005,6 +10028,7 @@ function WorldWin({ visits, geo, mapProps, onClose }) {
             if (i >= years.length) {
                 setPlay(false);
                 setSpin(true); // история закончилась — шар просто крутится
+                setTimeout(() => setKeepPins(false), 3000); // и флаг убираем
                 return;
             }
             setYear(years[i]);
@@ -10029,16 +10053,14 @@ function WorldWin({ visits, geo, mapProps, onClose }) {
     const fresh = useMemo(() => new Set((data.opened[year] || []).map((r) => r.a3)), [data, year]);
     // флажки: у выбранной страны — только её, иначе у стран текущего года
     const pins = useMemo(() => {
-        const list = sel
-            ? [{ a3: sel }]
-            : data.opened[year] || [];
+        const list = sel ? [{ a3: sel }] : keepPins ? data.opened[year] || [] : [];
         return list
             .map((r) => {
             const c = BY_A3[r.a3];
             return c ? { a3: r.a3, lon: c.lon, lat: c.lat, flag: flag(c.a2 || "") } : null;
         })
             .filter(Boolean);
-    }, [data, year, sel]);
+    }, [data, year, sel, keepPins]);
     /* куда смотреть: выбранная страна, иначе первая страна года */
     const lookAt = useMemo(() => {
         if (sel) {
@@ -10047,8 +10069,8 @@ function WorldWin({ visits, geo, mapProps, onClose }) {
         }
         const first = (data.opened[year] || [])[0];
         const c = first ? BY_A3[first.a3] : null;
-        return c ? { lon: c.lon, lat: c.lat, id: `${year}:${first.a3}` } : null;
-    }, [data, year, sel]);
+        return c ? { lon: c.lon, lat: c.lat, id: `${run}:${year}:${first.a3}` } : null;
+    }, [data, year, sel, run]);
     // лента едет к нужному году плавно, без рывков
     useEffect(() => {
         var _c, _d, _e;
@@ -10082,6 +10104,8 @@ function WorldWin({ visits, geo, mapProps, onClose }) {
     const controls = (React.createElement("div", { className: "ww-bar" },
         React.createElement("button", { className: "ww-play" + (play ? " on" : ""), onClick: () => {
                 setSpin(false);
+                setSel(null);
+                setRun((v) => v + 1);
                 setPlay((v) => !v);
             }, "aria-label": play ? "Пауза" : "Показать историю" }, play ? "❚❚" : "▶"),
         React.createElement("input", { className: "ww-range", type: "range", min: 0, max: Math.max(0, years.length - 1), value: Math.max(0, years.indexOf(year)), onChange: (e) => {
@@ -10099,6 +10123,7 @@ function WorldWin({ visits, geo, mapProps, onClose }) {
                 return (React.createElement("button", { key: r.a3, className: "ww-row" + (sel === r.a3 ? " sel" : ""), onClick: () => {
                         setPlay(false);
                         setSpin(false);
+                        setKeepPins(true);
                         setSel((v) => (v === r.a3 ? null : r.a3));
                     } },
                     React.createElement("span", { className: "ww-fl" }, flag(((_c = BY_A3[r.a3]) === null || _c === void 0 ? void 0 : _c.a2) || "")),
