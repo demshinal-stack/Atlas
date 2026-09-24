@@ -2481,7 +2481,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "32.7";
+const APP_VERSION = "32.8";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -13275,10 +13275,7 @@ body > div{max-width:100%;}
 .pg-wide .ww-map .ww-bar{position:absolute; left:8px; right:8px; bottom:2px; z-index:2;
   background:linear-gradient(180deg, rgba(11,23,36,0), rgba(11,23,36,.75) 40%);
   padding:10px 6px 4px; border-radius:12px;}
-.pg-wide .ww-map .sd-stage{min-height:0; overflow:hidden; height:100%;}
-.pg-wide .ww-map .sd-stage .globe-stage{max-height:100%; max-width:100%;}
-.pg-wide .ww-map .sd-stage canvas.globe{max-height:100% !important; max-width:100% !important;
-  width:auto !important; height:100% !important; aspect-ratio:1 / 1;}
+.pg-wide .ww-map .sd-stage{min-height:0; height:100%; overflow:hidden;}
 .ww-play{flex:none; width:32px; height:32px; border-radius:50%; border:0; background:var(--gold);
   color:#11202e; font-size:0.7rem; cursor:pointer;}
 .ww-play.on{background:rgba(232,184,75,.25); color:var(--gold);}
