@@ -412,6 +412,18 @@ const parseCityRegions = (raw) => {
     return out;
 };
 const regionOf = (a3, city) => (CITY_REG[a3] || {})[city] || null;
+/* флаги стран, которых нет в наборе эмодзи: рисуем своей картинкой */
+const OWN_FLAGS = {
+    ABH: "data:image/webp;base64,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",
+};
+/* флаг как элемент: картинка, если своя, иначе обычный значок */
+function Flg({ a3, a2, className = "" }) {
+    var _c;
+    const own = OWN_FLAGS[a3];
+    if (own)
+        return React.createElement("img", { className: "own-flag " + className, src: own, alt: "" });
+    return React.createElement(React.Fragment, null, flag(a2 || ((_c = BY_A3[a3]) === null || _c === void 0 ? void 0 : _c.a2) || ""));
+}
 /* авиакомпания по коду; «~Название» — своя, которой нет в справочнике */
 // коды, которые сменились: старые записи в поездках продолжают работать
 const AIR_ALIAS = { KC2: "FS", QH2: "QH", RM: "6A" };
@@ -2469,7 +2481,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "32.1";
+const APP_VERSION = "32.3";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -3816,6 +3828,7 @@ function sunPoint(now) {
 /* ================================================================== */
 /*  Карта                                                             */
 /* ================================================================== */
+const flagCache = {};
 function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home, boxWidth, marks, light, playing, setPlaying, view, page: pageProp, setPage, isWish, arcs, noFull, fitBox, onArcPick, spinStep, glow, lookAt, pins, dashSel }) {
     const wrapRef = useRef(null);
     const canvasRef = useRef(null);
@@ -4093,7 +4106,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                     if (hot) {
                         // страна года: сначала зелёный контур с миганием, потом золото
                         const ms = Date.now() - (state.current.glowAt || 0);
-                        const blink = 1500; // два мигания
+                        const blink = 900; // два быстрых мигания
                         ctx.save();
                         if (ms < blink) {
                             const wave = Math.abs(Math.sin((ms / blink) * Math.PI * 2));
@@ -4109,7 +4122,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                             needFrame = true;
                         }
                         else {
-                            const t = Math.min(1, (ms - blink) / 600);
+                            const t = Math.min(1, (ms - blink) / 450);
                             const e = t * t * (3 - 2 * t);
                             ctx.shadowColor = "rgba(255,214,120,.95)";
                             ctx.shadowBlur = 6 + 12 * e;
@@ -4150,66 +4163,6 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                 if (cutAbh)
                     ctx.restore();
             });
-            // флажок на булавке у новых стран — видно, что и куда добавилось
-            const pins = state.current.pins || [];
-            if (pins.length) {
-                const sinceP = Date.now() - (state.current.glowAt || 0);
-                const show = Math.min(1, Math.max(0, (sinceP - 1500) / 500));
-                if (show > 0) {
-                    if (show < 1)
-                        needFrame = true;
-                    const center = [-rot.current[0], -rot.current[1]];
-                    ctx.save();
-                    pins.forEach((p) => {
-                        if (d3.geoDistance([p.lon, p.lat], center) > Math.PI / 2 - 0.05)
-                            return;
-                        const xy = proj([p.lon, p.lat]);
-                        if (!xy)
-                            return;
-                        const h = 46 * show;
-                        const top = xy[1] - h;
-                        ctx.globalAlpha = show;
-                        // тёмная обводка иглы — чтобы её было видно и на светлой стороне
-                        ctx.strokeStyle = "rgba(8,16,26,.85)";
-                        ctx.lineWidth = 3.6;
-                        ctx.beginPath();
-                        ctx.moveTo(xy[0], xy[1]);
-                        ctx.lineTo(xy[0], top);
-                        ctx.stroke();
-                        ctx.strokeStyle = "#f4efe2";
-                        ctx.lineWidth = 1.8;
-                        ctx.shadowColor = "rgba(255,240,200,.9)";
-                        ctx.shadowBlur = 6;
-                        ctx.beginPath();
-                        ctx.moveTo(xy[0], xy[1]);
-                        ctx.lineTo(xy[0], top);
-                        ctx.stroke();
-                        ctx.fillStyle = "#f4efe2";
-                        ctx.beginPath();
-                        ctx.arc(xy[0], xy[1], 3, 0, Math.PI * 2);
-                        ctx.fill();
-                        ctx.shadowBlur = 0;
-                        // светлое пятно под флагом: виден и на ночной стороне
-                        const size = 34;
-                        ctx.fillStyle = "rgba(244,239,226,.16)";
-                        ctx.beginPath();
-                        ctx.arc(xy[0] + size * 0.42, top + 2, size * 0.62, 0, Math.PI * 2);
-                        ctx.fill();
-                        // сам флаг на игле
-                        ctx.font = `${size}px system-ui, -apple-system, sans-serif`;
-                        ctx.textAlign = "left";
-                        ctx.textBaseline = "middle";
-                        ctx.shadowColor = "rgba(0,0,0,.6)";
-                        ctx.shadowBlur = 8;
-                        ctx.fillText(p.flag, xy[0] + 1, top + 2);
-                        ctx.shadowBlur = 0;
-                        ctx.globalAlpha = 1;
-                    });
-                    ctx.restore();
-                }
-                else
-                    needFrame = true;
-            }
             if (needFrame)
                 requestAnimationFrame(() => requestDraw());
             // мелкие страны и территории, которых нет в наборе границ,
@@ -4525,6 +4478,94 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
             ctx.restore();
         });
         arcHit.current = arcHits;
+        let needDraw = false;
+        // флажок на булавке у новых стран — рисуем последним, поверх всего
+        const flagPins = state.current.pins || [];
+        if (flagPins.length) {
+            const sinceP = Date.now() - (state.current.glowAt || 0);
+            const show = Math.min(1, Math.max(0, (sinceP - 1000) / 450));
+            if (show > 0) {
+                if (show < 1)
+                    needDraw = true;
+                const center = [-rot.current[0], -rot.current[1]];
+                ctx.save();
+                flagPins.forEach((p) => {
+                    if (d3.geoDistance([p.lon, p.lat], center) > Math.PI / 2 - 0.05)
+                        return;
+                    const xy = proj([p.lon, p.lat]);
+                    if (!xy)
+                        return;
+                    const h = 46 * show;
+                    const top = xy[1] - h;
+                    ctx.globalAlpha = show;
+                    // тёмная обводка иглы — чтобы её было видно и на светлой стороне
+                    ctx.strokeStyle = "rgba(8,16,26,.85)";
+                    ctx.lineWidth = 3.6;
+                    ctx.beginPath();
+                    ctx.moveTo(xy[0], xy[1]);
+                    ctx.lineTo(xy[0], top);
+                    ctx.stroke();
+                    ctx.strokeStyle = "#f4efe2";
+                    ctx.lineWidth = 1.8;
+                    ctx.shadowColor = "rgba(255,240,200,.9)";
+                    ctx.shadowBlur = 6;
+                    ctx.beginPath();
+                    ctx.moveTo(xy[0], xy[1]);
+                    ctx.lineTo(xy[0], top);
+                    ctx.stroke();
+                    ctx.fillStyle = "#f4efe2";
+                    ctx.beginPath();
+                    ctx.arc(xy[0], xy[1], 3, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+                    // светлое пятно под флагом: виден и на ночной стороне
+                    const size = 34;
+                    ctx.fillStyle = "rgba(244,239,226,.16)";
+                    ctx.beginPath();
+                    ctx.arc(xy[0] + size * 0.42, top + 2, size * 0.62, 0, Math.PI * 2);
+                    ctx.fill();
+                    // сам флаг на игле
+                    ctx.font = `${size}px system-ui, -apple-system, sans-serif`;
+                    ctx.textAlign = "left";
+                    ctx.textBaseline = "middle";
+                    ctx.shadowColor = "rgba(0,0,0,.6)";
+                    ctx.shadowBlur = 8;
+                    if (p.img) {
+                        // свой рисунок флага (страны без международного кода)
+                        const im = flagCache[p.a3] || (flagCache[p.a3] = new Image());
+                        if (!im.src)
+                            im.src = p.img;
+                        if (im.complete && im.naturalWidth) {
+                            const w = size * 1.25;
+                            const h = (w * im.naturalHeight) / im.naturalWidth;
+                            ctx.drawImage(im, xy[0] + 2, top - h / 2, w, h);
+                        }
+                        else
+                            needDraw = true;
+                    }
+                    else if (p.flag)
+                        ctx.fillText(p.flag, xy[0] + 1, top + 2);
+                    else {
+                        // флага нет — рисуем золотой значок с кодом страны
+                        ctx.fillStyle = "#e8b84b";
+                        ctx.beginPath();
+                        ctx.roundRect(xy[0] + 2, top - 10, 42, 22, 6);
+                        ctx.fill();
+                        ctx.fillStyle = "#11202e";
+                        ctx.font = "bold 13px system-ui, -apple-system, sans-serif";
+                        ctx.textBaseline = "middle";
+                        ctx.fillText(p.code || "", xy[0] + 8, top + 2);
+                    }
+                    ctx.shadowBlur = 0;
+                    ctx.globalAlpha = 1;
+                });
+                ctx.restore();
+            }
+            else
+                needDraw = true;
+        }
+        if (needDraw)
+            requestAnimationFrame(() => { var _c; return (_c = drawRef.current) === null || _c === void 0 ? void 0 : _c.call(drawRef); });
         drawBelt(true);
         if (state.current.isMap)
             ctx.restore();
@@ -5638,13 +5679,13 @@ function CityPointPicker({ onPick, onClose, placeholder }) {
             React.createElement("input", { className: "tf-input", value: q, onChange: (e) => setQ(e.target.value), placeholder: placeholder || "Город", autoFocus: true }),
             React.createElement("button", { className: "tf-clear", onClick: onClose, "aria-label": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C" }, "\u2715")),
         found.length > 0 && (React.createElement("div", { className: "home-list" }, found.map((c) => {
-            var _c, _d;
+            var _c;
             return (React.createElement("button", { key: c.a3 + c.name, onClick: () => onPick(c) },
-                flag(((_c = BY_A3[c.a3]) === null || _c === void 0 ? void 0 : _c.a2) || ""),
+                React.createElement(Flg, { a3: c.a3 }),
                 " ",
                 c.name,
                 c.about && React.createElement("u", null, "\u2248"),
-                React.createElement("em", null, ((_d = BY_A3[c.a3]) === null || _d === void 0 ? void 0 : _d.name) || c.a3)));
+                React.createElement("em", null, ((_c = BY_A3[c.a3]) === null || _c === void 0 ? void 0 : _c.name) || c.a3)));
         })))));
 }
 /* значок авиакомпании: картинка из data/airlines/<код>.png, иначе код на плашке */
@@ -5691,15 +5732,15 @@ function AirPicker({ exclude = [], onAdd, onClose }) {
             React.createElement("button", { className: "tf-clear", onClick: onClose, "aria-label": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C" }, "\u2715")),
         React.createElement("div", { className: "air-list" },
             found.map((a) => {
-                var _c, _d;
+                var _c;
                 return (React.createElement("button", { key: a.code, onClick: () => onAdd(a.code) },
                     React.createElement(AirMark, { code: a.code }),
                     React.createElement("span", null,
                         a.name,
                         React.createElement("em", null,
-                            flag(((_c = BY_A3[a.a3]) === null || _c === void 0 ? void 0 : _c.a2) || ""),
+                            React.createElement(Flg, { a3: a.a3 }),
                             " ",
-                            ((_d = BY_A3[a.a3]) === null || _d === void 0 ? void 0 : _d.name) || a.a3,
+                            ((_c = BY_A3[a.a3]) === null || _c === void 0 ? void 0 : _c.name) || a.a3,
                             a.year ? ` · с ${a.year}` : ""))));
             }),
             q.trim().length >= 2 &&
@@ -5877,7 +5918,7 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, onRemove, mode
     const whenReady = !!(draft && draft.y && (!draft.approx || draft.y2));
     const whenText = (draft === null || draft === void 0 ? void 0 : draft.y) ? tripLabel(draft) : "";
     return (React.createElement(Sheet, { open: open, onClose: onClose, box: box, title: country ? country.name : mode === "edit" ? "Поездка" : "Новая поездка" }, (close) => {
-        var _c, _d, _e;
+        var _c;
         return (React.createElement("div", { className: "sheet-body" },
             !country ? (React.createElement(React.Fragment, null,
                 React.createElement(TextField, { search: true, value: q, placeholder: "\u041D\u0430\u0447\u043D\u0438\u0442\u0435 \u0432\u0432\u043E\u0434\u0438\u0442\u044C \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u0435", onChange: (e) => setQ(e.target.value) }),
@@ -5903,7 +5944,8 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, onRemove, mode
                             air: [],
                             dep: home || null,
                         }) },
-                        React.createElement("span", { className: "fl" }, flag(c.a2)),
+                        React.createElement("span", { className: "fl" },
+                            React.createElement(Flg, { a3: c.a3, a2: c.a2 })),
                         React.createElement("span", { className: "nm" },
                             c.name,
                             via && React.createElement("em", { className: "via" },
@@ -5974,7 +6016,7 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, onRemove, mode
                 React.createElement("div", { className: "dep-row" },
                     React.createElement("span", { className: "dep-label" }, "\u041E\u0442\u043A\u0443\u0434\u0430"),
                     draft.dep ? (React.createElement("span", { className: "dep-chip" },
-                        flag(((_c = BY_A3[draft.dep.a3]) === null || _c === void 0 ? void 0 : _c.a2) || ""),
+                        React.createElement(Flg, { a3: draft.dep.a3 }),
                         " ",
                         draft.dep.name,
                         React.createElement("button", { onClick: () => patch({ dep: null }), "aria-label": "\u0423\u0431\u0440\u0430\u0442\u044C" }, "\u2715"))) : (React.createElement("em", { className: "dep-none" }, "\u043D\u0435 \u0443\u043A\u0430\u0437\u0430\u043D")),
@@ -6022,11 +6064,11 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, onRemove, mode
                     }))),
                     airShown && airInfo(airShown) && (React.createElement("div", { className: "air-info" },
                         React.createElement("b", null,
-                            flag(((_d = BY_A3[airInfo(airShown).a3]) === null || _d === void 0 ? void 0 : _d.a2) || ""),
+                            React.createElement(Flg, { a3: airInfo(airShown).a3 }),
                             " ",
                             airInfo(airShown).name),
                         React.createElement("em", null,
-                            ((_e = BY_A3[airInfo(airShown).a3]) === null || _e === void 0 ? void 0 : _e.name) || "",
+                            ((_c = BY_A3[airInfo(airShown).a3]) === null || _c === void 0 ? void 0 : _c.name) || "",
                             airInfo(airShown).year
                                 ? ` · основана в ${airInfo(airShown).year}`
                                 : "",
@@ -6156,7 +6198,7 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, onRemove, mode
 /* шторка: профиль — вы и ваши данные */
 /* дом: город из справочника или точка по геолокации */
 function HomePicker({ home, onHome }) {
-    var _c, _d;
+    var _c;
     const [q, setQ] = useState("");
     const [busy, setBusy] = useState("");
     const [open, setOpen] = useState(false);
@@ -6220,12 +6262,12 @@ function HomePicker({ home, onHome }) {
     return (React.createElement("div", { className: "home-pick" },
         home ? (React.createElement("div", { className: "home-now" },
             React.createElement("span", null,
-                flag(((_c = BY_A3[home.a3]) === null || _c === void 0 ? void 0 : _c.a2) || ""),
+                React.createElement(Flg, { a3: home.a3 }),
                 " ",
                 home.name,
                 home.about && React.createElement("u", null, "\u2248")),
             React.createElement("em", null,
-                ((_d = BY_A3[home.a3]) === null || _d === void 0 ? void 0 : _d.name) || "",
+                ((_c = BY_A3[home.a3]) === null || _c === void 0 ? void 0 : _c.name) || "",
                 " \u00B7 ",
                 home.lat,
                 ", ",
@@ -6242,17 +6284,17 @@ function HomePicker({ home, onHome }) {
             busy && React.createElement("p", { className: "hint small" }, busy),
             q.trim().length >= 2 && found.length === 0 && (React.createElement("p", { className: "hint small" }, "\u0422\u0430\u043A\u043E\u0433\u043E \u0433\u043E\u0440\u043E\u0434\u0430 \u0432 \u0441\u043F\u0440\u0430\u0432\u043E\u0447\u043D\u0438\u043A\u0435 \u043D\u0435\u0442. \u041D\u0430\u0436\u043C\u0438\u0442\u0435 \u00AB\u041C\u043E\u0451 \u043C\u0435\u0441\u0442\u043E\u00BB \u2014 \u0432\u043E\u0437\u044C\u043C\u0451\u043C \u0442\u043E\u0447\u043A\u0443 \u0441 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430, \u0438\u043B\u0438 \u0432\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0431\u043B\u0438\u0436\u0430\u0439\u0448\u0438\u0439 \u043A\u0440\u0443\u043F\u043D\u044B\u0439 \u0433\u043E\u0440\u043E\u0434.")),
             found.length > 0 && (React.createElement("div", { className: "home-list" }, found.map((c) => {
-                var _c, _d;
+                var _c;
                 return (React.createElement("button", { key: c.a3 + c.name, onClick: () => {
                         onHome({ a3: c.a3, name: c.name, lat: c.lat, lon: c.lon, about: c.about });
                         setQ("");
                         setOpen(false);
                     } },
-                    flag(((_c = BY_A3[c.a3]) === null || _c === void 0 ? void 0 : _c.a2) || ""),
+                    React.createElement(Flg, { a3: c.a3 }),
                     " ",
                     c.name,
                     c.about && React.createElement("u", null, "\u2248"),
-                    React.createElement("em", null, ((_d = BY_A3[c.a3]) === null || _d === void 0 ? void 0 : _d.name) || c.a3)));
+                    React.createElement("em", null, ((_c = BY_A3[c.a3]) === null || _c === void 0 ? void 0 : _c.name) || c.a3)));
             }))),
             React.createElement("button", { className: "link-btn add-line", onClick: () => { setOpen(false); setQ(""); } }, "\u041E\u0442\u043C\u0435\u043D\u0430")))));
 }
@@ -6806,7 +6848,8 @@ function CountrySheet({ country, open, onClose, box }) {
     ];
     return (React.createElement(Sheet, { open: open, onClose: onClose, title: "\u041F\u0440\u043E \u0441\u0442\u0440\u0430\u043D\u0443", box: box }, () => (React.createElement("div", { className: "sheet-body" },
         React.createElement("div", { className: "cs-head" },
-            React.createElement("span", { className: "cs-flag" }, flag(country.a2)),
+            React.createElement("span", { className: "cs-flag" },
+                React.createElement(Flg, { a3: country.a3, a2: country.a2 })),
             badgeStyle(country.a3) && (React.createElement("i", { className: "cs-badge", style: badgeStyle(country.a3) })),
             React.createElement("span", { className: "cs-title" },
                 React.createElement("b", null, country.name),
@@ -7952,29 +7995,26 @@ function SpanGlobe({ rows, geo, home }) {
         React.createElement("canvas", { ref: cv }),
         React.createElement("div", { className: "globe-legend" }, rows
             .filter((r) => r.km > 0)
-            .map((r) => {
-            var _c, _d;
-            return (React.createElement("div", { key: r.id, className: "gl-row" },
-                React.createElement("span", { className: "gl-fill", style: {
-                        width: `${(r.km / max) * 100}%`,
-                        background: r.color,
-                    } }),
-                React.createElement("i", { className: "gl-dot", style: { background: r.color } }),
-                React.createElement("span", { className: "gl-main" },
-                    React.createElement("b", null, r.name),
-                    React.createElement("em", null,
-                        flag(((_c = BY_A3[r.south.a3]) === null || _c === void 0 ? void 0 : _c.a2) || ""),
-                        " ",
-                        r.south.name,
-                        " \u2192",
-                        " ",
-                        flag(((_d = BY_A3[r.north.a3]) === null || _d === void 0 ? void 0 : _d.a2) || ""),
-                        " ",
-                        r.north.name)),
-                React.createElement("span", { className: "gl-num" },
-                    React.createElement("b", null, kmText(r.km)),
-                    React.createElement("u", null, hoursText(Math.abs(tzHours(r.north) - tzHours(r.south)))))));
-        }))));
+            .map((r) => (React.createElement("div", { key: r.id, className: "gl-row" },
+            React.createElement("span", { className: "gl-fill", style: {
+                    width: `${(r.km / max) * 100}%`,
+                    background: r.color,
+                } }),
+            React.createElement("i", { className: "gl-dot", style: { background: r.color } }),
+            React.createElement("span", { className: "gl-main" },
+                React.createElement("b", null, r.name),
+                React.createElement("em", null,
+                    React.createElement(Flg, { a3: r.south.a3 }),
+                    " ",
+                    r.south.name,
+                    " \u2192",
+                    " ",
+                    React.createElement(Flg, { a3: r.north.a3 }),
+                    " ",
+                    r.north.name)),
+            React.createElement("span", { className: "gl-num" },
+                React.createElement("b", null, kmText(r.km)),
+                React.createElement("u", null, hoursText(Math.abs(tzHours(r.north) - tzHours(r.south)))))))))));
 }
 /* сколько высоты осталось шару внутри карточки разворота */
 const freeForGlobe = (wrap) => {
@@ -8254,15 +8294,15 @@ function AirGlobe({ visits, home, air, geo, mapProps, onClose }) {
                     ? ` · ICAO ${airInfo(selArc.code).icao}`
                     : "")),
         React.createElement("div", { className: "ag-list" }, selArc.list.map((c) => {
-            var _c, _d;
+            var _c;
             return (React.createElement("div", { key: c.a3, className: "ag-row" },
                 React.createElement("i", { className: "ag-dot", style: { background: colorOf[selArc.code] } }),
                 React.createElement(AirMark, { code: selArc.code }),
                 React.createElement("span", null,
                     React.createElement("b", null,
-                        flag(((_c = BY_A3[c.a3]) === null || _c === void 0 ? void 0 : _c.a2) || ""),
+                        React.createElement(Flg, { a3: c.a3 }),
                         " ",
-                        ((_d = BY_A3[c.a3]) === null || _d === void 0 ? void 0 : _d.name) || c.a3),
+                        ((_c = BY_A3[c.a3]) === null || _c === void 0 ? void 0 : _c.name) || c.a3),
                     React.createElement("em", null, np(c.n, "trip")))));
         })))) : selCode ? (React.createElement("div", { className: "ag-sel" },
         back("Все авиакомпании", () => setSelCode(null)),
@@ -8373,18 +8413,15 @@ function FarGlobe({ rows, home, geo, mapProps, onClose }) {
         });
     }, [items, sel]);
     const cur = items.find((q) => q.key === sel) || items[0];
-    const route = (q) => {
-        var _c, _d;
-        return (React.createElement(React.Fragment, null,
-            flag(((_c = BY_A3[q.from.a3]) === null || _c === void 0 ? void 0 : _c.a2) || ""),
-            " ",
-            q.from.name,
-            " \u2192",
-            " ",
-            flag(((_d = BY_A3[q.to.a3]) === null || _d === void 0 ? void 0 : _d.a2) || ""),
-            " ",
-            q.to.name));
-    };
+    const route = (q) => (React.createElement(React.Fragment, null,
+        React.createElement(Flg, { a3: q.from.a3 }),
+        " ",
+        q.from.name,
+        " \u2192",
+        " ",
+        React.createElement(Flg, { a3: q.to.a3 }),
+        " ",
+        q.to.name));
     const globe = (React.createElement(Globe, { ...(mapProps || {}), geo: geo, arcs: arcList, full: false, noFull: true, fitBox: true, playing: true, spinStep: 0.25, setPlaying: () => { }, onToggleFull: () => { }, onArcPick: (key) => setSel((v) => (key && v !== key ? key : null)), onPick: () => { } }));
     if (wide)
         return (React.createElement("div", { className: "pg-wide", onClick: onClose },
@@ -8424,7 +8461,7 @@ function FarGlobe({ rows, home, geo, mapProps, onClose }) {
 }
 /* глобус одного человека: лучи из дома во все его точки */
 function PersonGlobe({ row, home, geo, onClose, onArcs, mapProps }) {
-    var _c, _d, _e, _f;
+    var _c, _d, _e;
     const wrap = useRef(null);
     const cv = useRef(null);
     const rot = useRef(homeRot(home));
@@ -8699,12 +8736,12 @@ function PersonGlobe({ row, home, geo, onClose, onArcs, mapProps }) {
                             np(rays.length, "way")),
                         React.createElement("button", { className: "zoom-x", onClick: onClose, "aria-label": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C" }, "\u2715")),
                     React.createElement("div", { className: "pg-list", ref: listRef }, rays.map((q) => {
-                        var _c, _d;
+                        var _c;
                         return (React.createElement("button", { key: q.key, "data-on": sel === q.key ? "1" : "0", className: "ray-row" + (sel === q.key ? " on" : ""), onClick: () => setSel(sel === q.key ? null : q.key) },
                             React.createElement("i", { style: { background: sel === q.key ? "#8fd4ff" : row.color } }),
                             React.createElement("span", null,
                                 ((_c = q.from) === null || _c === void 0 ? void 0 : _c.name) ? `${q.from.name} → ` : "",
-                                flag(((_d = BY_A3[q.a3]) === null || _d === void 0 ? void 0 : _d.a2) || ""),
+                                React.createElement(Flg, { a3: q.a3 }),
                                 " ",
                                 q.name,
                                 q.n > 1 && React.createElement("u", null,
@@ -8722,21 +8759,18 @@ function PersonGlobe({ row, home, geo, onClose, onArcs, mapProps }) {
                     : "задайте дом в профиле"),
                 React.createElement("div", { className: "span-globe", ref: wrap },
                     React.createElement("canvas", { ref: cv })),
-                React.createElement("div", { className: "pg-list", ref: listRef }, rays.map((q) => {
-                    var _c;
-                    return (React.createElement("button", { key: q.key, "data-on": sel === q.key ? "1" : "0", className: "ray-row" + (sel === q.key ? " on" : ""), onClick: () => setSel(sel === q.key ? null : q.key) },
-                        React.createElement("i", { style: { background: sel === q.key ? "#8fd4ff" : row.color } }),
-                        React.createElement("span", null,
-                            flag(((_c = BY_A3[q.a3]) === null || _c === void 0 ? void 0 : _c.a2) || ""),
-                            " ",
-                            q.name,
-                            q.n > 1 && React.createElement("u", null,
-                                "\u00D7",
-                                q.n)),
-                        React.createElement("b", null, kmText(q.km))));
-                })),
+                React.createElement("div", { className: "pg-list", ref: listRef }, rays.map((q) => (React.createElement("button", { key: q.key, "data-on": sel === q.key ? "1" : "0", className: "ray-row" + (sel === q.key ? " on" : ""), onClick: () => setSel(sel === q.key ? null : q.key) },
+                    React.createElement("i", { style: { background: sel === q.key ? "#8fd4ff" : row.color } }),
+                    React.createElement("span", null,
+                        React.createElement(Flg, { a3: q.a3 }),
+                        " ",
+                        q.name,
+                        q.n > 1 && React.createElement("u", null,
+                            "\u00D7",
+                            q.n)),
+                    React.createElement("b", null, kmText(q.km)))))),
                 trip && (React.createElement("div", { className: "pg-trip" },
-                    React.createElement("span", { className: "pg-flag" }, flag(((_c = BY_A3[trip.a3]) === null || _c === void 0 ? void 0 : _c.a2) || "")),
+                    React.createElement("span", { className: "pg-flag" }, React.createElement(Flg, { a3: trip.a3 })),
                     React.createElement("span", { className: "pg-main" },
                         React.createElement("b", null, (() => {
                             var _c;
@@ -8747,12 +8781,12 @@ function PersonGlobe({ row, home, geo, onClose, onArcs, mapProps }) {
                             return from ? `${from.name} → ${to}` : to;
                         })()),
                         React.createElement("em", null,
-                            ((_d = BY_A3[trip.a3]) === null || _d === void 0 ? void 0 : _d.name) || trip.a3,
+                            ((_c = BY_A3[trip.a3]) === null || _c === void 0 ? void 0 : _c.name) || trip.a3,
                             trip.m ? ` · ${MONTHS[trip.m - 1]}` : "",
                             trip.y ? ` ${trip.y}` : "")),
                     React.createElement("span", { className: "pg-km" }, kmText((sel
-                        ? (_e = rays.find((q) => q.key === sel)) === null || _e === void 0 ? void 0 : _e.km
-                        : (_f = rays.find((q) => (q.tids || []).includes(trip.id))) === null || _f === void 0 ? void 0 : _f.km) ||
+                        ? (_d = rays.find((q) => q.key === sel)) === null || _d === void 0 ? void 0 : _d.km
+                        : (_e = rays.find((q) => (q.tids || []).includes(trip.id))) === null || _e === void 0 ? void 0 : _e.km) ||
                         0))))))));
 }
 /* самая длинная дуга: две самые удалённые точки поездок */
@@ -8764,27 +8798,24 @@ function SpanChart({ rows, geo, home }) {
     if (zoomed)
         return React.createElement(SpanGlobe, { rows: list, geo: geo, home: home });
     const max = Math.max(...list.map((r) => r.km));
-    return (React.createElement("div", { className: "dist-chart" }, list.map((r) => {
-        var _c, _d;
-        return (React.createElement("div", { key: r.id, className: "dist-row" },
-            React.createElement("div", { className: "dist-head" },
-                React.createElement("span", { className: "dist-n" }, r.name),
-                React.createElement("span", { className: "dist-km" }, kmText(r.km))),
-            React.createElement("span", { className: "dist-line" },
-                React.createElement("i", { style: { width: `${(r.km / max) * 100}%`, background: r.color } })),
-            React.createElement("span", { className: "dist-ends" },
-                flag(((_c = BY_A3[r.south.a3]) === null || _c === void 0 ? void 0 : _c.a2) || ""),
-                " ",
-                r.south.name,
-                " \u2192",
-                " ",
-                flag(((_d = BY_A3[r.north.a3]) === null || _d === void 0 ? void 0 : _d.a2) || ""),
-                " ",
-                r.north.name,
-                " \u00B7",
-                " ",
-                hoursText(Math.abs(tzHours(r.north) - tzHours(r.south))))));
-    })));
+    return (React.createElement("div", { className: "dist-chart" }, list.map((r) => (React.createElement("div", { key: r.id, className: "dist-row" },
+        React.createElement("div", { className: "dist-head" },
+            React.createElement("span", { className: "dist-n" }, r.name),
+            React.createElement("span", { className: "dist-km" }, kmText(r.km))),
+        React.createElement("span", { className: "dist-line" },
+            React.createElement("i", { style: { width: `${(r.km / max) * 100}%`, background: r.color } })),
+        React.createElement("span", { className: "dist-ends" },
+            React.createElement(Flg, { a3: r.south.a3 }),
+            " ",
+            r.south.name,
+            " \u2192",
+            " ",
+            React.createElement(Flg, { a3: r.north.a3 }),
+            " ",
+            r.north.name,
+            " \u00B7",
+            " ",
+            hoursText(Math.abs(tzHours(r.north) - tzHours(r.south)))))))));
 }
 /* части света лепестками: профиль каждого поверх остальных */
 const CONT_SHORT = {
@@ -9361,11 +9392,11 @@ function SyncSheet({ plan, from, onCancel, onApply, box }) {
             add.length > 0 && (React.createElement("div", { className: "sync-group" },
                 React.createElement("p", null, "\u041F\u043E\u044F\u0432\u044F\u0442\u0441\u044F \u0443 \u0432\u0430\u0441"),
                 add.slice(0, 20).map(({ a3, t }) => {
-                    var _c, _d;
+                    var _c;
                     return (React.createElement("div", { key: t.id, className: "sync-row" },
-                        React.createElement("span", { className: "sync-flag" }, flag(((_c = BY_A3[a3]) === null || _c === void 0 ? void 0 : _c.a2) || "")),
+                        React.createElement("span", { className: "sync-flag" }, React.createElement(Flg, { a3: a3 })),
                         React.createElement("span", { className: "sync-main" },
-                            React.createElement("b", null, ((_d = BY_A3[a3]) === null || _d === void 0 ? void 0 : _d.name) || a3),
+                            React.createElement("b", null, ((_c = BY_A3[a3]) === null || _c === void 0 ? void 0 : _c.name) || a3),
                             React.createElement("em", null, tripLine(t))),
                         React.createElement("u", { className: "sync-new" }, "\u043D\u043E\u0432\u0430\u044F")));
                 }),
@@ -9377,12 +9408,12 @@ function SyncSheet({ plan, from, onCancel, onApply, box }) {
                     "\u041F\u0440\u0430\u0432\u0438\u043B\u0438 \u0441 \u0434\u0432\u0443\u0445 \u0441\u0442\u043E\u0440\u043E\u043D",
                     React.createElement("button", { className: "link-btn", onClick: allTheirs }, "\u0432\u0437\u044F\u0442\u044C \u0432\u0441\u0435 \u0438\u0445")),
                 conflicts.map((c) => {
-                    var _c, _d;
+                    var _c;
                     const pick = picks[c.id] || c.pick;
                     return (React.createElement("div", { key: c.id, className: "sync-row sync-conf" },
-                        React.createElement("span", { className: "sync-flag" }, flag(((_c = BY_A3[c.a3]) === null || _c === void 0 ? void 0 : _c.a2) || "")),
+                        React.createElement("span", { className: "sync-flag" }, React.createElement(Flg, { a3: c.a3 })),
                         React.createElement("span", { className: "sync-main" },
-                            React.createElement("b", null, ((_d = BY_A3[c.a3]) === null || _d === void 0 ? void 0 : _d.name) || c.a3),
+                            React.createElement("b", null, ((_c = BY_A3[c.a3]) === null || _c === void 0 ? void 0 : _c.name) || c.a3),
                             React.createElement("em", null,
                                 "\u0420\u0430\u0437\u043D\u043E\u0435: ",
                                 c.diff.join(", ")),
@@ -9400,11 +9431,11 @@ function SyncSheet({ plan, from, onCancel, onApply, box }) {
             del.length > 0 && (React.createElement("div", { className: "sync-group" },
                 React.createElement("p", null, "\u0423\u0434\u0430\u043B\u0435\u043D\u044B \u0443 \u0440\u043E\u0434\u043D\u044B\u0445 \u2014 \u0443\u0439\u0434\u0443\u0442 \u0438 \u0443 \u0432\u0430\u0441"),
                 del.slice(0, 10).map(({ a3, t }) => {
-                    var _c, _d;
+                    var _c;
                     return (React.createElement("div", { key: t.id, className: "sync-row" },
-                        React.createElement("span", { className: "sync-flag" }, flag(((_c = BY_A3[a3]) === null || _c === void 0 ? void 0 : _c.a2) || "")),
+                        React.createElement("span", { className: "sync-flag" }, React.createElement(Flg, { a3: a3 })),
                         React.createElement("span", { className: "sync-main" },
-                            React.createElement("b", null, ((_d = BY_A3[a3]) === null || _d === void 0 ? void 0 : _d.name) || a3),
+                            React.createElement("b", null, ((_c = BY_A3[a3]) === null || _c === void 0 ? void 0 : _c.name) || a3),
                             React.createElement("em", null, tripLine(t))),
                         React.createElement("u", { className: "sync-del" }, "\u0443\u0434\u0430\u043B\u0438\u0442\u044C")));
                 }),
@@ -10032,8 +10063,8 @@ function WorldWin({ visits, geo, mapProps, onClose }) {
                 return;
             }
             setYear(years[i]);
-            // ждём мигание, заливку и появление флажков
-            setTimeout(step, 2400 + (data.opened[years[i]] || []).length * 300);
+            // поворот 1,4 с + мигание 0,9 + заливка 0,45 + флаг: даём время всему
+            setTimeout(step, 3600 + (data.opened[years[i]] || []).length * 350);
         };
         const t = setTimeout(step, 700);
         return () => {
@@ -10057,7 +10088,17 @@ function WorldWin({ visits, geo, mapProps, onClose }) {
         return list
             .map((r) => {
             const c = BY_A3[r.a3];
-            return c ? { a3: r.a3, lon: c.lon, lat: c.lat, flag: flag(c.a2 || "") } : null;
+            if (!c)
+                return null;
+            // у непризнанных территорий нет флага в наборе — показываем код страны
+            return {
+                a3: r.a3,
+                lon: c.lon,
+                lat: c.lat,
+                flag: c.a2 ? flag(c.a2) : "",
+                img: OWN_FLAGS[r.a3] || null,
+                code: c.a3,
+            };
         })
             .filter(Boolean);
     }, [data, year, sel, keepPins]);
@@ -10119,16 +10160,16 @@ function WorldWin({ visits, geo, mapProps, onClose }) {
         React.createElement("div", { className: "ww-body" },
             React.createElement("b", null, y),
             React.createElement("div", { className: "ww-cards" }, (data.opened[y] || []).map((r) => {
-                var _c, _d;
+                var _c;
                 return (React.createElement("button", { key: r.a3, className: "ww-row" + (sel === r.a3 ? " sel" : ""), onClick: () => {
                         setPlay(false);
                         setSpin(false);
                         setKeepPins(true);
                         setSel((v) => (v === r.a3 ? null : r.a3));
                     } },
-                    React.createElement("span", { className: "ww-fl" }, flag(((_c = BY_A3[r.a3]) === null || _c === void 0 ? void 0 : _c.a2) || "")),
+                    React.createElement("span", { className: "ww-fl" }, React.createElement(Flg, { a3: r.a3 })),
                     React.createElement("span", { className: "ww-nm" },
-                        ((_d = BY_A3[r.a3]) === null || _d === void 0 ? void 0 : _d.name) || r.a3,
+                        ((_c = BY_A3[r.a3]) === null || _c === void 0 ? void 0 : _c.name) || r.a3,
                         React.createElement("em", null,
                             r.m ? MONTHS[r.m - 1] : "",
                             r.cities.length ? ` · ${r.cities[0]}` : ""))));
@@ -10188,11 +10229,11 @@ function ContsWin({ visits, geo, onClose }) {
         React.createElement("div", { className: "sd-card" },
             React.createElement("b", { className: "sd-mname" }, sel ? CONTINENTS[sel] : "Все части света")),
         React.createElement("div", { className: "ct-list" }, list.map((c) => {
-            var _c, _d;
+            var _c;
             return (React.createElement("div", { key: c.a3, className: "ct-row" },
-                React.createElement("span", { className: "ct-flag" }, flag(((_c = BY_A3[c.a3]) === null || _c === void 0 ? void 0 : _c.a2) || "")),
+                React.createElement("span", { className: "ct-flag" }, React.createElement(Flg, { a3: c.a3 })),
                 React.createElement("span", { className: "ct-name" },
-                    ((_d = BY_A3[c.a3]) === null || _d === void 0 ? void 0 : _d.name) || c.a3,
+                    ((_c = BY_A3[c.a3]) === null || _c === void 0 ? void 0 : _c.name) || c.a3,
                     !sel && React.createElement("em", null, CONTINENTS[c.k])),
                 React.createElement("b", null, np(c.n, "trip"))));
         })),
@@ -10360,11 +10401,11 @@ function SeasonCards({ data, sel }) {
             all.length > 0 && (React.createElement(React.Fragment, null,
                 React.createElement("em", null, "\u041A\u0443\u0434\u0430 \u0435\u0437\u0434\u0438\u043B\u0438"),
                 React.createElement("div", { className: "sd-top" }, all.map(([a3, n]) => {
-                    var _c, _d;
+                    var _c;
                     return (React.createElement("span", { key: a3 },
-                        flag(((_c = BY_A3[a3]) === null || _c === void 0 ? void 0 : _c.a2) || ""),
+                        React.createElement(Flg, { a3: a3 }),
                         " ",
-                        ((_d = BY_A3[a3]) === null || _d === void 0 ? void 0 : _d.name) || a3,
+                        ((_c = BY_A3[a3]) === null || _c === void 0 ? void 0 : _c.name) || a3,
                         React.createElement("u", null, np(n, "trip"))));
                 }))))),
         React.createElement("p", { className: "hint small" }, "\u041D\u0430\u0436\u043C\u0438\u0442\u0435 \u043D\u0430 \u043C\u0435\u0441\u044F\u0446 \u043D\u0430 \u0434\u0438\u0430\u0433\u0440\u0430\u043C\u043C\u0435, \u0447\u0442\u043E\u0431\u044B \u0443\u0432\u0438\u0434\u0435\u0442\u044C \u0435\u0433\u043E. \u041D\u0430\u0436\u0430\u0442\u0438\u0435 \u043D\u0430 \u0446\u0435\u043D\u0442\u0440 \u043A\u0440\u0443\u0433\u0430 \u0438\u043B\u0438 \u043F\u043E\u0432\u0442\u043E\u0440\u043D\u043E \u043D\u0430 \u0442\u043E\u0442 \u0436\u0435 \u043C\u0435\u0441\u044F\u0446 \u2014 \u0441\u043D\u043E\u0432\u0430 \u0432\u0441\u0435 \u043C\u0435\u0441\u044F\u0446\u044B.")));
@@ -10503,12 +10544,12 @@ function GridChart({ grid, planGrid, vague, years, onOpen }) {
                 " ",
                 pick.y),
             pick.list.map((it, n) => {
-                var _c, _d;
+                var _c;
                 return (React.createElement("button", { key: n, className: "grid-trip", onClick: () => onOpen === null || onOpen === void 0 ? void 0 : onOpen(it.a3, it.id) },
                     React.createElement("span", null,
-                        flag((_c = BY_A3[it.a3]) === null || _c === void 0 ? void 0 : _c.a2),
+                        React.createElement(Flg, { a3: it.a3 }),
                         " ",
-                        ((_d = BY_A3[it.a3]) === null || _d === void 0 ? void 0 : _d.name) || it.a3),
+                        ((_c = BY_A3[it.a3]) === null || _c === void 0 ? void 0 : _c.name) || it.a3),
                     React.createElement("em", null,
                         it.label,
                         it.plan ? " · план" : "",
@@ -10853,7 +10894,8 @@ function ShelfSheet({ open, onClose, box, isOn, isWish, onPick }) {
             const mine = isOn(c.a3);
             return (React.createElement("button", { key: c.a3, className: "shelf-cell" +
                     (mine ? " got" : isWish(c.a3) ? " wish" : ""), onClick: () => onPick(c.a3) },
-                badgeStyle(c.a3) ? (React.createElement("i", { style: badgeStyle(c.a3) })) : (React.createElement("i", { className: "shelf-flag" }, flag(c.a2))),
+                badgeStyle(c.a3) ? (React.createElement("i", { style: badgeStyle(c.a3) })) : (React.createElement("i", { className: "shelf-flag" },
+                    React.createElement(Flg, { a3: c.a3, a2: c.a2 }))),
                 React.createElement("em", null, c.name)));
         }))))))));
 }
@@ -11151,7 +11193,8 @@ function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, si
                                 onPick(row.a3, row.t.id);
                                 close();
                             } },
-                            React.createElement("span", { className: "fl" }, flag(row.c.a2)),
+                            React.createElement("span", { className: "fl" },
+                                React.createElement(Flg, { a3: row.a3, a2: row.c.a2 })),
                             React.createElement("span", { className: "trip-body" },
                                 React.createElement("span", { className: "trip-title" }, mode === "country"
                                     ? tripLabel(row.t)
@@ -12381,16 +12424,16 @@ function Atlas() {
                             ? "Дата поездки наступила"
                             : `Наступили даты ${np(overdue.length, "trip")}`),
                         overdue.slice(0, 3).map((o) => {
-                            var _c, _d;
+                            var _c;
                             const t = (visits[o.a3] || [])[o.idx];
                             if (!t)
                                 return null;
                             return (React.createElement("div", { key: o.a3 + o.idx, className: "due-row" },
                                 React.createElement("span", { className: "due-what" },
                                     React.createElement("b", null,
-                                        flag((_c = BY_A3[o.a3]) === null || _c === void 0 ? void 0 : _c.a2),
-                                        " ", (_d = BY_A3[o.a3]) === null || _d === void 0 ? void 0 :
-                                        _d.name),
+                                        React.createElement(Flg, { a3: o.a3 }),
+                                        " ", (_c = BY_A3[o.a3]) === null || _c === void 0 ? void 0 :
+                                        _c.name),
                                     React.createElement("em", null, tripLabel(t))),
                                 React.createElement("div", { className: "due-acts" },
                                     React.createElement("button", { className: "due-yes", onClick: () => editTrip(o.a3, t.id, { plan: false }) }, "\u0421\u043E\u0441\u0442\u043E\u044F\u043B\u0430\u0441\u044C"),
@@ -13258,6 +13301,8 @@ body > div{max-width:100%;}
 .ct-row{display:flex !important; flex-direction:row !important; align-items:center; gap:9px;
   padding:8px 11px; border-radius:11px; border:1px solid var(--line); background:var(--field); text-align:left;}
 .ct-flag{flex:none; font-size:1.05rem;}
+.own-flag{width:1.15em; height:auto; border-radius:2px; vertical-align:-0.18em;
+  box-shadow:0 0 0 1px rgba(255,255,255,.12);}
 .ct-name{flex:1 1 auto; min-width:0; display:flex; flex-direction:column; align-items:flex-start; font-size:0.78rem;}
 .ct-name em{font-style:normal; font-size:0.62rem; color:var(--dim);}
 .ct-row b{flex:none; font-size:0.72rem; font-weight:500; color:var(--dim);}
