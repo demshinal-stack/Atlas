@@ -2481,7 +2481,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "32.4";
+const APP_VERSION = "32.5";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -10143,7 +10143,6 @@ function WorldWin({ visits, geo, mapProps, onClose }) {
             React.createElement("b", null, data.total[year] || openedBy.size),
             React.createElement("em", null, pw(data.total[year] || openedBy.size, "country")))));
     const controls = (React.createElement("div", { className: "ww-bar" },
-        React.createElement("span", { className: "ww-year" }, year),
         React.createElement("button", { className: "ww-play" + (play ? " on" : ""), onClick: () => {
                 setSpin(false);
                 setSel(null);
@@ -10156,7 +10155,8 @@ function WorldWin({ visits, geo, mapProps, onClose }) {
                 setPlay(false);
                 setSpin(false);
                 setYear(years[+e.target.value]);
-            } })));
+            } }),
+        React.createElement("span", { className: "ww-year" }, year)));
     const rows = (React.createElement("div", { className: "ww-line", ref: listRef }, shown.map((y) => (React.createElement("div", { key: y, className: "ww-step" + (y === year ? " on" : ""), "data-year": y },
         React.createElement("span", { className: "ww-dot" }),
         React.createElement("div", { className: "ww-body" },
@@ -13268,17 +13268,13 @@ body > div{max-width:100%;}
 .ww-count{position:absolute; top:2px; right:6px; display:flex; align-items:baseline; gap:5px;}
 .ww-count b{font-size:1.25rem; font-weight:700; color:var(--gold);}
 .ww-count em{font-style:normal; font-size:0.66rem; color:var(--dim);}
-.ww-bar{flex:none; display:grid; grid-template-columns:auto 1fr; grid-template-areas:"year year" "play track";
-  align-items:center; gap:4px 10px; padding:4px 2px 2px;}
-.ww-bar .ww-year{grid-area:year; text-align:center;}
-.ww-bar .ww-play{grid-area:play;}
-.ww-bar .ww-range{grid-area:track;}
+.ww-bar{flex:none; display:flex; align-items:center; gap:9px; padding:4px 2px 2px;}
 .pg-map.ww-map .ww-bar{align-self:stretch; width:100%;}
 .ww-play{flex:none; width:32px; height:32px; border-radius:50%; border:0; background:var(--gold);
   color:#11202e; font-size:0.7rem; cursor:pointer;}
 .ww-play.on{background:rgba(232,184,75,.25); color:var(--gold);}
-.ww-range{width:100%; accent-color:var(--gold); height:34px; touch-action:none; cursor:pointer;}
-.ww-year{font-size:0.8rem; color:var(--gold);}
+.ww-range{flex:1 1 auto; min-width:0; accent-color:var(--gold); height:34px; touch-action:none; cursor:pointer;}
+.ww-year{flex:none; font-size:0.76rem; color:var(--gold); min-width:34px; text-align:right;}
 .ww-line{display:flex; flex-direction:column;}
 .ww-step{display:grid; grid-template-columns:22px 1fr; gap:10px; position:relative; padding-bottom:10px;}
 .ww-step::before{content:""; position:absolute; left:10px; top:6px; bottom:-4px; width:2px;
