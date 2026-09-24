@@ -2469,7 +2469,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "31.7";
+const APP_VERSION = "31.8";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -3837,8 +3837,10 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
     page.current = pageProp || 0;
     const pageUi = pageProp || 0;
     const isMap = view === "map";
-    const state = useRef({ isOn, selected, geo, marks, light, full, isMap, isWish, arcs, glow });
-    state.current = { isOn, selected, geo, marks, light, full, isMap, isWish, arcs, glow };
+    const state = useRef({ isOn, selected, geo, marks, light, full, isMap, isWish, arcs, glow, glowAt: 0 });
+    if (state.current.glow !== glow)
+        state.current.glowAt = Date.now();
+    state.current = { ...state.current, isOn, selected, geo, marks, light, full, isMap, isWish, arcs, glow };
     /* размер: по фактической ширине плитки, с повторами до готовности разметки */
     useEffect(() => {
         var _c;
@@ -4038,6 +4040,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         // суша и страны
         if (g) {
             const drawn = new Set();
+            let needFrame = false;
             const mapMode = state.current.isMap;
             const mine = (a3) => !mapMode || onPage(a3, page.current);
             g.features.forEach((f) => {
@@ -4088,14 +4091,18 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                     ctx.fill();
                     ctx.globalAlpha = 1;
                     if (hot) {
-                        // страна этого года: подсветка и свечение
+                        // страна этого года разгорается плавно
+                        const t = Math.min(1, (Date.now() - (state.current.glowAt || 0)) / 700);
+                        const e = t * t * (3 - 2 * t);
                         ctx.save();
                         ctx.shadowColor = "rgba(255,214,120,.95)";
-                        ctx.shadowBlur = 14;
+                        ctx.shadowBlur = 6 + 12 * e;
                         ctx.fillStyle = "#ffd36b";
-                        ctx.globalAlpha = 0.95;
+                        ctx.globalAlpha = 0.35 + 0.6 * e;
                         ctx.fill();
                         ctx.restore();
+                        if (t < 1)
+                            needFrame = true;
                     }
                 }
                 ctx.strokeStyle = state.current.isMap
@@ -4113,6 +4120,8 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                 if (cutAbh)
                     ctx.restore();
             });
+            if (needFrame)
+                requestAnimationFrame(() => requestDraw());
             // мелкие страны и территории, которых нет в наборе границ,
             // подсвечиваем кругом — иначе их не видно
             const tiny = new Set();
@@ -4477,7 +4486,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         const far = d3.geoDistance([lookAt.lon, lookAt.lat], center);
         if (far < 1.0)
             return; // уже в поле зрения — не трогаем шар
-        turnTo([-lookAt.lon, Math.max(-70, Math.min(70, -lookAt.lat))], 900);
+        turnTo([-lookAt.lon, Math.max(-70, Math.min(70, -lookAt.lat))], 1400);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [lookAt === null || lookAt === void 0 ? void 0 : lookAt.id]);
     /* доворот к выбранной стране */
@@ -9837,26 +9846,45 @@ function contsData(visits) {
 function worldData(visits) {
     const first = {};
     const byYear = {};
-    Object.entries(visits || {}).forEach(([a3, arr]) => (arr || []).forEach((t) => {
-        if (t.plan)
-            return;
-        const d = dParts(t.from);
-        const y = (d === null || d === void 0 ? void 0 : d.y) || t.y;
-        if (!y)
-            return;
-        const m = (d === null || d === void 0 ? void 0 : d.m) || t.m || null;
+    const exact = (t) => !t.approx && (!t.y2 || t.y2 === t.y);
+    const put = (a3, t, y) => {
+        var _c;
+        const m = ((_c = dParts(t.from)) === null || _c === void 0 ? void 0 : _c.m) || t.m || null;
         const rec = { a3, y, m, cities: t.cities || [] };
         (byYear[y] = byYear[y] || []).push(rec);
-        if (!first[a3] || y < first[a3].y || (y === first[a3].y && (m || 13) < (first[a3].m || 13)))
+        const was = first[a3];
+        if (!was || y < was.y || (y === was.y && (m || 13) < (was.m || 13)))
             first[a3] = rec;
+    };
+    // 1. поездки с точным годом
+    Object.entries(visits || {}).forEach(([a3, arr]) => (arr || []).forEach((t) => {
+        var _c;
+        if (t.plan || !exact(t))
+            return;
+        const y = ((_c = dParts(t.from)) === null || _c === void 0 ? void 0 : _c.y) || t.y;
+        if (y)
+            put(a3, t, y);
+    }));
+    // 2. страны, которых там нет, берём из поездок с примерным периодом
+    Object.entries(visits || {}).forEach(([a3, arr]) => (arr || []).forEach((t) => {
+        var _c;
+        if (t.plan || exact(t) || first[a3])
+            return;
+        const y = ((_c = dParts(t.from)) === null || _c === void 0 ? void 0 : _c.y) || t.y;
+        if (y)
+            put(a3, t, y);
     }));
     const years = Object.keys(byYear)
         .map(Number)
         .sort((a, b) => a - b);
-    const opened = {}; // год → какие страны открылись именно тогда
+    const opened = {};
     Object.values(first).forEach((r) => (opened[r.y] = [...(opened[r.y] || []), r]));
-    Object.values(opened).forEach((l) => l.sort((a, b) => { var _c, _d; return (a.m || 13) - (b.m || 13) || (((_c = BY_A3[a.a3]) === null || _c === void 0 ? void 0 : _c.name) || "").localeCompare(((_d = BY_A3[b.a3]) === null || _d === void 0 ? void 0 : _d.name) || "", "ru"); }));
-    const total = {}; // сколько стран открыто к концу года
+    Object.values(opened).forEach((l) => l.sort((a, b) => {
+        var _c, _d;
+        return (a.m || 13) - (b.m || 13) ||
+            (((_c = BY_A3[a.a3]) === null || _c === void 0 ? void 0 : _c.name) || "").localeCompare(((_d = BY_A3[b.a3]) === null || _d === void 0 ? void 0 : _d.name) || "", "ru");
+    }));
+    const total = {};
     let acc = 0;
     years.forEach((y) => {
         acc += (opened[y] || []).length;
@@ -9870,6 +9898,7 @@ function WorldWin({ visits, geo, mapProps, onClose }) {
     const years = useMemo(() => data.years.filter((y) => (data.opened[y] || []).length), [data]);
     const [year, setYear] = useState(years[0] || NOW.getFullYear());
     const [play, setPlay] = useState(false);
+    const [spin, setSpin] = useState(false); // вращение после показа
     const [sel, setSel] = useState(null);
     const listRef = useRef(null);
     const [wide, setWide] = useState(typeof window !== "undefined" && window.innerWidth > window.innerHeight);
@@ -9886,6 +9915,7 @@ function WorldWin({ visits, geo, mapProps, onClose }) {
     useEffect(() => {
         if (!play || !years.length)
             return;
+        setSpin(false);
         let i = years.indexOf(year);
         if (i >= years.length - 1) {
             i = -1;
@@ -9898,10 +9928,11 @@ function WorldWin({ visits, geo, mapProps, onClose }) {
             i += 1;
             if (i >= years.length) {
                 setPlay(false);
+                setSpin(true); // история закончилась — шар просто крутится
                 return;
             }
             setYear(years[i]);
-            setTimeout(step, 900 + (data.opened[years[i]] || []).length * 500);
+            setTimeout(step, 1100 + (data.opened[years[i]] || []).length * 650);
         };
         const t = setTimeout(step, 700);
         return () => {
@@ -9933,14 +9964,18 @@ function WorldWin({ visits, geo, mapProps, onClose }) {
     }, [year]);
     const shown = years.filter((y) => y <= year);
     const globe = (React.createElement("div", { className: "sd-stage" },
-        React.createElement(Globe, { ...(mapProps || {}), geo: geo, isOn: (a3) => openedBy.has(a3), isWish: () => false, glow: fresh, lookAt: lookAt, selected: sel, full: false, noFull: true, fitBox: true, playing: false, setPlaying: () => { }, onToggleFull: () => { }, onPick: (a3) => setSel((v) => (v === a3 ? null : a3)) }),
+        React.createElement(Globe, { ...(mapProps || {}), geo: geo, isOn: (a3) => openedBy.has(a3), isWish: () => false, glow: fresh, lookAt: lookAt, selected: sel, full: false, noFull: true, fitBox: true, playing: spin, spinStep: 0.18, setPlaying: setSpin, onToggleFull: () => { }, onPick: (a3) => setSel((v) => (v === a3 ? null : a3)) }),
         React.createElement("span", { className: "ww-count" },
             React.createElement("b", null, data.total[year] || openedBy.size),
             React.createElement("em", null, pw(data.total[year] || openedBy.size, "country")))));
     const controls = (React.createElement("div", { className: "ww-bar" },
-        React.createElement("button", { className: "ww-play" + (play ? " on" : ""), onClick: () => setPlay((v) => !v), "aria-label": play ? "Пауза" : "Показать историю" }, play ? "❚❚" : "▶"),
+        React.createElement("button", { className: "ww-play" + (play ? " on" : ""), onClick: () => {
+                setSpin(false);
+                setPlay((v) => !v);
+            }, "aria-label": play ? "Пауза" : "Показать историю" }, play ? "❚❚" : "▶"),
         React.createElement("input", { className: "ww-range", type: "range", min: 0, max: Math.max(0, years.length - 1), value: Math.max(0, years.indexOf(year)), onChange: (e) => {
                 setPlay(false);
+                setSpin(false);
                 setYear(years[+e.target.value]);
             } }),
         React.createElement("span", { className: "ww-year" }, year)));
@@ -13065,6 +13100,13 @@ body > div{max-width:100%;}
 .ww-body > b{font-size:0.78rem; color:var(--dim);}
 .ww-step.on .ww-body > b{color:var(--gold);}
 .ww-cards{display:flex; flex-direction:column; gap:5px;}
+.ww-step{animation:wwIn .5s ease-out both;}
+.ww-row{animation:wwIn .45s ease-out both;}
+.ww-row:nth-child(2){animation-delay:.12s;}
+.ww-row:nth-child(3){animation-delay:.24s;}
+.ww-row:nth-child(n+4){animation-delay:.36s;}
+@keyframes wwIn{from{opacity:0; transform:translateY(8px);} to{opacity:1; transform:none;}}
+@media (prefers-reduced-motion: reduce){ .ww-step, .ww-row{animation:none;} }
 .ww-row{display:flex; align-items:center; gap:9px; padding:8px 11px; border-radius:12px; border:1px solid var(--line);
   background:var(--field); color:var(--text); text-align:left; cursor:pointer;}
 .ww-step.on .ww-row{border-color:rgba(232,184,75,.45);
