@@ -2481,7 +2481,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "32.5";
+const APP_VERSION = "32.6";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -13270,6 +13270,11 @@ body > div{max-width:100%;}
 .ww-count em{font-style:normal; font-size:0.66rem; color:var(--dim);}
 .ww-bar{flex:none; display:flex; align-items:center; gap:9px; padding:4px 2px 2px;}
 .pg-map.ww-map .ww-bar{align-self:stretch; width:100%;}
+/* лёжа шар должен помещаться целиком: под полосой года остаётся место */
+.pg-wide .ww-map .sd-stage{min-height:0; overflow:hidden;}
+.pg-wide .ww-map .sd-stage .globe-stage{max-height:100%; max-width:100%;}
+.pg-wide .ww-map .sd-stage canvas.globe{max-height:100% !important; max-width:100% !important;
+  width:auto !important; height:100% !important; aspect-ratio:1 / 1;}
 .ww-play{flex:none; width:32px; height:32px; border-radius:50%; border:0; background:var(--gold);
   color:#11202e; font-size:0.7rem; cursor:pointer;}
 .ww-play.on{background:rgba(232,184,75,.25); color:var(--gold);}
