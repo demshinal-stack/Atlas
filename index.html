@@ -2481,7 +2481,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "32.8";
+const APP_VERSION = "32.9";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -10192,8 +10192,8 @@ function WorldWin({ visits, geo, mapProps, onClose }) {
             React.createElement("button", { className: "zoom-x", onClick: onClose, "aria-label": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C" }, "\u2715"),
             React.createElement("div", { className: "zoom-body rep" },
                 React.createElement("b", null, "\u041A\u0430\u043A \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u043B\u0441\u044F \u043C\u0438\u0440"),
-                React.createElement("div", { className: "pg-map far-map ww-map" }, globe),
                 controls,
+                React.createElement("div", { className: "pg-map far-map ww-map" }, globe),
                 React.createElement("div", { className: "ag-frame sd-frame" }, rows)))));
 }
 /* «Части света» во весь экран: диаграмма и список стран */
