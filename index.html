@@ -2469,7 +2469,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "31.8";
+const APP_VERSION = "31.9";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -3816,7 +3816,7 @@ function sunPoint(now) {
 /* ================================================================== */
 /*  Карта                                                             */
 /* ================================================================== */
-function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home, boxWidth, marks, light, playing, setPlaying, view, page: pageProp, setPage, isWish, arcs, noFull, fitBox, onArcPick, spinStep, glow, lookAt }) {
+function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home, boxWidth, marks, light, playing, setPlaying, view, page: pageProp, setPage, isWish, arcs, noFull, fitBox, onArcPick, spinStep, glow, lookAt, pins }) {
     const wrapRef = useRef(null);
     const canvasRef = useRef(null);
     const [size, setSize] = useState(320);
@@ -3840,7 +3840,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
     const state = useRef({ isOn, selected, geo, marks, light, full, isMap, isWish, arcs, glow, glowAt: 0 });
     if (state.current.glow !== glow)
         state.current.glowAt = Date.now();
-    state.current = { ...state.current, isOn, selected, geo, marks, light, full, isMap, isWish, arcs, glow };
+    state.current = { ...state.current, isOn, selected, geo, marks, light, full, isMap, isWish, arcs, glow, pins };
     /* размер: по фактической ширине плитки, с повторами до готовности разметки */
     useEffect(() => {
         var _c;
@@ -4091,18 +4091,35 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                     ctx.fill();
                     ctx.globalAlpha = 1;
                     if (hot) {
-                        // страна этого года разгорается плавно
-                        const t = Math.min(1, (Date.now() - (state.current.glowAt || 0)) / 700);
-                        const e = t * t * (3 - 2 * t);
+                        // страна года: сначала зелёный контур с миганием, потом золото
+                        const ms = Date.now() - (state.current.glowAt || 0);
+                        const blink = 1500; // два мигания
                         ctx.save();
-                        ctx.shadowColor = "rgba(255,214,120,.95)";
-                        ctx.shadowBlur = 6 + 12 * e;
-                        ctx.fillStyle = "#ffd36b";
-                        ctx.globalAlpha = 0.35 + 0.6 * e;
-                        ctx.fill();
-                        ctx.restore();
-                        if (t < 1)
+                        if (ms < blink) {
+                            const wave = Math.abs(Math.sin((ms / blink) * Math.PI * 2));
+                            ctx.strokeStyle = "#57e39a";
+                            ctx.lineWidth = 2.4;
+                            ctx.shadowColor = "rgba(87,227,154,.9)";
+                            ctx.shadowBlur = 8 + 14 * wave;
+                            ctx.globalAlpha = 0.45 + 0.55 * wave;
+                            ctx.stroke();
+                            ctx.fillStyle = "#57e39a";
+                            ctx.globalAlpha = 0.12 + 0.25 * wave;
+                            ctx.fill();
                             needFrame = true;
+                        }
+                        else {
+                            const t = Math.min(1, (ms - blink) / 600);
+                            const e = t * t * (3 - 2 * t);
+                            ctx.shadowColor = "rgba(255,214,120,.95)";
+                            ctx.shadowBlur = 6 + 12 * e;
+                            ctx.fillStyle = "#ffd36b";
+                            ctx.globalAlpha = 0.4 + 0.6 * e;
+                            ctx.fill();
+                            if (t < 1)
+                                needFrame = true;
+                        }
+                        ctx.restore();
                     }
                 }
                 ctx.strokeStyle = state.current.isMap
@@ -4120,6 +4137,49 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                 if (cutAbh)
                     ctx.restore();
             });
+            // флажок на булавке у новых стран — видно, что и куда добавилось
+            const pins = state.current.pins || [];
+            if (pins.length) {
+                const sinceP = Date.now() - (state.current.glowAt || 0);
+                const show = Math.min(1, Math.max(0, (sinceP - 1500) / 500));
+                if (show > 0) {
+                    if (show < 1)
+                        needFrame = true;
+                    const center = [-rot.current[0], -rot.current[1]];
+                    ctx.save();
+                    pins.forEach((p) => {
+                        if (d3.geoDistance([p.lon, p.lat], center) > Math.PI / 2 - 0.05)
+                            return;
+                        const xy = proj([p.lon, p.lat]);
+                        if (!xy)
+                            return;
+                        const h = 26 * show;
+                        ctx.strokeStyle = "rgba(244,239,226,.85)";
+                        ctx.lineWidth = 1.4;
+                        ctx.beginPath();
+                        ctx.moveTo(xy[0], xy[1]);
+                        ctx.lineTo(xy[0], xy[1] - h);
+                        ctx.stroke();
+                        ctx.fillStyle = "rgba(11,22,34,.9)";
+                        ctx.strokeStyle = "rgba(232,184,75,.8)";
+                        const w = 22;
+                        ctx.beginPath();
+                        ctx.roundRect(xy[0] - w / 2, xy[1] - h - 17, w, 17, 5);
+                        ctx.fill();
+                        ctx.stroke();
+                        ctx.globalAlpha = show;
+                        ctx.font = "12px system-ui, -apple-system, sans-serif";
+                        ctx.textAlign = "center";
+                        ctx.textBaseline = "middle";
+                        ctx.fillStyle = "#f4efe2";
+                        ctx.fillText(p.flag, xy[0], xy[1] - h - 8);
+                        ctx.globalAlpha = 1;
+                    });
+                    ctx.restore();
+                }
+                else
+                    needFrame = true;
+            }
             if (needFrame)
                 requestAnimationFrame(() => requestDraw());
             // мелкие страны и территории, которых нет в наборе границ,
@@ -9897,7 +9957,7 @@ function WorldWin({ visits, geo, mapProps, onClose }) {
     const data = useMemo(() => worldData(visits), [visits]);
     const years = useMemo(() => data.years.filter((y) => (data.opened[y] || []).length), [data]);
     const [year, setYear] = useState(years[0] || NOW.getFullYear());
-    const [play, setPlay] = useState(false);
+    const [play, setPlay] = useState(true); // история идёт сразу при открытии
     const [spin, setSpin] = useState(false); // вращение после показа
     const [sel, setSel] = useState(null);
     const listRef = useRef(null);
@@ -9932,7 +9992,8 @@ function WorldWin({ visits, geo, mapProps, onClose }) {
                 return;
             }
             setYear(years[i]);
-            setTimeout(step, 1100 + (data.opened[years[i]] || []).length * 650);
+            // ждём мигание, заливку и появление флажков
+            setTimeout(step, 2400 + (data.opened[years[i]] || []).length * 300);
         };
         const t = setTimeout(step, 700);
         return () => {
@@ -9950,21 +10011,45 @@ function WorldWin({ visits, geo, mapProps, onClose }) {
         return set;
     }, [data, year]);
     const fresh = useMemo(() => new Set((data.opened[year] || []).map((r) => r.a3)), [data, year]);
+    const pins = useMemo(() => (data.opened[year] || [])
+        .map((r) => {
+        const c = BY_A3[r.a3];
+        return c ? { a3: r.a3, lon: c.lon, lat: c.lat, flag: flag(c.a2 || "") } : null;
+    })
+        .filter(Boolean), [data, year]);
     /* куда смотреть: страна года, если её не видно — шар довернётся сам */
     const lookAt = useMemo(() => {
         const first = (data.opened[year] || [])[0];
         const c = first ? BY_A3[first.a3] : null;
         return c ? { lon: c.lon, lat: c.lat, id: `${year}:${first.a3}` } : null;
     }, [data, year]);
-    // лента подкручивается так, чтобы год в фокусе был виден
+    // лента едет к нужному году плавно, без рывков
     useEffect(() => {
-        var _c;
-        const el = (_c = listRef.current) === null || _c === void 0 ? void 0 : _c.querySelector(`[data-year="${year}"]`);
-        el === null || el === void 0 ? void 0 : el.scrollIntoView({ block: "center", behavior: "smooth" });
+        var _c, _d, _e;
+        const box = ((_c = listRef.current) === null || _c === void 0 ? void 0 : _c.closest(".ag-frame")) || ((_d = listRef.current) === null || _d === void 0 ? void 0 : _d.parentElement);
+        const el = (_e = listRef.current) === null || _e === void 0 ? void 0 : _e.querySelector(`[data-year="${year}"]`);
+        if (!box || !el)
+            return;
+        const target = Math.max(0, Math.min(box.scrollHeight - box.clientHeight, el.offsetTop - box.clientHeight / 2 + el.offsetHeight / 2));
+        const from = box.scrollTop;
+        if (Math.abs(target - from) < 2)
+            return;
+        const t0 = performance.now();
+        const dur = 900;
+        let raf = 0;
+        const step = (now) => {
+            const p = Math.min(1, (now - t0) / dur);
+            const e = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+            box.scrollTop = from + (target - from) * e;
+            if (p < 1)
+                raf = requestAnimationFrame(step);
+        };
+        raf = requestAnimationFrame(step);
+        return () => cancelAnimationFrame(raf);
     }, [year]);
     const shown = years.filter((y) => y <= year);
     const globe = (React.createElement("div", { className: "sd-stage" },
-        React.createElement(Globe, { ...(mapProps || {}), geo: geo, isOn: (a3) => openedBy.has(a3), isWish: () => false, glow: fresh, lookAt: lookAt, selected: sel, full: false, noFull: true, fitBox: true, playing: spin, spinStep: 0.18, setPlaying: setSpin, onToggleFull: () => { }, onPick: (a3) => setSel((v) => (v === a3 ? null : a3)) }),
+        React.createElement(Globe, { ...(mapProps || {}), geo: geo, isOn: (a3) => openedBy.has(a3), isWish: () => false, glow: fresh, pins: pins, lookAt: lookAt, selected: sel, full: false, noFull: true, fitBox: true, playing: spin, spinStep: 0.18, setPlaying: setSpin, onToggleFull: () => { }, onPick: (a3) => setSel((v) => (v === a3 ? null : a3)) }),
         React.createElement("span", { className: "ww-count" },
             React.createElement("b", null, data.total[year] || openedBy.size),
             React.createElement("em", null, pw(data.total[year] || openedBy.size, "country")))));
