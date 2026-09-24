@@ -1391,85 +1391,109 @@ const qrGf = (() => {
     const div = (a, b) => (a ? exp[(log[a] + 255 - log[b]) % 255] : 0);
     return { exp, log, mul, div };
 })();
-/* деление многочленов и исправление ошибок (Берлекэмп–Мэсси + Форни) */
+/* многочлены над полем: сложение, умножение, значение, масштаб */
+const pAdd = (a, b) => {
+    const out = new Array(Math.max(a.length, b.length)).fill(0);
+    for (let i = 0; i < a.length; i++)
+        out[i + out.length - a.length] ^= a[i];
+    for (let i = 0; i < b.length; i++)
+        out[i + out.length - b.length] ^= b[i];
+    return out;
+};
+const pMul = (a, b) => {
+    const out = new Array(a.length + b.length - 1).fill(0);
+    for (let i = 0; i < a.length; i++)
+        for (let j = 0; j < b.length; j++)
+            out[i + j] ^= qrGf.mul(a[i], b[j]);
+    return out;
+};
+const pScale = (a, k) => a.map((v) => qrGf.mul(v, k));
+const pEval = (a, x) => a.reduce((acc, v) => qrGf.mul(acc, x) ^ v, 0);
+const gfPow = (x, n) => qrGf.exp[(((qrGf.log[x] * n) % 255) + 255) % 255];
+/* исправление ошибок Рида–Соломона: Берлекэмп–Мэсси, Ченъ и Форни */
 function rsFix(bytes, ecLen) {
-    const n = bytes.length;
-    const synd = new Array(ecLen).fill(0);
+    const msg = bytes.slice();
+    const n = msg.length;
+    // синдромы
+    const synd = [0];
     let bad = false;
     for (let i = 0; i < ecLen; i++) {
-        let s = 0;
-        for (let j = 0; j < n; j++)
-            s = qrGf.mul(s, qrGf.exp[i]) ^ bytes[j];
-        synd[i] = s;
-        if (s)
+        const v = pEval(msg, gfPow(2, i));
+        synd.push(v);
+        if (v)
             bad = true;
     }
     if (!bad)
-        return bytes;
-    let err = [1];
+        return msg;
+    // многочлен положений ошибок
+    let loc = [1];
     let old = [1];
     for (let i = 0; i < ecLen; i++) {
+        const k = i + 1;
+        let delta = synd[k];
+        for (let j = 1; j < loc.length; j++)
+            delta ^= qrGf.mul(loc[loc.length - 1 - j], synd[k - j]);
         old = [...old, 0];
-        let delta = synd[i];
-        for (let j = 1; j < err.length; j++)
-            delta ^= qrGf.mul(err[err.length - 1 - j], synd[i - j]);
         if (delta) {
-            if (old.length > err.length) {
-                let neu = old.map((v) => qrGf.mul(v, delta));
-                old = err.map((v) => qrGf.div(v, delta));
-                err = neu;
+            if (old.length > loc.length) {
+                const neu = pScale(old, delta);
+                old = pScale(loc, qrGf.div(1, delta));
+                loc = neu;
             }
-            const scale = old.map((v) => qrGf.mul(v, delta));
-            const out = new Array(Math.max(err.length, scale.length)).fill(0);
-            for (let k = 0; k < err.length; k++)
-                out[out.length - err.length + k] ^= err[k];
-            for (let k = 0; k < scale.length; k++)
-                out[out.length - scale.length + k] ^= scale[k];
-            err = out;
+            loc = pAdd(loc, pScale(old, delta));
         }
     }
-    const errs = err.length - 1;
-    if (errs * 2 > ecLen)
+    while (loc.length && loc[0] === 0)
+        loc.shift();
+    const errs = loc.length - 1;
+    if (!errs || errs * 2 > ecLen)
         return null;
+    // положения ошибок: корни ищем по обратным степеням
     const pos = [];
-    for (let i = 0; i < n; i++) {
-        let s = 0;
-        for (let j = 0; j < err.length; j++)
-            s = qrGf.mul(s, qrGf.exp[i]) ^ err[j];
-        if (s === 0)
+    for (let i = 0; i < n; i++)
+        if (pEval(loc, qrGf.exp[(255 - i) % 255]) === 0)
             pos.push(n - 1 - i);
-    }
     if (pos.length !== errs)
         return null;
-    // значения ошибок
-    const out = bytes.slice();
-    const synPoly = synd.slice().reverse();
-    const q = new Array(synPoly.length + err.length - 1).fill(0);
-    for (let i = 0; i < synPoly.length; i++)
-        for (let j = 0; j < err.length; j++)
-            q[i + j] ^= qrGf.mul(synPoly[i], err[j]);
-    const omega = q.slice(q.length - ecLen);
-    pos.forEach((p) => {
-        const xi = qrGf.exp[(n - 1 - p) % 255];
-        const xiInv = qrGf.div(1, xi);
-        let num = 0;
-        for (let i = 0; i < omega.length; i++)
-            num = qrGf.mul(num, xiInv) ^ omega[i];
-        let den = 0;
-        for (let i = err.length - 1 - ((err.length - 1) % 2); i >= 0; i -= 2)
-            den = den ^ qrGf.mul(err[err.length - 1 - i], qrGf.exp[(i * (n - 1 - p)) % 255]);
-        if (den)
-            out[p] ^= qrGf.div(num, den);
-    });
-    // проверяем ещё раз
-    for (let i = 0; i < ecLen; i++) {
-        let s = 0;
-        for (let j = 0; j < n; j++)
-            s = qrGf.mul(s, qrGf.exp[i]) ^ out[j];
-        if (s)
-            return null;
+    // дальше удобнее работать многочленами «от младшего к старшему»
+    const lam = loc.slice().reverse(); // λ0=1, λ1, ...
+    const S = synd.slice(1); // S0..S(ec-1)
+    const omega = [];
+    for (let k = 0; k < ecLen; k++) {
+        let v = 0;
+        for (let t = 0; t <= k; t++)
+            v ^= qrGf.mul(S[k - t] || 0, lam[t] || 0);
+        omega.push(v);
     }
-    return out;
+    const evalLow = (poly, x) => {
+        let acc = 0;
+        for (let k = poly.length - 1; k >= 0; k--)
+            acc = qrGf.mul(acc, x) ^ poly[k];
+        return acc;
+    };
+    // производная в поле: остаются только нечётные степени
+    const lamD = [];
+    for (let k = 1; k < lam.length; k += 2)
+        lamD.push(lam[k]);
+    const evalD = (x) => {
+        let acc = 0;
+        for (let k = lamD.length - 1; k >= 0; k--)
+            acc = qrGf.mul(acc, qrGf.mul(x, x)) ^ lamD[k];
+        return acc;
+    };
+    pos.forEach((pp) => {
+        const c = n - 1 - pp;
+        const X = qrGf.exp[c % 255];
+        const Xinv = qrGf.div(1, X);
+        const num = qrGf.mul(X, evalLow(omega, Xinv));
+        const den = evalD(Xinv);
+        if (den)
+            msg[pp] ^= qrGf.div(num, den);
+    });
+    for (let i = 0; i < ecLen; i++)
+        if (pEval(msg, gfPow(2, i)))
+            return null;
+    return msg;
 }
 /* чёрно-белая картинка из кадра */
 function qrBinary(data, w, h, mode = 0) {
@@ -2445,7 +2469,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "31.2";
+const APP_VERSION = "31.5";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -8694,28 +8718,93 @@ function QrBox({ text, size = 240 }) {
             return;
         }
         const n = m.length;
-        const pad = 4;
         const dpr = window.devicePixelRatio || 1;
-        const cell = Math.max(2, Math.floor((size * dpr) / (n + pad * 2)));
-        const px = cell * (n + pad * 2);
+        const quiet = 2; // светлое поле вокруг кода: без него сканеры путаются
+        const units = (n + quiet * 2) * Math.SQRT2 + 2;
+        const cell = Math.max(2, Math.floor((size * dpr) / units));
+        const px = Math.round(cell * units);
         c.width = px;
         c.height = px;
         c.style.width = c.style.height = `${px / dpr}px`;
         const x = c.getContext("2d");
+        const mid = px / 2;
+        const dark = "#0b1622";
+        x.clearRect(0, 0, px, px);
         x.fillStyle = "#f4efe2";
-        x.fillRect(0, 0, px, px);
-        x.fillStyle = "#0b1622";
+        x.beginPath();
+        x.arc(mid, mid, mid, 0, Math.PI * 2);
+        x.fill();
+        const off = mid - (cell * n) / 2;
+        const dot = (cx, cy, r) => {
+            x.beginPath();
+            x.arc(cx, cy, r, 0, Math.PI * 2);
+            x.fill();
+        };
+        // узор по кругу — он и делает код круглым, на чтение не влияет
+        x.fillStyle = dark;
+        const span = Math.ceil(px / cell) + 2;
+        const rand = (a, b) => {
+            const v = Math.sin(a * 127.1 + b * 311.7 + n) * 43758.5453;
+            return v - Math.floor(v);
+        };
+        for (let r = -span; r < span; r++)
+            for (let q = -span; q < span; q++) {
+                const inCode = q >= -quiet && q < n + quiet && r >= -quiet && r < n + quiet;
+                if (inCode)
+                    continue;
+                const cx = off + q * cell + cell / 2;
+                const cy = off + r * cell + cell / 2;
+                if (Math.hypot(cx - mid, cy - mid) > mid - cell * 0.8)
+                    continue;
+                if (rand(q, r) < 0.42)
+                    dot(cx, cy, cell * 0.42);
+            }
+        // сам код: круглые точки
+        const inEye = (r, q) => (r < 7 && q < 7) || (r < 7 && q >= n - 7) || (r >= n - 7 && q < 7);
+        const logo = Math.round(n * 0.2);
+        const lo = Math.floor((n - logo) / 2);
+        x.fillStyle = dark;
         for (let r = 0; r < n; r++)
-            for (let q = 0; q < n; q++)
-                if (m[r][q])
-                    x.fillRect((q + pad) * cell, (r + pad) * cell, cell, cell);
+            for (let q = 0; q < n; q++) {
+                if (!m[r][q] || inEye(r, q))
+                    continue;
+                if (r >= lo && r < lo + logo && q >= lo && q < lo + logo)
+                    continue;
+                dot(off + q * cell + cell / 2, off + r * cell + cell / 2, cell * 0.45);
+            }
+        // «глаза» оставляем квадратными: по ним сканер и узнаёт код
+        const eye = (r0, q0) => {
+            const X = off + q0 * cell;
+            const Y = off + r0 * cell;
+            x.fillStyle = dark;
+            x.fillRect(X, Y, cell * 7, cell * 7);
+            x.fillStyle = "#f4efe2";
+            x.fillRect(X + cell, Y + cell, cell * 5, cell * 5);
+            x.fillStyle = dark;
+            x.fillRect(X + cell * 2, Y + cell * 2, cell * 3, cell * 3);
+        };
+        eye(0, 0);
+        eye(0, n - 7);
+        eye(n - 7, 0);
+        // знак студии в центре
+        const img = new Image();
+        img.onload = () => {
+            const side = cell * logo;
+            x.fillStyle = "#f4efe2";
+            dot(mid, mid, side * 0.62);
+            x.drawImage(img, mid - side * 0.4, mid - side * 0.4, side * 0.8, side * 0.8);
+        };
+        img.src = BRAND_MARK;
     }, [text, size]);
     return React.createElement("canvas", { ref: cv, className: "qr-box" });
 }
-/* камера: ищем код в кадре системным читателем, иначе своим */
 function QrCamera({ onCode, onClose, facing = "environment", hidden = false, onStat }) {
     const video = useRef(null);
     const [err, setErr] = useState("");
+    const cbCode = useRef(onCode);
+    const cbStat = useRef(onStat);
+    cbCode.current = onCode;
+    cbStat.current = onStat;
     useEffect(() => {
         let stop = false;
         let stream = null;
@@ -8723,17 +8812,35 @@ function QrCamera({ onCode, onClose, facing = "environment", hidden = false, onS
         let frames = 0;
         const cv = document.createElement("canvas");
         (async () => {
+            var _c, _d, _e;
             try {
-                stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: facing, width: { ideal: 1280 } },
-                    audio: false,
-                });
+                // Safari капризен: пробуем с пожеланиями, потом самый простой запрос
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia({
+                        video: { facingMode: { ideal: facing }, width: { ideal: 1280 } },
+                        audio: false,
+                    });
+                }
+                catch (e1) {
+                    (_c = cbStat.current) === null || _c === void 0 ? void 0 : _c.call(cbStat, { cam: "первая попытка: " + String((e1 === null || e1 === void 0 ? void 0 : e1.name) || e1) });
+                    await new Promise((r) => setTimeout(r, 400));
+                    stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                }
                 if (stop)
                     return stream.getTracks().forEach((t) => t.stop());
                 const v = video.current;
-                v.srcObject = stream;
                 v.setAttribute("playsinline", "true");
-                await v.play();
+                v.setAttribute("autoplay", "true");
+                v.muted = true;
+                v.srcObject = stream;
+                try {
+                    await v.play();
+                }
+                catch (e2) {
+                    // на iOS play может отвалиться, если кадр ещё не готов — ждём и пробуем снова
+                    await new Promise((r) => setTimeout(r, 300));
+                    await v.play();
+                }
                 let detector = null;
                 try {
                     if (window.BarcodeDetector)
@@ -8742,9 +8849,9 @@ function QrCamera({ onCode, onClose, facing = "environment", hidden = false, onS
                 catch {
                     detector = null;
                 }
-                onStat === null || onStat === void 0 ? void 0 : onStat({ cam: "работает", sys: !!detector });
+                (_d = cbStat.current) === null || _d === void 0 ? void 0 : _d.call(cbStat, { cam: "работает", sys: !!detector });
                 const tick = async () => {
-                    var _c;
+                    var _c, _d, _e, _f;
                     if (stop)
                         return;
                     const w = v.videoWidth;
@@ -8772,10 +8879,10 @@ function QrCamera({ onCode, onClose, facing = "environment", hidden = false, onS
                             text = qrRead(img.data, size, size);
                         }
                         if (frames % 4 === 0)
-                            onStat === null || onStat === void 0 ? void 0 : onStat({ cam: `кадров ${frames}`, res: `${w}×${h}`, sys: !!detector });
+                            (_d = cbStat.current) === null || _d === void 0 ? void 0 : _d.call(cbStat, { cam: `кадров ${frames}`, res: `${w}×${h}`, sys: !!detector });
                         if (text) {
-                            onStat === null || onStat === void 0 ? void 0 : onStat({ cam: "код распознан", read: text.slice(0, 5) });
-                            onCode(text);
+                            (_e = cbStat.current) === null || _e === void 0 ? void 0 : _e.call(cbStat, { cam: "код распознан", read: text.slice(0, 5) });
+                            (_f = cbCode.current) === null || _f === void 0 ? void 0 : _f.call(cbCode, text);
                             return;
                         }
                     }
@@ -8785,7 +8892,7 @@ function QrCamera({ onCode, onClose, facing = "environment", hidden = false, onS
             }
             catch (e) {
                 setErr("Камера недоступна");
-                onStat === null || onStat === void 0 ? void 0 : onStat({ cam: "нет доступа: " + String((e === null || e === void 0 ? void 0 : e.name) || e) });
+                (_e = cbStat.current) === null || _e === void 0 ? void 0 : _e.call(cbStat, { cam: "нет доступа: " + String((e === null || e === void 0 ? void 0 : e.name) || e) });
             }
         })();
         return () => {
@@ -8793,7 +8900,7 @@ function QrCamera({ onCode, onClose, facing = "environment", hidden = false, onS
             clearTimeout(timer);
             stream === null || stream === void 0 ? void 0 : stream.getTracks().forEach((t) => t.stop());
         };
-    }, [onCode, facing, onStat]);
+    }, [facing]);
     if (hidden)
         return (React.createElement("div", { className: "qr-cam hidden" },
             React.createElement("video", { ref: video, muted: true, playsInline: true }),
@@ -12680,8 +12787,9 @@ body > div{max-width:100%;}
 .near-back p{margin:0; font-size:0.68rem; color:var(--dim);}
 .near-back textarea{width:100%; flex:1 1 auto; resize:none; border-radius:10px; border:1px solid var(--line);
   background:rgba(0,0,0,.2); color:var(--text); font-size:0.58rem; padding:8px; letter-spacing:.04em;}
-.qr-cam.hidden{height:0; overflow:hidden;}
-.qr-cam.hidden video{display:none;}
+.qr-cam.hidden{position:absolute; left:0; bottom:0; width:3px; height:3px; overflow:hidden;
+  opacity:.01; pointer-events:none;}
+.qr-cam.hidden video{width:3px; height:3px; border-radius:0;}
 .near-scan{width:100%; padding:11px; border-radius:12px; border:1px solid rgba(232,184,75,.5);
   background:rgba(232,184,75,.08); color:var(--gold); font-size:0.78rem; cursor:pointer;}
 .qr-cam{position:relative; display:flex; flex-direction:column; gap:8px; align-items:center;}
