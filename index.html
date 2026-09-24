@@ -2469,7 +2469,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "31.9";
+const APP_VERSION = "32.0";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -3816,7 +3816,7 @@ function sunPoint(now) {
 /* ================================================================== */
 /*  Карта                                                             */
 /* ================================================================== */
-function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home, boxWidth, marks, light, playing, setPlaying, view, page: pageProp, setPage, isWish, arcs, noFull, fitBox, onArcPick, spinStep, glow, lookAt, pins }) {
+function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home, boxWidth, marks, light, playing, setPlaying, view, page: pageProp, setPage, isWish, arcs, noFull, fitBox, onArcPick, spinStep, glow, lookAt, pins, dashSel }) {
     const wrapRef = useRef(null);
     const canvasRef = useRef(null);
     const [size, setSize] = useState(320);
@@ -3840,7 +3840,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
     const state = useRef({ isOn, selected, geo, marks, light, full, isMap, isWish, arcs, glow, glowAt: 0 });
     if (state.current.glow !== glow)
         state.current.glowAt = Date.now();
-    state.current = { ...state.current, isOn, selected, geo, marks, light, full, isMap, isWish, arcs, glow, pins };
+    state.current = { ...state.current, isOn, selected, geo, marks, light, full, isMap, isWish, arcs, glow, pins, dashSel };
     /* размер: по фактической ширине плитки, с повторами до готовности разметки */
     useEffect(() => {
         var _c;
@@ -4134,6 +4134,19 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                 if (sel === f.id)
                     ctx.strokeStyle = "#eef3f8";
                 ctx.stroke();
+                if (sel === f.id && state.current.dashSel) {
+                    // выбранная в ленте страна: пунктир другим цветом
+                    ctx.save();
+                    ctx.setLineDash([5, 4]);
+                    ctx.lineDashOffset = -((Date.now() / 60) % 9);
+                    ctx.strokeStyle = "#8fd4ff";
+                    ctx.lineWidth = 2.2;
+                    ctx.shadowColor = "rgba(143,212,255,.8)";
+                    ctx.shadowBlur = 8;
+                    ctx.stroke();
+                    ctx.restore();
+                    needFrame = true;
+                }
                 if (cutAbh)
                     ctx.restore();
             });
@@ -4153,26 +4166,27 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                         const xy = proj([p.lon, p.lat]);
                         if (!xy)
                             return;
-                        const h = 26 * show;
-                        ctx.strokeStyle = "rgba(244,239,226,.85)";
-                        ctx.lineWidth = 1.4;
+                        const h = 40 * show;
+                        ctx.globalAlpha = show;
+                        // иголка
+                        ctx.strokeStyle = "rgba(244,239,226,.9)";
+                        ctx.lineWidth = 1.6;
                         ctx.beginPath();
                         ctx.moveTo(xy[0], xy[1]);
                         ctx.lineTo(xy[0], xy[1] - h);
                         ctx.stroke();
-                        ctx.fillStyle = "rgba(11,22,34,.9)";
-                        ctx.strokeStyle = "rgba(232,184,75,.8)";
-                        const w = 22;
+                        ctx.fillStyle = "rgba(244,239,226,.95)";
                         ctx.beginPath();
-                        ctx.roundRect(xy[0] - w / 2, xy[1] - h - 17, w, 17, 5);
+                        ctx.arc(xy[0], xy[1], 2.6, 0, Math.PI * 2);
                         ctx.fill();
-                        ctx.stroke();
-                        ctx.globalAlpha = show;
-                        ctx.font = "12px system-ui, -apple-system, sans-serif";
+                        // сам флаг — крупно, без плашки
+                        ctx.font = "26px system-ui, -apple-system, sans-serif";
                         ctx.textAlign = "center";
-                        ctx.textBaseline = "middle";
-                        ctx.fillStyle = "#f4efe2";
-                        ctx.fillText(p.flag, xy[0], xy[1] - h - 8);
+                        ctx.textBaseline = "bottom";
+                        ctx.shadowColor = "rgba(0,0,0,.55)";
+                        ctx.shadowBlur = 6;
+                        ctx.fillText(p.flag, xy[0] + 11, xy[1] - h + 9);
+                        ctx.shadowBlur = 0;
                         ctx.globalAlpha = 1;
                     });
                     ctx.restore();
@@ -4546,6 +4560,8 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         const far = d3.geoDistance([lookAt.lon, lookAt.lat], center);
         if (far < 1.0)
             return; // уже в поле зрения — не трогаем шар
+        // сначала поворачиваем шар, подсветку и флажки показываем после
+        state.current.glowAt = Date.now() + 1400;
         turnTo([-lookAt.lon, Math.max(-70, Math.min(70, -lookAt.lat))], 1400);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [lookAt === null || lookAt === void 0 ? void 0 : lookAt.id]);
@@ -10011,18 +10027,28 @@ function WorldWin({ visits, geo, mapProps, onClose }) {
         return set;
     }, [data, year]);
     const fresh = useMemo(() => new Set((data.opened[year] || []).map((r) => r.a3)), [data, year]);
-    const pins = useMemo(() => (data.opened[year] || [])
-        .map((r) => {
-        const c = BY_A3[r.a3];
-        return c ? { a3: r.a3, lon: c.lon, lat: c.lat, flag: flag(c.a2 || "") } : null;
-    })
-        .filter(Boolean), [data, year]);
-    /* куда смотреть: страна года, если её не видно — шар довернётся сам */
+    // флажки: у выбранной страны — только её, иначе у стран текущего года
+    const pins = useMemo(() => {
+        const list = sel
+            ? [{ a3: sel }]
+            : data.opened[year] || [];
+        return list
+            .map((r) => {
+            const c = BY_A3[r.a3];
+            return c ? { a3: r.a3, lon: c.lon, lat: c.lat, flag: flag(c.a2 || "") } : null;
+        })
+            .filter(Boolean);
+    }, [data, year, sel]);
+    /* куда смотреть: выбранная страна, иначе первая страна года */
     const lookAt = useMemo(() => {
+        if (sel) {
+            const c = BY_A3[sel];
+            return c ? { lon: c.lon, lat: c.lat, id: `sel:${sel}` } : null;
+        }
         const first = (data.opened[year] || [])[0];
         const c = first ? BY_A3[first.a3] : null;
         return c ? { lon: c.lon, lat: c.lat, id: `${year}:${first.a3}` } : null;
-    }, [data, year]);
+    }, [data, year, sel]);
     // лента едет к нужному году плавно, без рывков
     useEffect(() => {
         var _c, _d, _e;
@@ -10049,7 +10075,7 @@ function WorldWin({ visits, geo, mapProps, onClose }) {
     }, [year]);
     const shown = years.filter((y) => y <= year);
     const globe = (React.createElement("div", { className: "sd-stage" },
-        React.createElement(Globe, { ...(mapProps || {}), geo: geo, isOn: (a3) => openedBy.has(a3), isWish: () => false, glow: fresh, pins: pins, lookAt: lookAt, selected: sel, full: false, noFull: true, fitBox: true, playing: spin, spinStep: 0.18, setPlaying: setSpin, onToggleFull: () => { }, onPick: (a3) => setSel((v) => (v === a3 ? null : a3)) }),
+        React.createElement(Globe, { ...(mapProps || {}), geo: geo, isOn: (a3) => openedBy.has(a3), isWish: () => false, glow: sel ? new Set() : fresh, pins: pins, dashSel: true, lookAt: lookAt, selected: sel, full: false, noFull: true, fitBox: true, playing: spin, spinStep: 0.18, setPlaying: setSpin, onToggleFull: () => { }, onPick: (a3) => setSel((v) => (v === a3 ? null : a3)) }),
         React.createElement("span", { className: "ww-count" },
             React.createElement("b", null, data.total[year] || openedBy.size),
             React.createElement("em", null, pw(data.total[year] || openedBy.size, "country")))));
@@ -10070,7 +10096,11 @@ function WorldWin({ visits, geo, mapProps, onClose }) {
             React.createElement("b", null, y),
             React.createElement("div", { className: "ww-cards" }, (data.opened[y] || []).map((r) => {
                 var _c, _d;
-                return (React.createElement("button", { key: r.a3, className: "ww-row" + (sel === r.a3 ? " sel" : ""), onClick: () => setSel((v) => (v === r.a3 ? null : r.a3)) },
+                return (React.createElement("button", { key: r.a3, className: "ww-row" + (sel === r.a3 ? " sel" : ""), onClick: () => {
+                        setPlay(false);
+                        setSpin(false);
+                        setSel((v) => (v === r.a3 ? null : r.a3));
+                    } },
                     React.createElement("span", { className: "ww-fl" }, flag(((_c = BY_A3[r.a3]) === null || _c === void 0 ? void 0 : _c.a2) || "")),
                     React.createElement("span", { className: "ww-nm" },
                         ((_d = BY_A3[r.a3]) === null || _d === void 0 ? void 0 : _d.name) || r.a3,
