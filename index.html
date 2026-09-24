@@ -2469,7 +2469,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "31.6";
+const APP_VERSION = "31.7";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -3816,7 +3816,7 @@ function sunPoint(now) {
 /* ================================================================== */
 /*  Карта                                                             */
 /* ================================================================== */
-function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home, boxWidth, marks, light, playing, setPlaying, view, page: pageProp, setPage, isWish, arcs, noFull, fitBox, onArcPick, spinStep, glow }) {
+function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home, boxWidth, marks, light, playing, setPlaying, view, page: pageProp, setPage, isWish, arcs, noFull, fitBox, onArcPick, spinStep, glow, lookAt }) {
     const wrapRef = useRef(null);
     const canvasRef = useRef(null);
     const [size, setSize] = useState(320);
@@ -4469,6 +4469,17 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         };
         anim.current = requestAnimationFrame(step);
     }, [requestDraw]);
+    /* доворот к точке, если её сейчас не видно (для показа истории) */
+    useEffect(() => {
+        if (!lookAt || !isFinite(lookAt.lon))
+            return;
+        const center = [-rot.current[0], -rot.current[1]];
+        const far = d3.geoDistance([lookAt.lon, lookAt.lat], center);
+        if (far < 1.0)
+            return; // уже в поле зрения — не трогаем шар
+        turnTo([-lookAt.lon, Math.max(-70, Math.min(70, -lookAt.lat))], 900);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [lookAt === null || lookAt === void 0 ? void 0 : lookAt.id]);
     /* доворот к выбранной стране */
     useEffect(() => {
         const c = selected ? BY_A3[selected] : null;
@@ -9853,13 +9864,14 @@ function worldData(visits) {
     });
     return { years, opened, byYear, first, total, all: Object.keys(first).length };
 }
-/* «Как открывался мир» во весь экран: шар, время и список года */
+/* «Как открывался мир» во весь экран: шар и лента лет */
 function WorldWin({ visits, geo, mapProps, onClose }) {
     const data = useMemo(() => worldData(visits), [visits]);
-    const years = data.years;
-    const [year, setYear] = useState(years[years.length - 1] || NOW.getFullYear());
+    const years = useMemo(() => data.years.filter((y) => (data.opened[y] || []).length), [data]);
+    const [year, setYear] = useState(years[0] || NOW.getFullYear());
     const [play, setPlay] = useState(false);
     const [sel, setSel] = useState(null);
+    const listRef = useRef(null);
     const [wide, setWide] = useState(typeof window !== "undefined" && window.innerWidth > window.innerHeight);
     useEffect(() => {
         const on = () => setWide(window.innerWidth > window.innerHeight);
@@ -9870,13 +9882,15 @@ function WorldWin({ visits, geo, mapProps, onClose }) {
             window.removeEventListener("orientationchange", on);
         };
     }, []);
-    /* показ истории: идём по годам, задерживаясь там, где стран больше */
+    /* показ истории: год за годом, с задержкой там, где стран больше */
     useEffect(() => {
         if (!play || !years.length)
             return;
-        let i = Math.max(0, years.indexOf(year));
-        if (i >= years.length - 1)
+        let i = years.indexOf(year);
+        if (i >= years.length - 1) {
             i = -1;
+            setYear(years[0]);
+        }
         let stop = false;
         const step = () => {
             if (stop)
@@ -9886,12 +9900,10 @@ function WorldWin({ visits, geo, mapProps, onClose }) {
                 setPlay(false);
                 return;
             }
-            const y = years[i];
-            setYear(y);
-            const k = (data.opened[y] || []).length;
-            setTimeout(step, 420 + k * 180);
+            setYear(years[i]);
+            setTimeout(step, 900 + (data.opened[years[i]] || []).length * 500);
         };
-        const t = setTimeout(step, 300);
+        const t = setTimeout(step, 700);
         return () => {
             stop = true;
             clearTimeout(t);
@@ -9907,78 +9919,51 @@ function WorldWin({ visits, geo, mapProps, onClose }) {
         return set;
     }, [data, year]);
     const fresh = useMemo(() => new Set((data.opened[year] || []).map((r) => r.a3)), [data, year]);
-    const list = useMemo(() => {
-        const now = data.opened[year] || [];
-        const again = (data.byYear[year] || [])
-            .filter((r) => !fresh.has(r.a3))
-            .filter((r, i, arr) => arr.findIndex((x) => x.a3 === r.a3) === i)
-            .sort((a, b) => (a.m || 13) - (b.m || 13));
-        return { now, again };
-    }, [data, year, fresh]);
+    /* куда смотреть: страна года, если её не видно — шар довернётся сам */
+    const lookAt = useMemo(() => {
+        const first = (data.opened[year] || [])[0];
+        const c = first ? BY_A3[first.a3] : null;
+        return c ? { lon: c.lon, lat: c.lat, id: `${year}:${first.a3}` } : null;
+    }, [data, year]);
+    // лента подкручивается так, чтобы год в фокусе был виден
+    useEffect(() => {
+        var _c;
+        const el = (_c = listRef.current) === null || _c === void 0 ? void 0 : _c.querySelector(`[data-year="${year}"]`);
+        el === null || el === void 0 ? void 0 : el.scrollIntoView({ block: "center", behavior: "smooth" });
+    }, [year]);
+    const shown = years.filter((y) => y <= year);
     const globe = (React.createElement("div", { className: "sd-stage" },
-        React.createElement(Globe, { ...(mapProps || {}), geo: geo, isOn: (a3) => openedBy.has(a3), isWish: () => false, glow: fresh, selected: sel, full: false, noFull: true, fitBox: true, playing: true, spinStep: 0.25, setPlaying: () => { }, onToggleFull: () => { }, onPick: (a3) => setSel((v) => (v === a3 ? null : a3)) })));
-    const idx = Math.max(0, years.indexOf(year));
-    const timeline = (React.createElement("div", { className: "ww-time" },
-        React.createElement("div", { className: "ww-big" },
-            React.createElement("b", null, np(data.total[year] || 0, "country")),
-            React.createElement("span", null,
-                "\u043A ",
-                year,
-                " \u0433\u043E\u0434\u0443",
-                (data.opened[year] || []).length
-                    ? ` · +${(data.opened[year] || []).length} за год`
-                    : " · новых не было")),
-        React.createElement("div", { className: "ww-row" },
-            React.createElement("button", { className: "ww-play" + (play ? " on" : ""), onClick: () => setPlay((v) => !v), "aria-label": play ? "Пауза" : "Показать историю" }, play ? "❚❚" : "▶"),
-            React.createElement("div", { className: "ww-track" },
-                React.createElement("div", { className: "ww-bars" }, years.map((y) => {
-                    const k = (data.opened[y] || []).length;
-                    const max = Math.max(1, ...years.map((z) => (data.opened[z] || []).length));
-                    return (React.createElement("i", { key: y, className: y <= year ? "on" : "", style: { height: `${18 + (k / max) * 82}%` } }));
-                })),
-                React.createElement("input", { type: "range", min: 0, max: Math.max(0, years.length - 1), value: idx, onChange: (e) => {
-                        setPlay(false);
-                        setYear(years[+e.target.value]);
-                    } }))),
-        React.createElement("div", { className: "ww-years" },
-            React.createElement("span", null, years[0]),
-            React.createElement("span", null, year),
-            React.createElement("span", null, years[years.length - 1]))));
-    const rows = (React.createElement(React.Fragment, null,
-        React.createElement("div", { className: "ww-cap" },
-            React.createElement("span", null,
-                "\u041E\u0442\u043A\u0440\u044B\u0442\u043E \u0432 ",
-                year),
-            React.createElement("em", null, list.now.length ? np(list.now.length, "country") : "новых стран нет")),
-        React.createElement("div", { className: "ww-list" },
-            list.now.map((r) => {
+        React.createElement(Globe, { ...(mapProps || {}), geo: geo, isOn: (a3) => openedBy.has(a3), isWish: () => false, glow: fresh, lookAt: lookAt, selected: sel, full: false, noFull: true, fitBox: true, playing: false, setPlaying: () => { }, onToggleFull: () => { }, onPick: (a3) => setSel((v) => (v === a3 ? null : a3)) }),
+        React.createElement("span", { className: "ww-count" },
+            React.createElement("b", null, data.total[year] || openedBy.size),
+            React.createElement("em", null, pw(data.total[year] || openedBy.size, "country")))));
+    const controls = (React.createElement("div", { className: "ww-bar" },
+        React.createElement("button", { className: "ww-play" + (play ? " on" : ""), onClick: () => setPlay((v) => !v), "aria-label": play ? "Пауза" : "Показать историю" }, play ? "❚❚" : "▶"),
+        React.createElement("input", { className: "ww-range", type: "range", min: 0, max: Math.max(0, years.length - 1), value: Math.max(0, years.indexOf(year)), onChange: (e) => {
+                setPlay(false);
+                setYear(years[+e.target.value]);
+            } }),
+        React.createElement("span", { className: "ww-year" }, year)));
+    const rows = (React.createElement("div", { className: "ww-line", ref: listRef }, shown.map((y) => (React.createElement("div", { key: y, className: "ww-step" + (y === year ? " on" : ""), "data-year": y },
+        React.createElement("span", { className: "ww-dot" }),
+        React.createElement("div", { className: "ww-body" },
+            React.createElement("b", null, y),
+            React.createElement("div", { className: "ww-cards" }, (data.opened[y] || []).map((r) => {
                 var _c, _d;
-                return (React.createElement("button", { key: r.a3, className: "ww-row new" + (sel === r.a3 ? " sel" : ""), onClick: () => setSel((v) => (v === r.a3 ? null : r.a3)) },
+                return (React.createElement("button", { key: r.a3, className: "ww-row" + (sel === r.a3 ? " sel" : ""), onClick: () => setSel((v) => (v === r.a3 ? null : r.a3)) },
                     React.createElement("span", { className: "ww-fl" }, flag(((_c = BY_A3[r.a3]) === null || _c === void 0 ? void 0 : _c.a2) || "")),
                     React.createElement("span", { className: "ww-nm" },
                         ((_d = BY_A3[r.a3]) === null || _d === void 0 ? void 0 : _d.name) || r.a3,
                         React.createElement("em", null,
-                            r.m ? `${MONTHS[r.m - 1]} ${r.y}` : r.y,
-                            r.cities.length ? ` · ${r.cities[0]}` : "")),
-                    React.createElement("u", null, "\u043D\u043E\u0432\u0430\u044F")));
-            }),
-            list.again.map((r) => {
-                var _c, _d, _e;
-                return (React.createElement("button", { key: "a" + r.a3, className: "ww-row" + (sel === r.a3 ? " sel" : ""), onClick: () => setSel((v) => (v === r.a3 ? null : r.a3)) },
-                    React.createElement("span", { className: "ww-fl" }, flag(((_c = BY_A3[r.a3]) === null || _c === void 0 ? void 0 : _c.a2) || "")),
-                    React.createElement("span", { className: "ww-nm" },
-                        ((_d = BY_A3[r.a3]) === null || _d === void 0 ? void 0 : _d.name) || r.a3,
-                        React.createElement("em", null,
-                            "\u043F\u043E\u0432\u0442\u043E\u0440 \u00B7 \u0432\u043F\u0435\u0440\u0432\u044B\u0435 \u0432 ", (_e = data.first[r.a3]) === null || _e === void 0 ? void 0 :
-                            _e.y))));
-            }),
-            !list.now.length && !list.again.length && (React.createElement("p", { className: "hint small" }, "\u0412 \u044D\u0442\u043E\u043C \u0433\u043E\u0434\u0443 \u043F\u043E\u0435\u0437\u0434\u043E\u043A \u043D\u0435 \u0431\u044B\u043B\u043E.")))));
+                            r.m ? MONTHS[r.m - 1] : "",
+                            r.cities.length ? ` · ${r.cities[0]}` : ""))));
+            }))))))));
     if (wide)
         return (React.createElement("div", { className: "pg-wide", onClick: onClose },
             React.createElement("div", { className: "pg-panel", onClick: (e) => e.stopPropagation() },
                 React.createElement("div", { className: "pg-map ww-map" },
                     globe,
-                    timeline),
+                    controls),
                 React.createElement("div", { className: "pg-side ag-side" },
                     React.createElement("div", { className: "pg-side-head" },
                         React.createElement("b", null, "\u041A\u0430\u043A \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u043B\u0441\u044F \u043C\u0438\u0440"),
@@ -9990,7 +9975,7 @@ function WorldWin({ visits, geo, mapProps, onClose }) {
             React.createElement("div", { className: "zoom-body rep" },
                 React.createElement("b", null, "\u041A\u0430\u043A \u043E\u0442\u043A\u0440\u044B\u0432\u0430\u043B\u0441\u044F \u043C\u0438\u0440"),
                 React.createElement("div", { className: "pg-map far-map ww-map" }, globe),
-                timeline,
+                controls,
                 React.createElement("div", { className: "ag-frame sd-frame" }, rows)))));
 }
 /* «Части света» во весь экран: диаграмма и список стран */
@@ -13058,34 +13043,36 @@ body > div{max-width:100%;}
 .donut-row .donut-legend div{cursor:pointer;}
 .donut-row .donut-legend div.on{color:var(--gold);}
 .ct-list{display:flex; flex-direction:column; gap:5px;}
-.ww-map{flex-direction:column;}
-.ww-time{flex:none; display:flex; flex-direction:column; gap:7px; padding:8px 4px 2px;}
-.ww-big{display:flex; align-items:baseline; gap:8px;}
-.ww-big b{font-size:1.35rem; font-weight:700; color:var(--gold);}
-.ww-big span{font-size:0.72rem; color:var(--dim);}
-.ww-row{display:flex; align-items:center; gap:10px;}
-.ww-play{flex:none; width:34px; height:34px; border-radius:50%; border:0; background:var(--gold);
-  color:#11202e; font-size:0.72rem; cursor:pointer;}
+.ww-map{flex-direction:column; position:relative;}
+.sd-stage{position:relative;}
+.ww-count{position:absolute; top:2px; right:6px; display:flex; align-items:baseline; gap:5px;}
+.ww-count b{font-size:1.25rem; font-weight:700; color:var(--gold);}
+.ww-count em{font-style:normal; font-size:0.66rem; color:var(--dim);}
+.ww-bar{flex:none; display:flex; align-items:center; gap:10px; padding:6px 2px 2px;}
+.ww-play{flex:none; width:32px; height:32px; border-radius:50%; border:0; background:var(--gold);
+  color:#11202e; font-size:0.7rem; cursor:pointer;}
 .ww-play.on{background:rgba(232,184,75,.25); color:var(--gold);}
-.ww-track{position:relative; flex:1 1 auto; height:34px;}
-.ww-bars{position:absolute; inset:0; display:flex; align-items:flex-end; gap:1px; padding:0 6px;}
-.ww-bars i{flex:1 1 0; background:rgba(143,179,214,.18); border-radius:2px 2px 0 0;}
-.ww-bars i.on{background:rgba(232,184,75,.55);}
-.ww-track input{position:absolute; inset:0; width:100%; height:100%; margin:0; opacity:0.01;}
-.ww-years{display:flex; justify-content:space-between; font-size:0.62rem; color:var(--dim);}
-.ww-years span:nth-child(2){color:var(--gold);}
-.ww-cap{display:flex; align-items:baseline; justify-content:space-between; font-size:0.74rem;}
-.ww-cap em{font-style:normal; font-size:0.68rem; color:var(--dim);}
-.ww-list{display:flex; flex-direction:column; gap:5px;}
+.ww-range{flex:1 1 auto; accent-color:var(--gold); height:22px;}
+.ww-year{flex:none; font-size:0.78rem; color:var(--gold); min-width:38px; text-align:right;}
+.ww-line{display:flex; flex-direction:column;}
+.ww-step{display:grid; grid-template-columns:22px 1fr; gap:10px; position:relative; padding-bottom:10px;}
+.ww-step::before{content:""; position:absolute; left:10px; top:6px; bottom:-4px; width:2px;
+  background:rgba(143,179,214,.22);}
+.ww-step:last-child::before{display:none;}
+.ww-dot{width:12px; height:12px; margin:4px 0 0 5px; border-radius:50%; background:#2f4a63; z-index:1;}
+.ww-step.on .ww-dot{background:var(--gold); box-shadow:0 0 10px rgba(232,184,75,.8);}
+.ww-body{display:flex; flex-direction:column; gap:5px; min-width:0;}
+.ww-body > b{font-size:0.78rem; color:var(--dim);}
+.ww-step.on .ww-body > b{color:var(--gold);}
+.ww-cards{display:flex; flex-direction:column; gap:5px;}
 .ww-row{display:flex; align-items:center; gap:9px; padding:8px 11px; border-radius:12px; border:1px solid var(--line);
   background:var(--field); color:var(--text); text-align:left; cursor:pointer;}
-.ww-row.new{border-color:rgba(232,184,75,.45); background:linear-gradient(135deg, rgba(232,184,75,.1), transparent 60%), var(--field);}
+.ww-step.on .ww-row{border-color:rgba(232,184,75,.45);
+  background:linear-gradient(135deg, rgba(232,184,75,.1), transparent 60%), var(--field);}
 .ww-row.sel{border-color:var(--gold);}
 .ww-fl{flex:none; font-size:1.05rem;}
 .ww-nm{flex:1 1 auto; min-width:0; display:flex; flex-direction:column; font-size:0.8rem;}
 .ww-nm em{font-style:normal; font-size:0.64rem; color:var(--dim);}
-.ww-row u{flex:none; text-decoration:none; font-size:0.6rem; color:var(--gold);
-  border:1px solid rgba(232,184,75,.4); border-radius:9px; padding:2px 7px;}
 .ct-row{display:flex !important; flex-direction:row !important; align-items:center; gap:9px;
   padding:8px 11px; border-radius:11px; border:1px solid var(--line); background:var(--field); text-align:left;}
 .ct-flag{flex:none; font-size:1.05rem;}
