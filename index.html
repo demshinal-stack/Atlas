@@ -2481,7 +2481,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "34.6";
+const APP_VERSION = "34.7";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -10093,6 +10093,205 @@ function viewGroups(list) {
     });
     return groups.length ? groups : [{ items: [], lon: 0, lat: 0 }];
 }
+/* куда возвращаетесь: страны, города и отели с числом поездок */
+function oftenData(visits) {
+    const countries = {};
+    const cities = {};
+    const hotels = {};
+    Object.entries(visits || {}).forEach(([a3, arr]) => (arr || []).forEach((t) => {
+        var _c;
+        if (t.plan)
+            return;
+        const y = ((_c = dParts(t.from)) === null || _c === void 0 ? void 0 : _c.y) || t.y || null;
+        const c = (countries[a3] = countries[a3] || { a3, n: 0, years: [], cities: {} });
+        c.n += 1;
+        if (y)
+            c.years.push(y);
+        (t.cities || []).forEach((city) => {
+            const key = `${a3}|${city}`;
+            const rec = (cities[key] = cities[key] || { a3, name: city, n: 0 });
+            rec.n += 1;
+            c.cities[city] = (c.cities[city] || 0) + 1;
+        });
+        (t.hotels || []).forEach((h) => {
+            const name = typeof h === "string" ? h : h === null || h === void 0 ? void 0 : h.name;
+            if (!name)
+                return;
+            const key = `${a3}|${name}`;
+            const rec = (hotels[key] = hotels[key] || { a3, name, n: 0, city: (t.cities || [])[0] || "" });
+            rec.n += 1;
+        });
+    }));
+    const list = (obj) => Object.values(obj).sort((x, y2) => y2.n - x.n || 0);
+    const cs = list(countries).map((c) => ({
+        ...c,
+        years: [...new Set(c.years)].sort(),
+        top: Object.entries(c.cities)
+            .sort((a, b) => b[1] - a[1])
+            .map(([name, n]) => ({ name, n })),
+    }));
+    return {
+        countries: cs,
+        cities: list(cities),
+        hotels: list(hotels).filter((h) => h.n > 1),
+        once: cs.filter((c) => c.n === 1).length,
+        total: cs.length,
+        trips: cs.reduce((a, c) => a + c.n, 0),
+    };
+}
+/* «Чаще всего» во весь экран: шар с любимыми местами и список */
+function OftenWin({ visits, geo, mapProps, onClose }) {
+    var _c, _d;
+    const data = useMemo(() => oftenData(visits), [visits]);
+    const [mode, setMode] = useState("countries"); // countries | cities | hotels
+    const [sel, setSel] = useState(null);
+    const [open, setOpen] = useState(null); // раскрытая страна
+    const [wide, setWide] = useState(typeof window !== "undefined" && window.innerWidth > window.innerHeight);
+    useEffect(() => {
+        const on = () => setWide(window.innerWidth > window.innerHeight);
+        window.addEventListener("resize", on);
+        window.addEventListener("orientationchange", on);
+        return () => {
+            window.removeEventListener("resize", on);
+            window.removeEventListener("orientationchange", on);
+        };
+    }, []);
+    const rows = useMemo(() => {
+        if (mode === "cities")
+            return data.cities.slice(0, 20);
+        if (mode === "hotels")
+            return data.hotels.slice(0, 20);
+        return data.countries.slice(0, 20);
+    }, [data, mode]);
+    const lead = ((_c = rows[0]) === null || _c === void 0 ? void 0 : _c.n) || 1;
+    /* точки на шаре: размер по числу поездок */
+    const marks = useMemo(() => rows
+        .map((r) => {
+        const pt = mode === "countries"
+            ? BY_A3[r.a3] && [BY_A3[r.a3].lon, BY_A3[r.a3].lat]
+            : cityPoint(r.a3, r.name) || (BY_A3[r.a3] && [BY_A3[r.a3].lon, BY_A3[r.a3].lat]);
+        if (!pt)
+            return null;
+        return {
+            a3: r.a3,
+            lon: pt[0],
+            lat: pt[1],
+            r: 4 + Math.round((r.n / lead) * 9),
+            label: String(r.n),
+        };
+    })
+        .filter(Boolean), [rows, mode, lead]);
+    const selRow = rows.find((r) => keyOfRow(r) === sel) || null;
+    const pins = useMemo(() => {
+        if (!selRow)
+            return [];
+        const pt = mode === "countries"
+            ? BY_A3[selRow.a3] && [BY_A3[selRow.a3].lon, BY_A3[selRow.a3].lat]
+            : cityPoint(selRow.a3, selRow.name) ||
+                (BY_A3[selRow.a3] && [BY_A3[selRow.a3].lon, BY_A3[selRow.a3].lat]);
+        if (!pt)
+            return [];
+        const c = BY_A3[selRow.a3];
+        return [
+            {
+                a3: selRow.a3,
+                lon: pt[0],
+                lat: pt[1],
+                flag: (c === null || c === void 0 ? void 0 : c.a2) ? flag(c.a2) : "",
+                img: OWN_FLAGS[selRow.a3] || null,
+                code: selRow.a3,
+            },
+        ];
+    }, [selRow, mode]);
+    const lookAt = useMemo(() => {
+        if (!pins.length)
+            return null;
+        return { lon: pins[0].lon, lat: pins[0].lat, id: `often:${sel}`, force: true };
+    }, [pins, sel]);
+    const globe = (React.createElement("div", { className: "sd-stage" },
+        React.createElement(Globe, { ...(mapProps || {}), geo: geo, isOn: (a3) => data.countries.some((c) => c.a3 === a3), isWish: () => false, marks: marks, pins: pins, lookAt: lookAt, dashSel: true, selected: selRow ? selRow.a3 : null, full: false, noFull: true, fitBox: true, playing: !sel, spinStep: 0.2, setPlaying: () => { }, onToggleFull: () => { }, onPick: (a3) => {
+                const row = rows.find((r) => r.a3 === a3);
+                setSel(row ? keyOfRow(row) : null);
+            } })));
+    const tabs = (React.createElement("div", { className: "of-tabs" }, [
+        ["countries", "Страны"],
+        ["cities", "Города"],
+        ["hotels", "Отели"],
+    ].map(([k, t]) => (React.createElement("button", { key: k, className: mode === k ? "on" : "", onClick: () => {
+            setMode(k);
+            setSel(null);
+            setOpen(null);
+        } }, t)))));
+    const sum = (React.createElement("div", { className: "of-sum" },
+        React.createElement("span", null,
+            React.createElement("b", null, data.total),
+            React.createElement("em", null, pw(data.total, "country"))),
+        React.createElement("span", null,
+            React.createElement("b", null, ((_d = data.countries[0]) === null || _d === void 0 ? void 0 : _d.n) || 0),
+            React.createElement("em", null, "\u043C\u0430\u043A\u0441\u0438\u043C\u0443\u043C \u0440\u0430\u0437")),
+        React.createElement("span", null,
+            React.createElement("b", null, data.once),
+            React.createElement("em", null, "\u0431\u044B\u043B\u0438 \u043E\u0434\u043D\u0430\u0436\u0434\u044B"))));
+    const list = (React.createElement(React.Fragment, null,
+        React.createElement("div", { className: "of-list" },
+            rows.map((r, i) => {
+                var _c, _d;
+                const key = keyOfRow(r);
+                const isOpen = open === key;
+                return (React.createElement("div", { key: key },
+                    React.createElement("button", { className: "of-row" + (i === 0 ? " top" : "") + (sel === key ? " sel" : ""), onClick: () => {
+                            setSel(key);
+                            if (mode === "countries")
+                                setOpen(isOpen ? null : key);
+                        } },
+                        React.createElement("span", { className: "of-rank" }, i + 1),
+                        React.createElement("span", { className: "of-fl" },
+                            React.createElement(Flg, { a3: r.a3 })),
+                        React.createElement("span", { className: "of-nm" },
+                            mode === "countries" ? ((_c = BY_A3[r.a3]) === null || _c === void 0 ? void 0 : _c.name) || r.a3 : r.name,
+                            React.createElement("em", null,
+                                np(r.n, "trip"),
+                                mode === "countries" && r.years.length
+                                    ? ` · ${r.years[0]}–${r.years[r.years.length - 1]}`
+                                    : mode !== "countries"
+                                        ? ` · ${((_d = BY_A3[r.a3]) === null || _d === void 0 ? void 0 : _d.name) || r.a3}`
+                                        : "")),
+                        React.createElement("span", { className: "of-bar" },
+                            React.createElement("i", { style: { width: `${Math.round((r.n / lead) * 100)}%` } })),
+                        React.createElement("span", { className: "of-cnt" }, r.n)),
+                    isOpen && mode === "countries" && r.top.length > 0 && (React.createElement("div", { className: "of-sub" }, r.top.slice(0, 5).map((c) => (React.createElement("div", { key: c.name, className: "of-row sub" },
+                        React.createElement("span", { className: "of-nm" },
+                            c.name,
+                            React.createElement("em", null, np(c.n, "trip"))),
+                        React.createElement("span", { className: "of-cnt" }, c.n))))))));
+            }),
+            !rows.length && React.createElement("p", { className: "hint small" }, "\u041F\u043E\u043A\u0430 \u043D\u0435\u0447\u0435\u0433\u043E \u043F\u043E\u043A\u0430\u0437\u0430\u0442\u044C.")),
+        mode === "countries" && data.total > 0 && (React.createElement("p", { className: "hint small of-note" },
+            "\u0412 ",
+            np(data.once, "country"),
+            " \u0432\u044B \u0431\u044B\u043B\u0438 \u043E\u0434\u0438\u043D \u0440\u0430\u0437."))));
+    if (wide)
+        return (React.createElement("div", { className: "pg-wide", onClick: onClose },
+            React.createElement("div", { className: "pg-panel", onClick: (e) => e.stopPropagation() },
+                React.createElement("div", { className: "pg-map ww-map" },
+                    globe,
+                    sum),
+                React.createElement("div", { className: "pg-side ag-side" },
+                    React.createElement("div", { className: "pg-side-head" },
+                        React.createElement("b", null, "\u0427\u0430\u0449\u0435 \u0432\u0441\u0435\u0433\u043E"),
+                        React.createElement("button", { className: "zoom-x", onClick: onClose, "aria-label": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C" }, "\u2715")),
+                    tabs,
+                    React.createElement("div", { className: "ag-frame sd-frame" }, list)))));
+    return (React.createElement("div", { className: "zoom-layer pg-layer", onClick: onClose },
+        React.createElement("div", { className: "zoom-box", onClick: (e) => e.stopPropagation() },
+            React.createElement("button", { className: "zoom-x", onClick: onClose, "aria-label": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C" }, "\u2715"),
+            React.createElement("div", { className: "zoom-body rep" },
+                React.createElement("b", null, "\u0427\u0430\u0449\u0435 \u0432\u0441\u0435\u0433\u043E"),
+                React.createElement("div", { className: "pg-map far-map ww-map" }, globe),
+                tabs,
+                React.createElement("div", { className: "ag-frame sd-frame" }, list)))));
+}
+const keyOfRow = (r) => (r.name ? `${r.a3}|${r.name}` : r.a3);
 /* «Как открывался мир» во весь экран: шар и лента лет */
 function WorldWin({ visits, geo, mapProps, onClose }) {
     const data = useMemo(() => worldData(visits), [visits]);
@@ -10731,7 +10930,7 @@ function GridChart({ grid, planGrid, vague, years, onOpen }) {
             " \u043D\u0435\u0442\u043E\u0447\u043D\u0430\u044F \u0434\u0430\u0442\u0430")));
 }
 /* шторка отчётов */
-function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], onOpenTrip, geo, home, onPerson, onFar, onAir, onSeason, onConts, onWorld, meName = "", repCfg = null }) {
+function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], onOpenTrip, geo, home, onPerson, onFar, onAir, onSeason, onConts, onWorld, onOften, meName = "", repCfg = null }) {
     ME_NAME = meName;
     const r = useMemo(() => reportData(visits, since, people), [visits, since, people]);
     const crew = useMemo(() => travelerStats(visits, people), [visits, people, meName]);
@@ -10796,7 +10995,7 @@ function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], o
                 Object.keys(r.days).length ? (React.createElement(RowsChart, { rows: years
                         .filter((y) => r.days[y])
                         .map((y) => [String(y), r.days[y]]), unit: "\u0434\u043D." })) : (React.createElement("p", { className: "hint small" }, "\u0423\u043A\u0430\u0436\u0438\u0442\u0435 \u0442\u043E\u0447\u043D\u044B\u0435 \u0434\u0430\u0442\u044B \u0445\u043E\u0442\u044F \u0431\u044B \u0432 \u043E\u0434\u043D\u043E\u0439 \u043F\u043E\u0435\u0437\u0434\u043A\u0435."))),
-            React.createElement(Reveal, { rid: "often", className: "rep" },
+            React.createElement(Reveal, { rid: "often", className: "rep", zoomable: false, onFull: () => onOften === null || onOften === void 0 ? void 0 : onOften() },
                 React.createElement("b", null, "\u0427\u0430\u0449\u0435 \u0432\u0441\u0435\u0433\u043E"),
                 React.createElement("em", null, "\u0433\u043E\u0440\u043E\u0434\u0430, \u043A\u0443\u0434\u0430 \u0432\u043E\u0437\u0432\u0440\u0430\u0449\u0430\u0435\u0442\u0435\u0441\u044C"),
                 r.topCities.length ? (React.createElement(RowsChart, { rows: r.topCities })) : (React.createElement("p", { className: "hint small" }, "\u0413\u043E\u0440\u043E\u0434\u0430 \u043F\u043E\u043A\u0430 \u043D\u0435 \u043E\u0442\u043C\u0435\u0447\u0435\u043D\u044B."))),
@@ -11465,6 +11664,7 @@ function Atlas() {
     const [seasonWin, setSeasonWin] = useState(false);
     const [contsWin, setContsWin] = useState(false);
     const [worldWin, setWorldWin] = useState(false);
+    const [oftenWin, setOftenWin] = useState(false);
     // разбор обмена с родными: показываем, пока пользователь не решит
     const [sync, setSync] = useState(null);
     const [near, setNear] = useState(false);
@@ -11600,7 +11800,7 @@ function Atlas() {
     /* нажатие на меню: закрыть всё, что открыто поверх, и перейти в раздел.
        Если поверх было открыто окно, а нажали текущий раздел — просто закрываем окно */
     const goTab = (tab, sheetName) => {
-        const over = !!(person || far || airWin || seasonWin || contsWin || worldWin) ||
+        const over = !!(person || far || airWin || seasonWin || contsWin || worldWin || oftenWin) ||
             (typeof document !== "undefined" && !!document.querySelector(".zoom-layer"));
         setPerson(null);
         setFar(null);
@@ -11611,6 +11811,7 @@ function Atlas() {
         setSync(null);
         setContsWin(false);
         setWorldWin(false);
+        setOftenWin(false);
         if (typeof window !== "undefined")
             window.dispatchEvent(new Event("atlas:closezoom"));
         setSheetBack(null);
@@ -12741,7 +12942,7 @@ function Atlas() {
                             setSheet(null);
                         } }),
                     React.createElement(DoublesSheet, { open: sheet === "doubles", onClose: () => setSheet("profile"), box: box, pairs: doubles, people: profile.people || [], home: profile.home || null, onJoin: joinDouble }),
-                    React.createElement(ReportsSheet, { open: sheet === "reports", onClose: () => setSheet(sheetBack === "profile" ? "profile" : null), box: box, visits: visits, since: profile.since, stats: stats, people: profile.people || [], home: profile.home || null, geo: geo, home: profile.home || null, onPerson: setPerson, onFar: setFar, onAir: setAirWin, onSeason: () => setSeasonWin(true), onConts: () => setContsWin(true), onWorld: () => setWorldWin(true), repCfg: profile.reports || null, meName: profile.name || "", onOpenTrip: (a3, id) => {
+                    React.createElement(ReportsSheet, { open: sheet === "reports", onClose: () => setSheet(sheetBack === "profile" ? "profile" : null), box: box, visits: visits, since: profile.since, stats: stats, people: profile.people || [], home: profile.home || null, geo: geo, home: profile.home || null, onPerson: setPerson, onFar: setFar, onAir: setAirWin, onSeason: () => setSeasonWin(true), onConts: () => setContsWin(true), onWorld: () => setWorldWin(true), onOften: () => setOftenWin(true), repCfg: profile.reports || null, meName: profile.name || "", onOpenTrip: (a3, id) => {
                             setSelected(a3);
                             setEditId(id || null);
                             setSheet(null);
@@ -12762,6 +12963,17 @@ function Atlas() {
                         }, onFilters: openFilters }),
                     seasonWin && React.createElement(SeasonWin, { visits: visits, onClose: () => setSeasonWin(false) }),
                     contsWin && React.createElement(ContsWin, { visits: visits, geo: geo, onClose: () => setContsWin(false) }),
+                    oftenWin && (React.createElement(OftenWin, { visits: visits, geo: geo, onClose: () => setOftenWin(false), mapProps: {
+                            visitKey,
+                            home: lastTrip,
+                            boxWidth: 0,
+                            light,
+                            playing: true,
+                            setPlaying: () => { },
+                            view: "globe",
+                            page: 0,
+                            setPage: () => { },
+                        } })),
                     worldWin && (React.createElement(WorldWin, { visits: visits, geo: geo, onClose: () => setWorldWin(false), mapProps: {
                             visitKey,
                             home: lastTrip,
@@ -13432,6 +13644,32 @@ body > div{max-width:100%;}
 .ww-count{position:absolute; top:2px; right:6px; display:flex; align-items:baseline; gap:5px;}
 .ww-count b{font-size:1.25rem; font-weight:700; color:var(--gold);}
 .ww-count em{font-style:normal; font-size:0.66rem; color:var(--dim);}
+.of-tabs{flex:none; display:flex; gap:6px; background:rgba(255,255,255,.04); border-radius:12px; padding:4px;}
+.of-tabs button{flex:1 1 0; padding:8px 6px; border:0; border-radius:9px; background:none; color:var(--dim);
+  font-size:0.76rem; cursor:pointer;}
+.of-tabs button.on{background:var(--gold); color:#11202e; font-weight:600;}
+.of-sum{flex:none; display:flex; gap:14px; justify-content:center; padding:6px 0 2px;}
+.of-sum span{display:flex; flex-direction:column; align-items:center;}
+.of-sum b{font-size:1.1rem; color:var(--gold); font-weight:700;}
+.of-sum em{font-style:normal; font-size:0.6rem; color:var(--dim);}
+.of-list{display:flex; flex-direction:column; gap:6px;}
+.of-row{width:100%; display:flex; align-items:center; gap:9px; padding:9px 11px; border-radius:12px;
+  border:1px solid var(--line); background:var(--field); color:var(--text); text-align:left; cursor:pointer;}
+.of-row.top{border-color:rgba(232,184,75,.45);
+  background:linear-gradient(135deg, rgba(232,184,75,.1), transparent 60%), var(--field);}
+.of-row.sel{border-color:var(--gold);}
+.of-row.sub{background:rgba(255,255,255,.03); cursor:default; padding:7px 10px;}
+.of-rank{flex:none; width:24px; height:24px; border-radius:50%; display:flex; align-items:center;
+  justify-content:center; font-size:0.66rem; color:var(--dim); background:rgba(255,255,255,.06);}
+.of-row.top .of-rank{background:var(--gold); color:#11202e; font-weight:700;}
+.of-fl{flex:none; font-size:1.05rem;}
+.of-nm{flex:1 1 auto; min-width:0; display:flex; flex-direction:column; font-size:0.8rem;}
+.of-nm em{font-style:normal; font-size:0.63rem; color:var(--dim);}
+.of-bar{flex:0 0 60px; height:7px; border-radius:4px; background:rgba(255,255,255,.08); overflow:hidden;}
+.of-bar i{display:block; height:100%; background:var(--gold); border-radius:4px;}
+.of-cnt{flex:none; min-width:20px; text-align:right; font-size:0.78rem; color:var(--gold);}
+.of-sub{margin:6px 0 0 30px; display:flex; flex-direction:column; gap:5px;}
+.of-note{margin-top:8px;}
 .ww-again{position:absolute; right:8px; bottom:8px; z-index:3; width:40px; height:40px; border-radius:50%;
   border:1px solid rgba(232,184,75,.5); background:rgba(11,23,36,.75); color:var(--gold);
   font-size:0.8rem; cursor:pointer; backdrop-filter:blur(4px);}
