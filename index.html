@@ -2481,7 +2481,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "36.1";
+const APP_VERSION = "36.2";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -10223,6 +10223,11 @@ const SAT_TONES = [
     { a: "#efe2ff", b: "#b58fd8", c: "#6b4b98", r1: "#8163b0", r2: "#e3d2f8", t: "#221836" },
     { a: "#dcf3e8", b: "#86c6a8", c: "#3d7960", r1: "#57967a", r2: "#cdeedd", t: "#12301f" },
 ];
+/* кольцо как плоская пластина: внешний обод и внутренняя часть за прорезью */
+const RING_PLATE = "M 2 100 a 98 26 0 1 0 196 0 a 98 26 0 1 0 -196 0 Z " +
+    "M 22 100 a 78 20 0 1 0 156 0 a 78 20 0 1 0 -156 0 Z";
+const RING_INNER = "M 25 100 a 75 19 0 1 0 150 0 a 75 19 0 1 0 -150 0 Z " +
+    "M 31 100 a 69 17 0 1 0 138 0 a 69 17 0 1 0 -138 0 Z";
 function Saturn({ name, n, tone = 0, size = 120, id = "s", orbit = true }) {
     const t = SAT_TONES[tone % SAT_TONES.length];
     const u = `sat${id}`;
@@ -10236,8 +10241,9 @@ function Saturn({ name, n, tone = 0, size = 120, id = "s", orbit = true }) {
                 React.createElement("stop", { offset: "100%", stopColor: t.c })),
             React.createElement("linearGradient", { id: `${u}-ring`, x1: "0%", y1: "0%", x2: "100%", y2: "0%" },
                 React.createElement("stop", { offset: "0%", stopColor: t.r1 }),
-                React.createElement("stop", { offset: "34%", stopColor: t.r2 }),
-                React.createElement("stop", { offset: "66%", stopColor: t.r2 }),
+                React.createElement("stop", { offset: "22%", stopColor: t.r2 }),
+                React.createElement("stop", { offset: "50%", stopColor: t.b }),
+                React.createElement("stop", { offset: "78%", stopColor: t.r2 }),
                 React.createElement("stop", { offset: "100%", stopColor: t.r1 })),
             React.createElement("radialGradient", { id: `${u}-glow`, cx: "50%", cy: "50%", r: "50%" },
                 React.createElement("stop", { offset: "0%", stopColor: "#fff", stopOpacity: ".26" }),
@@ -10245,15 +10251,20 @@ function Saturn({ name, n, tone = 0, size = 120, id = "s", orbit = true }) {
                 React.createElement("stop", { offset: "100%", stopColor: "#fff", stopOpacity: "0" })),
             React.createElement("linearGradient", { id: `${u}-plate`, x1: "0%", y1: "0%", x2: "0%", y2: "100%" },
                 React.createElement("stop", { offset: "0%", stopColor: t.r2 }),
-                React.createElement("stop", { offset: "100%", stopColor: t.r1 }))),
+                React.createElement("stop", { offset: "100%", stopColor: t.r1 })),
+            React.createElement("clipPath", { id: `${u}-up` },
+                React.createElement("rect", { x: "-20", y: "-20", width: "240", height: "120" })),
+            React.createElement("clipPath", { id: `${u}-dn` },
+                React.createElement("rect", { x: "-20", y: "100", width: "240", height: "180" }))),
         React.createElement("circle", { cx: "100", cy: "100", r: "82", fill: `url(#${u}-glow)` }),
         orbit && (React.createElement("g", { fill: "none", stroke: "#fff", strokeOpacity: ".3", strokeWidth: "1.2", transform: "rotate(-14 100 100)" },
             React.createElement("ellipse", { cx: "100", cy: "100", rx: "104", ry: "38" }),
             React.createElement("circle", { cx: "24", cy: "100", r: "4", fill: "#fff", fillOpacity: ".5", stroke: "none" }),
             React.createElement("circle", { cx: "100", cy: "62", r: "3.5", fill: "#fff", fillOpacity: ".65", stroke: "none" }),
             React.createElement("circle", { cx: "176", cy: "100", r: "4.5", fill: "#fff", fillOpacity: ".45", stroke: "none" }))),
-        React.createElement("g", { fill: "none", stroke: `url(#${u}-ring)`, strokeWidth: "22", strokeLinecap: "round", transform: "rotate(-14 100 100)" },
-            React.createElement("path", { d: "M 8 100 A 92 24 0 0 1 192 100" })),
+        React.createElement("g", { transform: "rotate(-14 100 100)", clipPath: `url(#${u}-up)` },
+            React.createElement("path", { fill: `url(#${u}-ring)`, fillRule: "evenodd", d: RING_PLATE }),
+            React.createElement("path", { fill: `url(#${u}-ring)`, fillOpacity: ".5", fillRule: "evenodd", d: RING_INNER })),
         React.createElement("g", { transform: "translate(100 100) scale(0.88) translate(-100 -100)" },
             React.createElement("circle", { cx: "100", cy: "100", r: "70", fill: `url(#${u}-ball)` }),
             React.createElement("g", { fill: "none", stroke: "#fff", strokeOpacity: ".18", strokeLinecap: "round" },
@@ -10267,8 +10278,9 @@ function Saturn({ name, n, tone = 0, size = 120, id = "s", orbit = true }) {
             React.createElement("ellipse", { cx: "72", cy: "67", rx: "7", ry: "11", fill: "#fff", fillOpacity: ".28", transform: "rotate(-25 72 67)" }),
             React.createElement("ellipse", { cx: "128", cy: "126", rx: "31", ry: "39", fill: "#000", fillOpacity: ".13", transform: "rotate(-25 128 126)" })),
         React.createElement("text", { x: "100", y: "96", textAnchor: "middle", fontSize: "40", fontWeight: "800", fill: t.t, style: { paintOrder: "stroke", stroke: t.a, strokeWidth: 4, strokeLinejoin: "round" } }, n),
-        React.createElement("g", { fill: "none", stroke: `url(#${u}-ring)`, strokeWidth: "22", strokeLinecap: "round", transform: "rotate(-14 100 100)" },
-            React.createElement("path", { d: "M 192 100 A 92 24 0 0 1 8 100" })),
+        React.createElement("g", { transform: "rotate(-14 100 100)", clipPath: `url(#${u}-dn)` },
+            React.createElement("path", { fill: `url(#${u}-ring)`, fillRule: "evenodd", d: RING_PLATE }),
+            React.createElement("path", { fill: `url(#${u}-ring)`, fillOpacity: ".5", fillRule: "evenodd", d: RING_INNER })),
         React.createElement("path", { d: `M 100 156 L 100 196`, stroke: t.r1, strokeWidth: "4", strokeLinecap: "round", fill: "none" }),
         React.createElement("circle", { cx: "100", cy: "158", r: "4.5", fill: t.r2 }),
         React.createElement("rect", { x: 100 - plateW / 2, y: "196", width: plateW, height: "34", rx: "10", fill: `url(#${u}-plate)`, stroke: t.r1, strokeWidth: "1.5" }),
