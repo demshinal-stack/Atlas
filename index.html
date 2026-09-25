@@ -2481,7 +2481,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "36.0";
+const APP_VERSION = "36.1";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -10226,7 +10226,9 @@ const SAT_TONES = [
 function Saturn({ name, n, tone = 0, size = 120, id = "s", orbit = true }) {
     const t = SAT_TONES[tone % SAT_TONES.length];
     const u = `sat${id}`;
-    return (React.createElement("svg", { className: "dg-planet", viewBox: "0 0 200 200", width: size, height: size },
+    const label = String(name || "");
+    const plateW = Math.max(74, label.length * 11 + 26);
+    return (React.createElement("svg", { className: "dg-planet", viewBox: "0 0 200 250", width: size, height: size * 1.25 },
         React.createElement("defs", null,
             React.createElement("radialGradient", { id: `${u}-ball`, cx: "34%", cy: "30%", r: "78%" },
                 React.createElement("stop", { offset: "0%", stopColor: t.a }),
@@ -10241,7 +10243,9 @@ function Saturn({ name, n, tone = 0, size = 120, id = "s", orbit = true }) {
                 React.createElement("stop", { offset: "0%", stopColor: "#fff", stopOpacity: ".26" }),
                 React.createElement("stop", { offset: "65%", stopColor: "#fff", stopOpacity: ".08" }),
                 React.createElement("stop", { offset: "100%", stopColor: "#fff", stopOpacity: "0" })),
-            React.createElement("path", { id: `${u}-path`, fill: "none", d: "M 20 126 C 61 145, 139 145, 180 126" })),
+            React.createElement("linearGradient", { id: `${u}-plate`, x1: "0%", y1: "0%", x2: "0%", y2: "100%" },
+                React.createElement("stop", { offset: "0%", stopColor: t.r2 }),
+                React.createElement("stop", { offset: "100%", stopColor: t.r1 }))),
         React.createElement("circle", { cx: "100", cy: "100", r: "82", fill: `url(#${u}-glow)` }),
         orbit && (React.createElement("g", { fill: "none", stroke: "#fff", strokeOpacity: ".3", strokeWidth: "1.2", transform: "rotate(-14 100 100)" },
             React.createElement("ellipse", { cx: "100", cy: "100", rx: "104", ry: "38" }),
@@ -10265,8 +10269,10 @@ function Saturn({ name, n, tone = 0, size = 120, id = "s", orbit = true }) {
         React.createElement("text", { x: "100", y: "96", textAnchor: "middle", fontSize: "40", fontWeight: "800", fill: t.t, style: { paintOrder: "stroke", stroke: t.a, strokeWidth: 4, strokeLinejoin: "round" } }, n),
         React.createElement("g", { fill: "none", stroke: `url(#${u}-ring)`, strokeWidth: "22", strokeLinecap: "round", transform: "rotate(-14 100 100)" },
             React.createElement("path", { d: "M 192 100 A 92 24 0 0 1 8 100" })),
-        React.createElement("text", { fontSize: "21", fontWeight: "800", fill: t.t },
-            React.createElement("textPath", { href: `#${u}-path`, startOffset: "50%", textAnchor: "middle", textLength: Math.min(150, 12 * String(name).length), lengthAdjust: "spacingAndGlyphs" }, name))));
+        React.createElement("path", { d: `M 100 156 L 100 196`, stroke: t.r1, strokeWidth: "4", strokeLinecap: "round", fill: "none" }),
+        React.createElement("circle", { cx: "100", cy: "158", r: "4.5", fill: t.r2 }),
+        React.createElement("rect", { x: 100 - plateW / 2, y: "196", width: plateW, height: "34", rx: "10", fill: `url(#${u}-plate)`, stroke: t.r1, strokeWidth: "1.5" }),
+        React.createElement("text", { x: "100", y: "218", textAnchor: "middle", fontSize: "19", fontWeight: "800", fill: t.t, textLength: Math.min(plateW - 16, label.length * 11), lengthAdjust: "spacingAndGlyphs" }, label)));
 }
 /* «Догоняй» в ленте: тройка лидеров */
 function SoloPodium({ data }) {
@@ -10281,7 +10287,7 @@ function SoloPodium({ data }) {
         React.createElement("div", { className: "dg-podium" }, order.map((r) => {
             const i = top.indexOf(r);
             return (React.createElement("div", { key: r.id, className: "dg-pl p" + i },
-                React.createElement(Saturn, { name: r.short || r.name, n: r.n, tone: i, size: i === 0 ? 124 : i === 1 ? 104 : 94, id: r.id }),
+                React.createElement(Saturn, { name: r.short || r.name, n: r.n, tone: i, size: i === 0 ? 104 : i === 1 ? 88 : 80, id: r.id }),
                 React.createElement("span", { className: i === 0 ? "gold" : "" }, place[i])));
         })),
         React.createElement("p", { className: "hint small dg-line" },
@@ -10343,6 +10349,7 @@ function SoloWin({ visits, people, geo, mapProps, onClose }) {
             const back = backRef.current ? [...backRef.current.querySelectorAll(".dg-sat")] : [];
             front.forEach((el, i) => {
                 const pw = el.offsetWidth || 90;
+                const phh = el.offsetHeight || pw;
                 const tilt = (-11 - i * 4) * (Math.PI / 180); // наклон плоскости орбиты
                 const rad = R * (1.16 + i * 0.13); // радиус орбиты вокруг шара
                 const lean = (58 + i * 6) * (Math.PI / 180); // насколько плоскость «положена»
@@ -10360,7 +10367,10 @@ function SoloWin({ visits, people, geo, mapProps, onClose }) {
                     // перспектива: ближе — крупнее
                     const sc = 1 / (1 - z / (R * 4.4));
                     const near = z >= 0;
-                    const pos = `translate(${(cx + x - pw / 2).toFixed(1)}px, ${(cy + y - pw / 2).toFixed(1)}px) scale(${sc.toFixed(3)})`;
+                    // шар планеты должен попадать на орбиту, а табличка висеть ниже
+                    const pos = `translate(${(cx + x - pw / 2).toFixed(1)}px, ${(cy +
+                        y -
+                        phh * 0.4).toFixed(1)}px) scale(${sc.toFixed(3)})`;
                     fF.push({ transform: pos, opacity: near ? 1 : 0 });
                     fB.push({ transform: pos, opacity: near ? 0 : 0.92 });
                 }
@@ -10417,7 +10427,7 @@ function SoloWin({ visits, people, geo, mapProps, onClose }) {
         return c ? { lon: c.lon, lat: c.lat, id: `solo:${country}`, force: true } : null;
     }, [country]);
     const satLayer = (where) => (React.createElement("div", { className: "dg-orbits " + where, ref: where === "front" ? orbRef : backRef }, rows.slice(0, 5).map((r, i) => (React.createElement("button", { key: r.id, className: "dg-sat" + (sel === r.id ? " on" : ""), "data-orbit": i, onClick: () => setSel(r.id), "aria-label": r.name },
-        React.createElement(Saturn, { name: r.short || r.name, n: r.n, tone: i, size: [96, 84, 76, 70, 64][i] || 60, orbit: i < 3, id: where[0] + r.id }))))));
+        React.createElement(Saturn, { name: r.short || r.name, n: r.n, tone: i, size: [78, 68, 62, 58, 54][i] || 50, orbit: i < 3, id: where[0] + r.id }))))));
     const globe = (React.createElement("div", { className: "sd-stage dg-stage" },
         satLayer("back"),
         React.createElement(Globe, { ...(mapProps || {}), geo: geo, pins: pins, lookAt: lookAt, dashSel: true, selected: country, full: false, noFull: true, fitBox: true, playing: !country, spinStep: 0.18, setPlaying: () => { }, onToggleFull: () => { }, onPick: (a3) => setCountry((v) => (v === a3 ? null : a3)) }),
