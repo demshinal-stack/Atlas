@@ -2295,7 +2295,7 @@ async function sendPacket(channel, obj, onStep) {
         onStep === null || onStep === void 0 ? void 0 : onStep((i + 1) / total, total);
     }
 }
-function readPackets(channel, onDone, onStep) {
+function readPackets(channel, onDone, onStep, onAck) {
     let need = 0;
     let parts = [];
     channel.onmessage = (e) => {
@@ -2303,6 +2303,11 @@ function readPackets(channel, onDone, onStep) {
         if (!need) {
             try {
                 const head = JSON.parse(s2);
+                // сосед сообщил, что наш пакет получил целиком
+                if (head && head.ack) {
+                    onAck === null || onAck === void 0 ? void 0 : onAck();
+                    return;
+                }
                 if (head && head.n) {
                     need = head.n;
                     parts = [];
@@ -2580,7 +2585,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "36.9";
+const APP_VERSION = "37.0";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -9381,40 +9386,92 @@ function NearSync({ makePayload, onData, onClose, box }) {
         p.pc.addEventListener("connectionstatechange", on);
         on();
     };
+    /* обмен идёт в обе стороны. Закрываем соединение и отдаём данные приложению
+       только когда и мы получили всё, и сосед подтвердил, что получил наше.
+       Раньше телефон, принявший первым, сразу закрывал экран обмена и тем самым
+       обрывал свою передачу — у соседа застревало на 17%. */
+    const got_ = useRef(null);
+    const sentOk = useRef(false);
+    const ackOk = useRef(false);
+    const finished = useRef(false);
+    const finish = () => {
+        if (finished.current || !got_.current)
+            return;
+        finished.current = true;
+        setGot(1);
+        setStep("done");
+        let res = null;
+        try {
+            res = onData(got_.current);
+        }
+        catch (e) {
+            console.warn("обмен: не удалось разобрать пакет", e);
+            res = null;
+        }
+        setState((res === null || res === void 0 ? void 0 : res.review)
+            ? "Обмен завершён — есть расхождения, покажем их"
+            : res && typeof res.added === "number"
+                ? res.added
+                    ? `Обмен завершён · новых поездок: ${res.added}`
+                    : "Обмен завершён · всё уже было на месте"
+                : "Обмен завершён");
+        // даём подтверждению уйти к соседу, потом закрываем
+        setTimeout(() => {
+            var _c;
+            (_c = peer.current) === null || _c === void 0 ? void 0 : _c.pc.close();
+            peer.current = null;
+        }, 1500);
+    };
+    const tryFinish = () => {
+        if (!got_.current)
+            return;
+        if (ackOk.current)
+            return finish();
+        // сосед на старой версии не подтверждает: ждём немного и завершаем сами
+        if (sentOk.current)
+            setTimeout(finish, 4000);
+    };
     const wire = (ch) => {
         readPackets(ch, (d) => {
+            got_.current = d;
             setGot(1);
-            setStep("done");
-            setState("Обмен завершён");
-            onData(d);
-            // через несколько секунд экран возвращается к началу
-            setTimeout(() => {
-                var _c;
-                (_c = peer.current) === null || _c === void 0 ? void 0 : _c.pc.close();
-                peer.current = null;
-                role.current = "open";
-                setMyCode("");
-                setFlip(false);
-                setManual(false);
-                setTheirCode("");
-                setSent(0);
-                setGot(0);
-                setState("");
-                setStep("idle");
-            }, 3500);
-        }, (k) => setGot(k));
+            try {
+                ch.send(JSON.stringify({ ack: 1 }));
+            }
+            catch {
+                /* канал уже закрыт */
+            }
+            setState(sentOk.current ? "Получили, ждём подтверждения соседа" : "Получили, досылаем своё");
+            tryFinish();
+        }, (k) => setGot(k), () => {
+            ackOk.current = true;
+            tryFinish();
+        });
         const send = async () => {
             setStep("live");
             setState(withPhotos ? "Передаём поездки и снимки" : "Передаём поездки");
             await sendPacket(ch, await makePayload(withPhotos), (k) => setSent(k));
+            sentOk.current = true;
+            if (!got_.current)
+                setState("Отдали, принимаем от соседа");
+            tryFinish();
         };
         ch.onopen = send;
         if (ch.readyState === "open")
             send();
-        ch.onclose = () => setState("Соединение закрыто");
+        ch.onclose = () => {
+            if (got_.current)
+                finish();
+            else if (!finished.current)
+                setState("Соединение прервалось — нажмите «Отмена» и начните снова");
+        };
     };
     const reset = () => {
         var _c;
+        got_.current = null;
+        sentOk.current = false;
+        ackOk.current = false;
+        finished.current = false;
         (_c = peer.current) === null || _c === void 0 ? void 0 : _c.pc.close();
         peer.current = null;
         role.current = "open";
@@ -9429,6 +9486,12 @@ function NearSync({ makePayload, onData, onClose, box }) {
     /* старт: показываем свой код и одновременно смотрим камерой на чужой */
     const start = async () => {
         setStep("pair");
+        got_.current = null;
+        sentOk.current = false;
+        ackOk.current = false;
+        finished.current = false;
+        setSent(0);
+        setGot(0);
         setState("Поверните телефоны экранами друг к другу");
         const r = Math.random().toString(36).slice(2, 6).toUpperCase().replace(/[^A-Z2-7]/g, "A");
         rank.current = (r + "AAAA").slice(0, 4);
@@ -13150,7 +13213,7 @@ function Atlas() {
     const receiveFamily = useCallback((data) => {
         var _c;
         if (!(data === null || data === void 0 ? void 0 : data.visits))
-            return;
+            return null;
         // снимки, если прислали, складываем сразу
         if (data.photos)
             (async () => {
@@ -13167,7 +13230,7 @@ function Atlas() {
         const plan = syncPlan(visitsRef.current, data.visits, tombsRef.current, data.tombs);
         if (plan.conflicts.length || plan.del.length) {
             setSync({ plan, data, from: data.from || "" });
-            return;
+            return { review: true, added: plan.add.length };
         }
         const res = applyPlan(visitsRef.current, tombsRef.current, data.visits, data.tombs, plan, {});
         tombsRef.current = res.tombs;
@@ -13177,16 +13240,18 @@ function Atlas() {
         if ((_c = data.people) === null || _c === void 0 ? void 0 : _c.length) {
             const cur = (profile === null || profile === void 0 ? void 0 : profile.people) || [];
             const add = data.people.filter((p) => !cur.some((x) => x.id === p.id || x.name === p.name));
-            receiveRef.current = receiveFamily;
             if (add.length)
                 saveProfile({
                     ...(profile || {}),
                     people: [...cur, ...add.map((p) => ({ ...p, always: false }))],
                 });
         }
+        return { added: plan.add.length };
     }, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [visits, profile]);
+    // разбор полученного пакета: ссылка обновляется при каждой отрисовке
+    receiveRef.current = receiveFamily;
     const [restoreMsg, setRestoreMsg] = useState("");
     const importAsk = useCallback((file) => setAsk({
         title: "Что сделать с файлом?",
@@ -13595,8 +13660,11 @@ function Atlas() {
                             } })),
                         near && (React.createElement(NearSync, { box: box, makePayload: nearPayload, onData: (d) => {
                                 var _c;
-                                setNear(false);
-                                (_c = receiveRef.current) === null || _c === void 0 ? void 0 : _c.call(receiveRef, d);
+                                const r = (_c = receiveRef.current) === null || _c === void 0 ? void 0 : _c.call(receiveRef, d);
+                                // если нужны решения по расхождениям — уступаем место их экрану
+                                if (r === null || r === void 0 ? void 0 : r.review)
+                                    setTimeout(() => setNear(false), 1200);
+                                return r;
                             }, onClose: () => {
                                 setNear(false);
                                 if (nearBack)
