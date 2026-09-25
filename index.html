@@ -2481,7 +2481,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "36.3";
+const APP_VERSION = "36.4";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -9032,7 +9032,11 @@ function QrCamera({ onCode, onClose, facing = "environment", hidden = false, onS
                 // Safari капризен: пробуем с пожеланиями, потом самый простой запрос
                 try {
                     stream = await navigator.mediaDevices.getUserMedia({
-                        video: { facingMode: { ideal: facing }, width: { ideal: 1280 } },
+                        video: {
+                            facingMode: { ideal: facing },
+                            width: { ideal: 1920 },
+                            height: { ideal: 1080 },
+                        },
                         audio: false,
                     });
                 }
@@ -9074,11 +9078,14 @@ function QrCamera({ onCode, onClose, facing = "environment", hidden = false, onS
                     if (w && h) {
                         frames += 1;
                         const side = Math.min(w, h);
-                        const size = 520;
+                        const size = 760; // больше точек на модуль: код в кадре бывает мелким
                         cv.width = size;
                         cv.height = size;
                         const x = cv.getContext("2d", { willReadFrequently: true });
-                        x.drawImage(v, (w - side) / 2, (h - side) / 2, side, side, 0, 0, size, size);
+                        // чередуем: весь кадр и его середина — так ловим и мелкий код
+                        const zoom = frames % 2 ? 1 : 0.55;
+                        const src = side * zoom;
+                        x.drawImage(v, (w - src) / 2, (h - src) / 2, src, src, 0, 0, size, size);
                         let text = null;
                         if (detector) {
                             try {
