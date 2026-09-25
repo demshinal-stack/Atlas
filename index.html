@@ -2481,7 +2481,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "34.1";
+const APP_VERSION = "34.3";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -10085,6 +10085,9 @@ function WorldWin({ visits, geo, mapProps, onClose }) {
             setYear(steps[0].y);
             setGi(0);
         }
+        // при старте показа заново проигрываем церемонию текущей страны
+        setRun((v) => v + 1);
+        setKeepPins(true);
         let stop = false;
         const step = () => {
             if (stop)
@@ -10101,7 +10104,7 @@ function WorldWin({ visits, geo, mapProps, onClose }) {
             // поворот 1,4 с + мигание 0,9 + заливка 0,45 + флаг
             setTimeout(step, 3600 + steps[i].n * 350);
         };
-        const hold = 3600 + (((_c = steps[Math.max(0, i)]) === null || _c === void 0 ? void 0 : _c.n) || 1) * 350;
+        const hold = 4200 + (((_c = steps[Math.max(0, i)]) === null || _c === void 0 ? void 0 : _c.n) || 1) * 350;
         const t = setTimeout(step, hold);
         return () => {
             stop = true;
@@ -10177,12 +10180,14 @@ function WorldWin({ visits, geo, mapProps, onClose }) {
             raf = requestAnimationFrame(() => {
                 var _c;
                 const base = box.getBoundingClientRect().top;
-                const line = box.clientHeight * 0.35;
+                const line = box.clientHeight * 0.18;
                 let cur = years[0];
-                (_c = listRef.current) === null || _c === void 0 ? void 0 : _c.querySelectorAll("[data-year]").forEach((el) => {
-                    if (el.getBoundingClientRect().top - base <= line)
-                        cur = +el.dataset.year;
-                });
+                // в самом верху ленты это всегда первый год
+                if (box.scrollTop > 4)
+                    (_c = listRef.current) === null || _c === void 0 ? void 0 : _c.querySelectorAll("[data-year]").forEach((el) => {
+                        if (el.getBoundingClientRect().top - base <= line)
+                            cur = +el.dataset.year;
+                    });
                 if (cur && cur !== year) {
                     byHand.current = true;
                     setKeepPins(true);
@@ -10219,7 +10224,7 @@ function WorldWin({ visits, geo, mapProps, onClose }) {
         if (!box || !el)
             return;
         const top = el.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop;
-        const target = Math.max(0, Math.min(box.scrollHeight - box.clientHeight, top - box.clientHeight * 0.28));
+        const target = Math.max(0, Math.min(box.scrollHeight - box.clientHeight, top - box.clientHeight * 0.12));
         const from = box.scrollTop;
         if (Math.abs(target - from) < 2)
             return;
