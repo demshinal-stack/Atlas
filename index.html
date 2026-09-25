@@ -2481,7 +2481,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "33.6";
+const APP_VERSION = "33.7";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -4619,8 +4619,9 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
             return;
         const center = [-rot.current[0], -rot.current[1]];
         const far = d3.geoDistance([lookAt.lon, lookAt.lat], center);
-        if (far < 1.0)
-            return; // уже в поле зрения — не трогаем шар
+        // force — всегда выводим страну в центр (начало показа)
+        if (!lookAt.force && far < 0.85)
+            return; // уже близко к центру — шар не трогаем
         // при показе сначала поворот, потом подсветка; при листании — сразу
         const ms = lookAt.ms || 1400;
         state.current.glowAt = Date.now() + (lookAt.ms ? 0 : 1400);
@@ -10126,8 +10127,10 @@ function WorldWin({ visits, geo, mapProps, onClose }) {
             lon: mid.lon,
             lat: mid.lat,
             id: `${run}:${year}:${list.length}`,
+            // первую страну истории всегда выводим в центр шара
+            force: year === years[0],
         };
-    }, [data, year, sel, run, hand]);
+    }, [data, year, sel, run, hand, years]);
     /* пролистывание ленты пальцем — это и есть движение по годам */
     useEffect(() => {
         const box = frameRef.current;
