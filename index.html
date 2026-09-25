@@ -2481,7 +2481,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "33.7";
+const APP_VERSION = "33.8";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -10021,6 +10021,24 @@ function worldData(visits) {
     });
     return { years, opened, byYear, first, total, all: Object.keys(first).length };
 }
+/* страны года, которые видно на шаре одновременно, собираем в группы */
+function viewGroups(list) {
+    const groups = [];
+    (list || []).forEach((r) => {
+        const c = BY_A3[r.a3];
+        if (!c || !isFinite(c.lon))
+            return;
+        const g = groups.find((q) => d3.geoDistance([q.lon, q.lat], [c.lon, c.lat]) < 1.0);
+        if (g) {
+            g.items.push(r);
+            g.lon = g.items.reduce((s2, x) => { var _c; return s2 + (((_c = BY_A3[x.a3]) === null || _c === void 0 ? void 0 : _c.lon) || 0); }, 0) / g.items.length;
+            g.lat = g.items.reduce((s2, x) => { var _c; return s2 + (((_c = BY_A3[x.a3]) === null || _c === void 0 ? void 0 : _c.lat) || 0); }, 0) / g.items.length;
+        }
+        else
+            groups.push({ items: [r], lon: c.lon, lat: c.lat });
+    });
+    return groups.length ? groups : [{ items: [], lon: 0, lat: 0 }];
+}
 /* «Как открывался мир» во весь экран: шар и лента лет */
 function WorldWin({ visits, geo, mapProps, onClose }) {
     const data = useMemo(() => worldData(visits), [visits]);
@@ -10029,6 +10047,7 @@ function WorldWin({ visits, geo, mapProps, onClose }) {
     const [play, setPlay] = useState(true); // история идёт сразу при открытии
     const [spin, setSpin] = useState(false); // вращение после показа
     const [run, setRun] = useState(0); // номер прогона истории
+    const [gi, setGi] = useState(0); // группа стран внутри года
     const [keepPins, setKeepPins] = useState(true); // флажки снимаем через пару секунд
     const [sel, setSel] = useState(null);
     const listRef = useRef(null);
@@ -10048,32 +10067,38 @@ function WorldWin({ visits, geo, mapProps, onClose }) {
     }, []);
     /* показ истории: год за годом, с задержкой там, где стран больше */
     useEffect(() => {
+        var _c;
         if (!play || !years.length)
             return;
         setSpin(false);
         setHand(false);
         setKeepPins(true);
-        let i = years.indexOf(year);
-        if (i >= years.length - 1) {
-            i = -1;
-            setYear(years[0]);
+        // шаги показа: год и группа стран внутри него
+        const steps = [];
+        years.forEach((y) => viewGroups(data.opened[y] || []).forEach((g, k) => steps.push({ y, k, n: g.items.length })));
+        let i = steps.findIndex((st) => st.y === year && st.k === gi);
+        if (i < 0 || i >= steps.length - 1) {
+            i = 0;
+            setYear(steps[0].y);
+            setGi(0);
         }
         let stop = false;
         const step = () => {
             if (stop)
                 return;
             i += 1;
-            if (i >= years.length) {
+            if (i >= steps.length) {
                 setPlay(false);
                 setSpin(true); // история закончилась — шар просто крутится
                 setTimeout(() => setKeepPins(false), 3000); // и флаг убираем
                 return;
             }
-            setYear(years[i]);
-            // поворот 1,4 с + мигание 0,9 + заливка 0,45 + флаг: даём время всему
-            setTimeout(step, 3600 + (data.opened[years[i]] || []).length * 350);
+            setYear(steps[i].y);
+            setGi(steps[i].k);
+            // поворот 1,4 с + мигание 0,9 + заливка 0,45 + флаг
+            setTimeout(step, 3600 + steps[i].n * 350);
         };
-        const hold = 3600 + (data.opened[years[Math.max(0, i)]] || []).length * 350;
+        const hold = 3600 + (((_c = steps[Math.max(0, i)]) === null || _c === void 0 ? void 0 : _c.n) || 1) * 350;
         const t = setTimeout(step, hold);
         return () => {
             stop = true;
@@ -10081,18 +10106,28 @@ function WorldWin({ visits, geo, mapProps, onClose }) {
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [play]);
+    const groups = useMemo(() => viewGroups(data.opened[year] || []), [data, year]);
+    const group = groups[Math.min(gi, groups.length - 1)];
+    const shownNow = useMemo(() => {
+        // страны года, которые уже показали: до текущей группы включительно
+        const set = new Set();
+        groups.slice(0, Math.min(gi, groups.length - 1) + 1).forEach((g) => g.items.forEach((r) => set.add(r.a3)));
+        return set;
+    }, [groups, gi]);
     const openedBy = useMemo(() => {
         const set = new Set();
         Object.entries(data.first).forEach(([a3, r]) => {
-            if (r.y <= year)
+            if (r.y < year)
+                set.add(a3);
+            else if (r.y === year && shownNow.has(a3))
                 set.add(a3);
         });
         return set;
-    }, [data, year]);
-    const fresh = useMemo(() => new Set((data.opened[year] || []).map((r) => r.a3)), [data, year]);
+    }, [data, year, shownNow]);
+    const fresh = useMemo(() => new Set(((group === null || group === void 0 ? void 0 : group.items) || []).map((r) => r.a3)), [group]);
     // флажки: у выбранной страны — только её, иначе у стран текущего года
     const pins = useMemo(() => {
-        const list = sel ? [{ a3: sel }] : keepPins ? data.opened[year] || [] : [];
+        const list = sel ? [{ a3: sel }] : keepPins ? (group === null || group === void 0 ? void 0 : group.items) || [] : [];
         return list
             .map((r) => {
             const c = BY_A3[r.a3];
@@ -10109,28 +10144,23 @@ function WorldWin({ visits, geo, mapProps, onClose }) {
             };
         })
             .filter(Boolean);
-    }, [data, year, sel, keepPins, hand]);
+    }, [group, sel, keepPins]);
     /* куда смотреть: выбранная страна, иначе первая страна года */
     const lookAt = useMemo(() => {
         if (sel) {
             const c = BY_A3[sel];
             return c ? { lon: c.lon, lat: c.lat, id: `sel:${sel}` } : null;
         }
-        const list = (data.opened[year] || [])
-            .map((r) => BY_A3[r.a3])
-            .filter((c) => c && isFinite(c.lon));
-        if (!list.length)
+        if (!group || !group.items.length)
             return null;
-        // если стран несколько — смотрим в середину между ними
-        const mid = list.reduce((a, c) => ({ lon: a.lon + c.lon / list.length, lat: a.lat + c.lat / list.length }), { lon: 0, lat: 0 });
         return {
-            lon: mid.lon,
-            lat: mid.lat,
-            id: `${run}:${year}:${list.length}`,
-            // первую страну истории всегда выводим в центр шара
-            force: year === years[0],
+            lon: group.lon,
+            lat: group.lat,
+            id: `${run}:${year}:${gi}`,
+            // первую страну истории и каждую новую группу выводим в центр
+            force: year === years[0] || gi > 0,
         };
-    }, [data, year, sel, run, hand, years]);
+    }, [group, gi, sel, run, year, years]);
     /* пролистывание ленты пальцем — это и есть движение по годам */
     useEffect(() => {
         const box = frameRef.current;
@@ -10155,6 +10185,7 @@ function WorldWin({ visits, geo, mapProps, onClose }) {
                     setKeepPins(true);
                     setPlay(false);
                     setSpin(false);
+                    setGi(0);
                     setYear(cur);
                 }
             });
@@ -10225,7 +10256,9 @@ function WorldWin({ visits, geo, mapProps, onClose }) {
             React.createElement("b", null, y),
             React.createElement("div", { className: "ww-cards" }, (data.opened[y] || []).map((r) => {
                 var _c;
-                return (React.createElement("button", { key: r.a3, className: "ww-row" + (sel === r.a3 ? " sel" : ""), onClick: () => {
+                return (React.createElement("button", { key: r.a3, className: "ww-row" +
+                        (sel === r.a3 ? " sel" : "") +
+                        (y === year && shownNow.has(r.a3) ? " now" : ""), onClick: () => {
                         setPlay(false);
                         setSpin(false);
                         setHand(false);
@@ -13365,8 +13398,9 @@ body > div{max-width:100%;}
 @media (prefers-reduced-motion: reduce){ .ww-step, .ww-row{animation:none;} }
 .ww-row{display:flex; align-items:center; gap:9px; padding:8px 11px; border-radius:12px; border:1px solid var(--line);
   background:var(--field); color:var(--text); text-align:left; cursor:pointer;}
-.ww-step.on .ww-row{border-color:rgba(232,184,75,.45);
-  background:linear-gradient(135deg, rgba(232,184,75,.1), transparent 60%), var(--field);}
+.ww-step.on .ww-row{border-color:rgba(232,184,75,.25);}
+.ww-row.now{border-color:rgba(232,184,75,.65) !important;
+  background:linear-gradient(135deg, rgba(232,184,75,.12), transparent 60%), var(--field);}
 .ww-row.sel{border-color:var(--gold);}
 .ww-fl{flex:none; font-size:1.05rem;}
 .ww-nm{flex:1 1 auto; min-width:0; display:flex; flex-direction:column; font-size:0.8rem;}
