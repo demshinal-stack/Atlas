@@ -2481,7 +2481,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "35.9";
+const APP_VERSION = "36.0";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -10312,6 +10312,7 @@ function SoloWin({ visits, people, geo, mapProps, onClose }) {
     }, []);
     const row = rows.find((r) => r.id === sel) || rows[0] || null;
     const orbRef = useRef(null);
+    const backRef = useRef(null);
     const retry = useRef(0);
     /* орбиты вокруг самого шара: наклон, глубина и заход за планету */
     useEffect(() => {
@@ -10338,35 +10339,39 @@ function SoloWin({ visits, people, geo, mapProps, onClose }) {
             const cx = cr.left - br.left + cr.width / 2;
             const cy = cr.top - br.top + cr.height / 2;
             const R = Math.min(cr.width, cr.height) / 2;
-            const sats = [...box.querySelectorAll(".dg-sat")];
-            sats.forEach((el, i) => {
+            const front = [...box.querySelectorAll(".dg-sat")];
+            const back = backRef.current ? [...backRef.current.querySelectorAll(".dg-sat")] : [];
+            front.forEach((el, i) => {
                 const pw = el.offsetWidth || 90;
                 const tilt = (-11 - i * 4) * (Math.PI / 180); // наклон плоскости орбиты
-                const rx = R * (1.1 + i * 0.13);
-                const ry = R * (0.3 + i * 0.05);
-                const steps = 96;
-                const frames = [];
+                const rad = R * (1.16 + i * 0.13); // радиус орбиты вокруг шара
+                const lean = (58 + i * 6) * (Math.PI / 180); // насколько плоскость «положена»
+                const steps = 120;
+                const fF = [];
+                const fB = [];
                 for (let k = 0; k <= steps; k++) {
                     const a = (k / steps) * Math.PI * 2 + (i * Math.PI * 2) / 3;
-                    const x0 = rx * Math.cos(a);
-                    const y0 = ry * Math.sin(a);
+                    // точка на круге в пространстве: z — глубина к зрителю
+                    const x0 = rad * Math.cos(a);
+                    const y0 = rad * Math.sin(a) * Math.cos(lean);
+                    const z = rad * Math.sin(a) * Math.sin(lean);
                     const x = x0 * Math.cos(tilt) - y0 * Math.sin(tilt);
                     const y = x0 * Math.sin(tilt) + y0 * Math.cos(tilt);
-                    const depth = Math.sin(a); // >0 — ближе к зрителю
-                    const sc = 0.78 + 0.22 * ((depth + 1) / 2);
-                    // за шаром планету не видно
-                    const behind = depth < 0 && Math.hypot(x, y) < R * 0.94;
-                    frames.push({
-                        transform: `translate(${cx + x - pw / 2}px, ${cy + y - pw / 2}px) scale(${sc.toFixed(3)})`,
-                        opacity: behind ? 0 : depth < 0 ? 0.72 : 1,
-                        zIndex: depth > 0 ? 4 : 1,
-                    });
+                    // перспектива: ближе — крупнее
+                    const sc = 1 / (1 - z / (R * 4.4));
+                    const near = z >= 0;
+                    const pos = `translate(${(cx + x - pw / 2).toFixed(1)}px, ${(cy + y - pw / 2).toFixed(1)}px) scale(${sc.toFixed(3)})`;
+                    fF.push({ transform: pos, opacity: near ? 1 : 0 });
+                    fB.push({ transform: pos, opacity: near ? 0 : 0.92 });
                 }
-                анимации.push(el.animate(frames, {
+                const opt = {
                     duration: (26 + i * 8) * 1000,
                     iterations: Infinity,
                     easing: "linear",
-                }));
+                };
+                анимации.push(el.animate(fF, opt));
+                if (back[i])
+                    анимации.push(back[i].animate(fB, opt));
             });
         };
         build();
@@ -10411,10 +10416,12 @@ function SoloWin({ visits, people, geo, mapProps, onClose }) {
         const c = country && BY_A3[country];
         return c ? { lon: c.lon, lat: c.lat, id: `solo:${country}`, force: true } : null;
     }, [country]);
+    const satLayer = (where) => (React.createElement("div", { className: "dg-orbits " + where, ref: where === "front" ? orbRef : backRef }, rows.slice(0, 5).map((r, i) => (React.createElement("button", { key: r.id, className: "dg-sat" + (sel === r.id ? " on" : ""), "data-orbit": i, onClick: () => setSel(r.id), "aria-label": r.name },
+        React.createElement(Saturn, { name: r.short || r.name, n: r.n, tone: i, size: [96, 84, 76, 70, 64][i] || 60, orbit: i < 3, id: where[0] + r.id }))))));
     const globe = (React.createElement("div", { className: "sd-stage dg-stage" },
+        satLayer("back"),
         React.createElement(Globe, { ...(mapProps || {}), geo: geo, pins: pins, lookAt: lookAt, dashSel: true, selected: country, full: false, noFull: true, fitBox: true, playing: !country, spinStep: 0.18, setPlaying: () => { }, onToggleFull: () => { }, onPick: (a3) => setCountry((v) => (v === a3 ? null : a3)) }),
-        React.createElement("div", { className: "dg-orbits", ref: orbRef }, rows.slice(0, 5).map((r, i) => (React.createElement("button", { key: r.id, className: "dg-sat" + (sel === r.id ? " on" : ""), "data-orbit": i, onClick: () => setSel(r.id), "aria-label": r.name },
-            React.createElement(Saturn, { name: r.short || r.name, n: r.n, tone: i, size: [96, 84, 76, 70, 64][i] || 60, orbit: i < 3, id: "w" + r.id })))))));
+        satLayer("front")));
     const chips = (React.createElement("div", { className: "dg-chips" }, rows.map((r, i) => (React.createElement("button", { key: r.id, className: "dg-chip" + (sel === r.id ? " on" : ""), onClick: () => {
             setSel(r.id);
             setCountry(null);
@@ -13980,6 +13987,9 @@ body > div{max-width:100%;}
 .dg-planet{display:block; overflow:visible;}
 .dg-stage{position:relative;}
 .dg-orbits{position:absolute; inset:0; pointer-events:none;}
+.dg-orbits.back{z-index:0;}
+.dg-orbits.front{z-index:3;}
+.dg-stage > .globe-stage, .dg-stage > div:not(.dg-orbits){position:relative; z-index:1;}
 .dg-sat{position:absolute; left:0; top:0; border:0; background:none; padding:0;
   pointer-events:auto; cursor:pointer; line-height:0;}
 .dg-sat.on{filter:drop-shadow(0 0 12px rgba(232,184,75,.65));}
