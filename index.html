@@ -2481,7 +2481,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "35.6";
+const APP_VERSION = "35.7";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -10280,7 +10280,7 @@ function SoloPodium({ data }) {
         React.createElement("div", { className: "dg-podium" }, order.map((r) => {
             const i = top.indexOf(r);
             return (React.createElement("div", { key: r.id, className: "dg-pl p" + i },
-                React.createElement(Saturn, { name: r.short || r.name, n: r.n, tone: i, size: i === 0 ? 138 : i === 1 ? 116 : 104, id: r.id }),
+                React.createElement(Saturn, { name: r.short || r.name, n: r.n, tone: i, size: i === 0 ? 124 : i === 1 ? 104 : 94, id: r.id }),
                 React.createElement("span", { className: i === 0 ? "gold" : "" }, place[i])));
         })),
         React.createElement("p", { className: "hint small dg-line" },
@@ -10311,7 +10311,7 @@ function SoloWin({ visits, people, geo, mapProps, onClose }) {
     }, []);
     const row = rows.find((r) => r.id === sel) || rows[0] || null;
     const orbRef = useRef(null);
-    /* орбиты: победитель выше, каждая планета едет по своему эллипсу */
+    /* орбиты вокруг самого шара: наклон, глубина и заход за планету */
     useEffect(() => {
         const box = orbRef.current;
         if (!box)
@@ -10319,45 +10319,56 @@ function SoloWin({ visits, people, geo, mapProps, onClose }) {
         let stop = false;
         const анимации = [];
         const build = () => {
+            var _c;
             анимации.forEach((a) => a.cancel());
             анимации.length = 0;
-            const w = box.clientWidth;
-            const h = box.clientHeight;
-            if (!w || !h)
+            const cv = (_c = box.parentElement) === null || _c === void 0 ? void 0 : _c.querySelector("canvas");
+            const br = box.getBoundingClientRect();
+            const cr = cv === null || cv === void 0 ? void 0 : cv.getBoundingClientRect();
+            if (!br.width || !(cr === null || cr === void 0 ? void 0 : cr.width))
                 return;
-            [...box.querySelectorAll(".dg-sat")].forEach((el, i) => {
-                // орбита вписана в область, чтобы планета не срезалась краем
-                const pw = el.offsetWidth || 96;
-                const ph = el.offsetHeight || 96;
-                const rx = Math.max(40, (w - pw) / 2 - 4 - i * 6);
-                const ry = Math.max(18, h * 0.13 - i * 4);
-                // орбиты разнесены по высоте: победитель выше, остальные ниже
-                const cy = Math.min(h - ph / 2 - 6, Math.max(ph / 2 + 6, h * (0.3 + i * 0.2)));
-                const cx = w / 2;
-                const steps = 72;
+            // центр и радиус настоящего шара, а не всей области
+            const cx = cr.left - br.left + cr.width / 2;
+            const cy = cr.top - br.top + cr.height / 2;
+            const R = Math.min(cr.width, cr.height) / 2;
+            const sats = [...box.querySelectorAll(".dg-sat")];
+            sats.forEach((el, i) => {
+                const pw = el.offsetWidth || 90;
+                const tilt = (-11 - i * 4) * (Math.PI / 180); // наклон плоскости орбиты
+                const rx = R * (1.1 + i * 0.13);
+                const ry = R * (0.3 + i * 0.05);
+                const steps = 96;
                 const frames = [];
                 for (let k = 0; k <= steps; k++) {
-                    const a = (k / steps) * Math.PI * 2;
-                    const front = Math.sin(a) > 0; // ближняя половина орбиты
-                    // за шаром планета прячется, перед ним — крупнее
-                    const hidden = !front && Math.abs(Math.cos(a)) < 0.62;
+                    const a = (k / steps) * Math.PI * 2 + (i * Math.PI * 2) / 3;
+                    const x0 = rx * Math.cos(a);
+                    const y0 = ry * Math.sin(a);
+                    const x = x0 * Math.cos(tilt) - y0 * Math.sin(tilt);
+                    const y = x0 * Math.sin(tilt) + y0 * Math.cos(tilt);
+                    const depth = Math.sin(a); // >0 — ближе к зрителю
+                    const sc = 0.78 + 0.22 * ((depth + 1) / 2);
+                    // за шаром планету не видно
+                    const behind = depth < 0 && Math.hypot(x, y) < R * 0.94;
                     frames.push({
-                        transform: `translate(${cx + rx * Math.cos(a) - el.offsetWidth / 2}px, ${cy + ry * Math.sin(a) - el.offsetHeight / 2}px) scale(${front ? 1 : 0.82})`,
-                        opacity: hidden ? 0 : front ? 1 : 0.75,
+                        transform: `translate(${cx + x - pw / 2}px, ${cy + y - pw / 2}px) scale(${sc.toFixed(3)})`,
+                        opacity: behind ? 0 : depth < 0 ? 0.72 : 1,
+                        zIndex: depth > 0 ? 4 : 1,
                     });
                 }
                 анимации.push(el.animate(frames, {
-                    duration: (20 + i * 5) * 1000,
+                    duration: (26 + i * 8) * 1000,
                     iterations: Infinity,
-                    easing: "ease-in-out",
+                    easing: "linear",
                 }));
             });
         };
         build();
         const ro = new ResizeObserver(() => !stop && build());
         ro.observe(box);
+        const t = setTimeout(build, 400); // ждём, пока шар подберёт размер
         return () => {
             stop = true;
+            clearTimeout(t);
             ro.disconnect();
             анимации.forEach((a) => a.cancel());
         };
@@ -10386,7 +10397,7 @@ function SoloWin({ visits, people, geo, mapProps, onClose }) {
     const globe = (React.createElement("div", { className: "sd-stage dg-stage" },
         React.createElement(Globe, { ...(mapProps || {}), geo: geo, pins: pins, lookAt: lookAt, dashSel: true, selected: country, full: false, noFull: true, fitBox: true, playing: !country, spinStep: 0.18, setPlaying: () => { }, onToggleFull: () => { }, onPick: (a3) => setCountry((v) => (v === a3 ? null : a3)) }),
         React.createElement("div", { className: "dg-orbits", ref: orbRef }, rows.slice(0, 5).map((r, i) => (React.createElement("button", { key: r.id, className: "dg-sat" + (sel === r.id ? " on" : ""), "data-orbit": i, onClick: () => setSel(r.id), "aria-label": r.name },
-            React.createElement(Saturn, { name: r.short || r.name, n: r.n, tone: i, size: [118, 100, 88, 80, 72][i] || 68, orbit: i < 3, id: "w" + r.id })))))));
+            React.createElement(Saturn, { name: r.short || r.name, n: r.n, tone: i, size: [96, 84, 76, 70, 64][i] || 60, orbit: i < 3, id: "w" + r.id })))))));
     const chips = (React.createElement("div", { className: "dg-chips" }, rows.map((r, i) => (React.createElement("button", { key: r.id, className: "dg-chip" + (sel === r.id ? " on" : ""), onClick: () => {
             setSel(r.id);
             setCountry(null);
