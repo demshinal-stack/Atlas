@@ -2481,7 +2481,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "36.5";
+const APP_VERSION = "36.6";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -9035,8 +9035,8 @@ function QrCamera({ onCode, onClose, facing = "environment", hidden = false, onS
                     stream = await navigator.mediaDevices.getUserMedia({
                         video: {
                             facingMode: { ideal: facing },
-                            width: { ideal: 1920 },
-                            height: { ideal: 1080 },
+                            width: { ideal: 1280 },
+                            height: { ideal: 720 },
                         },
                         audio: false,
                     });
@@ -9344,11 +9344,13 @@ function NearSync({ makePayload, onData, onClose, box }) {
         var _c;
         return (React.createElement("div", { className: "sheet-body near" },
             React.createElement("p", { className: "hint small" }, "\u041F\u043E\u0435\u0437\u0434\u043A\u0438, \u043C\u0430\u0440\u0448\u0440\u0443\u0442\u044B \u0438 \u043F\u043B\u0430\u043D\u044B \u2014 \u043F\u0440\u044F\u043C\u043E \u043D\u0430 \u0441\u043E\u0441\u0435\u0434\u043D\u0438\u0439 \u0442\u0435\u043B\u0435\u0444\u043E\u043D"),
-            React.createElement("div", { className: "near-stage" }, step === "done" ? (React.createElement(NearDone, null)) : step === "idle" ? (React.createElement(NearHero, null)) : (React.createElement("div", { className: "near-card" + (flip ? " flip" : ""), onClick: () => setFlip((v) => !v) },
-                React.createElement("div", { className: "near-face near-front" }, myCode ? (React.createElement(QrBox, { text: myCode, size: 196 })) : (React.createElement("p", { className: "near-state" }, "\u0413\u043E\u0442\u043E\u0432\u0438\u043C \u043A\u043E\u0434\u2026"))),
-                React.createElement("div", { className: "near-face near-back" },
-                    React.createElement("p", null, "\u041A\u043E\u0434 \u0434\u043B\u044F \u0440\u0443\u0447\u043D\u043E\u0433\u043E \u0432\u0432\u043E\u0434\u0430"),
-                    React.createElement("textarea", { readOnly: true, value: myCode, onFocus: (e) => e.target.select() }))))),
+            React.createElement("div", { className: "near-stage" },
+                step === "pair" && (React.createElement(QrCamera, { facing: facing, hidden: true, onCode: onCode, onClose: () => { }, onStat: (x) => setStat((v) => ({ ...v, ...x })) })),
+                step === "done" ? (React.createElement(NearDone, null)) : step === "idle" ? (React.createElement(NearHero, null)) : (React.createElement("div", { className: "near-card" + (flip ? " flip" : ""), onClick: () => setFlip((v) => !v) },
+                    React.createElement("div", { className: "near-face near-front" }, myCode ? (React.createElement(QrBox, { text: myCode, size: 196 })) : (React.createElement("p", { className: "near-state" }, "\u0413\u043E\u0442\u043E\u0432\u0438\u043C \u043A\u043E\u0434\u2026"))),
+                    React.createElement("div", { className: "near-face near-back" },
+                        React.createElement("p", null, "\u041A\u043E\u0434 \u0434\u043B\u044F \u0440\u0443\u0447\u043D\u043E\u0433\u043E \u0432\u0432\u043E\u0434\u0430"),
+                        React.createElement("textarea", { readOnly: true, value: myCode, onFocus: (e) => e.target.select() }))))),
             React.createElement("div", { className: "near-status" },
                 React.createElement("p", { className: "near-step" }, step === "idle"
                     ? "Нажмите «Обменяться» на обоих телефонах"
@@ -9403,7 +9405,6 @@ function NearSync({ makePayload, onData, onClose, box }) {
                     React.createElement("input", { type: "checkbox", className: "near-toggle", checked: withPhotos, disabled: step !== "idle", onChange: (e) => setWithPhotos(e.target.checked) }),
                     React.createElement("i", { className: "near-knob" })),
                 step === "idle" ? (React.createElement("button", { className: "btn-main wide", onClick: start }, "\u041E\u0431\u043C\u0435\u043D\u044F\u0442\u044C\u0441\u044F")) : step === "done" ? (React.createElement("button", { className: "btn-main wide", onClick: onClose }, "\u0413\u043E\u0442\u043E\u0432\u043E")) : (React.createElement("button", { className: "btn-ghost wide", onClick: reset }, "\u041E\u0442\u043C\u0435\u043D\u0430")),
-                step === "pair" && !manual && (React.createElement(QrCamera, { facing: facing, hidden: true, onCode: onCode, onClose: () => { }, onStat: (x) => setStat((v) => ({ ...v, ...x })) })),
                 (React.createElement(React.Fragment, null,
                     React.createElement("button", { className: "near-link", onClick: () => setDiag((v) => !v) }, diag ? "Скрыть подробности" : "Не получается?"),
                     diag && (React.createElement("div", { className: "near-diag" },
@@ -13879,7 +13880,7 @@ body > div{max-width:100%;}
 .near-lead b{display:block; font-size:1.75rem; font-weight:700; line-height:1.1;}
 .near-lead b span{color:var(--gold);}
 .near-lead em{display:block; margin-top:6px; font-style:normal; font-size:0.8rem; color:var(--dim); line-height:1.4;}
-.near-stage{height:200px; flex:none; display:flex; align-items:center; justify-content:center;}
+.near-stage{height:200px; flex:none; display:flex; align-items:center; justify-content:center; position:relative;}
 .near-hero{display:block; width:100%; max-width:340px; height:100%;}
 .near-status{flex:none; min-height:68px; display:flex; flex-direction:column; gap:8px; justify-content:center;}
 .near-zone{flex:1 1 auto; min-height:0; display:flex; flex-direction:column; gap:10px;
@@ -13948,9 +13949,11 @@ body > div{max-width:100%;}
 .near-back p{margin:0; font-size:0.68rem; color:var(--dim);}
 .near-back textarea{width:100%; flex:1 1 auto; resize:none; border-radius:10px; border:1px solid var(--line);
   background:rgba(0,0,0,.2); color:var(--text); font-size:0.58rem; padding:8px; letter-spacing:.04em;}
-.qr-cam.hidden{position:absolute; left:0; bottom:0; width:3px; height:3px; overflow:hidden;
-  opacity:.01; pointer-events:none;}
-.qr-cam.hidden video{width:3px; height:3px; border-radius:0;}
+/* окошко камеры: видимое, иначе телефон отдаёт кадры низкого качества */
+.qr-cam.hidden{position:absolute; right:-6px; bottom:-6px; width:88px; height:88px; z-index:4;
+  border-radius:14px; overflow:hidden; border:1px solid rgba(232,184,75,.5);
+  box-shadow:0 6px 18px rgba(0,0,0,.45); background:#0b1622;}
+.qr-cam.hidden video{width:100%; height:100%; object-fit:cover; border-radius:0; transform:scaleX(-1);}
 .near-scan{width:100%; padding:11px; border-radius:12px; border:1px solid rgba(232,184,75,.5);
   background:rgba(232,184,75,.08); color:var(--gold); font-size:0.78rem; cursor:pointer;}
 .qr-cam{position:relative; display:flex; flex-direction:column; gap:8px; align-items:center;}
