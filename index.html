@@ -2481,7 +2481,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "34.9";
+const APP_VERSION = "35.0";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -9663,7 +9663,9 @@ const REPORTS = [
     { id: "air", title: "Авиакомпании",
         help: "Километры считаются от города вылета до самой далёкой точки поездки и обратно. Если в поездке было несколько авиакомпаний, путь делится между ними поровну. На глобусе одна пунктирная дуга — одна авиакомпания в одну часть света." },
     { id: "lanes", title: "Компания",
-        help: "Кто, когда и с кем ездил. В ленте — дорожки по годам у каждого участника. В развороте три вкладки: годы с совместными поездками, таблица «кто с кем сколько раз» и страны — общие и свои, в том числе для выбранной пары." },
+        help: "Кто и когда ездил: у каждого участника своя дорожка по годам. Ниже — страны общие и свои: общие те, где были вместе хотя бы раз, свои — где человек был без остальных." },
+    { id: "diff", title: "Двое: только разница",
+        help: "Страны, где был один из пары и не был другой. Выберите двоих, чтобы сравнить." },
     { id: "far", title: "Дальше всего от дома",
         help: "Самый длинный перелёт каждого: от города вылета поездки до её самой далёкой точки, рядом разница часовых поясов. Значок глобуса показывает эти дуги на шаре." },
     { id: "radar", title: "Части света лепестками",
@@ -10134,197 +10136,6 @@ function oftenData(visits) {
         total: cs.length,
         trips: cs.reduce((a, c) => a + c.n, 0),
     };
-}
-/* данные для отчёта «Компания»: кто, когда и с кем ездил */
-function crewData(visits, people) {
-    const nameOf = (id) => { var _c; return id === ME ? meLabel() : ((_c = (people || []).find((p) => p.id === id)) === null || _c === void 0 ? void 0 : _c.name) || id; };
-    const mem = new Map();
-    const touch = (id) => {
-        if (!mem.has(id))
-            mem.set(id, { id, name: nameOf(id), trips: [], countries: new Set(), solo: 0 });
-        return mem.get(id);
-    };
-    const pair = new Map();
-    Object.entries(visits || {}).forEach(([a3, arr]) => (arr || []).forEach((t) => {
-        var _c, _d;
-        if (t.plan)
-            return;
-        const y = ((_c = dParts(t.from)) === null || _c === void 0 ? void 0 : _c.y) || t.y;
-        const m = ((_d = dParts(t.from)) === null || _d === void 0 ? void 0 : _d.m) || t.m || null;
-        const ids = [...new Set(t.who || [])];
-        if (!ids.length || !y)
-            return;
-        const rec = { a3, y, m, id: t.id, with: ids };
-        ids.forEach((id) => {
-            const p = touch(id);
-            p.trips.push(rec);
-            p.countries.add(a3);
-            if (ids.length === 1)
-                p.solo += 1;
-        });
-        for (let i = 0; i < ids.length; i++)
-            for (let j = i + 1; j < ids.length; j++) {
-                const k = [ids[i], ids[j]].sort().join("|");
-                const v = pair.get(k) || { ids: [ids[i], ids[j]].sort(), trips: 0, years: new Set(), countries: new Set() };
-                v.trips += 1;
-                v.years.add(y);
-                v.countries.add(a3);
-                pair.set(k, v);
-            }
-    }));
-    const rows = [...mem.values()].sort((a, b) => b.trips.length - a.trips.length);
-    const years = [...new Set(rows.flatMap((r) => r.trips.map((t) => t.y)))].sort();
-    return {
-        rows,
-        years,
-        pairs: pair,
-        nameOf,
-        countOf: (a, b) => { var _c, _d; return (a === b ? ((_c = mem.get(a)) === null || _c === void 0 ? void 0 : _c.solo) || 0 : ((_d = pair.get([a, b].sort().join("|"))) === null || _d === void 0 ? void 0 : _d.trips) || 0); },
-    };
-}
-/* «Компания» во весь экран: годы, кто с кем, страны */
-function CrewWin({ visits, people, onClose }) {
-    const data = useMemo(() => crewData(visits, people), [visits, people]);
-    const [tab, setTab] = useState("years"); // years | pairs | places
-    const [pair, setPair] = useState(null); // [id, id] или null — вся компания
-    const rows = data.rows;
-    const years = data.years;
-    const y0 = years[0] || NOW.getFullYear();
-    const y1 = years[years.length - 1] || y0;
-    const span = Math.max(1, y1 - y0 + 1);
-    const color = (i) => ["#e8b84b", "#8fd4ff", "#86c6a8", "#b58fd8", "#e99a6c", "#9fb0c0"][i % 6];
-    const lanes = (React.createElement(React.Fragment, null,
-        React.createElement("div", { className: "cw-scale" }, Array.from({ length: Math.min(span, 8) }, (_, i) => {
-            const y = y0 + Math.round((i * (span - 1)) / Math.max(1, Math.min(span, 8) - 1));
-            return React.createElement("span", { key: i }, y);
-        })),
-        React.createElement("div", { className: "cw-lanes" }, rows.map((r, i) => (React.createElement("div", { key: r.id, className: "cw-lane" },
-            React.createElement("span", { className: "cw-who" },
-                React.createElement("i", { style: { background: color(i) } }),
-                r.name),
-            React.createElement("span", { className: "cw-track" }, r.trips.map((t, k) => {
-                var _c;
-                const x = ((t.y - y0 + ((t.m || 6) - 1) / 12) / span) * 100;
-                const shared = t.with.length > 1;
-                return (React.createElement("i", { key: t.id + k, className: "cw-trip" + (shared ? " with" : ""), title: `${((_c = BY_A3[t.a3]) === null || _c === void 0 ? void 0 : _c.name) || t.a3} · ${t.y}`, style: {
-                        left: `${Math.max(0, Math.min(97, x))}%`,
-                        width: `${Math.max(2.4, 100 / span / 2)}%`,
-                        background: color(i),
-                    } }));
-            })))))),
-        React.createElement("p", { className: "cw-note" }, "\u041E\u0442\u0440\u0435\u0437\u043E\u043A \u2014 \u043F\u043E\u0435\u0437\u0434\u043A\u0430. \u0421\u043E \u0441\u0432\u0435\u0442\u043B\u043E\u0439 \u043A\u0430\u0439\u043C\u043E\u0439 \u2014 \u0442\u0435, \u0433\u0434\u0435 \u0435\u0437\u0434\u0438\u043B\u0438 \u0432\u043C\u0435\u0441\u0442\u0435 \u0441 \u043A\u0435\u043C-\u0442\u043E \u0438\u0437 \u0441\u043F\u0438\u0441\u043A\u0430.")));
-    const matrix = (React.createElement(React.Fragment, null,
-        React.createElement("div", { className: "cw-matrix", style: { gridTemplateColumns: `minmax(54px,auto) repeat(${rows.length}, 1fr)` } },
-            React.createElement("span", { className: "cw-cell head" }),
-            rows.map((r) => (React.createElement("span", { key: "h" + r.id, className: "cw-cell head" }, r.name.split(" ")[0]))),
-            rows.map((a) => (React.createElement(React.Fragment, { key: "r" + a.id },
-                React.createElement("span", { className: "cw-cell head left" }, a.name.split(" ")[0]),
-                rows.map((b) => {
-                    const n = data.countOf(a.id, b.id);
-                    const self = a.id === b.id;
-                    const on = pair && !self && pair.includes(a.id) && pair.includes(b.id);
-                    const max = Math.max(1, ...rows.flatMap((x) => rows.map((y) => (x.id === y.id ? 0 : data.countOf(x.id, y.id)))));
-                    return (React.createElement("button", { key: a.id + b.id, className: "cw-cell" + (self ? " self" : "") + (on ? " on" : "") +
-                            (!self && n >= max * 0.6 && n > 0 ? " hot" : ""), onClick: () => {
-                            if (self)
-                                return;
-                            setPair([a.id, b.id]);
-                            setTab("places");
-                        } }, n || (self ? "—" : 0)));
-                }))))),
-        React.createElement("p", { className: "cw-note" }, "\u041D\u0430 \u043F\u0435\u0440\u0435\u0441\u0435\u0447\u0435\u043D\u0438\u0438 \u2014 \u0441\u043A\u043E\u043B\u044C\u043A\u043E \u043F\u043E\u0435\u0437\u0434\u043E\u043A \u0432\u043C\u0435\u0441\u0442\u0435, \u043F\u043E \u0434\u0438\u0430\u0433\u043E\u043D\u0430\u043B\u0438 \u2014 \u0441\u043A\u043E\u043B\u044C\u043A\u043E \u0432 \u043E\u0434\u0438\u043D\u043E\u0447\u043A\u0443. \u041D\u0430\u0436\u043C\u0438\u0442\u0435 \u043A\u043B\u0435\u0442\u043A\u0443, \u0447\u0442\u043E\u0431\u044B \u043F\u043E\u0441\u043C\u043E\u0442\u0440\u0435\u0442\u044C \u0441\u0442\u0440\u0430\u043D\u044B \u043F\u0430\u0440\u044B.")));
-    const places = (() => {
-        const all = (id) => { var _c; return ((_c = data.rows.find((r) => r.id === id)) === null || _c === void 0 ? void 0 : _c.countries) || new Set(); };
-        if (pair) {
-            const [a, b] = pair;
-            const A = all(a);
-            const B = all(b);
-            const both = [...A].filter((x) => B.has(x));
-            const onlyA = [...A].filter((x) => !B.has(x));
-            const onlyB = [...B].filter((x) => !A.has(x));
-            const line = (a3, tag, cls) => {
-                var _c;
-                return (React.createElement("div", { key: cls + a3, className: "cw-row " + cls },
-                    React.createElement("span", { className: "cw-fl" },
-                        React.createElement(Flg, { a3: a3 })),
-                    React.createElement("span", { className: "cw-nm" }, ((_c = BY_A3[a3]) === null || _c === void 0 ? void 0 : _c.name) || a3),
-                    React.createElement("u", { className: "cw-tag " + cls }, tag)));
-            };
-            return (React.createElement(React.Fragment, null,
-                React.createElement("p", { className: "cw-sec" },
-                    "\u041E\u0431\u0449\u0438\u0435 \u2014 ",
-                    np(both.length, "country")),
-                both.map((x) => line(x, "обе", "both")),
-                React.createElement("p", { className: "cw-sec" },
-                    "\u0422\u043E\u043B\u044C\u043A\u043E \u0443 ",
-                    data.nameOf(a),
-                    " \u2014 ",
-                    np(onlyA.length, "country")),
-                onlyA.map((x) => line(x, data.nameOf(a).split(" ")[0], "a")),
-                React.createElement("p", { className: "cw-sec" },
-                    "\u0422\u043E\u043B\u044C\u043A\u043E \u0443 ",
-                    data.nameOf(b),
-                    " \u2014 ",
-                    np(onlyB.length, "country")),
-                onlyB.map((x) => line(x, data.nameOf(b).split(" ")[0], "b"))));
-        }
-        // вся компания: общие и свои
-        const counts = {};
-        rows.forEach((r) => r.countries.forEach((a3) => (counts[a3] = (counts[a3] || 0) + 1)));
-        const common = Object.keys(counts).filter((a3) => counts[a3] === rows.length);
-        const own = rows.map((r) => ({
-            id: r.id,
-            name: r.name,
-            list: [...r.countries].filter((a3) => counts[a3] === 1),
-        }));
-        return (React.createElement(React.Fragment, null,
-            React.createElement("p", { className: "cw-sec" },
-                "\u0423 \u0432\u0441\u0435\u0445 \u2014 ",
-                np(common.length, "country")),
-            common.map((a3) => {
-                var _c;
-                return (React.createElement("div", { key: a3, className: "cw-row both" },
-                    React.createElement("span", { className: "cw-fl" },
-                        React.createElement(Flg, { a3: a3 })),
-                    React.createElement("span", { className: "cw-nm" }, ((_c = BY_A3[a3]) === null || _c === void 0 ? void 0 : _c.name) || a3),
-                    React.createElement("u", { className: "cw-tag both" }, "\u0443 \u0432\u0441\u0435\u0445")));
-            }),
-            own
-                .filter((o) => o.list.length)
-                .map((o) => (React.createElement(React.Fragment, { key: o.id },
-                React.createElement("p", { className: "cw-sec" },
-                    "\u0422\u043E\u043B\u044C\u043A\u043E \u0443 ",
-                    o.name,
-                    " \u2014 ",
-                    np(o.list.length, "country")),
-                o.list.map((a3) => {
-                    var _c;
-                    return (React.createElement("div", { key: o.id + a3, className: "cw-row" },
-                        React.createElement("span", { className: "cw-fl" },
-                            React.createElement(Flg, { a3: a3 })),
-                        React.createElement("span", { className: "cw-nm" }, ((_c = BY_A3[a3]) === null || _c === void 0 ? void 0 : _c.name) || a3)));
-                }))))));
-    })();
-    return (React.createElement("div", { className: "zoom-layer pg-layer", onClick: onClose },
-        React.createElement("div", { className: "zoom-box", onClick: (e) => e.stopPropagation() },
-            React.createElement("button", { className: "zoom-x", onClick: onClose, "aria-label": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C" }, "\u2715"),
-            React.createElement("div", { className: "zoom-body rep" },
-                React.createElement("b", null, "\u041A\u043E\u043C\u043F\u0430\u043D\u0438\u044F"),
-                React.createElement("em", null, "\u043A\u0442\u043E, \u043A\u043E\u0433\u0434\u0430 \u0438 \u0441 \u043A\u0435\u043C \u0435\u0437\u0434\u0438\u043B"),
-                React.createElement("div", { className: "of-tabs" }, [
-                    ["years", "Годы"],
-                    ["pairs", "Вместе"],
-                    ["places", "Страны"],
-                ].map(([k, t]) => (React.createElement("button", { key: k, className: tab === k ? "on" : "", onClick: () => setTab(k) }, t)))),
-                tab === "places" && (React.createElement("div", { className: "cw-pick" },
-                    React.createElement("button", { className: pair ? "" : "on", onClick: () => setPair(null) }, "\u0432\u0441\u044F \u043A\u043E\u043C\u043F\u0430\u043D\u0438\u044F"),
-                    rows.slice(0, 6).map((r) => (React.createElement("button", { key: r.id, className: (pair === null || pair === void 0 ? void 0 : pair.includes(r.id)) ? "on" : "", onClick: () => setPair((v) => {
-                            if (!v)
-                                return null;
-                            const other = v.find((x) => x !== r.id) || v[0];
-                            return [other, r.id];
-                        }) }, r.name.split(" ")[0]))))),
-                React.createElement("div", { className: "ag-frame sd-frame" }, tab === "years" ? lanes : tab === "pairs" ? matrix : places)))));
 }
 /* «Чаще всего» во весь экран: шар с любимыми местами и список */
 function OftenWin({ visits, geo, mapProps, onClose }) {
@@ -11116,7 +10927,7 @@ function GridChart({ grid, planGrid, vague, years, onOpen }) {
             " \u043D\u0435\u0442\u043E\u0447\u043D\u0430\u044F \u0434\u0430\u0442\u0430")));
 }
 /* шторка отчётов */
-function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], onOpenTrip, geo, home, onPerson, onFar, onAir, onSeason, onConts, onWorld, onOften, onCrewWin, meName = "", repCfg = null }) {
+function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], onOpenTrip, geo, home, onPerson, onFar, onAir, onSeason, onConts, onWorld, onOften, meName = "", repCfg = null }) {
     ME_NAME = meName;
     const r = useMemo(() => reportData(visits, since, people), [visits, since, people]);
     const crew = useMemo(() => travelerStats(visits, people), [visits, people, meName]);
@@ -11328,10 +11139,12 @@ function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], o
                                 React.createElement("b", { className: "air-km" }, kmText(r.km))));
                         })))))),
             crewR.rows.length > 1 && (React.createElement(React.Fragment, null,
-                React.createElement(Reveal, { rid: "lanes", className: "rep", zoomable: false, onFull: () => onCrewWin === null || onCrewWin === void 0 ? void 0 : onCrewWin() },
+                React.createElement(Reveal, { rid: "lanes", className: "rep" },
                     React.createElement("b", null, "\u041A\u043E\u043C\u043F\u0430\u043D\u0438\u044F"),
                     React.createElement("em", null, "\u043A\u0442\u043E, \u043A\u043E\u0433\u0434\u0430 \u0438 \u0441 \u043A\u0435\u043C \u0435\u0437\u0434\u0438\u043B"),
-                    React.createElement(LanesChart, { rows: crewR.rows, years: crewR.years })),
+                    React.createElement(LanesChart, { rows: crewR.rows, years: crewR.years }),
+                    React.createElement("p", { className: "step-title" }, "\u0421\u0432\u043E\u0438 \u0438 \u043E\u0431\u0449\u0438\u0435 \u0441\u0442\u0440\u0430\u043D\u044B"),
+                    React.createElement(SplitChart, { rows: crewR.rows })),
                 React.createElement(Reveal, { rid: "far", className: "rep far-card", zoomable: false, hideFull: true },
                     React.createElement("b", null, "\u0414\u0430\u043B\u044C\u0448\u0435 \u0432\u0441\u0435\u0433\u043E \u043E\u0442 \u0434\u043E\u043C\u0430"),
                     React.createElement("button", { className: "crew-globe far-open", onClick: () => onFar === null || onFar === void 0 ? void 0 : onFar({ rows: crewR.rows, home: homePoint }), "aria-label": "\u041F\u043E\u043A\u0430\u0437\u0430\u0442\u044C \u043D\u0430 \u0433\u043B\u043E\u0431\u0443\u0441\u0435" },
@@ -11340,6 +11153,38 @@ function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], o
                             React.createElement("path", { d: "M3.5 12h17M12 3.5c2.6 2.4 2.6 14.6 0 17M12 3.5c-2.6 2.4-2.6 14.6 0 17", fill: "none", stroke: "currentColor", strokeWidth: "1.3" }))),
                     React.createElement("em", null, "\u0441\u0430\u043C\u0430\u044F \u0434\u0430\u043B\u0451\u043A\u0430\u044F \u0442\u043E\u0447\u043A\u0430 \u043F\u043E\u0435\u0437\u0434\u043E\u043A"),
                     React.createElement(SpanChart, { rows: crewR.rows, geo: geo, home: homePoint })),
+                diff && (React.createElement(Reveal, { rid: "diff", className: "rep cmp" },
+                    React.createElement("b", null, "\u0414\u0432\u043E\u0435: \u0442\u043E\u043B\u044C\u043A\u043E \u0440\u0430\u0437\u043D\u0438\u0446\u0430"),
+                    React.createElement("em", null, "\u0441\u0442\u0440\u0430\u043D\u044B, \u0433\u0434\u0435 \u0431\u044B\u043B \u043E\u0434\u0438\u043D \u0438 \u043D\u0435 \u0431\u044B\u043B \u0434\u0440\u0443\u0433\u043E\u0439"),
+                    React.createElement("div", { className: "cmp-chips" }, crewR.rows.map((r) => (React.createElement("button", { key: r.id, className: "cmp-chip" +
+                            (pair[0] === r.id ? " on a" : pair[1] === r.id ? " on b" : ""), onClick: () => pickCmp(r.id) }, r.name)))),
+                    React.createElement("div", { className: "cmp-sum" }, [
+                        { k: "a", who: diff.A, list: diff.onlyA },
+                        { k: "b", who: diff.B, list: diff.onlyB },
+                    ].map((x, n) => {
+                        var _c;
+                        return (React.createElement("button", { key: x.k, className: "cmp-half " + x.k + (side === n ? " on" : ""), onClick: () => setSide(n) },
+                            React.createElement("b", null, x.list.length),
+                            React.createElement("span", null,
+                                "\u0442\u043E\u043B\u044C\u043A\u043E ", (_c = x.who) === null || _c === void 0 ? void 0 :
+                                _c.name)));
+                    })),
+                    React.createElement("div", { className: "cmp-list" }, (() => {
+                        const list = side ? diff.onlyB : diff.onlyA;
+                        if (!list.length)
+                            return React.createElement("p", { className: "hint small" }, "\u0422\u0430\u043A\u0438\u0445 \u0441\u0442\u0440\u0430\u043D \u043D\u0435\u0442.");
+                        const byYear = [];
+                        list.forEach((v) => {
+                            const row = byYear.find((r) => r.y === v.y);
+                            if (row)
+                                row.items.push(v);
+                            else
+                                byYear.push({ y: v.y, items: [v] });
+                        });
+                        return byYear.map((r) => (React.createElement("div", { key: r.y, className: "cmp-year" },
+                            React.createElement("span", { className: "cmp-y" }, r.y || "—"),
+                            React.createElement("span", { className: "cmp-cs" }, r.items.map((v) => { var _c; return ((_c = BY_A3[v.a3]) === null || _c === void 0 ? void 0 : _c.name) || v.a3; }).join(", ")))));
+                    })()))),
                 React.createElement(Reveal, { rid: "radar", className: "rep" },
                     React.createElement("b", null, "\u0427\u0430\u0441\u0442\u0438 \u0441\u0432\u0435\u0442\u0430 \u043B\u0435\u043F\u0435\u0441\u0442\u043A\u0430\u043C\u0438"),
                     React.createElement("em", null, "\u0443 \u043A\u043E\u0433\u043E \u043A\u0430\u043A\u043E\u0439 \u043F\u0435\u0440\u0435\u043A\u043E\u0441"),
@@ -11809,7 +11654,6 @@ function Atlas() {
     const [contsWin, setContsWin] = useState(false);
     const [worldWin, setWorldWin] = useState(false);
     const [oftenWin, setOftenWin] = useState(false);
-    const [crewWin, setCrewWin] = useState(false);
     // разбор обмена с родными: показываем, пока пользователь не решит
     const [sync, setSync] = useState(null);
     const [near, setNear] = useState(false);
@@ -11945,7 +11789,7 @@ function Atlas() {
     /* нажатие на меню: закрыть всё, что открыто поверх, и перейти в раздел.
        Если поверх было открыто окно, а нажали текущий раздел — просто закрываем окно */
     const goTab = (tab, sheetName) => {
-        const over = !!(person || far || airWin || seasonWin || contsWin || worldWin || oftenWin || crewWin) ||
+        const over = !!(person || far || airWin || seasonWin || contsWin || worldWin || oftenWin) ||
             (typeof document !== "undefined" && !!document.querySelector(".zoom-layer"));
         setPerson(null);
         setFar(null);
@@ -11957,7 +11801,6 @@ function Atlas() {
         setContsWin(false);
         setWorldWin(false);
         setOftenWin(false);
-        setCrewWin(false);
         if (typeof window !== "undefined")
             window.dispatchEvent(new Event("atlas:closezoom"));
         setSheetBack(null);
@@ -13088,7 +12931,7 @@ function Atlas() {
                             setSheet(null);
                         } }),
                     React.createElement(DoublesSheet, { open: sheet === "doubles", onClose: () => setSheet("profile"), box: box, pairs: doubles, people: profile.people || [], home: profile.home || null, onJoin: joinDouble }),
-                    React.createElement(ReportsSheet, { open: sheet === "reports", onClose: () => setSheet(sheetBack === "profile" ? "profile" : null), box: box, visits: visits, since: profile.since, stats: stats, people: profile.people || [], home: profile.home || null, geo: geo, home: profile.home || null, onPerson: setPerson, onFar: setFar, onAir: setAirWin, onSeason: () => setSeasonWin(true), onConts: () => setContsWin(true), onWorld: () => setWorldWin(true), onOften: () => setOftenWin(true), onCrewWin: () => setCrewWin(true), repCfg: profile.reports || null, meName: profile.name || "", onOpenTrip: (a3, id) => {
+                    React.createElement(ReportsSheet, { open: sheet === "reports", onClose: () => setSheet(sheetBack === "profile" ? "profile" : null), box: box, visits: visits, since: profile.since, stats: stats, people: profile.people || [], home: profile.home || null, geo: geo, home: profile.home || null, onPerson: setPerson, onFar: setFar, onAir: setAirWin, onSeason: () => setSeasonWin(true), onConts: () => setContsWin(true), onWorld: () => setWorldWin(true), onOften: () => setOftenWin(true), repCfg: profile.reports || null, meName: profile.name || "", onOpenTrip: (a3, id) => {
                             setSelected(a3);
                             setEditId(id || null);
                             setSheet(null);
@@ -13109,7 +12952,6 @@ function Atlas() {
                         }, onFilters: openFilters }),
                     seasonWin && React.createElement(SeasonWin, { visits: visits, onClose: () => setSeasonWin(false) }),
                     contsWin && React.createElement(ContsWin, { visits: visits, geo: geo, onClose: () => setContsWin(false) }),
-                    crewWin && (React.createElement(CrewWin, { visits: visits, people: profile.people || [], onClose: () => setCrewWin(false) })),
                     oftenWin && (React.createElement(OftenWin, { visits: visits, geo: geo, onClose: () => setOftenWin(false), mapProps: {
                             visitKey,
                             home: lastTrip,
@@ -13791,42 +13633,6 @@ body > div{max-width:100%;}
 .ww-count{position:absolute; top:2px; right:6px; display:flex; align-items:baseline; gap:5px;}
 .ww-count b{font-size:1.25rem; font-weight:700; color:var(--gold);}
 .ww-count em{font-style:normal; font-size:0.66rem; color:var(--dim);}
-.cw-scale{display:flex; justify-content:space-between; padding-left:92px; font-size:0.56rem; color:var(--dim);}
-.cw-lanes{display:flex; flex-direction:column; gap:8px; margin-top:6px;}
-.cw-lane{display:flex; align-items:center; gap:8px;}
-.cw-who{flex:none; width:88px; display:flex; align-items:center; gap:6px; font-size:0.72rem;
-  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-.cw-who i{flex:none; width:8px; height:8px; border-radius:50%;}
-.cw-track{position:relative; flex:1 1 auto; height:24px; border-radius:8px; background:rgba(255,255,255,.05);}
-.cw-trip{position:absolute; top:7px; height:10px; border-radius:5px;}
-.cw-trip.with{box-shadow:0 0 0 1.5px rgba(244,239,226,.75);}
-.cw-note{margin:8px 0 0; font-size:0.66rem; color:var(--dim); line-height:1.45;}
-.cw-matrix{display:grid; gap:4px;}
-.cw-cell{aspect-ratio:1; border-radius:9px; border:1px solid var(--line); background:var(--field);
-  color:var(--text); font-size:0.76rem; display:flex; align-items:center; justify-content:center; cursor:pointer;}
-.cw-cell.head{aspect-ratio:auto; border:0; background:none; color:var(--dim); font-size:0.64rem; cursor:default;}
-.cw-cell.head.left{justify-content:flex-start;}
-.cw-cell.self{background:rgba(255,255,255,.03); color:var(--dim); cursor:default;}
-.cw-cell.hot{background:rgba(232,184,75,.16);}
-.cw-cell.on{border-color:var(--gold); color:var(--gold); font-weight:700;
-  background:linear-gradient(135deg, rgba(232,184,75,.3), rgba(232,184,75,.1));}
-.cw-pick{display:flex; flex-wrap:wrap; gap:6px;}
-.cw-pick button{padding:5px 10px; border-radius:10px; border:1px solid var(--line); background:var(--field);
-  color:var(--dim); font-size:0.72rem; cursor:pointer;}
-.cw-pick button.on{border-color:var(--gold); color:var(--gold);}
-.cw-sec{margin:10px 0 4px; font-size:0.7rem; color:var(--dim);}
-.cw-row{display:flex; align-items:center; gap:9px; padding:8px 11px; border-radius:12px;
-  border:1px solid var(--line); background:var(--field); margin-bottom:5px;}
-.cw-row.both{border-color:rgba(232,184,75,.4);}
-.cw-row.a{border-color:rgba(143,212,255,.4);}
-.cw-row.b{border-color:rgba(181,143,216,.4);}
-.cw-fl{flex:none; font-size:1.05rem;}
-.cw-nm{flex:1 1 auto; min-width:0; font-size:0.8rem;}
-.cw-tag{flex:none; text-decoration:none; font-size:0.6rem; padding:2px 8px; border-radius:9px;
-  border:1px solid var(--line); color:var(--dim);}
-.cw-tag.both{color:var(--gold); border-color:rgba(232,184,75,.4);}
-.cw-tag.a{color:#8fd4ff; border-color:rgba(143,212,255,.4);}
-.cw-tag.b{color:#b58fd8; border-color:rgba(181,143,216,.4);}
 .of-tabs{flex:none; display:flex; gap:6px; background:rgba(255,255,255,.04); border-radius:12px; padding:4px;}
 .of-tabs button{flex:1 1 0; padding:8px 6px; border:0; border-radius:9px; background:none; color:var(--dim);
   font-size:0.76rem; cursor:pointer;}
