@@ -2481,7 +2481,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "36.6";
+const APP_VERSION = "36.7";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -9026,6 +9026,9 @@ function QrCamera({ onCode, onClose, facing = "environment", hidden = false, onS
         let timer = 0;
         let frames = 0;
         let tries = 0;
+        let lastText = "";
+        let lastAt = 0;
+        let reads = 0;
         const cv = document.createElement("canvas");
         (async () => {
             var _c, _d, _e;
@@ -9118,9 +9121,16 @@ function QrCamera({ onCode, onClose, facing = "environment", hidden = false, onS
                         if (frames % 4 === 0)
                             (_e = cbStat.current) === null || _e === void 0 ? void 0 : _e.call(cbStat, { cam: `кадров ${frames}`, res: `${w}×${h}`, sys: !!detector });
                         if (text) {
-                            (_f = cbStat.current) === null || _f === void 0 ? void 0 : _f.call(cbStat, { cam: "код распознан", read: text.slice(0, 5) });
-                            (_g = cbCode.current) === null || _g === void 0 ? void 0 : _g.call(cbCode, text);
-                            return;
+                            // камеру не выключаем: первый прочитанный код может оказаться
+                            // не тем, который нужен, и телефон должен дождаться следующего
+                            const now = Date.now();
+                            if (text !== lastText || now - lastAt > 1500) {
+                                lastText = text;
+                                lastAt = now;
+                                reads += 1;
+                                (_f = cbStat.current) === null || _f === void 0 ? void 0 : _f.call(cbStat, { cam: "код распознан", read: text.slice(0, 5), reads });
+                                (_g = cbCode.current) === null || _g === void 0 ? void 0 : _g.call(cbCode, text);
+                            }
                         }
                     }
                     timer = setTimeout(tick, 180);
@@ -9236,7 +9246,9 @@ function NearSync({ makePayload, onData, onClose, box }) {
     const peer = useRef(null);
     const role = useRef("open"); // open | offer | answer
     const rank = useRef("");
+    const offerCode = useRef("");
     const busy = useRef(false);
+    const [why, setWhy] = useState("");
     useEffect(() => () => { var _c; return (_c = peer.current) === null || _c === void 0 ? void 0 : _c.pc.close(); }, []);
     const watch = (p) => {
         const on = () => setLink(`${p.pc.iceConnectionState || "—"} / ${p.pc.connectionState || "—"}`);
@@ -9298,44 +9310,64 @@ function NearSync({ makePayload, onData, onClose, box }) {
         const p = localPeer();
         peer.current = p;
         watch(p);
+        role.current = "open";
+        busy.current = false;
         const off = await p.offer();
+        if (peer.current !== p)
+            return; // пока собирали код, начали заново
         wire(off.channel);
+        offerCode.current = off.code;
         setMyCode("O" + rank.current + off.code);
+        setWhy("показываем своё предложение");
     };
     /* пришёл чужой код: либо отвечаем на предложение, либо принимаем ответ */
     const onCode = async (raw) => {
-        var _c;
+        var _c, _d;
         const code = String(raw || "").trim().toUpperCase();
         if (!code || busy.current)
             return;
+        const kind = code[0];
         try {
-            if (code[0] === "O" && role.current !== "answer") {
+            if (kind === "O" && role.current === "open") {
                 const theirRank = code.slice(1, 5);
-                // предлагает тот, чей код «старше»: иначе оба отвечали бы друг другу
-                if (role.current === "offer" || theirRank <= rank.current)
+                const theirs = code.slice(5);
+                if (theirs === offerCode.current)
+                    return; // свой же код в отражении
+                // отвечает тот, чей номер «младше»; при равных номерах решает сам код
+                const iAnswer = theirRank > rank.current ||
+                    (theirRank === rank.current && theirs > offerCode.current);
+                if (!iAnswer) {
+                    setWhy(`вижу предложение ${theirRank}, мой номер ${rank.current} — жду ответ`);
                     return;
+                }
                 busy.current = true;
                 role.current = "answer";
+                setWhy(`отвечаю на предложение ${theirRank}`);
                 (_c = peer.current) === null || _c === void 0 ? void 0 : _c.pc.close();
                 const p = localPeer();
                 peer.current = p;
                 watch(p);
-                const r = await p.answer(code.slice(5), wire);
+                const r = await p.answer(theirs, wire);
                 setMyCode("A" + rank.current + r.code);
                 setState("Покажите этот код второму телефону");
                 busy.current = false;
             }
-            else if (code[0] === "A" && role.current !== "answer") {
+            else if (kind === "A" && role.current === "open") {
                 busy.current = true;
                 role.current = "offer";
+                setWhy(`получен ответ ${code.slice(1, 5)}, соединяемся`);
                 await peer.current.accept(code.slice(5));
                 setState("Соединяемся");
                 busy.current = false;
             }
         }
-        catch {
-            busy.current = false;
+        catch (e) {
+            // сбой посреди пары: начинаем заново с новым предложением
+            setWhy("сбой: " + String((e === null || e === void 0 ? void 0 : e.name) || (e === null || e === void 0 ? void 0 : e.message) || e).slice(0, 60) + " — начинаем заново");
             setState("Код не подошёл, держите телефоны ровно");
+            (_d = peer.current) === null || _d === void 0 ? void 0 : _d.pc.close();
+            peer.current = null;
+            await start();
         }
     };
     return (React.createElement(Sheet, { open: true, onClose: onClose, title: React.createElement(React.Fragment, null,
@@ -9423,6 +9455,15 @@ function NearSync({ makePayload, onData, onClose, box }) {
                         stat.shot && (React.createElement("div", { className: "near-shot" },
                             React.createElement("img", { src: stat.shot, alt: "" }),
                             React.createElement("span", null, "\u0447\u0442\u043E \u0432\u0438\u0434\u0438\u0442 \u043A\u0430\u043C\u0435\u0440\u0430"))),
+                        React.createElement("p", null,
+                            "\u041C\u043E\u0439 \u043D\u043E\u043C\u0435\u0440: ",
+                            rank.current || "—",
+                            " \u00B7 \u043F\u0440\u043E\u0447\u0438\u0442\u0430\u043D\u043E \u043A\u043E\u0434\u043E\u0432: ",
+                            stat.reads || 0,
+                            stat.read ? ` · последний: ${stat.read}` : ""),
+                        why && React.createElement("p", null,
+                            "\u0428\u0430\u0433: ",
+                            why),
                         React.createElement("p", null,
                             "\u0421\u043E\u0435\u0434\u0438\u043D\u0435\u043D\u0438\u0435: ",
                             link || "—"),
