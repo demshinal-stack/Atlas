@@ -2585,7 +2585,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "37.0";
+const APP_VERSION = "37.1";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -9391,6 +9391,8 @@ function NearSync({ makePayload, onData, onClose, box }) {
        Раньше телефон, принявший первым, сразу закрывал экран обмена и тем самым
        обрывал свою передачу — у соседа застревало на 17%. */
     const got_ = useRef(null);
+    const [peerOld, setPeerOld] = useState(false);
+    const [review, setReview] = useState(false);
     const sentOk = useRef(false);
     const ackOk = useRef(false);
     const finished = useRef(false);
@@ -9408,8 +9410,11 @@ function NearSync({ makePayload, onData, onClose, box }) {
             console.warn("обмен: не удалось разобрать пакет", e);
             res = null;
         }
+        const peerVer = got_.current.appVersion || "";
+        setPeerOld(!peerVer || parseFloat(peerVer) < parseFloat(APP_VERSION));
+        setReview(!!(res === null || res === void 0 ? void 0 : res.review));
         setState((res === null || res === void 0 ? void 0 : res.review)
-            ? "Обмен завершён — есть расхождения, покажем их"
+            ? "Получено · есть расхождения — разберите их кнопкой ниже"
             : res && typeof res.added === "number"
                 ? res.added
                     ? `Обмен завершён · новых поездок: ${res.added}`
@@ -9450,7 +9455,7 @@ function NearSync({ makePayload, onData, onClose, box }) {
         const send = async () => {
             setStep("live");
             setState(withPhotos ? "Передаём поездки и снимки" : "Передаём поездки");
-            await sendPacket(ch, await makePayload(withPhotos), (k) => setSent(k));
+            await sendPacket(ch, { ...(await makePayload(withPhotos)), appVersion: APP_VERSION }, (k) => setSent(k));
             sentOk.current = true;
             if (!got_.current)
                 setState("Отдали, принимаем от соседа");
@@ -9462,8 +9467,12 @@ function NearSync({ makePayload, onData, onClose, box }) {
         ch.onclose = () => {
             if (got_.current)
                 finish();
-            else if (!finished.current)
-                setState("Соединение прервалось — нажмите «Отмена» и начните снова");
+            else if (!finished.current) {
+                setState(sentOk.current
+                    ? "Сосед закрыл обмен, не прислав своё. Проверьте версию приложения на его телефоне"
+                    : "Соединение прервалось — нажмите «Отмена» и начните снова");
+                setPeerOld(sentOk.current);
+            }
         };
     };
     const reset = () => {
@@ -9577,6 +9586,10 @@ function NearSync({ makePayload, onData, onClose, box }) {
                     : step === "pair"
                         ? state || "Поверните телефоны экранами друг к другу"
                         : state),
+                peerOld && (React.createElement("p", { className: "hint small near-warn" },
+                    "\u041D\u0430 \u0432\u0442\u043E\u0440\u043E\u043C \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0435 \u0441\u0442\u0430\u0440\u0430\u044F \u0432\u0435\u0440\u0441\u0438\u044F \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u044F, \u043F\u043E\u044D\u0442\u043E\u043C\u0443 \u043E\u043D \u043C\u043E\u0433 \u0437\u0430\u043A\u0440\u044B\u0442\u044C \u043E\u0431\u043C\u0435\u043D \u0438 \u043D\u0438\u0447\u0435\u0433\u043E \u043D\u0435 \u0441\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C. \u041E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u043D\u0430 \u043D\u0451\u043C \u041F\u0440\u043E\u0444\u0438\u043B\u044C \u2192 \u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438 \u0438 \u043F\u043E\u0441\u043C\u043E\u0442\u0440\u0438\u0442\u0435 \u0432\u0435\u0440\u0441\u0438\u044E \u0432\u043D\u0438\u0437\u0443; \u0435\u0441\u043B\u0438 \u043E\u043D\u0430 \u043D\u0438\u0436\u0435 ",
+                    APP_VERSION,
+                    ", \u043F\u043E\u043B\u043D\u043E\u0441\u0442\u044C\u044E \u0437\u0430\u043A\u0440\u043E\u0439\u0442\u0435 \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0435 \u0438 \u043E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u0441\u043D\u043E\u0432\u0430, \u0437\u0430\u0442\u0435\u043C \u043F\u043E\u0432\u0442\u043E\u0440\u0438\u0442\u0435 \u043E\u0431\u043C\u0435\u043D.")),
                 React.createElement("div", { className: "near-bars" + (step === "idle" ? " idle" : "") },
                     React.createElement("span", null,
                         React.createElement("em", null, "\u041E\u0442\u0434\u0430\u0451\u043C"),
@@ -9624,7 +9637,7 @@ function NearSync({ makePayload, onData, onClose, box }) {
                         React.createElement("em", null, "\u0434\u043E\u043B\u044C\u0448\u0435, \u0437\u0430\u0442\u043E \u0443 \u0440\u043E\u0434\u043D\u044B\u0445 \u0431\u0443\u0434\u0443\u0442 \u0444\u043E\u0442\u043E\u0433\u0440\u0430\u0444\u0438\u0438 \u043F\u043E\u0435\u0437\u0434\u043E\u043A")),
                     React.createElement("input", { type: "checkbox", className: "near-toggle", checked: withPhotos, disabled: step !== "idle", onChange: (e) => setWithPhotos(e.target.checked) }),
                     React.createElement("i", { className: "near-knob" })),
-                step === "idle" ? (React.createElement("button", { className: "btn-main wide", onClick: start }, "\u041E\u0431\u043C\u0435\u043D\u044F\u0442\u044C\u0441\u044F")) : step === "done" ? (React.createElement("button", { className: "btn-main wide", onClick: onClose }, "\u0413\u043E\u0442\u043E\u0432\u043E")) : (React.createElement("button", { className: "btn-ghost wide", onClick: reset }, "\u041E\u0442\u043C\u0435\u043D\u0430")),
+                step === "idle" ? (React.createElement("button", { className: "btn-main wide", onClick: start }, "\u041E\u0431\u043C\u0435\u043D\u044F\u0442\u044C\u0441\u044F")) : step === "done" ? (React.createElement("button", { className: "btn-main wide", onClick: onClose }, review ? "Разобрать расхождения" : "Готово")) : (React.createElement("button", { className: "btn-ghost wide", onClick: reset }, "\u041E\u0442\u043C\u0435\u043D\u0430")),
                 (React.createElement(React.Fragment, null,
                     React.createElement("button", { className: "near-link", onClick: () => setDiag((v) => !v) }, diag ? "Скрыть подробности" : "Не получается?"),
                     diag && (React.createElement("div", { className: "near-diag" },
@@ -13662,8 +13675,6 @@ function Atlas() {
                                 var _c;
                                 const r = (_c = receiveRef.current) === null || _c === void 0 ? void 0 : _c.call(receiveRef, d);
                                 // если нужны решения по расхождениям — уступаем место их экрану
-                                if (r === null || r === void 0 ? void 0 : r.review)
-                                    setTimeout(() => setNear(false), 1200);
                                 return r;
                             }, onClose: () => {
                                 setNear(false);
@@ -13671,7 +13682,7 @@ function Atlas() {
                                     setSheet(nearBack);
                                 setNearBack(null);
                             } })),
-                        sync && (React.createElement(SyncSheet, { plan: sync.plan, from: sync.from, box: box, onCancel: () => setSync(null), onApply: (picks) => {
+                        sync && !near && (React.createElement(SyncSheet, { plan: sync.plan, from: sync.from, box: box, onCancel: () => setSync(null), onApply: (picks) => {
                                 applySync(sync.data, picks);
                                 setSync(null);
                             } })),
@@ -14132,6 +14143,7 @@ body > div{max-width:100%;}
 .near-stage{height:200px; flex:none; display:flex; align-items:center; justify-content:center; position:relative;}
 .near-hero{display:block; width:100%; max-width:340px; height:100%;}
 .near-status{flex:none; min-height:68px; display:flex; flex-direction:column; gap:8px; justify-content:center;}
+.near-warn{margin:0; padding:10px 12px; border-radius:12px; background:rgba(232,184,75,.12); color:var(--gold); line-height:1.35;}
 .near-zone{flex:1 1 auto; min-height:0; display:flex; flex-direction:column; gap:10px;
   justify-content:flex-start; overflow-y:auto; overscroll-behavior:contain;}
 .near-zone .btn-main, .near-zone .btn-ghost{flex:none;}
