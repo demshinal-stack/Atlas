@@ -2481,7 +2481,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "35.3";
+const APP_VERSION = "35.5";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -10137,15 +10137,34 @@ function oftenData(visits) {
         trips: cs.reduce((a, c) => a + c.n, 0),
     };
 }
-/* короткое имя: если фамилии разные — имя и буква фамилии */
+/* короткое имя: убираем общую фамилию, учитывая мужские и женские окончания */
+const nameStem = (w) => String(w || "")
+    .toLowerCase()
+    .replace(/(ова|ева|ина|ын|ин|ов|ев|ский|ская|ый|ий|ая|а|я)$/u, "")
+    .slice(0, 6);
 function shortNames(list) {
+    var _c;
     const parts = list.map((r) => String(r.name || "").trim().split(/\s+/));
-    const surnames = new Set(parts.map((p) => (p[1] || "").toLowerCase()).filter(Boolean));
-    const same = surnames.size <= 1;
+    // самая частая основа среди всех слов — это и есть общая фамилия
+    const count = {};
+    parts.forEach((p) => {
+        new Set(p.map(nameStem)).forEach((st) => {
+            if (st)
+                count[st] = (count[st] || 0) + 1;
+        });
+    });
+    const family = (_c = Object.entries(count)
+        .filter(([, n]) => n > 1)
+        .sort((a, b) => b[1] - a[1])[0]) === null || _c === void 0 ? void 0 : _c[0];
     return list.map((r, i) => {
         const p = parts[i];
-        const first = p[0] || r.name;
-        return { ...r, short: same || !p[1] ? first : `${first} ${p[1][0]}.` };
+        if (p.length < 2)
+            return { ...r, short: p[0] || r.name };
+        const own = family ? p.find((w) => nameStem(w) !== family) : null;
+        if (own)
+            return { ...r, short: own };
+        // общей фамилии нет — имя и первая буква фамилии
+        return { ...r, short: `${p[0]} ${p[1][0]}.` };
     });
 }
 /* кто открыл страны, где больше никто из компании не был */
@@ -10211,12 +10230,13 @@ function Saturn({ name, n, tone = 0, size = 120, id }) {
             React.createElement("radialGradient", { id: `${uid}b`, cx: "38%", cy: "32%", r: "70%" },
                 React.createElement("stop", { offset: "0", stopColor: tones[0] }),
                 React.createElement("stop", { offset: "1", stopColor: tones[1] })),
-            React.createElement("path", { id: `${uid}p`, d: "M6 64 a54 16 0 0 0 108 0", fill: "none" })),
+            React.createElement("path", { id: `${uid}p`, d: "M32 74 a30 30 0 0 0 56 0", fill: "none" })),
         React.createElement("ellipse", { cx: "60", cy: "64", rx: "54", ry: "16", fill: "none", stroke: tones[2], strokeWidth: "8", opacity: ".55" }),
         React.createElement("circle", { cx: "60", cy: "58", r: "31", fill: `url(#${uid}b)` }),
         React.createElement("ellipse", { cx: "60", cy: "64", rx: "54", ry: "16", fill: "none", stroke: tones[2], strokeWidth: "8", strokeDasharray: "88 200", strokeDashoffset: "-40" }),
-        React.createElement("text", { x: "60", y: "54", textAnchor: "middle", fontSize: "26", fontWeight: "700", fill: tones[3] }, n),
-        React.createElement("text", { x: "60", y: "70", textAnchor: "middle", fontSize: "13", fontWeight: "700", fill: tones[3], style: { paintOrder: "stroke", stroke: tones[0], strokeWidth: 3, strokeLinejoin: "round" } }, name)));
+        React.createElement("text", { x: "60", y: "52", textAnchor: "middle", fontSize: "27", fontWeight: "700", fill: tones[3] }, n),
+        React.createElement("text", { fontSize: "15", fontWeight: "700", fill: tones[3], style: { paintOrder: "stroke", stroke: tones[0], strokeWidth: 3.4, strokeLinejoin: "round" } },
+            React.createElement("textPath", { href: `#${uid}p`, startOffset: "50%", textAnchor: "middle", textLength: Math.min(86, 7.6 * String(name).length), lengthAdjust: "spacingAndGlyphs" }, name))));
 }
 /* «Догоняй» в ленте: тройка лидеров */
 function SoloPodium({ data }) {
@@ -10235,10 +10255,10 @@ function SoloPodium({ data }) {
                 React.createElement("span", { className: i === 0 ? "gold" : "" }, place[i])));
         })),
         React.createElement("p", { className: "hint small dg-line" },
-            `У ${lead.short || lead.name} ${np(lead.n, "country")}, где больше не был никто`,
+            `${lead.short || lead.name} — ${np(lead.n, "country")}, где не был больше никто`,
             second
                 ? lead.n === second.n
-                    ? `. У ${second.short || second.name} столько же, но ${lead.short || lead.name} ${lead.id === ME ? "был" : "был там"} раньше`
+                    ? `. ${second.short || second.name} — столько же, разница в дате первой поездки`
                     : `. ${second.short || second.name} отстаёт на ${np(lead.n - second.n, "country")}`
                 : "",
             ".")));
@@ -10277,18 +10297,21 @@ function SoloWin({ visits, people, geo, mapProps, onClose }) {
             if (!w || !h)
                 return;
             [...box.querySelectorAll(".dg-sat")].forEach((el, i) => {
-                const rx = w * (0.44 - i * 0.03);
-                const ry = h * (0.2 - i * 0.012);
+                const rx = w * (0.5 - i * 0.02);
+                const ry = h * (0.24 - i * 0.012);
                 // центр орбиты: чем выше место, тем выше кольцо
-                const cy = h * (0.3 + i * 0.16);
+                const cy = h * (0.34 + i * 0.14);
                 const cx = w / 2;
-                const steps = 48;
+                const steps = 72;
                 const frames = [];
                 for (let k = 0; k <= steps; k++) {
                     const a = (k / steps) * Math.PI * 2;
+                    const front = Math.sin(a) > 0; // ближняя половина орбиты
+                    // за шаром планета прячется, перед ним — крупнее
+                    const hidden = !front && Math.abs(Math.cos(a)) < 0.62;
                     frames.push({
-                        transform: `translate(${cx + rx * Math.cos(a) - el.offsetWidth / 2}px, ${cy + ry * Math.sin(a) - el.offsetHeight / 2}px)`,
-                        zIndex: Math.sin(a) > 0 ? 3 : 1,
+                        transform: `translate(${cx + rx * Math.cos(a) - el.offsetWidth / 2}px, ${cy + ry * Math.sin(a) - el.offsetHeight / 2}px) scale(${front ? 1 : 0.82})`,
+                        opacity: hidden ? 0 : front ? 1 : 0.75,
                     });
                 }
                 анимации.push(el.animate(frames, {
@@ -10331,7 +10354,7 @@ function SoloWin({ visits, people, geo, mapProps, onClose }) {
     const globe = (React.createElement("div", { className: "sd-stage dg-stage" },
         React.createElement(Globe, { ...(mapProps || {}), geo: geo, pins: pins, lookAt: lookAt, dashSel: true, selected: country, full: false, noFull: true, fitBox: true, playing: !country, spinStep: 0.18, setPlaying: () => { }, onToggleFull: () => { }, onPick: (a3) => setCountry((v) => (v === a3 ? null : a3)) }),
         React.createElement("div", { className: "dg-orbits", ref: orbRef }, rows.slice(0, 5).map((r, i) => (React.createElement("button", { key: r.id, className: "dg-sat" + (sel === r.id ? " on" : ""), "data-orbit": i, onClick: () => setSel(r.id), "aria-label": r.name },
-            React.createElement(Saturn, { name: r.short || r.name, n: r.n, tone: i, size: i === 0 ? 104 : 96 - i * 6, id: "w" + r.id })))))));
+            React.createElement(Saturn, { name: r.short || r.name, n: r.n, tone: i, size: [112, 94, 82, 74, 68][i] || 64, id: "w" + r.id })))))));
     const chips = (React.createElement("div", { className: "dg-chips" }, rows.map((r, i) => (React.createElement("button", { key: r.id, className: "dg-chip" + (sel === r.id ? " on" : ""), onClick: () => {
             setSel(r.id);
             setCountry(null);
