@@ -2481,7 +2481,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "34.5";
+const APP_VERSION = "34.6";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -4165,7 +4165,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                     ctx.restore();
             });
             if (needFrame)
-                requestAnimationFrame(() => requestDraw());
+                needDraw = true;
             // мелкие страны и территории, которых нет в наборе границ,
             // подсвечиваем кругом — иначе их не видно
             const tiny = new Set();
@@ -4422,14 +4422,23 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
             arcHits.push({ key: a.key, pts });
             // по выбранной дуге летит самолёт
             if (a.plane) {
-                const t = ((Date.now() % 5200) / 5200) * N;
+                // туда и обратно, с плавным разгоном и торможением
+                const per = 9000;
+                const ph = (Date.now() % per) / per;
+                const back = ph > 0.5;
+                const u = back ? 1 - (ph - 0.5) * 2 : ph * 2;
+                const e = u < 0.5 ? 2 * u * u : 1 - Math.pow(-2 * u + 2, 2) / 2;
+                const t = e * N;
                 const i0 = Math.max(0, Math.min(N - 1, Math.floor(t)));
+                const f = t - i0;
                 const p0 = pts[i0];
                 const p1 = pts[i0 + 1];
                 if (p0 && p1) {
-                    const ang = Math.atan2(p1[1] - p0[1], p1[0] - p0[0]);
+                    const x = p0[0] + (p1[0] - p0[0]) * f;
+                    const y = p0[1] + (p1[1] - p0[1]) * f;
+                    const ang = Math.atan2(p1[1] - p0[1], p1[0] - p0[0]) + (back ? Math.PI : 0);
                     ctx.save();
-                    ctx.translate(p0[0], p0[1]);
+                    ctx.translate(x, y);
                     ctx.rotate(ang + Math.PI / 2);
                     ctx.shadowColor = "rgba(0,0,0,.5)";
                     ctx.shadowBlur = 6;
@@ -4603,12 +4612,13 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                 needDraw = true;
         }
         if (needDraw)
-            requestAnimationFrame(() => { var _c; return (_c = drawRef.current) === null || _c === void 0 ? void 0 : _c.call(drawRef); });
+            wantFrame.current = true;
         drawBelt(true);
         if (state.current.isMap)
             ctx.restore();
     }, [size]);
     /* кадр всегда рисуется актуальной функцией, а не той, что была на момент планирования */
+    const wantFrame = useRef(false);
     const drawRef = useRef(draw);
     drawRef.current = draw;
     const requestDraw = useCallback(() => {
@@ -4617,6 +4627,11 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         raf.current = requestAnimationFrame(() => {
             raf.current = 0;
             drawRef.current();
+            // анимации внутри кадра (самолёт, подсветка) просят следующий
+            if (wantFrame.current) {
+                wantFrame.current = false;
+                requestDraw();
+            }
         });
     }, []);
     useEffect(() => {
