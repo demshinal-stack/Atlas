@@ -2481,7 +2481,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "35.7";
+const APP_VERSION = "35.8";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -10311,8 +10311,10 @@ function SoloWin({ visits, people, geo, mapProps, onClose }) {
     }, []);
     const row = rows.find((r) => r.id === sel) || rows[0] || null;
     const orbRef = useRef(null);
+    const retry = useRef(0);
     /* орбиты вокруг самого шара: наклон, глубина и заход за планету */
     useEffect(() => {
+        var _c;
         const box = orbRef.current;
         if (!box)
             return;
@@ -10325,8 +10327,12 @@ function SoloWin({ visits, people, geo, mapProps, onClose }) {
             const cv = (_c = box.parentElement) === null || _c === void 0 ? void 0 : _c.querySelector("canvas");
             const br = box.getBoundingClientRect();
             const cr = cv === null || cv === void 0 ? void 0 : cv.getBoundingClientRect();
-            if (!br.width || !(cr === null || cr === void 0 ? void 0 : cr.width))
+            if (!br.width || !(cr === null || cr === void 0 ? void 0 : cr.width)) {
+                // шар ещё не подобрал размер — пробуем ещё раз
+                clearTimeout(retry.current);
+                retry.current = setTimeout(build, 200);
                 return;
+            }
             // центр и радиус настоящего шара, а не всей области
             const cx = cr.left - br.left + cr.width / 2;
             const cy = cr.top - br.top + cr.height / 2;
@@ -10365,14 +10371,24 @@ function SoloWin({ visits, people, geo, mapProps, onClose }) {
         build();
         const ro = new ResizeObserver(() => !stop && build());
         ro.observe(box);
+        const cv0 = (_c = box.parentElement) === null || _c === void 0 ? void 0 : _c.querySelector("canvas");
+        if (cv0)
+            ro.observe(cv0);
         const t = setTimeout(build, 400); // ждём, пока шар подберёт размер
+        const onTurn = () => !stop && setTimeout(build, 260);
+        window.addEventListener("orientationchange", onTurn);
+        window.addEventListener("resize", onTurn);
         return () => {
             stop = true;
             clearTimeout(t);
+            clearTimeout(retry.current);
+            window.removeEventListener("orientationchange", onTurn);
+            window.removeEventListener("resize", onTurn);
             ro.disconnect();
             анимации.forEach((a) => a.cancel());
         };
-    }, [rows.length]);
+        // перестраиваем и при смене положения экрана: разметка там другая
+    }, [rows.length, wide]);
     const pins = useMemo(() => {
         if (!country)
             return [];
