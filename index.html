@@ -2481,7 +2481,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "35.5";
+const APP_VERSION = "35.6";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -10214,29 +10214,58 @@ function soloData(visits, people) {
         .sort((a, b) => b.n - a.n || a.first - b.first));
     return { rows, common, people: everyone.size };
 }
-/* планета участника: число внутри, имя по кольцу */
-function Saturn({ name, n, tone = 0, size = 120, id }) {
-    const tones = [
-        ["#ffe9b0", "#c58a2c", "rgba(255,214,120,.95)", "#4a3208"],
-        ["#eef3f8", "#7d8b99", "rgba(201,212,222,.9)", "#21313f"],
-        ["#ffd7ac", "#b06a2c", "rgba(214,139,78,.9)", "#3a1f08"],
-        ["#d8ecff", "#4d7ea8", "rgba(143,212,255,.9)", "#10293d"],
-        ["#e7d6ff", "#7a5ea8", "rgba(181,143,216,.9)", "#221836"],
-        ["#d6f0e4", "#4f8f74", "rgba(134,198,168,.9)", "#12301f"],
-    ][tone % 6];
-    const uid = `sat${id || tone}`;
-    return (React.createElement("svg", { className: "dg-planet", viewBox: "0 0 120 120", width: size, height: size },
+/* планета участника: рисунок художника, цвета подставляем по месту */
+const SAT_TONES = [
+    { a: "#fff0c4", b: "#e8b84b", c: "#a9741d", r1: "#c08a28", r2: "#ffdd9a", t: "#4a3208" },
+    { a: "#f8fbff", b: "#c9d4de", c: "#78848f", r1: "#8d9aa8", r2: "#eef3f8", t: "#21313f" },
+    { a: "#ffe3c6", b: "#d68b4e", c: "#8f4f1c", r1: "#a86634", r2: "#f7d2a8", t: "#3a1f08" },
+    { a: "#dff0ff", b: "#8fd4ff", c: "#3d78a3", r1: "#5b93bd", r2: "#cfeaff", t: "#10293d" },
+    { a: "#efe2ff", b: "#b58fd8", c: "#6b4b98", r1: "#8163b0", r2: "#e3d2f8", t: "#221836" },
+    { a: "#dcf3e8", b: "#86c6a8", c: "#3d7960", r1: "#57967a", r2: "#cdeedd", t: "#12301f" },
+];
+function Saturn({ name, n, tone = 0, size = 120, id = "s", orbit = true }) {
+    const t = SAT_TONES[tone % SAT_TONES.length];
+    const u = `sat${id}`;
+    return (React.createElement("svg", { className: "dg-planet", viewBox: "0 0 200 200", width: size, height: size },
         React.createElement("defs", null,
-            React.createElement("radialGradient", { id: `${uid}b`, cx: "38%", cy: "32%", r: "70%" },
-                React.createElement("stop", { offset: "0", stopColor: tones[0] }),
-                React.createElement("stop", { offset: "1", stopColor: tones[1] })),
-            React.createElement("path", { id: `${uid}p`, d: "M32 74 a30 30 0 0 0 56 0", fill: "none" })),
-        React.createElement("ellipse", { cx: "60", cy: "64", rx: "54", ry: "16", fill: "none", stroke: tones[2], strokeWidth: "8", opacity: ".55" }),
-        React.createElement("circle", { cx: "60", cy: "58", r: "31", fill: `url(#${uid}b)` }),
-        React.createElement("ellipse", { cx: "60", cy: "64", rx: "54", ry: "16", fill: "none", stroke: tones[2], strokeWidth: "8", strokeDasharray: "88 200", strokeDashoffset: "-40" }),
-        React.createElement("text", { x: "60", y: "52", textAnchor: "middle", fontSize: "27", fontWeight: "700", fill: tones[3] }, n),
-        React.createElement("text", { fontSize: "15", fontWeight: "700", fill: tones[3], style: { paintOrder: "stroke", stroke: tones[0], strokeWidth: 3.4, strokeLinejoin: "round" } },
-            React.createElement("textPath", { href: `#${uid}p`, startOffset: "50%", textAnchor: "middle", textLength: Math.min(86, 7.6 * String(name).length), lengthAdjust: "spacingAndGlyphs" }, name))));
+            React.createElement("radialGradient", { id: `${u}-ball`, cx: "34%", cy: "30%", r: "78%" },
+                React.createElement("stop", { offset: "0%", stopColor: t.a }),
+                React.createElement("stop", { offset: "55%", stopColor: t.b }),
+                React.createElement("stop", { offset: "100%", stopColor: t.c })),
+            React.createElement("linearGradient", { id: `${u}-ring`, x1: "0%", y1: "0%", x2: "100%", y2: "0%" },
+                React.createElement("stop", { offset: "0%", stopColor: t.r1 }),
+                React.createElement("stop", { offset: "34%", stopColor: t.r2 }),
+                React.createElement("stop", { offset: "66%", stopColor: t.r2 }),
+                React.createElement("stop", { offset: "100%", stopColor: t.r1 })),
+            React.createElement("radialGradient", { id: `${u}-glow`, cx: "50%", cy: "50%", r: "50%" },
+                React.createElement("stop", { offset: "0%", stopColor: "#fff", stopOpacity: ".26" }),
+                React.createElement("stop", { offset: "65%", stopColor: "#fff", stopOpacity: ".08" }),
+                React.createElement("stop", { offset: "100%", stopColor: "#fff", stopOpacity: "0" })),
+            React.createElement("path", { id: `${u}-path`, fill: "none", d: "M 20 126 C 61 145, 139 145, 180 126" })),
+        React.createElement("circle", { cx: "100", cy: "100", r: "82", fill: `url(#${u}-glow)` }),
+        orbit && (React.createElement("g", { fill: "none", stroke: "#fff", strokeOpacity: ".3", strokeWidth: "1.2", transform: "rotate(-14 100 100)" },
+            React.createElement("ellipse", { cx: "100", cy: "100", rx: "104", ry: "38" }),
+            React.createElement("circle", { cx: "24", cy: "100", r: "4", fill: "#fff", fillOpacity: ".5", stroke: "none" }),
+            React.createElement("circle", { cx: "100", cy: "62", r: "3.5", fill: "#fff", fillOpacity: ".65", stroke: "none" }),
+            React.createElement("circle", { cx: "176", cy: "100", r: "4.5", fill: "#fff", fillOpacity: ".45", stroke: "none" }))),
+        React.createElement("g", { fill: "none", stroke: `url(#${u}-ring)`, strokeWidth: "22", strokeLinecap: "round", transform: "rotate(-14 100 100)" },
+            React.createElement("path", { d: "M 8 100 A 92 24 0 0 1 192 100" })),
+        React.createElement("circle", { cx: "100", cy: "100", r: "70", fill: `url(#${u}-ball)` }),
+        React.createElement("g", { fill: "none", stroke: "#fff", strokeOpacity: ".18", strokeLinecap: "round" },
+            React.createElement("path", { d: "M 43 70 C 70 62, 130 62, 157 70", strokeWidth: "7" }),
+            React.createElement("path", { d: "M 34 83 C 65 76, 135 76, 166 83", strokeWidth: "9" }),
+            React.createElement("path", { d: "M 31 98 C 63 92, 137 92, 169 98", strokeWidth: "6" }),
+            React.createElement("path", { d: "M 31 112 C 63 118, 137 118, 169 112", strokeWidth: "10" }),
+            React.createElement("path", { d: "M 38 128 C 68 135, 132 135, 162 128", strokeWidth: "7" }),
+            React.createElement("path", { d: "M 50 143 C 73 149, 127 149, 150 143", strokeWidth: "6" })),
+        React.createElement("ellipse", { cx: "78", cy: "74", rx: "19", ry: "27", fill: "#fff", fillOpacity: ".18", transform: "rotate(-25 78 74)" }),
+        React.createElement("ellipse", { cx: "72", cy: "67", rx: "7", ry: "11", fill: "#fff", fillOpacity: ".28", transform: "rotate(-25 72 67)" }),
+        React.createElement("ellipse", { cx: "128", cy: "126", rx: "31", ry: "39", fill: "#000", fillOpacity: ".13", transform: "rotate(-25 128 126)" }),
+        React.createElement("text", { x: "100", y: "96", textAnchor: "middle", fontSize: "44", fontWeight: "800", fill: t.t, style: { paintOrder: "stroke", stroke: t.a, strokeWidth: 4, strokeLinejoin: "round" } }, n),
+        React.createElement("g", { fill: "none", stroke: `url(#${u}-ring)`, strokeWidth: "22", strokeLinecap: "round", transform: "rotate(-14 100 100)" },
+            React.createElement("path", { d: "M 192 100 A 92 24 0 0 1 8 100" })),
+        React.createElement("text", { fontSize: "21", fontWeight: "800", fill: t.t },
+            React.createElement("textPath", { href: `#${u}-path`, startOffset: "50%", textAnchor: "middle", textLength: Math.min(150, 12 * String(name).length), lengthAdjust: "spacingAndGlyphs" }, name))));
 }
 /* «Догоняй» в ленте: тройка лидеров */
 function SoloPodium({ data }) {
@@ -10251,7 +10280,7 @@ function SoloPodium({ data }) {
         React.createElement("div", { className: "dg-podium" }, order.map((r) => {
             const i = top.indexOf(r);
             return (React.createElement("div", { key: r.id, className: "dg-pl p" + i },
-                React.createElement(Saturn, { name: r.short || r.name, n: r.n, tone: i, size: i === 0 ? 128 : i === 1 ? 108 : 100, id: r.id }),
+                React.createElement(Saturn, { name: r.short || r.name, n: r.n, tone: i, size: i === 0 ? 138 : i === 1 ? 116 : 104, id: r.id }),
                 React.createElement("span", { className: i === 0 ? "gold" : "" }, place[i])));
         })),
         React.createElement("p", { className: "hint small dg-line" },
@@ -10297,10 +10326,13 @@ function SoloWin({ visits, people, geo, mapProps, onClose }) {
             if (!w || !h)
                 return;
             [...box.querySelectorAll(".dg-sat")].forEach((el, i) => {
-                const rx = w * (0.5 - i * 0.02);
-                const ry = h * (0.24 - i * 0.012);
-                // центр орбиты: чем выше место, тем выше кольцо
-                const cy = h * (0.34 + i * 0.14);
+                // орбита вписана в область, чтобы планета не срезалась краем
+                const pw = el.offsetWidth || 96;
+                const ph = el.offsetHeight || 96;
+                const rx = Math.max(40, (w - pw) / 2 - 4 - i * 6);
+                const ry = Math.max(18, h * 0.13 - i * 4);
+                // орбиты разнесены по высоте: победитель выше, остальные ниже
+                const cy = Math.min(h - ph / 2 - 6, Math.max(ph / 2 + 6, h * (0.3 + i * 0.2)));
                 const cx = w / 2;
                 const steps = 72;
                 const frames = [];
@@ -10354,7 +10386,7 @@ function SoloWin({ visits, people, geo, mapProps, onClose }) {
     const globe = (React.createElement("div", { className: "sd-stage dg-stage" },
         React.createElement(Globe, { ...(mapProps || {}), geo: geo, pins: pins, lookAt: lookAt, dashSel: true, selected: country, full: false, noFull: true, fitBox: true, playing: !country, spinStep: 0.18, setPlaying: () => { }, onToggleFull: () => { }, onPick: (a3) => setCountry((v) => (v === a3 ? null : a3)) }),
         React.createElement("div", { className: "dg-orbits", ref: orbRef }, rows.slice(0, 5).map((r, i) => (React.createElement("button", { key: r.id, className: "dg-sat" + (sel === r.id ? " on" : ""), "data-orbit": i, onClick: () => setSel(r.id), "aria-label": r.name },
-            React.createElement(Saturn, { name: r.short || r.name, n: r.n, tone: i, size: [112, 94, 82, 74, 68][i] || 64, id: "w" + r.id })))))));
+            React.createElement(Saturn, { name: r.short || r.name, n: r.n, tone: i, size: [118, 100, 88, 80, 72][i] || 68, orbit: i < 3, id: "w" + r.id })))))));
     const chips = (React.createElement("div", { className: "dg-chips" }, rows.map((r, i) => (React.createElement("button", { key: r.id, className: "dg-chip" + (sel === r.id ? " on" : ""), onClick: () => {
             setSel(r.id);
             setCountry(null);
