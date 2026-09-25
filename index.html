@@ -2481,7 +2481,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "34.0";
+const APP_VERSION = "34.1";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -10054,7 +10054,10 @@ function WorldWin({ visits, geo, mapProps, onClose }) {
     const frameRef = useRef(null);
     const autoScroll = useRef(false);
     const byHand = useRef(false); // год сменился прокруткой, а не показом
+    const selRef = useRef(null);
+    const resume = useRef(0); // таймер: продолжить показ после паузы в листании
     const [hand, setHand] = useState(false); // листаем вручную
+    selRef.current = sel;
     const [wide, setWide] = useState(typeof window !== "undefined" && window.innerWidth > window.innerHeight);
     useEffect(() => {
         const on = () => setWide(window.innerWidth > window.innerHeight);
@@ -10188,12 +10191,19 @@ function WorldWin({ visits, geo, mapProps, onClose }) {
                     setGi(0);
                     setYear(cur);
                 }
+                // пролистали и ничего больше не делаем — через пару секунд показ сам продолжится
+                clearTimeout(resume.current);
+                resume.current = setTimeout(() => {
+                    if (!selRef.current)
+                        setPlay(true);
+                }, 2000);
             });
         };
         box.addEventListener("scroll", onScroll, { passive: true });
         return () => {
             box.removeEventListener("scroll", onScroll);
             cancelAnimationFrame(raf);
+            // таймер продолжения не трогаем: смена года пересоздаёт обработчик
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [years, year]);
@@ -10239,6 +10249,7 @@ function WorldWin({ visits, geo, mapProps, onClose }) {
             React.createElement("b", null, data.total[year] || openedBy.size),
             React.createElement("em", null, pw(data.total[year] || openedBy.size, "country"))),
         React.createElement("button", { className: "ww-again" + (play ? " on" : ""), onClick: () => {
+                clearTimeout(resume.current);
                 setSpin(false);
                 setSel(null);
                 if (play) {
@@ -10259,6 +10270,7 @@ function WorldWin({ visits, geo, mapProps, onClose }) {
                 return (React.createElement("button", { key: r.a3, className: "ww-row" +
                         (sel === r.a3 ? " sel" : "") +
                         (y === year && shownNow.has(r.a3) ? " now" : ""), onClick: () => {
+                        clearTimeout(resume.current);
                         setPlay(false);
                         setSpin(false);
                         setHand(false);
