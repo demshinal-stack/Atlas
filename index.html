@@ -2481,7 +2481,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "34.4";
+const APP_VERSION = "34.5";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -3928,6 +3928,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
     }, []);
     /* отрисовка */
     const draw = useCallback(() => {
+        let needDraw = false; // нужен ли ещё кадр (анимации)
         const cv = canvasRef.current;
         if (!cv || !size)
             return;
@@ -4419,6 +4420,44 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                     : lift3d(p, lift * Math.sin(Math.PI * t)));
             }
             arcHits.push({ key: a.key, pts });
+            // по выбранной дуге летит самолёт
+            if (a.plane) {
+                const t = ((Date.now() % 5200) / 5200) * N;
+                const i0 = Math.max(0, Math.min(N - 1, Math.floor(t)));
+                const p0 = pts[i0];
+                const p1 = pts[i0 + 1];
+                if (p0 && p1) {
+                    const ang = Math.atan2(p1[1] - p0[1], p1[0] - p0[0]);
+                    ctx.save();
+                    ctx.translate(p0[0], p0[1]);
+                    ctx.rotate(ang + Math.PI / 2);
+                    ctx.shadowColor = "rgba(0,0,0,.5)";
+                    ctx.shadowBlur = 6;
+                    ctx.fillStyle = "#f4efe2";
+                    // силуэт самолёта
+                    ctx.beginPath();
+                    ctx.moveTo(0, -9);
+                    ctx.lineTo(2.2, -2.5);
+                    ctx.lineTo(9, 2);
+                    ctx.lineTo(9, 4);
+                    ctx.lineTo(2.2, 2.4);
+                    ctx.lineTo(2.2, 6.5);
+                    ctx.lineTo(4.4, 8.6);
+                    ctx.lineTo(4.4, 9.8);
+                    ctx.lineTo(0, 8.6);
+                    ctx.lineTo(-4.4, 9.8);
+                    ctx.lineTo(-4.4, 8.6);
+                    ctx.lineTo(-2.2, 6.5);
+                    ctx.lineTo(-2.2, 2.4);
+                    ctx.lineTo(-9, 4);
+                    ctx.lineTo(-9, 2);
+                    ctx.lineTo(-2.2, -2.5);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.restore();
+                }
+                needDraw = true;
+            }
             ctx.save();
             ctx.lineCap = "round";
             ctx.strokeStyle = a.color || "#e2b551";
@@ -4478,7 +4517,6 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
             ctx.restore();
         });
         arcHit.current = arcHits;
-        let needDraw = false;
         // флажок на булавке у новых стран — рисуем последним, поверх всего
         const flagPins = state.current.pins || [];
         if (flagPins.length) {
@@ -8245,6 +8283,7 @@ function AirGlobe({ visits, home, air, geo, mapProps, onClose }) {
                 lift: on ? 0.2 : mine ? 0.16 : 0.05 + (i % 5) * 0.02,
                 dot: on ? 5 : mine ? 3.6 : 2.6,
                 dash: true,
+                plane: sel === g.key,
                 rank: rank(g),
             };
         });
