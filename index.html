@@ -2481,7 +2481,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "35.0";
+const APP_VERSION = "35.1";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -9662,8 +9662,8 @@ const REPORTS = [
         help: "Полоса — доля от лидера по числу стран. Считаются только состоявшиеся поездки, где человек отмечен в составе. Значок глобуса рядом с именем показывает его маршруты на шаре." },
     { id: "air", title: "Авиакомпании",
         help: "Километры считаются от города вылета до самой далёкой точки поездки и обратно. Если в поездке было несколько авиакомпаний, путь делится между ними поровну. На глобусе одна пунктирная дуга — одна авиакомпания в одну часть света." },
-    { id: "lanes", title: "Компания",
-        help: "Кто и когда ездил: у каждого участника своя дорожка по годам. Ниже — страны общие и свои: общие те, где были вместе хотя бы раз, свои — где человек был без остальных." },
+    { id: "solo", title: "Догоняй",
+        help: "Страны, где был только один человек из компании и больше никто. Планета участника тем крупнее, чем больше таких стран. В развороте — шар, планеты на орбитах и список стран выбранного участника." },
     { id: "diff", title: "Двое: только разница",
         help: "Страны, где был один из пары и не был другой. Выберите двоих, чтобы сравнить." },
     { id: "far", title: "Дальше всего от дома",
@@ -10136,6 +10136,189 @@ function oftenData(visits) {
         total: cs.length,
         trips: cs.reduce((a, c) => a + c.n, 0),
     };
+}
+/* кто открыл страны, где больше никто из компании не был */
+function soloData(visits, people) {
+    const nameOf = (id) => { var _c; return id === ME ? meLabel() : ((_c = (people || []).find((p) => p.id === id)) === null || _c === void 0 ? void 0 : _c.name) || id; };
+    const byCountry = {};
+    Object.entries(visits || {}).forEach(([a3, arr]) => (arr || []).forEach((t) => {
+        var _c, _d;
+        if (t.plan)
+            return;
+        const rec = (byCountry[a3] = byCountry[a3] || { who: new Set(), trips: [] });
+        (t.who || []).forEach((w) => rec.who.add(w));
+        rec.trips.push({
+            a3,
+            y: ((_c = dParts(t.from)) === null || _c === void 0 ? void 0 : _c.y) || t.y || null,
+            m: ((_d = dParts(t.from)) === null || _d === void 0 ? void 0 : _d.m) || t.m || null,
+            city: (t.cities || [])[0] || "",
+            who: t.who || [],
+        });
+    }));
+    const own = new Map();
+    let common = 0;
+    const everyone = new Set();
+    Object.values(byCountry).forEach((rec) => rec.who.forEach((w) => everyone.add(w)));
+    Object.entries(byCountry).forEach(([a3, rec]) => {
+        if (rec.who.size === everyone.size && everyone.size > 1)
+            common += 1;
+        if (rec.who.size !== 1)
+            return;
+        const id = [...rec.who][0];
+        const row = own.get(id) || { id, name: nameOf(id), list: [] };
+        const t = rec.trips.sort((a, b) => (a.y || 0) - (b.y || 0))[0];
+        row.list.push({ a3, y: t.y, m: t.m, city: t.city });
+        own.set(id, row);
+    });
+    const rows = [...own.values()]
+        .map((r) => ({
+        ...r,
+        n: r.list.length,
+        list: r.list.sort((a, b) => (a.y || 0) - (b.y || 0)),
+    }))
+        .sort((a, b) => b.n - a.n);
+    return { rows, common, people: everyone.size };
+}
+/* планета участника: число внутри, имя по кольцу */
+function Saturn({ name, n, tone = 0, size = 120, id }) {
+    const tones = [
+        ["#ffe9b0", "#c58a2c", "rgba(255,214,120,.95)", "#4a3208"],
+        ["#eef3f8", "#7d8b99", "rgba(201,212,222,.9)", "#21313f"],
+        ["#d8ecff", "#4d7ea8", "rgba(143,212,255,.9)", "#10293d"],
+        ["#e7d6ff", "#7a5ea8", "rgba(181,143,216,.9)", "#221836"],
+        ["#ffe0cf", "#c07a4e", "rgba(233,154,108,.9)", "#3a1f10"],
+        ["#d6f0e4", "#4f8f74", "rgba(134,198,168,.9)", "#12301f"],
+    ][tone % 6];
+    const uid = `sat${id || tone}`;
+    return (React.createElement("svg", { className: "dg-planet", viewBox: "0 0 120 120", width: size, height: size },
+        React.createElement("defs", null,
+            React.createElement("radialGradient", { id: `${uid}b`, cx: "38%", cy: "32%", r: "70%" },
+                React.createElement("stop", { offset: "0", stopColor: tones[0] }),
+                React.createElement("stop", { offset: "1", stopColor: tones[1] })),
+            React.createElement("path", { id: `${uid}p`, d: "M6 64 a54 16 0 0 0 108 0", fill: "none" })),
+        React.createElement("ellipse", { cx: "60", cy: "64", rx: "54", ry: "16", fill: "none", stroke: tones[2], strokeWidth: "8", opacity: ".55" }),
+        React.createElement("circle", { cx: "60", cy: "58", r: "31", fill: `url(#${uid}b)` }),
+        React.createElement("ellipse", { cx: "60", cy: "64", rx: "54", ry: "16", fill: "none", stroke: tones[2], strokeWidth: "8", strokeDasharray: "88 200", strokeDashoffset: "-40" }),
+        React.createElement("text", { x: "60", y: "56", textAnchor: "middle", fontSize: "27", fontWeight: "700", fill: tones[3] }, n),
+        React.createElement("text", { fontSize: "12", fontWeight: "600", fill: tones[3] },
+            React.createElement("textPath", { href: `#${uid}p`, startOffset: "50%", textAnchor: "middle" }, name))));
+}
+/* «Догоняй» в ленте: тройка лидеров */
+function SoloPodium({ data }) {
+    const top = data.rows.slice(0, 3);
+    if (!top.length)
+        return React.createElement("p", { className: "hint small" }, "\u041F\u043E\u043A\u0430 \u0443 \u0432\u0441\u0435\u0445 \u0441\u0442\u0440\u0430\u043D\u044B \u043E\u0431\u0449\u0438\u0435.");
+    const order = [top[1], top[0], top[2]].filter(Boolean);
+    const place = { 0: "1 место", 1: "2 место", 2: "3 место" };
+    const lead = top[0];
+    const second = top[1];
+    return (React.createElement(React.Fragment, null,
+        React.createElement("div", { className: "dg-podium" }, order.map((r) => {
+            const i = top.indexOf(r);
+            return (React.createElement("div", { key: r.id, className: "dg-pl p" + i },
+                React.createElement(Saturn, { name: r.name.split(" ")[0], n: r.n, tone: i, size: i === 0 ? 126 : i === 1 ? 104 : 96, id: r.id }),
+                React.createElement("span", { className: i === 0 ? "gold" : "" }, place[i])));
+        })),
+        React.createElement("p", { className: "hint small dg-line" },
+            lead.name,
+            " \u043E\u0442\u043A\u0440\u044B\u043B",
+            lead.id === ME ? "" : "а",
+            " ",
+            np(lead.n, "country"),
+            ", \u0433\u0434\u0435 \u0431\u043E\u043B\u044C\u0448\u0435 \u043D\u0435 \u0431\u044B\u043B \u043D\u0438\u043A\u0442\u043E",
+            second ? `. ${second.name} отстаёт на ${np(lead.n - second.n, "country")}` : "",
+            ".")));
+}
+/* «Догоняй» во весь экран: планеты вокруг шара и страны участника */
+function SoloWin({ visits, people, geo, mapProps, onClose }) {
+    var _c;
+    const data = useMemo(() => soloData(visits, people), [visits, people]);
+    const rows = data.rows;
+    const [sel, setSel] = useState(((_c = rows[0]) === null || _c === void 0 ? void 0 : _c.id) || null);
+    const [country, setCountry] = useState(null);
+    const [wide, setWide] = useState(typeof window !== "undefined" && window.innerWidth > window.innerHeight);
+    useEffect(() => {
+        const on = () => setWide(window.innerWidth > window.innerHeight);
+        window.addEventListener("resize", on);
+        window.addEventListener("orientationchange", on);
+        return () => {
+            window.removeEventListener("resize", on);
+            window.removeEventListener("orientationchange", on);
+        };
+    }, []);
+    const row = rows.find((r) => r.id === sel) || rows[0] || null;
+    const pins = useMemo(() => {
+        if (!country)
+            return [];
+        const c = BY_A3[country];
+        if (!c)
+            return [];
+        return [
+            {
+                a3: country,
+                lon: c.lon,
+                lat: c.lat,
+                flag: c.a2 ? flag(c.a2) : "",
+                img: OWN_FLAGS[country] || null,
+                code: country,
+            },
+        ];
+    }, [country]);
+    const lookAt = useMemo(() => {
+        const c = country && BY_A3[country];
+        return c ? { lon: c.lon, lat: c.lat, id: `solo:${country}`, force: true } : null;
+    }, [country]);
+    const globe = (React.createElement("div", { className: "sd-stage dg-stage" },
+        React.createElement(Globe, { ...(mapProps || {}), geo: geo, pins: pins, lookAt: lookAt, dashSel: true, selected: country, full: false, noFull: true, fitBox: true, playing: !country, spinStep: 0.18, setPlaying: () => { }, onToggleFull: () => { }, onPick: (a3) => setCountry((v) => (v === a3 ? null : a3)) }),
+        React.createElement("div", { className: "dg-orbits" }, rows.slice(0, 5).map((r, i) => (React.createElement("div", { key: r.id, className: "dg-orbit" + (sel === r.id ? " on" : ""), style: {
+                "--dur": `${26 + i * 7}s`,
+                "--ry": 0.5 + i * 0.06,
+                "--scale": 1 - i * 0.12,
+            } },
+            React.createElement("button", { className: "dg-sat", onClick: () => setSel(r.id), "aria-label": r.name },
+                React.createElement(Saturn, { name: r.name.split(" ")[0], n: r.n, tone: i, size: 96, id: "w" + r.id }))))))));
+    const chips = (React.createElement("div", { className: "dg-chips" }, rows.map((r, i) => (React.createElement("button", { key: r.id, className: "dg-chip" + (sel === r.id ? " on" : ""), onClick: () => {
+            setSel(r.id);
+            setCountry(null);
+        } },
+        React.createElement("i", { className: "t" + (i % 6) }),
+        r.name.split(" ")[0],
+        " \u00B7 ",
+        r.n)))));
+    const list = (React.createElement(React.Fragment, null,
+        React.createElement("p", { className: "dg-sec" },
+            row ? `Только у ${row.name} — ${np(row.n, "country")}` : "Нет личных стран",
+            data.common ? ` · у всех ${np(data.common, "country")}` : ""),
+        ((row === null || row === void 0 ? void 0 : row.list) || []).map((x) => {
+            var _c;
+            return (React.createElement("button", { key: x.a3, className: "dg-row" + (country === x.a3 ? " on" : ""), onClick: () => setCountry((v) => (v === x.a3 ? null : x.a3)) },
+                React.createElement("span", { className: "dg-fl" },
+                    React.createElement(Flg, { a3: x.a3 })),
+                React.createElement("span", { className: "dg-nm" },
+                    ((_c = BY_A3[x.a3]) === null || _c === void 0 ? void 0 : _c.name) || x.a3,
+                    React.createElement("em", null,
+                        x.y || "",
+                        x.city ? ` · ${x.city}` : ""))));
+        })));
+    if (wide)
+        return (React.createElement("div", { className: "pg-wide", onClick: onClose },
+            React.createElement("div", { className: "pg-panel", onClick: (e) => e.stopPropagation() },
+                React.createElement("div", { className: "pg-map ww-map" }, globe),
+                React.createElement("div", { className: "pg-side ag-side" },
+                    React.createElement("div", { className: "pg-side-head" },
+                        React.createElement("b", null, "\u0414\u043E\u0433\u043E\u043D\u044F\u0439"),
+                        React.createElement("button", { className: "zoom-x", onClick: onClose, "aria-label": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C" }, "\u2715")),
+                    chips,
+                    React.createElement("div", { className: "ag-frame sd-frame" }, list)))));
+    return (React.createElement("div", { className: "zoom-layer pg-layer", onClick: onClose },
+        React.createElement("div", { className: "zoom-box", onClick: (e) => e.stopPropagation() },
+            React.createElement("button", { className: "zoom-x", onClick: onClose, "aria-label": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C" }, "\u2715"),
+            React.createElement("div", { className: "zoom-body rep" },
+                React.createElement("b", null, "\u0414\u043E\u0433\u043E\u043D\u044F\u0439"),
+                React.createElement("em", null, "\u0441\u0442\u0440\u0430\u043D\u044B, \u0433\u0434\u0435 \u0431\u044B\u043B \u0442\u043E\u043B\u044C\u043A\u043E \u043E\u0434\u0438\u043D \u0438\u0437 \u0432\u0430\u0441"),
+                React.createElement("div", { className: "pg-map far-map ww-map" }, globe),
+                chips,
+                React.createElement("div", { className: "ag-frame sd-frame" }, list)))));
 }
 /* «Чаще всего» во весь экран: шар с любимыми местами и список */
 function OftenWin({ visits, geo, mapProps, onClose }) {
@@ -10927,7 +11110,7 @@ function GridChart({ grid, planGrid, vague, years, onOpen }) {
             " \u043D\u0435\u0442\u043E\u0447\u043D\u0430\u044F \u0434\u0430\u0442\u0430")));
 }
 /* шторка отчётов */
-function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], onOpenTrip, geo, home, onPerson, onFar, onAir, onSeason, onConts, onWorld, onOften, meName = "", repCfg = null }) {
+function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], onOpenTrip, geo, home, onPerson, onFar, onAir, onSeason, onConts, onWorld, onOften, onSolo, meName = "", repCfg = null }) {
     ME_NAME = meName;
     const r = useMemo(() => reportData(visits, since, people), [visits, since, people]);
     const crew = useMemo(() => travelerStats(visits, people), [visits, people, meName]);
@@ -10946,6 +11129,7 @@ function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], o
             ? { a3: c.a3, name: c.name, lon: c.lon, lat: c.lat, about: true, guess: true }
             : null;
     }, [home, visits]);
+    const soloR = useMemo(() => soloData(visits, people), [visits, people]);
     const crewR = useMemo(() => crewReport(visits, people, crew.map((p) => p.id), homePoint), [visits, people, crew, homePoint, meName]);
     const [openCrew, setOpenCrew] = useState(null);
     const [cmp, setCmp] = useState([]);
@@ -11139,12 +11323,10 @@ function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], o
                                 React.createElement("b", { className: "air-km" }, kmText(r.km))));
                         })))))),
             crewR.rows.length > 1 && (React.createElement(React.Fragment, null,
-                React.createElement(Reveal, { rid: "lanes", className: "rep" },
-                    React.createElement("b", null, "\u041A\u043E\u043C\u043F\u0430\u043D\u0438\u044F"),
-                    React.createElement("em", null, "\u043A\u0442\u043E, \u043A\u043E\u0433\u0434\u0430 \u0438 \u0441 \u043A\u0435\u043C \u0435\u0437\u0434\u0438\u043B"),
-                    React.createElement(LanesChart, { rows: crewR.rows, years: crewR.years }),
-                    React.createElement("p", { className: "step-title" }, "\u0421\u0432\u043E\u0438 \u0438 \u043E\u0431\u0449\u0438\u0435 \u0441\u0442\u0440\u0430\u043D\u044B"),
-                    React.createElement(SplitChart, { rows: crewR.rows })),
+                soloR.rows.length > 0 && (React.createElement(Reveal, { rid: "solo", className: "rep", zoomable: false, onFull: () => onSolo === null || onSolo === void 0 ? void 0 : onSolo() },
+                    React.createElement("b", null, "\u0414\u043E\u0433\u043E\u043D\u044F\u0439"),
+                    React.createElement("em", null, "\u0443 \u043A\u043E\u0433\u043E \u0431\u043E\u043B\u044C\u0448\u0435 \u0441\u0442\u0440\u0430\u043D, \u0433\u0434\u0435 \u0431\u044B\u043B \u0442\u043E\u043B\u044C\u043A\u043E \u043E\u043D"),
+                    React.createElement(SoloPodium, { data: soloR }))),
                 React.createElement(Reveal, { rid: "far", className: "rep far-card", zoomable: false, hideFull: true },
                     React.createElement("b", null, "\u0414\u0430\u043B\u044C\u0448\u0435 \u0432\u0441\u0435\u0433\u043E \u043E\u0442 \u0434\u043E\u043C\u0430"),
                     React.createElement("button", { className: "crew-globe far-open", onClick: () => onFar === null || onFar === void 0 ? void 0 : onFar({ rows: crewR.rows, home: homePoint }), "aria-label": "\u041F\u043E\u043A\u0430\u0437\u0430\u0442\u044C \u043D\u0430 \u0433\u043B\u043E\u0431\u0443\u0441\u0435" },
@@ -11654,6 +11836,7 @@ function Atlas() {
     const [contsWin, setContsWin] = useState(false);
     const [worldWin, setWorldWin] = useState(false);
     const [oftenWin, setOftenWin] = useState(false);
+    const [soloWin, setSoloWin] = useState(false);
     // разбор обмена с родными: показываем, пока пользователь не решит
     const [sync, setSync] = useState(null);
     const [near, setNear] = useState(false);
@@ -11789,7 +11972,7 @@ function Atlas() {
     /* нажатие на меню: закрыть всё, что открыто поверх, и перейти в раздел.
        Если поверх было открыто окно, а нажали текущий раздел — просто закрываем окно */
     const goTab = (tab, sheetName) => {
-        const over = !!(person || far || airWin || seasonWin || contsWin || worldWin || oftenWin) ||
+        const over = !!(person || far || airWin || seasonWin || contsWin || worldWin || oftenWin || soloWin) ||
             (typeof document !== "undefined" && !!document.querySelector(".zoom-layer"));
         setPerson(null);
         setFar(null);
@@ -11801,6 +11984,7 @@ function Atlas() {
         setContsWin(false);
         setWorldWin(false);
         setOftenWin(false);
+        setSoloWin(false);
         if (typeof window !== "undefined")
             window.dispatchEvent(new Event("atlas:closezoom"));
         setSheetBack(null);
@@ -12931,7 +13115,7 @@ function Atlas() {
                             setSheet(null);
                         } }),
                     React.createElement(DoublesSheet, { open: sheet === "doubles", onClose: () => setSheet("profile"), box: box, pairs: doubles, people: profile.people || [], home: profile.home || null, onJoin: joinDouble }),
-                    React.createElement(ReportsSheet, { open: sheet === "reports", onClose: () => setSheet(sheetBack === "profile" ? "profile" : null), box: box, visits: visits, since: profile.since, stats: stats, people: profile.people || [], home: profile.home || null, geo: geo, home: profile.home || null, onPerson: setPerson, onFar: setFar, onAir: setAirWin, onSeason: () => setSeasonWin(true), onConts: () => setContsWin(true), onWorld: () => setWorldWin(true), onOften: () => setOftenWin(true), repCfg: profile.reports || null, meName: profile.name || "", onOpenTrip: (a3, id) => {
+                    React.createElement(ReportsSheet, { open: sheet === "reports", onClose: () => setSheet(sheetBack === "profile" ? "profile" : null), box: box, visits: visits, since: profile.since, stats: stats, people: profile.people || [], home: profile.home || null, geo: geo, home: profile.home || null, onPerson: setPerson, onFar: setFar, onAir: setAirWin, onSeason: () => setSeasonWin(true), onConts: () => setContsWin(true), onWorld: () => setWorldWin(true), onOften: () => setOftenWin(true), onSolo: () => setSoloWin(true), repCfg: profile.reports || null, meName: profile.name || "", onOpenTrip: (a3, id) => {
                             setSelected(a3);
                             setEditId(id || null);
                             setSheet(null);
@@ -12952,6 +13136,20 @@ function Atlas() {
                         }, onFilters: openFilters }),
                     seasonWin && React.createElement(SeasonWin, { visits: visits, onClose: () => setSeasonWin(false) }),
                     contsWin && React.createElement(ContsWin, { visits: visits, geo: geo, onClose: () => setContsWin(false) }),
+                    soloWin && (React.createElement(SoloWin, { visits: visits, people: profile.people || [], geo: geo, onClose: () => setSoloWin(false), mapProps: {
+                            isOn,
+                            visitKey,
+                            home: lastTrip,
+                            boxWidth: 0,
+                            marks,
+                            light,
+                            playing: true,
+                            setPlaying: () => { },
+                            view: "globe",
+                            page: 0,
+                            setPage: () => { },
+                            isWish,
+                        } })),
                     oftenWin && (React.createElement(OftenWin, { visits: visits, geo: geo, onClose: () => setOftenWin(false), mapProps: {
                             visitKey,
                             home: lastTrip,
@@ -13633,6 +13831,41 @@ body > div{max-width:100%;}
 .ww-count{position:absolute; top:2px; right:6px; display:flex; align-items:baseline; gap:5px;}
 .ww-count b{font-size:1.25rem; font-weight:700; color:var(--gold);}
 .ww-count em{font-style:normal; font-size:0.66rem; color:var(--dim);}
+.dg-podium{display:flex; align-items:flex-end; justify-content:center; gap:2px; margin-top:4px;}
+.dg-pl{display:flex; flex-direction:column; align-items:center; gap:4px;}
+.dg-pl span{font-size:0.64rem; color:var(--dim);}
+.dg-pl span.gold{color:var(--gold);}
+.dg-pl.p0{order:2;}
+.dg-pl.p1{order:1;}
+.dg-pl.p2{order:3;}
+.dg-line{margin-top:8px; text-align:center;}
+.dg-planet{display:block; overflow:visible;}
+.dg-stage{position:relative;}
+.dg-orbits{position:absolute; inset:0; pointer-events:none;}
+.dg-orbit{position:absolute; inset:12%; border-radius:50%; transform:scaleY(var(--ry));
+  animation:dgSpin var(--dur) linear infinite;}
+.dg-orbit.on{filter:drop-shadow(0 0 10px rgba(232,184,75,.5));}
+.dg-sat{position:absolute; left:0; top:50%; width:96px; height:96px; margin:-48px 0 0 -48px;
+  border:0; background:none; padding:0; pointer-events:auto; cursor:pointer;
+  transform:scale(var(--scale)); animation:dgSpinBack var(--dur) linear infinite;}
+@keyframes dgSpin{to{transform:scaleY(var(--ry)) rotate(360deg);}}
+@keyframes dgSpinBack{to{transform:scale(var(--scale)) rotate(-360deg);}}
+@media (prefers-reduced-motion: reduce){ .dg-orbit, .dg-sat{animation:none;} }
+.dg-chips{flex:none; display:flex; flex-wrap:wrap; gap:6px;}
+.dg-chip{display:flex; align-items:center; gap:6px; padding:6px 10px; border-radius:11px;
+  border:1px solid var(--line); background:var(--field); color:var(--dim); font-size:0.72rem; cursor:pointer;}
+.dg-chip.on{border-color:var(--gold); color:var(--gold);}
+.dg-chip i{width:8px; height:8px; border-radius:50%;}
+.dg-chip i.t0{background:#e8b84b;} .dg-chip i.t1{background:#c9d4de;} .dg-chip i.t2{background:#8fd4ff;}
+.dg-chip i.t3{background:#b58fd8;} .dg-chip i.t4{background:#e99a6c;} .dg-chip i.t5{background:#86c6a8;}
+.dg-sec{margin:0 0 6px; font-size:0.72rem; color:var(--dim);}
+.dg-row{width:100%; display:flex; align-items:center; gap:9px; padding:8px 11px; border-radius:12px;
+  border:1px solid var(--line); background:var(--field); color:var(--text); text-align:left;
+  cursor:pointer; margin-bottom:5px;}
+.dg-row.on{border-color:var(--gold);}
+.dg-fl{flex:none; font-size:1.05rem;}
+.dg-nm{flex:1 1 auto; min-width:0; display:flex; flex-direction:column; font-size:0.8rem;}
+.dg-nm em{font-style:normal; font-size:0.63rem; color:var(--dim);}
 .of-tabs{flex:none; display:flex; gap:6px; background:rgba(255,255,255,.04); border-radius:12px; padding:4px;}
 .of-tabs button{flex:1 1 0; padding:8px 6px; border:0; border-radius:9px; background:none; color:var(--dim);
   font-size:0.76rem; cursor:pointer;}
