@@ -2094,25 +2094,123 @@ const fromB32 = (str) => {
 };
 const utf8 = (str) => new TextEncoder().encode(str);
 const unutf8 = (arr) => new TextDecoder().decode(arr);
-/* выжимка из SDP: всё, что нужно, чтобы собрать его заново */
-function packSdp(sdp) {
+/* выжимка из SDP в двоичном виде: чем короче код, тем крупнее точки
+   на экране и тем легче камере его прочесть.
+   Состав: версия, роль, ufrag, pwd, отпечаток (32 байта), адреса.
+   Адрес: IPv4 — 4 байта, имя вида uuid.local — 16 байтов, IPv6 — 16 байтов,
+   плюс порт 2 байта. */
+const SDP_PACK_VER = 2;
+function packSdp(sdp, maxCands = 3) {
     const get = (re) => (sdp.match(re) || [])[1] || "";
     const ufrag = get(/a=ice-ufrag:(\S+)/);
     const pwd = get(/a=ice-pwd:(\S+)/);
-    const fp = get(/a=fingerprint:sha-256 (\S+)/).replace(/:/g, "");
+    const fpHex = get(/a=fingerprint:sha-256 (\S+)/).replace(/:/g, "");
     const setup = get(/a=setup:(\S+)/);
-    // адрес может быть и обычным, и вида xxxx.local — берём как есть
+    const out = [SDP_PACK_VER, setup === "actpass" ? 0 : setup === "active" ? 1 : 2];
+    const str = (t) => {
+        const b = utf8(t);
+        out.push(b.length, ...b);
+    };
+    str(ufrag);
+    str(pwd);
+    for (let i = 0; i < 32; i++)
+        out.push(parseInt(fpHex.slice(i * 2, i * 2 + 2), 16) || 0);
+    const seen = new Set();
     const cands = [...sdp.matchAll(/a=candidate:\S+ 1 udp \d+ (\S+) (\d+) typ (host|srflx)/g)]
-        .map((m) => `${m[1]}@${m[2]}`)
-        .filter((v, i, a) => a.indexOf(v) === i)
-        .slice(0, 4);
-    const role = setup === "actpass" ? "A" : setup === "active" ? "C" : "P";
-    const txt = [ufrag, pwd, fp, role, cands.join(",")].join("|");
-    return toB32(utf8(txt));
+        .map((m) => [m[1], +m[2]])
+        .filter(([ip, port]) => {
+        const k = ip + "@" + port;
+        if (seen.has(k))
+            return false;
+        seen.add(k);
+        return true;
+    })
+        // сначала домашние адреса и имена .local — они и нужны в одной сети
+        .sort((x, y) => (x[0].includes(":") ? 1 : 0) - (y[0].includes(":") ? 1 : 0))
+        .slice(0, maxCands);
+    out.push(cands.length);
+    cands.forEach(([ip, port]) => {
+        const uuid = ip.match(/^([0-9a-f]{8})-([0-9a-f]{4})-([0-9a-f]{4})-([0-9a-f]{4})-([0-9a-f]{12})\.local$/i);
+        if (/^\d+\.\d+\.\d+\.\d+$/.test(ip)) {
+            out.push(4, ...ip.split(".").map(Number));
+        }
+        else if (uuid) {
+            const hex = uuid.slice(1).join("");
+            out.push(16);
+            for (let i = 0; i < 16; i++)
+                out.push(parseInt(hex.slice(i * 2, i * 2 + 2), 16));
+        }
+        else if (ip.includes(":")) {
+            // IPv6: разворачиваем сокращённую запись в 8 групп
+            const [l, r = ""] = ip.split("::");
+            const L = l ? l.split(":") : [];
+            const R = r ? r.split(":") : [];
+            const groups = ip.includes("::")
+                ? [...L, ...Array(8 - L.length - R.length).fill("0"), ...R]
+                : L;
+            out.push(6);
+            groups.forEach((g) => {
+                const v = parseInt(g || "0", 16);
+                out.push((v >> 8) & 255, v & 255);
+            });
+        }
+        else {
+            out.push(0);
+            str(ip);
+        }
+        out.push((port >> 8) & 255, port & 255);
+    });
+    return toB32(out);
 }
 /* обратная сборка: из кода получаем рабочий SDP */
 function unpackSdp(code, type) {
-    const [ufrag, pwd, fp, setup, cands] = unutf8(fromB32(code)).split("|");
+    const b = fromB32(code);
+    let i = 0;
+    const byte = () => {
+        if (i >= b.length)
+            throw new Error("код оборван");
+        return b[i++];
+    };
+    const str = () => {
+        const n = byte();
+        const t = unutf8(b.slice(i, i + n));
+        i += n;
+        return t;
+    };
+    if (byte() !== SDP_PACK_VER)
+        throw new Error("код от другой версии приложения");
+    const setupN = byte();
+    const setup = setupN === 1 ? "C" : setupN === 2 ? "P" : "A";
+    const ufrag = str();
+    const pwd = str();
+    let fp = "";
+    for (let k = 0; k < 32; k++)
+        fp += byte().toString(16).padStart(2, "0");
+    const list = [];
+    const cnt = byte();
+    for (let k = 0; k < cnt; k++) {
+        const kind = byte();
+        let ip = "";
+        if (kind === 4)
+            ip = [byte(), byte(), byte(), byte()].join(".");
+        else if (kind === 16) {
+            let h = "";
+            for (let j = 0; j < 16; j++)
+                h += byte().toString(16).padStart(2, "0");
+            ip = `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}.local`;
+        }
+        else if (kind === 6) {
+            const g = [];
+            for (let j = 0; j < 8; j++)
+                g.push(((byte() << 8) | byte()).toString(16));
+            ip = g.join(":");
+        }
+        else
+            ip = str();
+        const port = (byte() << 8) | byte();
+        list.push(`${ip}@${port}`);
+    }
+    const cands = list.join(",");
     const fpColon = (fp.match(/.{2}/g) || []).join(":").toUpperCase();
     const lines = [
         "v=0",
@@ -2164,7 +2262,7 @@ function localPeer() {
             const d = await pc.createOffer();
             await pc.setLocalDescription(d);
             await ready();
-            return { code: packSdp(pc.localDescription.sdp), channel: ch };
+            return { code: packSdp(pc.localDescription.sdp, 2), channel: ch };
         },
         /* сторона, которая приняла код: канал придёт позже, отдаём его через onChannel */
         async answer(code, onChannel) {
@@ -2173,7 +2271,8 @@ function localPeer() {
             const d = await pc.createAnswer();
             await pc.setLocalDescription(d);
             await ready();
-            return { code: packSdp(pc.localDescription.sdp) };
+            // ответу хватает одного адреса: второй телефон и так увидит, откуда стучатся
+            return { code: packSdp(pc.localDescription.sdp, 1) };
         },
         async accept(code) {
             await pc.setRemoteDescription(unpackSdp(code, "answer"));
@@ -2481,7 +2580,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "36.8";
+const APP_VERSION = "36.9";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -8985,7 +9084,8 @@ function QrBox({ text, size = 240 }) {
             }
         // сам код: круглые точки
         const inEye = (r, q) => (r < 7 && q < 7) || (r < 7 && q >= n - 7) || (r >= n - 7 && q < 7);
-        const logo = Math.round(n * 0.2);
+        // значок поменьше: дыра в коде съедает запас на исправление ошибок
+        const logo = Math.max(5, Math.round(n * 0.13));
         const lo = Math.floor((n - logo) / 2);
         x.fillStyle = dark;
         for (let r = 0; r < n; r++)
@@ -9022,6 +9122,17 @@ function QrBox({ text, size = 240 }) {
     }, [text, size]);
     return React.createElement("canvas", { ref: cv, className: "qr-box" });
 }
+/* участки кадра для поиска кода: доля короткой стороны и положение (0 — край, 0,5 — середина) */
+const QR_TILES = [
+    { z: 0.55, x: 0.5, y: 0.5, name: "середина" },
+    { z: 1, x: 0.5, y: 0.5, name: "весь кадр" },
+    { z: 0.55, x: 0.5, y: 0.2, name: "выше середины" },
+    { z: 1, x: 0.5, y: 0, name: "верх кадра" },
+    { z: 0.55, x: 0.5, y: 0.8, name: "ниже середины" },
+    { z: 1, x: 0.5, y: 1, name: "низ кадра" },
+    { z: 0.55, x: 0.1, y: 0.5, name: "слева" },
+    { z: 0.55, x: 0.9, y: 0.5, name: "справа" },
+];
 function QrCamera({ onCode, onClose, facing = "environment", hidden = false, onStat }) {
     const video = useRef(null);
     const [err, setErr] = useState("");
@@ -9047,8 +9158,9 @@ function QrCamera({ onCode, onClose, facing = "environment", hidden = false, onS
                     stream = await navigator.mediaDevices.getUserMedia({
                         video: {
                             facingMode: { ideal: facing },
-                            width: { ideal: 1280 },
-                            height: { ideal: 720 },
+                            // побольше точек: код соседа занимает лишь часть кадра
+                            width: { ideal: 1920 },
+                            height: { ideal: 1080 },
                         },
                         audio: false,
                     });
@@ -9095,10 +9207,14 @@ function QrCamera({ onCode, onClose, facing = "environment", hidden = false, onS
                         cv.width = size;
                         cv.height = size;
                         const x = cv.getContext("2d", { willReadFrequently: true });
-                        // чередуем: весь кадр и его середина — так ловим и мелкий код
-                        const zoom = frames % 2 ? 1 : 0.55;
+                        // обходим кадр по участкам: код соседа бывает и мелким, и не по центру.
+                        // крупные квадраты — весь кадр сверху вниз, мелкие — увеличенные куски
+                        const T = QR_TILES[frames % QR_TILES.length];
+                        const zoom = T.z;
                         const src = side * zoom;
-                        x.drawImage(v, (w - src) / 2, (h - src) / 2, src, src, 0, 0, size, size);
+                        const sx = (w - src) * T.x;
+                        const sy = (h - src) * T.y;
+                        x.drawImage(v, sx, sy, src, src, 0, 0, size, size);
                         let text = null;
                         if (detector) {
                             try {
@@ -9113,7 +9229,7 @@ function QrCamera({ onCode, onClose, facing = "environment", hidden = false, onS
                             const img = x.getImageData(0, 0, size, size);
                             text = qrRead(img.data, size, size);
                             tries += 1;
-                            if (frames % 4 === 0) {
+                            if (frames % 3 === 0) {
                                 // средняя яркость: если ноль — камера отдаёт пустой кадр
                                 let sum = 0;
                                 for (let i = 0; i < img.data.length; i += 4000)
@@ -9123,7 +9239,7 @@ function QrCamera({ onCode, onClose, facing = "environment", hidden = false, onS
                                     bright: mean,
                                     tries,
                                     shot: cv.toDataURL("image/jpeg", 0.4),
-                                    zoom: zoom === 1 ? "весь кадр" : "середина",
+                                    zoom: T.name,
                                 });
                             }
                         }
