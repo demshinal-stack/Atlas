@@ -2481,7 +2481,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "36.2";
+const APP_VERSION = "36.3";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -9663,7 +9663,7 @@ const REPORTS = [
     { id: "air", title: "Авиакомпании",
         help: "Километры считаются от города вылета до самой далёкой точки поездки и обратно. Если в поездке было несколько авиакомпаний, путь делится между ними поровну. На глобусе одна пунктирная дуга — одна авиакомпания в одну часть света." },
     { id: "solo", title: "Догоняй",
-        help: "Страны, где был только один человек из компании и больше никто. Планета участника тем крупнее, чем больше таких стран. В развороте — шар, планеты на орбитах и список стран выбранного участника." },
+        help: "Планета есть у каждого, кто открыл страну, где не был больше никто из компании. Число на планете — сколько у него таких стран, имя на табличке под ней. Слева направо: второе место, первое, третье; золото, серебро и бронза по числу стран, а при равенстве впереди тот, кто съездил раньше. В развороте планеты кружат вокруг шара, а в списке видно, что это за страны." },
     { id: "diff", title: "Двое: только разница",
         help: "Страны, где был один из пары и не был другой. Выберите двоих, чтобы сравнить." },
     { id: "far", title: "Дальше всего от дома",
@@ -10299,17 +10299,8 @@ function SoloPodium({ data }) {
         React.createElement("div", { className: "dg-podium" }, order.map((r) => {
             const i = top.indexOf(r);
             return (React.createElement("div", { key: r.id, className: "dg-pl p" + i },
-                React.createElement(Saturn, { name: r.short || r.name, n: r.n, tone: i, size: i === 0 ? 104 : i === 1 ? 88 : 80, id: r.id }),
-                React.createElement("span", { className: i === 0 ? "gold" : "" }, place[i])));
-        })),
-        React.createElement("p", { className: "hint small dg-line" },
-            `${lead.short || lead.name} — ${np(lead.n, "country")}, где не был больше никто`,
-            second
-                ? lead.n === second.n
-                    ? `. ${second.short || second.name} — столько же, разница в дате первой поездки`
-                    : `. ${second.short || second.name} отстаёт на ${np(lead.n - second.n, "country")}`
-                : "",
-            ".")));
+                React.createElement(Saturn, { name: r.short || r.name, n: r.n, tone: i, size: i === 0 ? 104 : i === 1 ? 88 : 80, id: r.id })));
+        }))));
 }
 /* «Догоняй» во весь экран: планеты вокруг шара и страны участника */
 function SoloWin({ visits, people, geo, mapProps, onClose }) {
@@ -13998,7 +13989,7 @@ body > div{max-width:100%;}
 .ww-count{position:absolute; top:2px; right:6px; display:flex; align-items:baseline; gap:5px;}
 .ww-count b{font-size:1.25rem; font-weight:700; color:var(--gold);}
 .ww-count em{font-style:normal; font-size:0.66rem; color:var(--dim);}
-.dg-podium{display:flex; align-items:flex-end; justify-content:center; gap:2px; margin-top:4px;}
+.dg-podium{display:flex; align-items:flex-end; justify-content:center; gap:18px; margin-top:6px; flex-wrap:wrap;}
 .dg-pl{display:flex; flex-direction:column; align-items:center; gap:4px;}
 .dg-pl span{font-size:0.64rem; color:var(--dim);}
 .dg-pl span.gold{color:var(--gold);}
