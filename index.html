@@ -2481,7 +2481,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "36.7";
+const APP_VERSION = "36.8";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -3850,10 +3850,11 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
     page.current = pageProp || 0;
     const pageUi = pageProp || 0;
     const isMap = view === "map";
+    const night = React.useContext(NightCtx);
     const state = useRef({ isOn, selected, geo, marks, light, full, isMap, isWish, arcs, glow, glowAt: 0 });
     if (state.current.glow !== glow)
         state.current.glowAt = Date.now();
-    state.current = { ...state.current, isOn, selected, geo, marks, light, full, isMap, isWish, arcs, glow, pins, dashSel };
+    state.current = { ...state.current, isOn, selected, geo, marks, light, full, isMap, isWish, arcs, glow, pins, dashSel, night };
     /* размер: по фактической ширине плитки, с повторами до готовности разметки */
     useEffect(() => {
         var _c;
@@ -4282,7 +4283,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                 const q = proj([c.lon, c.lat]);
                 if (!q)
                     return;
-                const night = d3.geoDistance([c.lon, c.lat], sun) > Math.PI / 2;
+                const night = state.current.night && d3.geoDistance([c.lon, c.lat], sun) > Math.PI / 2;
                 ctx.beginPath();
                 ctx.arc(q[0], q[1], 1.7, 0, Math.PI * 2);
                 ctx.fillStyle = lt
@@ -4329,8 +4330,8 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
             ctx.fillText("📍", fs * 0.1, fs * 0.12);
             ctx.restore();
         });
-        // ночная сторона и сумерки — только на глобусе
-        if (!state.current.isMap) {
+        // ночная сторона и сумерки — только на глобусе и если включены в настройках
+        if (!state.current.isMap && state.current.night) {
             const [slon, slat] = sun;
             const anti = [slon + 180, -slat];
             // когда показываем дуги, ночь притушиваем, иначе линий не видно
@@ -4636,7 +4637,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
     }, []);
     useEffect(() => {
         requestDraw();
-    }, [size, selected, visitKey, geo, light, isMap, arcs, requestDraw]);
+    }, [size, selected, visitKey, geo, light, isMap, arcs, night, requestDraw]);
     useEffect(() => {
         const id = setInterval(requestDraw, 60000);
         return () => clearInterval(id);
@@ -6689,7 +6690,7 @@ function ReportsSetup({ cfg, onChange }) {
         }),
         React.createElement("button", { className: "link-btn", onClick: () => onChange(null) }, "\u0412\u0435\u0440\u043D\u0443\u0442\u044C \u043A\u0430\u043A \u0431\u044B\u043B\u043E")));
 }
-function SettingsSheet({ reportsCfg, onReportsCfg, open, onClose, box, visits, theme, onTheme, quality, onQuality, cityPins, onToggleCityPins, spinStart, onToggleSpin, mapView, onMapView, geoCount, onReloadGeo, offline, busy, progress, offlineAt, onToggleOffline, booksSize, booksCounts, hasPin, faceAvailable, faceOn, onSetPin, onDropPin, onLock, onFace, }) {
+function SettingsSheet({ reportsCfg, onReportsCfg, open, onClose, box, visits, theme, onTheme, quality, onQuality, cityPins, onToggleCityPins, spinStart, onToggleSpin, mapView, onMapView, night, onToggleNight, geoCount, onReloadGeo, offline, busy, progress, offlineAt, onToggleOffline, booksSize, booksCounts, hasPin, faceAvailable, faceOn, onSetPin, onDropPin, onLock, onFace, }) {
     const where = store.kind() === "idb"
         ? "база браузера"
         : store.kind() === "ls"
@@ -6720,6 +6721,14 @@ function SettingsSheet({ reportsCfg, onReportsCfg, open, onClose, box, visits, t
                         ? "Глобус начинает вращаться сразу"
                         : "Глобус стоит, пока не нажмёте воспроизведение")),
                 React.createElement("span", { className: "switch" + (spinStart ? " on" : "") },
+                    React.createElement("i", null))),
+            React.createElement("button", { className: "switch-row", onClick: () => onToggleNight(!night) },
+                React.createElement("span", { className: "switch-text" },
+                    "\u041D\u043E\u0447\u044C \u043D\u0430 \u0433\u043B\u043E\u0431\u0443\u0441\u0435",
+                    React.createElement("em", null, night
+                        ? "Ночная сторона затемнена по текущему времени"
+                        : "Весь шар освещён ровно")),
+                React.createElement("span", { className: "switch" + (night ? " on" : "") },
                     React.createElement("i", null))),
             React.createElement("p", { className: "step-title" }, "\u041E\u0442\u0447\u0451\u0442\u044B"),
             React.createElement("p", { className: "hint small" }, "\u0413\u0430\u043B\u043E\u0447\u043A\u0430 \u2014 \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0442\u044C \u043E\u0442\u0447\u0451\u0442, \u0441\u0442\u0440\u0435\u043B\u043A\u0438 \u2014 \u043F\u043E\u043C\u0435\u043D\u044F\u0442\u044C \u043F\u043E\u0440\u044F\u0434\u043E\u043A \u043D\u0430 \u044D\u043A\u0440\u0430\u043D\u0435 \u043E\u0442\u0447\u0451\u0442\u043E\u0432."),
@@ -9719,6 +9728,8 @@ function reportData(visits, since, people) {
 }
 /* появление при прокрутке: строим график, когда он попал на экран */
 const ZoomCtx = React.createContext(false);
+/* показывать ли ночную сторону на глобусе — общая настройка для всех шаров */
+const NightCtx = React.createContext(true);
 /* какие отчёты показывать и в каком порядке — настраивается в профиле */
 const REPORTS = [
     { id: "years", title: "Поездки по годам",
@@ -12046,6 +12057,7 @@ function Atlas() {
     const [photoQuality, setPhotoQualityState] = useState("light");
     const [spinStart, setSpinStartState] = useState(false);
     const [mapView, setMapViewState] = useState("globe");
+    const [night, setNightState] = useState(true);
     const setMapView = useCallback(async (v) => {
         setMapViewState(v);
         await store.set(K_SETTINGS, {
@@ -12054,8 +12066,9 @@ function Atlas() {
             photoQuality,
             spinStart,
             mapView: v,
+            night,
         });
-    }, [cityPins, theme, photoQuality, spinStart]);
+    }, [cityPins, theme, photoQuality, spinStart, night]);
     const [spinning, setSpinning] = useState(false);
     const [mapPage, setMapPage] = useState(0);
     const [booksFrom, setBooksFrom] = useState("");
@@ -12150,12 +12163,13 @@ function Atlas() {
             photoQuality,
             spinStart: v,
             mapView,
+            night,
         });
-    }, [cityPins, theme, photoQuality, mapView]);
+    }, [cityPins, theme, photoQuality, mapView, night]);
     const setPhotoQuality = useCallback(async (v) => {
         setPhotoQualityState(v);
-        await store.set(K_SETTINGS, { cityPins, theme, photoQuality: v, spinStart, mapView });
-    }, [cityPins, theme, spinStart, mapView]);
+        await store.set(K_SETTINGS, { cityPins, theme, photoQuality: v, spinStart, mapView, night });
+    }, [cityPins, theme, spinStart, mapView, night]);
     const [sysDark, setSysDark] = useState(true);
     useEffect(() => {
         var _c, _d;
@@ -12169,14 +12183,18 @@ function Atlas() {
     }, []);
     const setTheme = useCallback(async (v) => {
         setThemeState(v);
-        await store.set(K_SETTINGS, { cityPins, theme: v, photoQuality, spinStart, mapView });
-    }, [cityPins, photoQuality]);
+        await store.set(K_SETTINGS, { cityPins, theme: v, photoQuality, spinStart, mapView, night });
+    }, [cityPins, photoQuality, spinStart, mapView, night]);
     const light = theme === "light" || (theme === "system" && !sysDark);
     const [avatarDraft, setAvatarDraft] = useState(null);
+    const setNight = useCallback(async (v) => {
+        setNightState(v);
+        await store.set(K_SETTINGS, { cityPins, theme, photoQuality, spinStart, mapView, night: v });
+    }, [cityPins, theme, photoQuality, spinStart, mapView]);
     const setCityPins = useCallback(async (v) => {
         setCityPinsState(v);
-        await store.set(K_SETTINGS, { cityPins: v, theme, photoQuality, spinStart, mapView });
-    }, [theme, photoQuality, spinStart, mapView]);
+        await store.set(K_SETTINGS, { cityPins: v, theme, photoQuality, spinStart, mapView, night });
+    }, [theme, photoQuality, spinStart, mapView, night]);
     const [geo, setGeo] = useState(null);
     const [visits, setVisits] = useState({});
     visitsRef.current = visits;
@@ -12482,6 +12500,8 @@ function Atlas() {
                 setPhotoQualityState(st.photoQuality);
             if (st === null || st === void 0 ? void 0 : st.mapView)
                 setMapViewState(st.mapView);
+            if (typeof (st === null || st === void 0 ? void 0 : st.night) === "boolean")
+                setNightState(st.night);
             // справочники: с устройства, иначе с сервера
             try {
                 const res = await loadBooks();
@@ -12856,7 +12876,7 @@ function Atlas() {
             savedAt: new Date().toISOString(),
             visits,
             tombs: tombsRef.current,
-            settings: { cityPins, theme, photoQuality, spinStart, mapView },
+            settings: { cityPins, theme, photoQuality, spinStart, mapView, night },
             avatar: (profile === null || profile === void 0 ? void 0 : profile.avatar) || null,
             since: (profile === null || profile === void 0 ? void 0 : profile.since) || null,
             people: (profile === null || profile === void 0 ? void 0 : profile.people) || [],
@@ -12872,7 +12892,7 @@ function Atlas() {
         a.click();
         a.remove();
         setTimeout(() => URL.revokeObjectURL(url), 3000);
-    }, [visits, cityPins, theme, photoQuality, spinStart, mapView, profile]);
+    }, [visits, cityPins, theme, photoQuality, spinStart, mapView, night, profile]);
     const importData = useCallback(async (file, mode = "replace") => {
         try {
             const text = await file.text();
@@ -12932,7 +12952,10 @@ function Atlas() {
                     photoQuality: d.settings.photoQuality || "light",
                     spinStart: !!d.settings.spinStart,
                     mapView: d.settings.mapView || "globe",
+                    night: d.settings.night !== false,
                 });
+                if (typeof d.settings.night === "boolean")
+                    setNightState(d.settings.night);
                 if (typeof d.settings.spinStart === "boolean")
                     setSpinStartState(d.settings.spinStart);
             }
@@ -13178,350 +13201,351 @@ function Atlas() {
     const selTrips = selected ? visits[selected] || [] : [];
     const curIdx = Math.max(0, editId ? selTrips.findIndex((t) => t.id === editId) : 0);
     const curTrip = selTrips[curIdx] || selTrips[0];
-    return (React.createElement("div", { className: "root" + (light ? " light" : ""), style: shell, ref: rootRef },
-        React.createElement("style", null, CSS),
-        React.createElement("div", { className: "wrap" },
-            React.createElement("header", { className: "top" },
-                React.createElement("div", { className: "brand" }, "\u0410\u0442\u043B\u0430\u0441")),
-            React.createElement("div", { className: "cols" },
-                React.createElement("div", { className: "col-map" },
-                    React.createElement(Globe, { geo: geo, isOn: isOn, onPick: (a3) => {
-                            setSelected(BY_A3[a3] ? a3 : null);
-                            setEditId(null);
-                        }, selected: selected, full: false, onToggleFull: () => setFull(true), visitKey: visitKey, home: lastTrip, boxWidth: globeBox, marks: marks, light: light, playing: spinning, setPlaying: setSpinning, view: mapView, page: mapPage, setPage: setMapPage, isWish: isWish, arcs: overlayArcs }),
-                    full && (React.createElement(Globe, { geo: geo, isOn: isOn, onPick: (a3) => {
-                            setSelected(BY_A3[a3] ? a3 : null);
-                            setEditId(null);
-                        }, selected: selected, full: true, onToggleFull: () => setFull(false), visitKey: visitKey, home: lastTrip, boxWidth: globeBox, marks: marks, light: light, playing: spinning, setPlaying: setSpinning, view: mapView, page: mapPage, setPage: setMapPage, isWish: isWish, arcs: overlayArcs }))),
-                React.createElement("div", { className: "col-side" },
-                    overdue.length > 0 && (React.createElement("div", { className: "due" },
-                        React.createElement("b", { className: "due-title" }, overdue.length === 1
-                            ? "Дата поездки наступила"
-                            : `Наступили даты ${np(overdue.length, "trip")}`),
-                        overdue.slice(0, 3).map((o) => {
-                            var _c;
-                            const t = (visits[o.a3] || [])[o.idx];
-                            if (!t)
-                                return null;
-                            return (React.createElement("div", { key: o.a3 + o.idx, className: "due-row" },
-                                React.createElement("span", { className: "due-what" },
-                                    React.createElement("b", null,
-                                        React.createElement(Flg, { a3: o.a3 }),
-                                        " ", (_c = BY_A3[o.a3]) === null || _c === void 0 ? void 0 :
-                                        _c.name),
-                                    React.createElement("em", null, tripLabel(t))),
-                                React.createElement("div", { className: "due-acts" },
-                                    React.createElement("button", { className: "due-yes", onClick: () => editTrip(o.a3, t.id, { plan: false }) }, "\u0421\u043E\u0441\u0442\u043E\u044F\u043B\u0430\u0441\u044C"),
-                                    React.createElement("button", { className: "due-move", onClick: () => {
-                                            setSelected(o.a3);
-                                            setEditId(t.id);
-                                            setSheet("edit");
-                                        } }, "\u041F\u0435\u0440\u0435\u043D\u0435\u0441\u0442\u0438"),
-                                    React.createElement("button", { className: "due-del", onClick: () => {
-                                            var _c;
-                                            return setAsk({
-                                                title: "Удалить план?",
-                                                text: `${(_c = BY_A3[o.a3]) === null || _c === void 0 ? void 0 : _c.name}, ${tripLabel(t)}. Запись исчезнет без следа.`,
-                                                yes: "Удалить",
-                                                onYes: () => removeTrip(o.a3, t.id),
-                                            });
-                                        } }, "\u0423\u0434\u0430\u043B\u0438\u0442\u044C"))));
-                        }),
-                        overdue.length > 3 && (React.createElement("p", { className: "hint small" },
-                            "\u0415\u0449\u0451 ",
-                            np(overdue.length - 3, "trip"),
-                            " \u0436\u0434\u0443\u0442 \u0432 \u0441\u043F\u0438\u0441\u043A\u0435 \u043F\u043E\u0435\u0437\u0434\u043E\u043A.")))),
-                    React.createElement("section", { className: "focus" }, sel ? (React.createElement(React.Fragment, null,
-                        React.createElement("div", { className: "focus-head" },
-                            React.createElement("span", { className: "big-fl" }, flag(sel.a2)),
-                            React.createElement("div", { className: "focus-title" },
-                                React.createElement("div", { className: "sel-name" + ((curTrip === null || curTrip === void 0 ? void 0 : curTrip.plan) ? " is-plan" : "") }, sel.name),
-                                React.createElement("div", { className: "sel-cont" }, selTrips.length ? (React.createElement(React.Fragment, null,
-                                    ((curTrip === null || curTrip === void 0 ? void 0 : curTrip.cities) || []).join(", ") ||
-                                        CONTINENTS[sel.cont],
-                                    " · ",
-                                    tripLabel(curTrip))) : (React.createElement(React.Fragment, null,
-                                    CONTINENTS[sel.cont],
-                                    " \u00B7 \u0435\u0449\u0451 \u043D\u0435 \u0431\u044B\u043B\u0438"))),
-                                selTrips.length > 1 && (React.createElement("div", { className: "trip-nav" },
-                                    React.createElement("button", { onClick: () => {
-                                            var _c;
-                                            return setEditId((_c = selTrips[curIdx > 0 ? curIdx - 1 : selTrips.length - 1]) === null || _c === void 0 ? void 0 : _c.id);
-                                        }, "aria-label": "\u041F\u0440\u0435\u0434\u044B\u0434\u0443\u0449\u0430\u044F \u043F\u043E\u0435\u0437\u0434\u043A\u0430" }, "\u2039"),
-                                    React.createElement("span", null,
-                                        "\u043F\u043E\u0435\u0437\u0434\u043A\u0430 ",
-                                        curIdx + 1,
-                                        " \u0438\u0437",
-                                        " ",
-                                        selTrips.length),
-                                    React.createElement("button", { onClick: () => {
-                                            var _c;
-                                            return setEditId((_c = selTrips[curIdx < selTrips.length - 1 ? curIdx + 1 : 0]) === null || _c === void 0 ? void 0 : _c.id);
-                                        }, "aria-label": "\u0421\u043B\u0435\u0434\u0443\u044E\u0449\u0430\u044F \u043F\u043E\u0435\u0437\u0434\u043A\u0430" }, "\u203A")))),
-                            React.createElement("div", { className: "focus-side" },
-                                (curTrip === null || curTrip === void 0 ? void 0 : curTrip.plan) && React.createElement(Countdown, { trip: curTrip }),
-                                React.createElement("div", { className: "focus-acts" },
-                                    React.createElement("button", { className: "icon-btn", onClick: () => {
-                                            if (curTrip === null || curTrip === void 0 ? void 0 : curTrip.id)
-                                                setEditId(curTrip.id);
-                                            setSheet(selTrips.length ? "edit" : "add");
-                                        }, "aria-label": "\u0418\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u043F\u043E\u0435\u0437\u0434\u043A\u0443" },
-                                        React.createElement("svg", { viewBox: "0 0 24 24", width: "17", height: "17" },
-                                            React.createElement("path", { d: "M4 20h4L19 9l-4-4L4 16v4z", fill: "none", stroke: "currentColor", strokeWidth: "1.7", strokeLinejoin: "round" }),
-                                            React.createElement("path", { d: "M14 6l4 4", fill: "none", stroke: "currentColor", strokeWidth: "1.7" }))),
-                                    React.createElement("button", { className: "icon-btn" + (isWish(sel.a3) ? " wish-on" : ""), onClick: () => toggleWish(sel.a3), "aria-label": isWish(sel.a3) ? "Убрать из желаний" : "Хочу поехать" }, isWish(sel.a3) ? "★" : "☆"),
-                                    React.createElement("button", { className: "icon-btn", onClick: () => setSheet("country"), "aria-label": "\u041F\u0440\u043E \u0441\u0442\u0440\u0430\u043D\u0443" },
-                                        React.createElement("svg", { viewBox: "0 0 24 24", width: "17", height: "17" },
-                                            React.createElement("circle", { cx: "12", cy: "12", r: "8.5", fill: "none", stroke: "currentColor", strokeWidth: "1.6" }),
-                                            React.createElement("path", { d: "M12 11v5.5", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round" }),
-                                            React.createElement("circle", { cx: "12", cy: "7.9", r: "1.1", fill: "currentColor" }))),
-                                    React.createElement("button", { className: "icon-btn", onClick: () => setSelected(null), "aria-label": "\u0421\u043D\u044F\u0442\u044C \u0432\u044B\u0431\u043E\u0440" }, "\u2715")))))) : (React.createElement(React.Fragment, null,
-                        React.createElement("div", { className: "focus-head" },
-                            React.createElement("span", { className: "num" }, stats.countries),
-                            React.createElement("div", { className: "focus-title" },
-                                React.createElement("div", { className: "den" },
-                                    "\u0438\u0437 ",
-                                    TOTAL,
-                                    " \u0441\u0442\u0440\u0430\u043D \u00B7 ",
-                                    stats.trips,
-                                    " \u043F\u043E\u0435\u0437\u0434\u043E\u043A"))),
-                        React.createElement("p", { className: "focus-empty" }, mapView === "map"
-                            ? "Нажмите страну на карте, чтобы посмотреть её."
-                            : "Поверните глобус и нажмите страну, чтобы посмотреть её.")))),
-                    React.createElement(TripSheet, { open: sheet === "add", onClose: () => setSheet(null), box: box, initial: null, visits: visits, onSave: (a3, trip) => addTrip(a3, trip), mode: "add", quality: photoQuality, since: profile.since, people: profile.people || [], home: profile.home || null, meId: profile.deviceId || ME }),
-                    React.createElement(TripSheet, { open: sheet === "edit" && !!sel && !!selTrips.length, onClose: () => setSheet(null), box: box, initial: sel && selTrips.length
-                            ? { a3: sel.a3, idx: (curTrip === null || curTrip === void 0 ? void 0 : curTrip.id) || curIdx, trip: curTrip }
-                            : null, visits: visits, onSave: (a3, trip) => editTrip(a3, (curTrip === null || curTrip === void 0 ? void 0 : curTrip.id) || curIdx, trip), onRemove: removeTrip, mode: "edit", quality: photoQuality, since: profile.since, people: profile.people || [], home: profile.home || null, meId: profile.deviceId || ME }),
-                    React.createElement(ProfileSheet, { open: sheet === "profile", onClose: () => setSheet(null), box: box, avatar: profile.avatar, name: profile.name, onName: async (v) => {
-                            const prof = { ...profile, name: v };
-                            await saveProfile(prof);
-                        }, onPickAvatar: (src) => setAvatarDraft(src), since: profile.since, people: profile.people || [], home: profile.home || null, onPeople: async (list) => {
-                            const prof = { ...profile, people: list };
-                            await saveProfile(prof);
-                        }, onReports: () => {
-                            setSheetBack("profile");
-                            setSheet("reports");
-                        }, onSettings: () => setSheet("settings"), onShelf: () => setSheet("shelf"), onFamily: () => {
-                            setNearBack(sheet);
-                            setSheet(null);
-                            setNear(true);
-                        }, onSince: async (v) => {
-                            const prof = { ...profile, since: v };
-                            await saveProfile(prof);
-                        }, home: profile.home || null, onHome: async (h) => {
-                            const prof = { ...profile, home: h };
-                            await saveProfile(prof);
-                        }, onMergeWho: mergeWho, regionGaps: regionGaps, onFillRegions: fillRegions, depGaps: depGaps, onFillDeparture: fillDeparture, onExport: exportData, onImport: importAsk, onRestore: restoreData, restoreMsg: restoreMsg, doubles: doubles.length, onDoubles: () => setSheet("doubles"), visits: visits }),
-                    React.createElement(SettingsSheet, { reportsCfg: profile.reports || null, onReportsCfg: async (cfg) => {
-                            await saveProfile({ ...profile, reports: cfg });
-                        }, open: sheet === "settings", onClose: () => setSheet("profile"), box: box, visits: visits, theme: theme, onTheme: setTheme, quality: photoQuality, onQuality: (v) => {
-                            setPhotoQuality(v);
-                            setSheet("photomode");
-                        }, cityPins: cityPins, onToggleCityPins: setCityPins, spinStart: spinStart, onToggleSpin: setSpinStart, mapView: mapView, onMapView: setMapView, geoCount: ((_c = geo === null || geo === void 0 ? void 0 : geo.features) === null || _c === void 0 ? void 0 : _c.length) || 0, onReloadGeo: reloadGeo, offline: booksSaved, busy: booksBusy, progress: booksProgress, offlineAt: booksAt, onToggleOffline: () => (booksSaved ? dropBooks() : keepBooks()), booksSize: booksSize, booksCounts: {
-                            cities: CITIES.length,
-                            hotels: Object.values(HOTELS_BY_CITY).reduce((n, v) => n + v.length, 0),
-                            sights: SIGHTS.length,
-                        }, hasPin: !!profile.pinHash, faceAvailable: faceAvailable, faceOn: !!profile.credId, onSetPin: () => {
-                            setSheet(null);
-                            setProfile(null);
-                        }, onDropPin: () => setAsk({
-                            title: "Убрать код при входе?",
-                            text: "Приложение будет открываться сразу, без проверки.",
-                            yes: "Убрать",
-                            onYes: async () => {
-                                const prof = { ...profile, pinHash: "", salt: "", credId: "" };
-                                await saveProfile(prof);
-                                setSheet(null);
-                            },
-                        }), onLock: lock, onFace: async () => {
-                            if (profile.credId) {
-                                const prof = { ...profile, credId: "" };
-                                await saveProfile(prof);
-                            }
-                            else {
-                                enrollFace(profile);
-                            }
-                        } }),
-                    React.createElement(CountrySheet, { country: sel, open: sheet === "country" && !!sel, onClose: () => setSheet(null), box: box }),
-                    React.createElement(PhotoModeSheet, { open: sheet === "photomode", onClose: () => setSheet("settings"), box: box, quality: photoQuality, usage: photoUsage }),
-                    React.createElement(ShelfSheet, { open: sheet === "shelf", onClose: () => setSheet("profile"), box: box, isOn: isOn, isWish: isWish, onPick: (a3) => {
-                            setSelected(a3);
-                            setEditId(null);
-                            setSheet(null);
-                        } }),
-                    React.createElement(DoublesSheet, { open: sheet === "doubles", onClose: () => setSheet("profile"), box: box, pairs: doubles, people: profile.people || [], home: profile.home || null, onJoin: joinDouble }),
-                    React.createElement(ReportsSheet, { open: sheet === "reports", onClose: () => setSheet(sheetBack === "profile" ? "profile" : null), box: box, visits: visits, since: profile.since, stats: stats, people: profile.people || [], home: profile.home || null, geo: geo, home: profile.home || null, onPerson: setPerson, onFar: setFar, onAir: setAirWin, onSeason: () => setSeasonWin(true), onConts: () => setContsWin(true), onWorld: () => setWorldWin(true), onOften: () => setOftenWin(true), onSolo: () => setSoloWin(true), repCfg: profile.reports || null, meName: profile.name || "", onOpenTrip: (a3, id) => {
-                            setSelected(a3);
-                            setEditId(id || null);
-                            setSheet(null);
-                        } }),
-                    React.createElement(FiltersSheet, { open: sheet === "filters", onClose: () => setSheet(null), box: box, target: sheetBack === "list" ? "list" : "globe", years: allYears, yearFilter: yearFilter, onYear: (v) => {
-                            setYearFilter(v);
-                            setSheet(sheetBack);
-                        }, mode: listMode, onMode: (v) => {
-                            setListMode(v);
-                            setSheet(sheetBack);
-                        } }),
-                    React.createElement(ListSheet, { visits: visits, stats: stats, open: sheet === "list", onClose: () => setSheet(null), onPick: (a3, id) => {
-                            setSelected(a3);
-                            setEditId(id || null);
-                        }, onDone: (a3, id) => editTrip(a3, id, { plan: false }), box: box, mode: listMode, since: profile.since, people: profile.people || [], home: profile.home || null, meId: profile.deviceId || ME, wishCount: wish.length, onReports: () => {
-                            setSheetBack("list");
-                            setSheet("reports");
-                        }, onFilters: openFilters }),
-                    seasonWin && React.createElement(SeasonWin, { visits: visits, onClose: () => setSeasonWin(false) }),
-                    contsWin && React.createElement(ContsWin, { visits: visits, geo: geo, onClose: () => setContsWin(false) }),
-                    soloWin && (React.createElement(SoloWin, { visits: visits, people: profile.people || [], geo: geo, onClose: () => setSoloWin(false), mapProps: {
-                            isOn,
-                            visitKey,
-                            home: lastTrip,
-                            boxWidth: 0,
-                            marks,
-                            light,
-                            playing: true,
-                            setPlaying: () => { },
-                            view: "globe",
-                            page: 0,
-                            setPage: () => { },
-                            isWish,
-                        } })),
-                    oftenWin && (React.createElement(OftenWin, { visits: visits, geo: geo, onClose: () => setOftenWin(false), mapProps: {
-                            visitKey,
-                            home: lastTrip,
-                            boxWidth: 0,
-                            light,
-                            playing: true,
-                            setPlaying: () => { },
-                            view: "globe",
-                            page: 0,
-                            setPage: () => { },
-                        } })),
-                    worldWin && (React.createElement(WorldWin, { visits: visits, geo: geo, onClose: () => setWorldWin(false), mapProps: {
-                            visitKey,
-                            home: lastTrip,
-                            boxWidth: 0,
-                            marks: [],
-                            light,
-                            playing: true,
-                            setPlaying: () => { },
-                            view: "globe",
-                            page: 0,
-                            setPage: () => { },
-                        } })),
-                    (airWin === null || airWin === void 0 ? void 0 : airWin.air) && (React.createElement(AirGlobe, { visits: visits, home: profile.home || null, air: airWin.air, geo: geo, onClose: () => setAirWin(null), mapProps: {
-                            isOn,
-                            selected: null,
-                            visitKey,
-                            home: lastTrip,
-                            boxWidth: 0,
-                            marks,
-                            light,
-                            playing: true,
-                            setPlaying: () => { },
-                            view: "globe",
-                            page: 0,
-                            setPage: () => { },
-                            isWish,
-                        } })),
-                    (far === null || far === void 0 ? void 0 : far.rows) && (React.createElement(FarGlobe, { rows: far.rows, home: far.home, geo: geo, onClose: () => setFar(null), mapProps: {
-                            isOn,
-                            selected: null,
-                            visitKey,
-                            home: lastTrip,
-                            boxWidth: 0,
-                            marks,
-                            light,
-                            playing: true,
-                            setPlaying: () => { },
-                            view: "globe",
-                            page: 0,
-                            setPage: () => { },
-                            isWish,
-                        } })),
-                    (person === null || person === void 0 ? void 0 : person.row) && (React.createElement(PersonGlobe, { row: person.row, home: person.home, geo: geo, onClose: () => setPerson(null), mapProps: {
-                            isOn,
-                            selected: null,
-                            visitKey,
-                            home: lastTrip,
-                            boxWidth: 0,
-                            marks,
-                            light,
-                            playing: false,
-                            setPlaying: () => { },
-                            view: "globe",
-                            page: 0,
-                            setPage: () => { },
-                            isWish,
-                        } })),
-                    near && (React.createElement(NearSync, { box: box, makePayload: nearPayload, onData: (d) => {
-                            var _c;
-                            setNear(false);
-                            (_c = receiveRef.current) === null || _c === void 0 ? void 0 : _c.call(receiveRef, d);
-                        }, onClose: () => {
-                            setNear(false);
-                            if (nearBack)
-                                setSheet(nearBack);
-                            setNearBack(null);
-                        } })),
-                    sync && (React.createElement(SyncSheet, { plan: sync.plan, from: sync.from, box: box, onCancel: () => setSync(null), onApply: (picks) => {
-                            applySync(sync.data, picks);
-                            setSync(null);
-                        } })),
-                    React.createElement(Ask, { ask: ask, onClose: () => setAsk(null), box: box }),
-                    React.createElement("nav", { className: "tabbar" },
-                        React.createElement("button", { className: "tab" + (activeTab === "map" ? " on" : ""), onClick: () => goTab("map", null) },
-                            React.createElement("svg", { viewBox: "0 0 24 24", width: "22", height: "22" },
-                                React.createElement("circle", { cx: "12", cy: "12", r: "8.6", fill: "none", stroke: "currentColor", strokeWidth: "1.7" }),
-                                React.createElement("path", { d: "M3.6 12h16.8M12 3.4c2.3 2.4 3.4 5.3 3.4 8.6S14.3 18.2 12 20.6c-2.3-2.4-3.4-5.3-3.4-8.6S9.7 5.8 12 3.4z", fill: "none", stroke: "currentColor", strokeWidth: "1.5" })),
-                            React.createElement("em", null, "\u041A\u0430\u0440\u0442\u0430")),
-                        React.createElement("button", { className: "tab" + (activeTab === "list" ? " on" : ""), onClick: () => goTab("list", "list") },
-                            React.createElement("svg", { viewBox: "0 0 24 24", width: "22", height: "22" },
-                                React.createElement("path", { d: "M4 7h16M4 12h16M4 17h10", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round" })),
-                            React.createElement("em", null, "\u041F\u043E\u0435\u0437\u0434\u043A\u0438")),
-                        React.createElement("button", { className: "tab add" + (activeTab === "add" ? " on" : ""), onClick: () => goTab("add", "add") },
-                            React.createElement("span", { className: "tab-plus" },
-                                React.createElement("svg", { viewBox: "0 0 24 24", width: "24", height: "24" },
-                                    React.createElement("path", { d: "M12 5v14M5 12h14", fill: "none", stroke: "currentColor", strokeWidth: "2.2", strokeLinecap: "round" }))),
-                            React.createElement("em", null, "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C")),
-                        React.createElement("button", { className: "tab" + (activeTab === "reports" ? " on" : ""), onClick: () => goTab("reports", "reports") },
-                            React.createElement("svg", { viewBox: "0 0 24 24", width: "22", height: "22", "aria-hidden": "true" },
-                                React.createElement("path", { d: "M4 20V10M10 20V4M16 20v-7M22 20H2", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round" })),
-                            React.createElement("em", null, "\u041E\u0442\u0447\u0451\u0442\u044B")),
-                        React.createElement("button", { className: "tab" +
-                                (activeTab === "profile" ? " on" : ""), onClick: () => goTab("profile", "profile") },
-                            profile.avatar ? (React.createElement("img", { className: "tab-ava", src: profile.avatar, alt: "" })) : (React.createElement("svg", { viewBox: "0 0 24 24", width: "22", height: "22" },
-                                React.createElement("circle", { cx: "12", cy: "8.5", r: "3.6", fill: "none", stroke: "currentColor", strokeWidth: "1.7" }),
-                                React.createElement("path", { d: "M4.8 20c.7-3.7 3.6-5.8 7.2-5.8s6.5 2.1 7.2 5.8", fill: "none", stroke: "currentColor", strokeWidth: "1.7", strokeLinecap: "round" }))),
-                            React.createElement("em", null, "\u041F\u0440\u043E\u0444\u0438\u043B\u044C"))),
-                    avatarDraft && (React.createElement("div", { className: "modal", style: box ? { left: box.left, width: box.width } : undefined },
-                        React.createElement(AvatarEditor, { src: avatarDraft, onDone: saveAvatar, onCancel: () => setAvatarDraft(null) }))),
-                    updateReady && (React.createElement("div", { className: "banner" },
-                        React.createElement("span", { className: "banner-dot" }),
-                        React.createElement("span", { className: "banner-text" },
-                            React.createElement("b", null, "\u0414\u043E\u0441\u0442\u0443\u043F\u043D\u043E \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u0435"),
-                            React.createElement("em", null, "\u041F\u043E\u0435\u0437\u0434\u043A\u0438 \u0438 \u0444\u043E\u0442\u043E\u0433\u0440\u0430\u0444\u0438\u0438 \u043E\u0441\u0442\u0430\u043D\u0443\u0442\u0441\u044F \u043D\u0430 \u043C\u0435\u0441\u0442\u0435")),
-                        React.createElement("button", { className: "banner-btn", onClick: applyUpdate }, "\u041E\u0431\u043D\u043E\u0432\u0438\u0442\u044C"))),
-                    saveBroken && (React.createElement("div", { className: "banner warn" },
-                        React.createElement("span", { className: "banner-dot" }),
-                        React.createElement("span", { className: "banner-text" },
-                            React.createElement("b", null, "\u0414\u0430\u043D\u043D\u044B\u0435 \u043D\u0435 \u0441\u043E\u0445\u0440\u0430\u043D\u044F\u044E\u0442\u0441\u044F"),
-                            React.createElement("em", null, typeof location !== "undefined" && location.protocol === "file:"
-                                ? "Файл открыт с диска. Нужен адрес https://…"
-                                : "Браузер закрыл хранение для этой страницы."),
-                            React.createElement("code", null, typeof location !== "undefined"
-                                ? location.protocol + "//" + (location.host || "локальный файл")
-                                : "")),
-                        React.createElement("button", { className: "banner-ghost", onClick: async () => {
+    return (React.createElement(NightCtx.Provider, { value: night },
+        React.createElement("div", { className: "root" + (light ? " light" : ""), style: shell, ref: rootRef },
+            React.createElement("style", null, CSS),
+            React.createElement("div", { className: "wrap" },
+                React.createElement("header", { className: "top" },
+                    React.createElement("div", { className: "brand" }, "\u0410\u0442\u043B\u0430\u0441")),
+                React.createElement("div", { className: "cols" },
+                    React.createElement("div", { className: "col-map" },
+                        React.createElement(Globe, { geo: geo, isOn: isOn, onPick: (a3) => {
+                                setSelected(BY_A3[a3] ? a3 : null);
+                                setEditId(null);
+                            }, selected: selected, full: false, onToggleFull: () => setFull(true), visitKey: visitKey, home: lastTrip, boxWidth: globeBox, marks: marks, light: light, playing: spinning, setPlaying: setSpinning, view: mapView, page: mapPage, setPage: setMapPage, isWish: isWish, arcs: overlayArcs }),
+                        full && (React.createElement(Globe, { geo: geo, isOn: isOn, onPick: (a3) => {
+                                setSelected(BY_A3[a3] ? a3 : null);
+                                setEditId(null);
+                            }, selected: selected, full: true, onToggleFull: () => setFull(false), visitKey: visitKey, home: lastTrip, boxWidth: globeBox, marks: marks, light: light, playing: spinning, setPlaying: setSpinning, view: mapView, page: mapPage, setPage: setMapPage, isWish: isWish, arcs: overlayArcs }))),
+                    React.createElement("div", { className: "col-side" },
+                        overdue.length > 0 && (React.createElement("div", { className: "due" },
+                            React.createElement("b", { className: "due-title" }, overdue.length === 1
+                                ? "Дата поездки наступила"
+                                : `Наступили даты ${np(overdue.length, "trip")}`),
+                            overdue.slice(0, 3).map((o) => {
                                 var _c;
-                                await retryBackend();
-                                const r = await checkStorage();
-                                setSaveBroken(!r.ok);
-                                if (r.ok) {
-                                    setProfile(await store.get(K_PROFILE));
-                                    setVisits(((_c = (await store.get(K_DATA))) === null || _c === void 0 ? void 0 : _c.visits) || {});
+                                const t = (visits[o.a3] || [])[o.idx];
+                                if (!t)
+                                    return null;
+                                return (React.createElement("div", { key: o.a3 + o.idx, className: "due-row" },
+                                    React.createElement("span", { className: "due-what" },
+                                        React.createElement("b", null,
+                                            React.createElement(Flg, { a3: o.a3 }),
+                                            " ", (_c = BY_A3[o.a3]) === null || _c === void 0 ? void 0 :
+                                            _c.name),
+                                        React.createElement("em", null, tripLabel(t))),
+                                    React.createElement("div", { className: "due-acts" },
+                                        React.createElement("button", { className: "due-yes", onClick: () => editTrip(o.a3, t.id, { plan: false }) }, "\u0421\u043E\u0441\u0442\u043E\u044F\u043B\u0430\u0441\u044C"),
+                                        React.createElement("button", { className: "due-move", onClick: () => {
+                                                setSelected(o.a3);
+                                                setEditId(t.id);
+                                                setSheet("edit");
+                                            } }, "\u041F\u0435\u0440\u0435\u043D\u0435\u0441\u0442\u0438"),
+                                        React.createElement("button", { className: "due-del", onClick: () => {
+                                                var _c;
+                                                return setAsk({
+                                                    title: "Удалить план?",
+                                                    text: `${(_c = BY_A3[o.a3]) === null || _c === void 0 ? void 0 : _c.name}, ${tripLabel(t)}. Запись исчезнет без следа.`,
+                                                    yes: "Удалить",
+                                                    onYes: () => removeTrip(o.a3, t.id),
+                                                });
+                                            } }, "\u0423\u0434\u0430\u043B\u0438\u0442\u044C"))));
+                            }),
+                            overdue.length > 3 && (React.createElement("p", { className: "hint small" },
+                                "\u0415\u0449\u0451 ",
+                                np(overdue.length - 3, "trip"),
+                                " \u0436\u0434\u0443\u0442 \u0432 \u0441\u043F\u0438\u0441\u043A\u0435 \u043F\u043E\u0435\u0437\u0434\u043E\u043A.")))),
+                        React.createElement("section", { className: "focus" }, sel ? (React.createElement(React.Fragment, null,
+                            React.createElement("div", { className: "focus-head" },
+                                React.createElement("span", { className: "big-fl" }, flag(sel.a2)),
+                                React.createElement("div", { className: "focus-title" },
+                                    React.createElement("div", { className: "sel-name" + ((curTrip === null || curTrip === void 0 ? void 0 : curTrip.plan) ? " is-plan" : "") }, sel.name),
+                                    React.createElement("div", { className: "sel-cont" }, selTrips.length ? (React.createElement(React.Fragment, null,
+                                        ((curTrip === null || curTrip === void 0 ? void 0 : curTrip.cities) || []).join(", ") ||
+                                            CONTINENTS[sel.cont],
+                                        " · ",
+                                        tripLabel(curTrip))) : (React.createElement(React.Fragment, null,
+                                        CONTINENTS[sel.cont],
+                                        " \u00B7 \u0435\u0449\u0451 \u043D\u0435 \u0431\u044B\u043B\u0438"))),
+                                    selTrips.length > 1 && (React.createElement("div", { className: "trip-nav" },
+                                        React.createElement("button", { onClick: () => {
+                                                var _c;
+                                                return setEditId((_c = selTrips[curIdx > 0 ? curIdx - 1 : selTrips.length - 1]) === null || _c === void 0 ? void 0 : _c.id);
+                                            }, "aria-label": "\u041F\u0440\u0435\u0434\u044B\u0434\u0443\u0449\u0430\u044F \u043F\u043E\u0435\u0437\u0434\u043A\u0430" }, "\u2039"),
+                                        React.createElement("span", null,
+                                            "\u043F\u043E\u0435\u0437\u0434\u043A\u0430 ",
+                                            curIdx + 1,
+                                            " \u0438\u0437",
+                                            " ",
+                                            selTrips.length),
+                                        React.createElement("button", { onClick: () => {
+                                                var _c;
+                                                return setEditId((_c = selTrips[curIdx < selTrips.length - 1 ? curIdx + 1 : 0]) === null || _c === void 0 ? void 0 : _c.id);
+                                            }, "aria-label": "\u0421\u043B\u0435\u0434\u0443\u044E\u0449\u0430\u044F \u043F\u043E\u0435\u0437\u0434\u043A\u0430" }, "\u203A")))),
+                                React.createElement("div", { className: "focus-side" },
+                                    (curTrip === null || curTrip === void 0 ? void 0 : curTrip.plan) && React.createElement(Countdown, { trip: curTrip }),
+                                    React.createElement("div", { className: "focus-acts" },
+                                        React.createElement("button", { className: "icon-btn", onClick: () => {
+                                                if (curTrip === null || curTrip === void 0 ? void 0 : curTrip.id)
+                                                    setEditId(curTrip.id);
+                                                setSheet(selTrips.length ? "edit" : "add");
+                                            }, "aria-label": "\u0418\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u043F\u043E\u0435\u0437\u0434\u043A\u0443" },
+                                            React.createElement("svg", { viewBox: "0 0 24 24", width: "17", height: "17" },
+                                                React.createElement("path", { d: "M4 20h4L19 9l-4-4L4 16v4z", fill: "none", stroke: "currentColor", strokeWidth: "1.7", strokeLinejoin: "round" }),
+                                                React.createElement("path", { d: "M14 6l4 4", fill: "none", stroke: "currentColor", strokeWidth: "1.7" }))),
+                                        React.createElement("button", { className: "icon-btn" + (isWish(sel.a3) ? " wish-on" : ""), onClick: () => toggleWish(sel.a3), "aria-label": isWish(sel.a3) ? "Убрать из желаний" : "Хочу поехать" }, isWish(sel.a3) ? "★" : "☆"),
+                                        React.createElement("button", { className: "icon-btn", onClick: () => setSheet("country"), "aria-label": "\u041F\u0440\u043E \u0441\u0442\u0440\u0430\u043D\u0443" },
+                                            React.createElement("svg", { viewBox: "0 0 24 24", width: "17", height: "17" },
+                                                React.createElement("circle", { cx: "12", cy: "12", r: "8.5", fill: "none", stroke: "currentColor", strokeWidth: "1.6" }),
+                                                React.createElement("path", { d: "M12 11v5.5", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round" }),
+                                                React.createElement("circle", { cx: "12", cy: "7.9", r: "1.1", fill: "currentColor" }))),
+                                        React.createElement("button", { className: "icon-btn", onClick: () => setSelected(null), "aria-label": "\u0421\u043D\u044F\u0442\u044C \u0432\u044B\u0431\u043E\u0440" }, "\u2715")))))) : (React.createElement(React.Fragment, null,
+                            React.createElement("div", { className: "focus-head" },
+                                React.createElement("span", { className: "num" }, stats.countries),
+                                React.createElement("div", { className: "focus-title" },
+                                    React.createElement("div", { className: "den" },
+                                        "\u0438\u0437 ",
+                                        TOTAL,
+                                        " \u0441\u0442\u0440\u0430\u043D \u00B7 ",
+                                        stats.trips,
+                                        " \u043F\u043E\u0435\u0437\u0434\u043E\u043A"))),
+                            React.createElement("p", { className: "focus-empty" }, mapView === "map"
+                                ? "Нажмите страну на карте, чтобы посмотреть её."
+                                : "Поверните глобус и нажмите страну, чтобы посмотреть её.")))),
+                        React.createElement(TripSheet, { open: sheet === "add", onClose: () => setSheet(null), box: box, initial: null, visits: visits, onSave: (a3, trip) => addTrip(a3, trip), mode: "add", quality: photoQuality, since: profile.since, people: profile.people || [], home: profile.home || null, meId: profile.deviceId || ME }),
+                        React.createElement(TripSheet, { open: sheet === "edit" && !!sel && !!selTrips.length, onClose: () => setSheet(null), box: box, initial: sel && selTrips.length
+                                ? { a3: sel.a3, idx: (curTrip === null || curTrip === void 0 ? void 0 : curTrip.id) || curIdx, trip: curTrip }
+                                : null, visits: visits, onSave: (a3, trip) => editTrip(a3, (curTrip === null || curTrip === void 0 ? void 0 : curTrip.id) || curIdx, trip), onRemove: removeTrip, mode: "edit", quality: photoQuality, since: profile.since, people: profile.people || [], home: profile.home || null, meId: profile.deviceId || ME }),
+                        React.createElement(ProfileSheet, { open: sheet === "profile", onClose: () => setSheet(null), box: box, avatar: profile.avatar, name: profile.name, onName: async (v) => {
+                                const prof = { ...profile, name: v };
+                                await saveProfile(prof);
+                            }, onPickAvatar: (src) => setAvatarDraft(src), since: profile.since, people: profile.people || [], home: profile.home || null, onPeople: async (list) => {
+                                const prof = { ...profile, people: list };
+                                await saveProfile(prof);
+                            }, onReports: () => {
+                                setSheetBack("profile");
+                                setSheet("reports");
+                            }, onSettings: () => setSheet("settings"), onShelf: () => setSheet("shelf"), onFamily: () => {
+                                setNearBack(sheet);
+                                setSheet(null);
+                                setNear(true);
+                            }, onSince: async (v) => {
+                                const prof = { ...profile, since: v };
+                                await saveProfile(prof);
+                            }, home: profile.home || null, onHome: async (h) => {
+                                const prof = { ...profile, home: h };
+                                await saveProfile(prof);
+                            }, onMergeWho: mergeWho, regionGaps: regionGaps, onFillRegions: fillRegions, depGaps: depGaps, onFillDeparture: fillDeparture, onExport: exportData, onImport: importAsk, onRestore: restoreData, restoreMsg: restoreMsg, doubles: doubles.length, onDoubles: () => setSheet("doubles"), visits: visits }),
+                        React.createElement(SettingsSheet, { reportsCfg: profile.reports || null, onReportsCfg: async (cfg) => {
+                                await saveProfile({ ...profile, reports: cfg });
+                            }, open: sheet === "settings", onClose: () => setSheet("profile"), box: box, visits: visits, theme: theme, onTheme: setTheme, quality: photoQuality, onQuality: (v) => {
+                                setPhotoQuality(v);
+                                setSheet("photomode");
+                            }, cityPins: cityPins, onToggleCityPins: setCityPins, spinStart: spinStart, onToggleSpin: setSpinStart, mapView: mapView, onMapView: setMapView, night: night, onToggleNight: setNight, geoCount: ((_c = geo === null || geo === void 0 ? void 0 : geo.features) === null || _c === void 0 ? void 0 : _c.length) || 0, onReloadGeo: reloadGeo, offline: booksSaved, busy: booksBusy, progress: booksProgress, offlineAt: booksAt, onToggleOffline: () => (booksSaved ? dropBooks() : keepBooks()), booksSize: booksSize, booksCounts: {
+                                cities: CITIES.length,
+                                hotels: Object.values(HOTELS_BY_CITY).reduce((n, v) => n + v.length, 0),
+                                sights: SIGHTS.length,
+                            }, hasPin: !!profile.pinHash, faceAvailable: faceAvailable, faceOn: !!profile.credId, onSetPin: () => {
+                                setSheet(null);
+                                setProfile(null);
+                            }, onDropPin: () => setAsk({
+                                title: "Убрать код при входе?",
+                                text: "Приложение будет открываться сразу, без проверки.",
+                                yes: "Убрать",
+                                onYes: async () => {
+                                    const prof = { ...profile, pinHash: "", salt: "", credId: "" };
+                                    await saveProfile(prof);
+                                    setSheet(null);
+                                },
+                            }), onLock: lock, onFace: async () => {
+                                if (profile.credId) {
+                                    const prof = { ...profile, credId: "" };
+                                    await saveProfile(prof);
                                 }
-                            } }, "\u0415\u0449\u0451 \u0440\u0430\u0437")))))),
-        React.createElement("footer", { className: "foot" }, "\u041E\u0442\u043C\u0435\u0442\u043A\u0438 \u0441\u043E\u0445\u0440\u0430\u043D\u044F\u044E\u0442\u0441\u044F \u0432 \u043F\u0430\u043C\u044F\u0442\u0438 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430. \u0412 \u043F\u0440\u043E\u0444\u0438\u043B\u0435 \u0438\u0445 \u043C\u043E\u0436\u043D\u043E \u0432\u044B\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u0432 \u0444\u0430\u0439\u043B \u0438 \u0437\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u043E\u0431\u0440\u0430\u0442\u043D\u043E.")));
+                                else {
+                                    enrollFace(profile);
+                                }
+                            } }),
+                        React.createElement(CountrySheet, { country: sel, open: sheet === "country" && !!sel, onClose: () => setSheet(null), box: box }),
+                        React.createElement(PhotoModeSheet, { open: sheet === "photomode", onClose: () => setSheet("settings"), box: box, quality: photoQuality, usage: photoUsage }),
+                        React.createElement(ShelfSheet, { open: sheet === "shelf", onClose: () => setSheet("profile"), box: box, isOn: isOn, isWish: isWish, onPick: (a3) => {
+                                setSelected(a3);
+                                setEditId(null);
+                                setSheet(null);
+                            } }),
+                        React.createElement(DoublesSheet, { open: sheet === "doubles", onClose: () => setSheet("profile"), box: box, pairs: doubles, people: profile.people || [], home: profile.home || null, onJoin: joinDouble }),
+                        React.createElement(ReportsSheet, { open: sheet === "reports", onClose: () => setSheet(sheetBack === "profile" ? "profile" : null), box: box, visits: visits, since: profile.since, stats: stats, people: profile.people || [], home: profile.home || null, geo: geo, home: profile.home || null, onPerson: setPerson, onFar: setFar, onAir: setAirWin, onSeason: () => setSeasonWin(true), onConts: () => setContsWin(true), onWorld: () => setWorldWin(true), onOften: () => setOftenWin(true), onSolo: () => setSoloWin(true), repCfg: profile.reports || null, meName: profile.name || "", onOpenTrip: (a3, id) => {
+                                setSelected(a3);
+                                setEditId(id || null);
+                                setSheet(null);
+                            } }),
+                        React.createElement(FiltersSheet, { open: sheet === "filters", onClose: () => setSheet(null), box: box, target: sheetBack === "list" ? "list" : "globe", years: allYears, yearFilter: yearFilter, onYear: (v) => {
+                                setYearFilter(v);
+                                setSheet(sheetBack);
+                            }, mode: listMode, onMode: (v) => {
+                                setListMode(v);
+                                setSheet(sheetBack);
+                            } }),
+                        React.createElement(ListSheet, { visits: visits, stats: stats, open: sheet === "list", onClose: () => setSheet(null), onPick: (a3, id) => {
+                                setSelected(a3);
+                                setEditId(id || null);
+                            }, onDone: (a3, id) => editTrip(a3, id, { plan: false }), box: box, mode: listMode, since: profile.since, people: profile.people || [], home: profile.home || null, meId: profile.deviceId || ME, wishCount: wish.length, onReports: () => {
+                                setSheetBack("list");
+                                setSheet("reports");
+                            }, onFilters: openFilters }),
+                        seasonWin && React.createElement(SeasonWin, { visits: visits, onClose: () => setSeasonWin(false) }),
+                        contsWin && React.createElement(ContsWin, { visits: visits, geo: geo, onClose: () => setContsWin(false) }),
+                        soloWin && (React.createElement(SoloWin, { visits: visits, people: profile.people || [], geo: geo, onClose: () => setSoloWin(false), mapProps: {
+                                isOn,
+                                visitKey,
+                                home: lastTrip,
+                                boxWidth: 0,
+                                marks,
+                                light,
+                                playing: true,
+                                setPlaying: () => { },
+                                view: "globe",
+                                page: 0,
+                                setPage: () => { },
+                                isWish,
+                            } })),
+                        oftenWin && (React.createElement(OftenWin, { visits: visits, geo: geo, onClose: () => setOftenWin(false), mapProps: {
+                                visitKey,
+                                home: lastTrip,
+                                boxWidth: 0,
+                                light,
+                                playing: true,
+                                setPlaying: () => { },
+                                view: "globe",
+                                page: 0,
+                                setPage: () => { },
+                            } })),
+                        worldWin && (React.createElement(WorldWin, { visits: visits, geo: geo, onClose: () => setWorldWin(false), mapProps: {
+                                visitKey,
+                                home: lastTrip,
+                                boxWidth: 0,
+                                marks: [],
+                                light,
+                                playing: true,
+                                setPlaying: () => { },
+                                view: "globe",
+                                page: 0,
+                                setPage: () => { },
+                            } })),
+                        (airWin === null || airWin === void 0 ? void 0 : airWin.air) && (React.createElement(AirGlobe, { visits: visits, home: profile.home || null, air: airWin.air, geo: geo, onClose: () => setAirWin(null), mapProps: {
+                                isOn,
+                                selected: null,
+                                visitKey,
+                                home: lastTrip,
+                                boxWidth: 0,
+                                marks,
+                                light,
+                                playing: true,
+                                setPlaying: () => { },
+                                view: "globe",
+                                page: 0,
+                                setPage: () => { },
+                                isWish,
+                            } })),
+                        (far === null || far === void 0 ? void 0 : far.rows) && (React.createElement(FarGlobe, { rows: far.rows, home: far.home, geo: geo, onClose: () => setFar(null), mapProps: {
+                                isOn,
+                                selected: null,
+                                visitKey,
+                                home: lastTrip,
+                                boxWidth: 0,
+                                marks,
+                                light,
+                                playing: true,
+                                setPlaying: () => { },
+                                view: "globe",
+                                page: 0,
+                                setPage: () => { },
+                                isWish,
+                            } })),
+                        (person === null || person === void 0 ? void 0 : person.row) && (React.createElement(PersonGlobe, { row: person.row, home: person.home, geo: geo, onClose: () => setPerson(null), mapProps: {
+                                isOn,
+                                selected: null,
+                                visitKey,
+                                home: lastTrip,
+                                boxWidth: 0,
+                                marks,
+                                light,
+                                playing: false,
+                                setPlaying: () => { },
+                                view: "globe",
+                                page: 0,
+                                setPage: () => { },
+                                isWish,
+                            } })),
+                        near && (React.createElement(NearSync, { box: box, makePayload: nearPayload, onData: (d) => {
+                                var _c;
+                                setNear(false);
+                                (_c = receiveRef.current) === null || _c === void 0 ? void 0 : _c.call(receiveRef, d);
+                            }, onClose: () => {
+                                setNear(false);
+                                if (nearBack)
+                                    setSheet(nearBack);
+                                setNearBack(null);
+                            } })),
+                        sync && (React.createElement(SyncSheet, { plan: sync.plan, from: sync.from, box: box, onCancel: () => setSync(null), onApply: (picks) => {
+                                applySync(sync.data, picks);
+                                setSync(null);
+                            } })),
+                        React.createElement(Ask, { ask: ask, onClose: () => setAsk(null), box: box }),
+                        React.createElement("nav", { className: "tabbar" },
+                            React.createElement("button", { className: "tab" + (activeTab === "map" ? " on" : ""), onClick: () => goTab("map", null) },
+                                React.createElement("svg", { viewBox: "0 0 24 24", width: "22", height: "22" },
+                                    React.createElement("circle", { cx: "12", cy: "12", r: "8.6", fill: "none", stroke: "currentColor", strokeWidth: "1.7" }),
+                                    React.createElement("path", { d: "M3.6 12h16.8M12 3.4c2.3 2.4 3.4 5.3 3.4 8.6S14.3 18.2 12 20.6c-2.3-2.4-3.4-5.3-3.4-8.6S9.7 5.8 12 3.4z", fill: "none", stroke: "currentColor", strokeWidth: "1.5" })),
+                                React.createElement("em", null, "\u041A\u0430\u0440\u0442\u0430")),
+                            React.createElement("button", { className: "tab" + (activeTab === "list" ? " on" : ""), onClick: () => goTab("list", "list") },
+                                React.createElement("svg", { viewBox: "0 0 24 24", width: "22", height: "22" },
+                                    React.createElement("path", { d: "M4 7h16M4 12h16M4 17h10", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round" })),
+                                React.createElement("em", null, "\u041F\u043E\u0435\u0437\u0434\u043A\u0438")),
+                            React.createElement("button", { className: "tab add" + (activeTab === "add" ? " on" : ""), onClick: () => goTab("add", "add") },
+                                React.createElement("span", { className: "tab-plus" },
+                                    React.createElement("svg", { viewBox: "0 0 24 24", width: "24", height: "24" },
+                                        React.createElement("path", { d: "M12 5v14M5 12h14", fill: "none", stroke: "currentColor", strokeWidth: "2.2", strokeLinecap: "round" }))),
+                                React.createElement("em", null, "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C")),
+                            React.createElement("button", { className: "tab" + (activeTab === "reports" ? " on" : ""), onClick: () => goTab("reports", "reports") },
+                                React.createElement("svg", { viewBox: "0 0 24 24", width: "22", height: "22", "aria-hidden": "true" },
+                                    React.createElement("path", { d: "M4 20V10M10 20V4M16 20v-7M22 20H2", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round" })),
+                                React.createElement("em", null, "\u041E\u0442\u0447\u0451\u0442\u044B")),
+                            React.createElement("button", { className: "tab" +
+                                    (activeTab === "profile" ? " on" : ""), onClick: () => goTab("profile", "profile") },
+                                profile.avatar ? (React.createElement("img", { className: "tab-ava", src: profile.avatar, alt: "" })) : (React.createElement("svg", { viewBox: "0 0 24 24", width: "22", height: "22" },
+                                    React.createElement("circle", { cx: "12", cy: "8.5", r: "3.6", fill: "none", stroke: "currentColor", strokeWidth: "1.7" }),
+                                    React.createElement("path", { d: "M4.8 20c.7-3.7 3.6-5.8 7.2-5.8s6.5 2.1 7.2 5.8", fill: "none", stroke: "currentColor", strokeWidth: "1.7", strokeLinecap: "round" }))),
+                                React.createElement("em", null, "\u041F\u0440\u043E\u0444\u0438\u043B\u044C"))),
+                        avatarDraft && (React.createElement("div", { className: "modal", style: box ? { left: box.left, width: box.width } : undefined },
+                            React.createElement(AvatarEditor, { src: avatarDraft, onDone: saveAvatar, onCancel: () => setAvatarDraft(null) }))),
+                        updateReady && (React.createElement("div", { className: "banner" },
+                            React.createElement("span", { className: "banner-dot" }),
+                            React.createElement("span", { className: "banner-text" },
+                                React.createElement("b", null, "\u0414\u043E\u0441\u0442\u0443\u043F\u043D\u043E \u043E\u0431\u043D\u043E\u0432\u043B\u0435\u043D\u0438\u0435"),
+                                React.createElement("em", null, "\u041F\u043E\u0435\u0437\u0434\u043A\u0438 \u0438 \u0444\u043E\u0442\u043E\u0433\u0440\u0430\u0444\u0438\u0438 \u043E\u0441\u0442\u0430\u043D\u0443\u0442\u0441\u044F \u043D\u0430 \u043C\u0435\u0441\u0442\u0435")),
+                            React.createElement("button", { className: "banner-btn", onClick: applyUpdate }, "\u041E\u0431\u043D\u043E\u0432\u0438\u0442\u044C"))),
+                        saveBroken && (React.createElement("div", { className: "banner warn" },
+                            React.createElement("span", { className: "banner-dot" }),
+                            React.createElement("span", { className: "banner-text" },
+                                React.createElement("b", null, "\u0414\u0430\u043D\u043D\u044B\u0435 \u043D\u0435 \u0441\u043E\u0445\u0440\u0430\u043D\u044F\u044E\u0442\u0441\u044F"),
+                                React.createElement("em", null, typeof location !== "undefined" && location.protocol === "file:"
+                                    ? "Файл открыт с диска. Нужен адрес https://…"
+                                    : "Браузер закрыл хранение для этой страницы."),
+                                React.createElement("code", null, typeof location !== "undefined"
+                                    ? location.protocol + "//" + (location.host || "локальный файл")
+                                    : "")),
+                            React.createElement("button", { className: "banner-ghost", onClick: async () => {
+                                    var _c;
+                                    await retryBackend();
+                                    const r = await checkStorage();
+                                    setSaveBroken(!r.ok);
+                                    if (r.ok) {
+                                        setProfile(await store.get(K_PROFILE));
+                                        setVisits(((_c = (await store.get(K_DATA))) === null || _c === void 0 ? void 0 : _c.visits) || {});
+                                    }
+                                } }, "\u0415\u0449\u0451 \u0440\u0430\u0437")))))),
+            React.createElement("footer", { className: "foot" }, "\u041E\u0442\u043C\u0435\u0442\u043A\u0438 \u0441\u043E\u0445\u0440\u0430\u043D\u044F\u044E\u0442\u0441\u044F \u0432 \u043F\u0430\u043C\u044F\u0442\u0438 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430. \u0412 \u043F\u0440\u043E\u0444\u0438\u043B\u0435 \u0438\u0445 \u043C\u043E\u0436\u043D\u043E \u0432\u044B\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u0432 \u0444\u0430\u0439\u043B \u0438 \u0437\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u043E\u0431\u0440\u0430\u0442\u043D\u043E."))));
 }
 /* ================================================================== */
 const CSS = `
