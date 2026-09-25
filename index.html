@@ -2481,7 +2481,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "33.3";
+const APP_VERSION = "33.6";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -10072,7 +10072,8 @@ function WorldWin({ visits, geo, mapProps, onClose }) {
             // поворот 1,4 с + мигание 0,9 + заливка 0,45 + флаг: даём время всему
             setTimeout(step, 3600 + (data.opened[years[i]] || []).length * 350);
         };
-        const t = setTimeout(step, 700);
+        const hold = 3600 + (data.opened[years[Math.max(0, i)]] || []).length * 350;
+        const t = setTimeout(step, hold);
         return () => {
             stop = true;
             clearTimeout(t);
@@ -10114,15 +10115,18 @@ function WorldWin({ visits, geo, mapProps, onClose }) {
             const c = BY_A3[sel];
             return c ? { lon: c.lon, lat: c.lat, id: `sel:${sel}` } : null;
         }
-        const first = (data.opened[year] || [])[0];
-        const c = first ? BY_A3[first.a3] : null;
-        return c
-            ? {
-                lon: c.lon,
-                lat: c.lat,
-                id: `${run}:${year}:${first.a3}`,
-            }
-            : null;
+        const list = (data.opened[year] || [])
+            .map((r) => BY_A3[r.a3])
+            .filter((c) => c && isFinite(c.lon));
+        if (!list.length)
+            return null;
+        // если стран несколько — смотрим в середину между ними
+        const mid = list.reduce((a, c) => ({ lon: a.lon + c.lon / list.length, lat: a.lat + c.lat / list.length }), { lon: 0, lat: 0 });
+        return {
+            lon: mid.lon,
+            lat: mid.lat,
+            id: `${run}:${year}:${list.length}`,
+        };
     }, [data, year, sel, run, hand]);
     /* пролистывание ленты пальцем — это и есть движение по годам */
     useEffect(() => {
@@ -10136,10 +10140,11 @@ function WorldWin({ visits, geo, mapProps, onClose }) {
             cancelAnimationFrame(raf);
             raf = requestAnimationFrame(() => {
                 var _c;
-                const line = box.scrollTop + box.clientHeight * 0.35;
+                const base = box.getBoundingClientRect().top;
+                const line = box.clientHeight * 0.35;
                 let cur = years[0];
                 (_c = listRef.current) === null || _c === void 0 ? void 0 : _c.querySelectorAll("[data-year]").forEach((el) => {
-                    if (el.offsetTop <= line)
+                    if (el.getBoundingClientRect().top - base <= line)
                         cur = +el.dataset.year;
                 });
                 if (cur && cur !== year) {
@@ -10169,7 +10174,8 @@ function WorldWin({ visits, geo, mapProps, onClose }) {
         const el = (_c = listRef.current) === null || _c === void 0 ? void 0 : _c.querySelector(`[data-year="${year}"]`);
         if (!box || !el)
             return;
-        const target = Math.max(0, Math.min(box.scrollHeight - box.clientHeight, el.offsetTop - box.clientHeight / 2 + el.offsetHeight / 2));
+        const top = el.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop;
+        const target = Math.max(0, Math.min(box.scrollHeight - box.clientHeight, top - box.clientHeight * 0.28));
         const from = box.scrollTop;
         if (Math.abs(target - from) < 2)
             return;
@@ -10197,18 +10203,19 @@ function WorldWin({ visits, geo, mapProps, onClose }) {
         React.createElement(Globe, { ...(mapProps || {}), geo: geo, isOn: (a3) => openedBy.has(a3), isWish: () => false, glow: sel ? new Set() : fresh, pins: pins, dashSel: true, lookAt: lookAt, selected: sel, full: false, noFull: true, fitBox: true, playing: spin, spinStep: 0.18, setPlaying: setSpin, onToggleFull: () => { }, onPick: (a3) => setSel((v) => (v === a3 ? null : a3)) }),
         React.createElement("span", { className: "ww-count" },
             React.createElement("b", null, data.total[year] || openedBy.size),
-            React.createElement("em", null, pw(data.total[year] || openedBy.size, "country")),
-            React.createElement("button", { className: "ww-again" + (play ? " on" : ""), onClick: () => {
-                    setSpin(false);
-                    setSel(null);
-                    if (play) {
-                        setPlay(false);
-                        return;
-                    }
+            React.createElement("em", null, pw(data.total[year] || openedBy.size, "country"))),
+        React.createElement("button", { className: "ww-again" + (play ? " on" : ""), onClick: () => {
+                setSpin(false);
+                setSel(null);
+                if (play) {
+                    setPlay(false);
+                    return;
+                }
+                if (years.indexOf(year) >= years.length - 1)
                     setYear(years[0]);
-                    setRun((v) => v + 1);
-                    setPlay(true);
-                }, "aria-label": play ? "Пауза" : "Показать заново" }, play ? "❚❚" : "↻"))));
+                setRun((v) => v + 1);
+                setPlay(true);
+            }, "aria-label": play ? "Пауза" : "Продолжить показ" }, play ? "❚❚" : "▶")));
     const rows = (React.createElement("div", { className: "ww-line", ref: listRef }, shown.map((y) => (React.createElement("div", { key: y, className: "ww-step" + (y === year ? " on" : "") + (y > year ? " future" : ""), "data-year": y },
         React.createElement("span", { className: "ww-dot" }),
         React.createElement("div", { className: "ww-body" },
@@ -13318,9 +13325,10 @@ body > div{max-width:100%;}
 .ww-count{position:absolute; top:2px; right:6px; display:flex; align-items:baseline; gap:5px;}
 .ww-count b{font-size:1.25rem; font-weight:700; color:var(--gold);}
 .ww-count em{font-style:normal; font-size:0.66rem; color:var(--dim);}
-.ww-again{margin-left:8px; width:26px; height:26px; border-radius:50%; border:1px solid var(--line);
-  background:rgba(255,255,255,.04); color:var(--gold); font-size:0.66rem; cursor:pointer;}
-.ww-again.on{background:rgba(232,184,75,.18);}
+.ww-again{position:absolute; right:8px; bottom:8px; z-index:3; width:40px; height:40px; border-radius:50%;
+  border:1px solid rgba(232,184,75,.5); background:rgba(11,23,36,.75); color:var(--gold);
+  font-size:0.8rem; cursor:pointer; backdrop-filter:blur(4px);}
+.ww-again.on{background:rgba(232,184,75,.2);}
 /* годы, до которых ещё не дошли: еле видны */
 .ww-step.future{opacity:.32;}
 .ww-step.future .ww-row{background:none; border-style:dashed;}
