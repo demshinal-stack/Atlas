@@ -2295,7 +2295,7 @@ async function sendPacket(channel, obj, onStep) {
         onStep === null || onStep === void 0 ? void 0 : onStep((i + 1) / total, total);
     }
 }
-function readPackets(channel, onDone, onStep, onAck) {
+function readPackets(channel, onDone, onStep, onAck, onCtl) {
     let need = 0;
     let parts = [];
     channel.onmessage = (e) => {
@@ -2306,6 +2306,11 @@ function readPackets(channel, onDone, onStep, onAck) {
                 // сосед сообщил, что наш пакет получил целиком
                 if (head && head.ack) {
                     onAck === null || onAck === void 0 ? void 0 : onAck();
+                    return;
+                }
+                // служебное: знакомство и согласие на семью
+                if (head && head.ctl) {
+                    onCtl === null || onCtl === void 0 ? void 0 : onCtl(head);
                     return;
                 }
                 if (head && head.n) {
@@ -2352,7 +2357,7 @@ const TRIP_FIELDS = [
 const sameVal = (a, b) => JSON.stringify(a !== null && a !== void 0 ? a : null) === JSON.stringify(b !== null && b !== void 0 ? b : null);
 const tripDiff = (a, b) => TRIP_FIELDS.filter(([k]) => !sameVal(a === null || a === void 0 ? void 0 : a[k], b === null || b === void 0 ? void 0 : b[k])).map(([, t]) => t);
 /* что изменится при обмене: новые, удалённые и спорные поездки */
-function syncPlan(mine, theirs, tombsMine, tombsTheirs) {
+function syncPlan(mine, theirs, tombsMine, tombsTheirs, sender = "") {
     const my = new Map();
     Object.entries(mine || {}).forEach(([a3, arr]) => (arr || []).forEach((t) => my.set(t.id, { a3, t: normTrip(t) })));
     const add = [];
@@ -2374,14 +2379,21 @@ function syncPlan(mine, theirs, tombsMine, tombsTheirs) {
             same += 1;
             return;
         }
+        // одна и та же правка, но состав записан по-разному: так бывает,
+        // если поездки когда-то попали к вам из чужой копии и «я» стало вами.
+        // Если автор — отправитель и у нас автор не другой, верим отправителю.
+        const sameEdit = (t.at || 0) === (was.t.at || 0);
+        const swap = sameEdit && diff.length === 1 && diff[0] === "состав";
+        const authorSays = sameEdit && sender && t.by === sender && (!was.t.by || was.t.by === sender);
         conflicts.push({
             id: t.id,
             a3,
             diff,
             mine: was.t,
             theirs: t,
+            swap,
             // по умолчанию берём более свежую правку
-            pick: (t.at || 0) > (was.t.at || 0) ? "theirs" : "mine",
+            pick: (t.at || 0) > (was.t.at || 0) || authorSays ? "theirs" : "mine",
         });
     }));
     Object.entries(tombsTheirs || {}).forEach(([id, at]) => {
@@ -2398,8 +2410,12 @@ function applyPlan(mine, tombsMine, theirs, tombsTheirs, plan, picks) {
     const copies = [];
     (plan.conflicts || []).forEach((c) => {
         const pick = (picks === null || picks === void 0 ? void 0 : picks[c.id]) || c.pick;
-        if (pick === "theirs")
+        if (pick === "theirs") {
+            // при одинаковом времени правки слияние оставило бы нашу — отмечаем их версию свежей
+            if ((c.theirs.at || 0) <= (c.mine.at || 0))
+                chosen[c.a3] = (chosen[c.a3] || []).map((t) => t.id === c.id ? { ...t, at: Math.max(Date.now(), (c.mine.at || 0) + 1) } : t);
             return;
+        }
         // их версию не берём: убираем её из входящих данных
         chosen[c.a3] = (chosen[c.a3] || []).filter((t) => t.id !== c.id);
         keepMine.push(c.id);
@@ -2549,6 +2565,291 @@ function familyPayload(visits, tombs, people, meName) {
         people: (people || []).map(({ id, name, role }) => ({ id, name, role })),
     };
 }
+/* ------------------------------------------------------------------ */
+/*  Семейный атлас (формат 2): у каждого человека постоянный номер      */
+/* ------------------------------------------------------------------ */
+/* На своём телефоне владелец записан как ME, спутники — карточками p….
+   Наружу уходят только постоянные номера:
+   ME                → номер владельца (profile.deviceId);
+   карточка члена семьи (link) → номер этого человека;
+   прочая карточка   → её глобальный номер «чей-номер/p…» (или тот,
+                       под которым она к нам пришла — aka[0]);
+   свободное имя     → как есть.
+   На приёме всё раскладывается обратно: свой номер → ME, номер члена
+   семьи → его карточка, глобальный номер → карточка с таким aka или
+   с тем же именем, иначе новая карточка. */
+const FAM_V = 2;
+const normName = (x) => String(x || "")
+    .toLowerCase()
+    .replace(/ё/g, "е")
+    .split(/[\s.,]+/)
+    .filter(Boolean)
+    .sort()
+    .join(" ");
+const famIds = (f) => (f ? [f.id, ...(f.alias || [])].filter(Boolean) : []);
+const famSame = (a, b) => {
+    const x = famIds(a);
+    return famIds(b).some((id) => x.includes(id));
+};
+/* член моей семьи? */
+const famHas = (profile, pid) => { var _c; return !!(((_c = profile === null || profile === void 0 ? void 0 : profile.family) === null || _c === void 0 ? void 0 : _c.members) || []).some((m) => m.id === pid); };
+const famMember = (profile, pid) => { var _c; return (((_c = profile === null || profile === void 0 ? void 0 : profile.family) === null || _c === void 0 ? void 0 : _c.members) || []).find((m) => m.id === pid) || null; };
+/* карточка спутника, связанная с членом семьи */
+const cardOfMember = (people, pid) => (people || []).find((c) => c.link === pid) || null;
+/* короткая сводка о себе и своей семье — для рукопожатия и приглашений */
+const famBrief = (profile) => {
+    const f = (profile === null || profile === void 0 ? void 0 : profile.family) || null;
+    return f
+        ? {
+            id: f.id,
+            name: f.name || "Наша семья",
+            alias: f.alias || [],
+            members: (f.members || []).map(({ id, name }) => ({ id, name })),
+        }
+        : null;
+};
+/* всё, что уходит семье: все поездки (атлас общий), без снимков
+   или со снимками по желанию; состав — постоянными номерами */
+function familyPacket(visits, tombs, profile, { photos = null, ava = "" } = {}) {
+    const myId = (profile === null || profile === void 0 ? void 0 : profile.deviceId) || "";
+    const people = (profile === null || profile === void 0 ? void 0 : profile.people) || [];
+    const dir = {};
+    const wire = (w) => {
+        if (w === ME || w === myId)
+            return myId;
+        const card = people.find((c) => c.id === w);
+        if (!card)
+            return w; // свободное имя или уже постоянный номер
+        if (card.link) {
+            dir[card.link] = { n: card.name };
+            return card.link;
+        }
+        const g = (card.aka || [])[0] || `${myId}/${card.id}`;
+        dir[g] = { n: card.name };
+        return g;
+    };
+    const out = {};
+    Object.entries(visits || {}).forEach(([a3, arr]) => {
+        const list = (arr || []).map((t0) => {
+            const t = normTrip(t0);
+            const { photos: ph, ...rest } = t;
+            const res = {
+                ...rest,
+                who: [...new Set((t.who || []).map(wire))],
+                left: (t.left || []).map(wire),
+                // автор — постоянный номер; у старых записей его нет, так и передаём
+                by: t.by === ME ? myId : t.by,
+            };
+            if (!res.by)
+                delete res.by;
+            if (!res.left.length)
+                delete res.left;
+            if (photos)
+                res.photos = ph || [];
+            return res;
+        });
+        if (list.length)
+            out[a3] = list;
+    });
+    return {
+        kind: "atlas-family",
+        v: FAM_V,
+        at: Date.now(),
+        appVersion: APP_VERSION,
+        from: { id: myId, name: ((profile === null || profile === void 0 ? void 0 : profile.name) || "").trim(), ava: ava || "" },
+        family: famBrief(profile),
+        visits: out,
+        tombs: tombs || {},
+        dir,
+        ...(photos ? { photos } : {}),
+    };
+}
+/* приём пакета формата 2: переводим номера в свои, заводим карточки.
+   Возвращает поездки уже в «своих» номерах и обновлённый профиль. */
+function familyUnpack(packet, profile) {
+    var _c;
+    const myId = (profile === null || profile === void 0 ? void 0 : profile.deviceId) || "";
+    let people = [...((profile === null || profile === void 0 ? void 0 : profile.people) || [])];
+    const senderId = ((_c = packet === null || packet === void 0 ? void 0 : packet.from) === null || _c === void 0 ? void 0 : _c.id) || "";
+    const dir = (packet === null || packet === void 0 ? void 0 : packet.dir) || {};
+    const nameOfMember = (pid) => {
+        var _c, _d, _e, _f, _g;
+        return ((_c = famMember(profile, pid)) === null || _c === void 0 ? void 0 : _c.name) ||
+            (pid === senderId ? (_d = packet === null || packet === void 0 ? void 0 : packet.from) === null || _d === void 0 ? void 0 : _d.name : "") ||
+            ((_f = (((_e = packet === null || packet === void 0 ? void 0 : packet.family) === null || _e === void 0 ? void 0 : _e.members) || []).find((m) => m.id === pid)) === null || _f === void 0 ? void 0 : _f.name) ||
+            ((_g = dir[pid]) === null || _g === void 0 ? void 0 : _g.n) ||
+            "";
+    };
+    let touched = false;
+    const newCard = (name, extra) => {
+        const c = {
+            id: `p${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`,
+            name: name || "Без имени",
+            role: extra.link ? "Семья" : "Прочее",
+            always: false,
+            ...extra,
+        };
+        people = [...people, c];
+        touched = true;
+        return c;
+    };
+    const isPerson = (w) => {
+        var _c;
+        return w === senderId ||
+            famHas(profile, w) ||
+            (((_c = packet === null || packet === void 0 ? void 0 : packet.family) === null || _c === void 0 ? void 0 : _c.members) || []).some((m) => m.id === w);
+    };
+    const local = (w) => {
+        var _c, _d;
+        if (!w)
+            return w;
+        if (w === myId)
+            return ME;
+        // глобальный номер моей же карточки вернулся ко мне
+        if (w.startsWith(myId + "/")) {
+            const id = w.slice(myId.length + 1);
+            if (people.some((c) => c.id === id))
+                return id;
+            return newCard((_c = dir[w]) === null || _c === void 0 ? void 0 : _c.n, { aka: [w] }).id;
+        }
+        if (isPerson(w)) {
+            const c = cardOfMember(people, w);
+            if (c)
+                return c.id;
+            const nm = nameOfMember(w);
+            // карточка с тем же именем, ещё не связанная ни с кем, — это он
+            const same = people.find((x) => !x.link && nm && normName(x.name) === normName(nm));
+            if (same) {
+                people = people.map((x) => (x.id === same.id ? { ...x, link: w } : x));
+                touched = true;
+                return same.id;
+            }
+            return newCard(nm, { link: w }).id;
+        }
+        if (dir[w] || w.includes("/")) {
+            const byAka = people.find((c) => (c.aka || []).includes(w));
+            if (byAka)
+                return byAka.id;
+            const nm = ((_d = dir[w]) === null || _d === void 0 ? void 0 : _d.n) || "";
+            const same = nm && people.find((x) => normName(x.name) === normName(nm));
+            if (same) {
+                people = people.map((x) => x.id === same.id ? { ...x, aka: [...new Set([...(x.aka || []), w])] } : x);
+                touched = true;
+                return same.id;
+            }
+            return newCard(nm, { aka: [w] }).id;
+        }
+        return w; // свободное имя
+    };
+    const visits = {};
+    Object.entries((packet === null || packet === void 0 ? void 0 : packet.visits) || {}).forEach(([a3, arr]) => {
+        visits[a3] = (arr || []).map((t) => {
+            const res = {
+                ...t,
+                who: [...new Set((t.who || []).map(local))],
+                by: t.by === myId ? myId : t.by || undefined,
+            };
+            if (t.left)
+                res.left = t.left.map((w) => (w === myId ? myId : local(w)));
+            if (!res.by)
+                delete res.by;
+            if (!packet.photos)
+                delete res.photos;
+            return res;
+        });
+    });
+    return { visits, people, touched };
+}
+/* чужая резервная копия → пакет формата 2: «я» в ней — это её хозяин,
+   карточки её спутников получают глобальные номера */
+function backupToPacket(d, owner) {
+    const oid = owner.id;
+    const dir = {};
+    const cards = new Map();
+    (d.people || []).forEach((c) => {
+        const g = c.link || (c.aka || [])[0] || `${oid}/${c.id}`;
+        cards.set(c.id, g);
+        dir[g] = { n: c.name };
+    });
+    const w = (x) => { var _c; return (x === ME || x === ((_c = d.owner) === null || _c === void 0 ? void 0 : _c.id) ? oid : cards.get(x) || x); };
+    const visits = {};
+    Object.entries(d.visits || {}).forEach(([a3, arr]) => {
+        visits[a3] = (arr || []).map((t0) => {
+            const t = normTrip(t0);
+            const res = { ...t, who: [...new Set((t.who || []).map(w))] };
+            if (t.left)
+                res.left = t.left.map(w);
+            if (t.by === ME)
+                res.by = oid;
+            return res;
+        });
+    });
+    return {
+        kind: "atlas-family",
+        v: FAM_V,
+        from: { id: oid, name: owner.name || "" },
+        family: null,
+        visits,
+        tombs: d.tombs || {},
+        dir,
+        ...(d.photos && Object.keys(d.photos).length ? { photos: d.photos } : {}),
+    };
+}
+/* какая карточка спутника, скорее всего, и есть этот человек */
+function guessCard(people, name) {
+    if (!name)
+        return "";
+    const free = (people || []).filter((c) => !c.link);
+    const hit = free.find((c) => normName(c.name) === normName(name)) ||
+        free.find((c) => closeNames(c.name, name));
+    return hit ? hit.id : "";
+}
+/* семейный список: добавляем и обновляем участников из чужой сводки */
+function famMerge(family, brief, myId, extra = []) {
+    const f = family
+        ? { ...family, members: [...(family.members || [])], alias: [...(family.alias || [])] }
+        : null;
+    if (!f)
+        return f;
+    if (brief) {
+        famIds(brief).forEach((id) => {
+            if (id !== f.id && !f.alias.includes(id))
+                f.alias.push(id);
+        });
+    }
+    const put = (m) => {
+        if (!(m === null || m === void 0 ? void 0 : m.id) || m.id === myId)
+            return;
+        const i = f.members.findIndex((x) => x.id === m.id);
+        if (i < 0)
+            f.members.push({ id: m.id, name: m.name || "", ava: m.ava || "", at: Date.now() });
+        else
+            f.members[i] = {
+                ...f.members[i],
+                ...(m.name ? { name: m.name } : {}),
+                ...(m.ava ? { ava: m.ava } : {}),
+            };
+    };
+    ((brief === null || brief === void 0 ? void 0 : brief.members) || []).forEach(put);
+    extra.forEach(put);
+    return f;
+}
+/* коды приглашения: короткий текст, который легко переслать в мессенджере */
+const INV_HEAD = "ATLAS-";
+const b64url = (str) => btoa(unescape(encodeURIComponent(str))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+const unb64url = (str) => decodeURIComponent(escape(atob(str.replace(/-/g, "+").replace(/_/g, "/"))));
+const packCode = (kind, obj) => `${INV_HEAD}${kind}-${b64url(JSON.stringify(obj))}`;
+function readCode(text) {
+    const m = String(text || "").match(/ATLAS-([IJ])-([A-Za-z0-9_-]+)/);
+    if (!m)
+        return null;
+    try {
+        return { kind: m[1], data: JSON.parse(unb64url(m[2])) };
+    }
+    catch {
+        return null;
+    }
+}
 /* отправка и приём одним вызовом — для фонового обмена */
 function useCountdown(target) {
     const [left, setLeft] = useState(() => target ? target.getTime() - Date.now() : 0);
@@ -2585,7 +2886,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "37.3";
+const APP_VERSION = "38.0";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -6078,7 +6379,7 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, onRemove, mode
     const whenReady = !!(draft && draft.y && (!draft.approx || draft.y2));
     const whenText = (draft === null || draft === void 0 ? void 0 : draft.y) ? tripLabel(draft) : "";
     return (React.createElement(Sheet, { open: open, onClose: onClose, box: box, title: country ? country.name : mode === "edit" ? "Поездка" : "Новая поездка" }, (close) => {
-        var _c;
+        var _c, _d;
         return (React.createElement("div", { className: "sheet-body" },
             !country ? (React.createElement(React.Fragment, null,
                 React.createElement(TextField, { search: true, value: q, placeholder: "\u041D\u0430\u0447\u043D\u0438\u0442\u0435 \u0432\u0432\u043E\u0434\u0438\u0442\u044C \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u0435", onChange: (e) => setQ(e.target.value) }),
@@ -6314,18 +6615,28 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, onRemove, mode
                     } })) : (React.createElement("button", { className: "link-btn", onClick: () => setAddHotel(true) }, draft.hotels.length ? "＋ ещё отель" : "＋ отель")))),
             country && whenReady && !editWhen && (React.createElement(PhotoBlock, { box: box, country: country, trip: draft, onChange: (p) => patch(p), quality: quality, totalPhotos: totalPhotos })),
             React.createElement(Ask, { ask: ask, onClose: () => setAsk(null), box: box }),
+            mode === "edit" && (draft === null || draft === void 0 ? void 0 : draft.by) && draft.by !== ME && draft.by !== meId && (React.createElement("p", { className: "hint small trip-author" },
+                "\u0410\u0432\u0442\u043E\u0440 \u0437\u0430\u043F\u0438\u0441\u0438:",
+                " ",
+                ((_d = (people || []).find((c) => c.link === (draft === null || draft === void 0 ? void 0 : draft.by))) === null || _d === void 0 ? void 0 : _d.name) || "член семьи",
+                ". \u0423\u0434\u0430\u043B\u0438\u0442\u044C \u0435\u0451 \u0434\u043B\u044F \u0432\u0441\u0435\u0445 \u043C\u043E\u0436\u0435\u0442 \u0442\u043E\u043B\u044C\u043A\u043E \u0430\u0432\u0442\u043E\u0440, \u0432\u044B \u043C\u043E\u0436\u0435\u0442\u0435 \u0441\u043A\u0440\u044B\u0442\u044C \u0435\u0451 \u0443 \u0441\u0435\u0431\u044F.")),
             country && whenReady && !editWhen && (React.createElement("div", { className: "edit-actions" },
-                mode === "edit" && onRemove && draft.id && (React.createElement("button", { className: "act del", "aria-label": "\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u043F\u043E\u0435\u0437\u0434\u043A\u0443", onClick: () => setAsk({
-                        title: "Удалить поездку?",
-                        text: `${country.name}, ${tripLabel(draft)}${(draft.photos || []).length
-                            ? ` · снимков: ${draft.photos.length}`
-                            : ""}. Отменить будет нельзя.`,
-                        yes: "Удалить",
-                        onYes: () => {
-                            onRemove(draft.a3, draft.id);
-                            close();
-                        },
-                    }) },
+                mode === "edit" && onRemove && draft.id && (React.createElement("button", { className: "act del", "aria-label": "\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u043F\u043E\u0435\u0437\u0434\u043A\u0443", onClick: () => {
+                        const foreign = draft.by && draft.by !== ME && draft.by !== meId;
+                        setAsk({
+                            title: foreign ? "Скрыть поездку у себя?" : "Удалить поездку?",
+                            text: `${country.name}, ${tripLabel(draft)}${(draft.photos || []).length
+                                ? ` · снимков: ${draft.photos.length}`
+                                : ""}. ${foreign
+                                ? "Поездку добавил другой член семьи: у вас она исчезнет, у остальных останется."
+                                : "Отменить будет нельзя; у семьи поездка тоже удалится при следующем обмене."}`,
+                            yes: foreign ? "Скрыть" : "Удалить",
+                            onYes: () => {
+                                onRemove(draft.a3, draft.id);
+                                close();
+                            },
+                        });
+                    } },
                     React.createElement("svg", { viewBox: "0 0 24 24", width: "22", height: "22" },
                         React.createElement("path", { d: "M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round" })))),
                 React.createElement("button", { className: "act ok", onClick: () => {
@@ -6638,8 +6949,8 @@ function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, 
             React.createElement("span", { className: "step-pen" }, "\u2192")),
         React.createElement("button", { className: "switch-row", onClick: onFamily },
             React.createElement("span", { className: "switch-text" },
-                "\u041E\u0431\u043C\u0435\u043D \u0434\u0430\u043D\u043D\u044B\u043C\u0438",
-                React.createElement("em", null, "\u041F\u0435\u0440\u0435\u0434\u0430\u0442\u044C \u043F\u043E\u0435\u0437\u0434\u043A\u0438 \u043D\u0430 \u0441\u043E\u0441\u0435\u0434\u043D\u0438\u0439 \u0442\u0435\u043B\u0435\u0444\u043E\u043D")),
+                "\u0421\u0435\u043C\u044C\u044F",
+                React.createElement("em", null, "\u041E\u0431\u0449\u0438\u0439 \u0430\u0442\u043B\u0430\u0441 \u0441 \u0440\u043E\u0434\u043D\u044B\u043C\u0438: \u043F\u0440\u0438\u0433\u043B\u0430\u0448\u0435\u043D\u0438\u044F \u0438 \u043E\u0431\u043C\u0435\u043D \u043F\u043E\u0435\u0437\u0434\u043A\u0430\u043C\u0438")),
             React.createElement("span", { className: "step-pen" }, "\u2192")),
         (() => {
             const helps = [];
@@ -6703,7 +7014,7 @@ function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, 
         React.createElement("label", { className: "switch-row" },
             React.createElement("span", { className: "switch-text" },
                 "\u0417\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u0438\u0437 \u0444\u0430\u0439\u043B\u0430",
-                React.createElement("em", null, "\u041E\u0431\u044A\u0435\u0434\u0438\u043D\u0438\u0442\u044C \u0441 \u0432\u0430\u0448\u0438\u043C\u0438 \u043F\u043E\u0435\u0437\u0434\u043A\u0430\u043C\u0438 \u0438\u043B\u0438 \u0437\u0430\u043C\u0435\u043D\u0438\u0442\u044C \u0438\u0445")),
+                React.createElement("em", null, "\u0421\u0432\u043E\u044F \u043A\u043E\u043F\u0438\u044F, \u0447\u0443\u0436\u0430\u044F \u043A\u043E\u043F\u0438\u044F \u0438\u043B\u0438 \u043F\u043E\u0435\u0437\u0434\u043A\u0438 \u043E\u0442 \u0441\u0435\u043C\u044C\u0438 \u2014 \u0441\u043F\u0440\u043E\u0441\u0438\u043C, \u0447\u0442\u043E \u0434\u0435\u043B\u0430\u0442\u044C")),
             React.createElement("span", { className: "step-pen" }, "\u2191"),
             React.createElement("input", { type: "file", accept: "application/json", style: { display: "none" }, onChange: (e) => {
                     var _c;
@@ -9357,7 +9668,257 @@ function NearDone() {
             React.createElement("rect", { x: "264", y: "52", width: "60", height: "96", rx: "12", fill: "#16273a", stroke: "rgba(143,179,214,.4)" }),
             React.createElement("path", { d: "M100 100h34M226 100h34", stroke: "rgba(232,184,75,.5)", strokeWidth: "2", strokeDasharray: "5 5", strokeLinecap: "round" }))));
 }
-function NearSync({ makePayload, onData, onClose, box }) {
+/* кружок с фото или буквой имени */
+function Ava({ src, name, size = 40 }) {
+    const letter = String(name || "?").trim().charAt(0).toUpperCase() || "?";
+    return (React.createElement("span", { className: "fam-ava", style: { width: size, height: size, fontSize: size * 0.42 } }, src ? React.createElement("img", { src: src, alt: "" }) : letter));
+}
+/* кто этот человек среди ваших спутников: связываем с карточкой,
+   чтобы старые поездки с ним стали общими */
+function LinkPick({ people, value, onChange, name, memberId }) {
+    const opts = (people || []).filter((c) => !c.link || c.link === memberId);
+    const cur = opts.find((c) => c.id === value);
+    return (React.createElement("div", { className: "fam-link" },
+        React.createElement("span", null, "\u041A\u0442\u043E \u044D\u0442\u043E \u0432 \u0432\u0430\u0448\u0438\u0445 \u043F\u043E\u0435\u0437\u0434\u043A\u0430\u0445"),
+        React.createElement("span", { className: "since-pick" },
+            React.createElement("b", null, cur ? cur.name : `Новый: ${name || "без имени"}`),
+            React.createElement("span", null, "\u25BE"),
+            React.createElement("select", { value: value || "", onChange: (e) => onChange(e.target.value) },
+                React.createElement("option", { value: "" },
+                    "\u041D\u043E\u0432\u044B\u0439 \u043F\u0443\u0442\u0435\u0448\u0435\u0441\u0442\u0432\u0435\u043D\u043D\u0438\u043A \u2014 ",
+                    name || "без имени"),
+                opts.map((c) => (React.createElement("option", { key: c.id, value: c.id },
+                    c.name,
+                    c.role ? ` · ${c.role}` : "")))))));
+}
+/* ------------------------------------------------------------------ */
+/*  Семья: общий атлас, приглашения, состав                            */
+/* ------------------------------------------------------------------ */
+async function shareText(text, title) {
+    try {
+        if (navigator.share) {
+            await navigator.share({ text, title });
+            return "shared";
+        }
+    }
+    catch (e) {
+        if ((e === null || e === void 0 ? void 0 : e.name) === "AbortError")
+            return "cancel";
+    }
+    try {
+        await navigator.clipboard.writeText(text);
+        return "copied";
+    }
+    catch {
+        return "fail";
+    }
+}
+function FamilySheet({ open, onClose, box, profile, ops, onNear, onImport }) {
+    const fam = (profile === null || profile === void 0 ? void 0 : profile.family) || null;
+    const people = (profile === null || profile === void 0 ? void 0 : profile.people) || [];
+    const myId = profile === null || profile === void 0 ? void 0 : profile.deviceId;
+    const [mode, setMode] = useState(""); // "" | invite | code | incoming | reply | joinreq
+    const [code, setCode] = useState("");
+    const [paste, setPaste] = useState("");
+    const [got, setGot] = useState(null);
+    const [link, setLink] = useState("");
+    const [err, setErr] = useState("");
+    const [msg, setMsg] = useState("");
+    const [busy, setBusy] = useState(false);
+    const [ask, setAsk] = useState(null);
+    const [fname, setFname] = useState((fam === null || fam === void 0 ? void 0 : fam.name) || "");
+    useEffect(() => setFname((fam === null || fam === void 0 ? void 0 : fam.name) || ""), [fam === null || fam === void 0 ? void 0 : fam.name]);
+    useEffect(() => {
+        if (!open) {
+            setMode("");
+            setErr("");
+            setMsg("");
+            setPaste("");
+            setGot(null);
+        }
+    }, [open]);
+    const members = (fam === null || fam === void 0 ? void 0 : fam.members) || [];
+    const cardOf = (m) => people.find((c) => c.link === m.id);
+    const inviteText = (c) => `Приглашаю в семейный Атлас «${(fam === null || fam === void 0 ? void 0 : fam.name) || "Наша семья"}». Откройте Атлас → Профиль → Семья → «У меня есть код» и вставьте это сообщение целиком.\n\n${c}`;
+    const replyText = (c) => `Ответ на приглашение в семейный Атлас. Откройте Атлас → Профиль → Семья → «У меня есть код» и вставьте это сообщение целиком.\n\n${c}`;
+    const shareOut = async (text) => {
+        const r = await shareText(text, "Атлас");
+        setMsg(r === "copied" ? "Скопировано — вставьте в мессенджер" : r === "fail" ? "Не получилось — скопируйте код вручную" : "");
+    };
+    const readPasted = () => {
+        var _c, _d, _e, _f, _g, _h;
+        setErr("");
+        const c = readCode(paste);
+        if (!c)
+            return setErr("Не похоже на код Атласа. Вставьте сообщение целиком.");
+        if (((_d = (_c = c.data) === null || _c === void 0 ? void 0 : _c.p) === null || _d === void 0 ? void 0 : _d.id) === myId)
+            return setErr("Это ваш собственный код — его нужно отправить другому человеку.");
+        if (c.kind === "I") {
+            setGot(c);
+            setLink(guessCard(people, (_f = (_e = c.data) === null || _e === void 0 ? void 0 : _e.p) === null || _f === void 0 ? void 0 : _f.name));
+            setMode("incoming");
+            return;
+        }
+        const e = ops.checkJoin(c.data);
+        if (e)
+            return setErr(e);
+        setGot(c);
+        setLink(guessCard(people, (_h = (_g = c.data) === null || _g === void 0 ? void 0 : _g.p) === null || _h === void 0 ? void 0 : _h.name));
+        setMode("joinreq");
+    };
+    return (React.createElement(Sheet, { open: open, onClose: onClose, title: "\u0421\u0435\u043C\u044C\u044F", box: box }, () => {
+        var _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t;
+        return (React.createElement("div", { className: "sheet-body fam" },
+            !fam ? (React.createElement("p", { className: "hint small" }, "\u0421\u0435\u043C\u044C\u044F \u2014 \u044D\u0442\u043E \u043E\u0431\u0449\u0438\u0439 \u0430\u0442\u043B\u0430\u0441: \u0432\u0441\u0435 \u0432\u0438\u0434\u044F\u0442 \u043F\u043E\u0435\u0437\u0434\u043A\u0438 \u0434\u0440\u0443\u0433 \u0434\u0440\u0443\u0433\u0430, \u0443 \u043A\u0430\u0436\u0434\u043E\u0439 \u043F\u043E\u0435\u0437\u0434\u043A\u0438 \u043F\u043E\u0434\u043F\u0438\u0441\u0430\u043D \u0430\u0432\u0442\u043E\u0440. \u0418\u043C\u044F, \u0444\u043E\u0442\u043E, \u0441\u043F\u0443\u0442\u043D\u0438\u043A\u0438 \u0438 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438 \u0443 \u043A\u0430\u0436\u0434\u043E\u0433\u043E \u0441\u0432\u043E\u0438 \u0438 \u043F\u0440\u0438 \u043E\u0431\u043C\u0435\u043D\u0435 \u043D\u0435 \u043C\u0435\u043D\u044F\u044E\u0442\u0441\u044F. \u0427\u0442\u043E\u0431\u044B \u0441\u043E\u0437\u0434\u0430\u0442\u044C \u0441\u0435\u043C\u044C\u044E, \u043E\u0431\u043C\u0435\u043D\u044F\u0439\u0442\u0435\u0441\u044C \u0440\u044F\u0434\u043E\u043C \u0441 \u0440\u043E\u0434\u043D\u044B\u043C \u0447\u0435\u043B\u043E\u0432\u0435\u043A\u043E\u043C \u0438\u043B\u0438 \u043E\u0442\u043F\u0440\u0430\u0432\u044C\u0442\u0435 \u0435\u043C\u0443 \u043F\u0440\u0438\u0433\u043B\u0430\u0448\u0435\u043D\u0438\u0435.")) : (React.createElement("label", { className: "tf fam-name" },
+                React.createElement("span", null, "\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u0441\u0435\u043C\u044C\u0438"),
+                React.createElement("input", { className: "tf-input", value: fname, onChange: (e) => setFname(e.target.value), onBlur: () => fname.trim() && fname.trim() !== fam.name && ops.rename(fname.trim()), autoComplete: "off" }))),
+            fam && (React.createElement("div", { className: "fam-list" },
+                React.createElement("div", { className: "fam-row" },
+                    React.createElement(Ava, { src: profile === null || profile === void 0 ? void 0 : profile.avatar, name: profile === null || profile === void 0 ? void 0 : profile.name }),
+                    React.createElement("span", { className: "fam-who" },
+                        React.createElement("b", null, ((profile === null || profile === void 0 ? void 0 : profile.name) || "").trim() || "Вы"),
+                        React.createElement("em", null, "\u044D\u0442\u043E \u0432\u044B"))),
+                members.map((m) => {
+                    var _c, _d;
+                    return (React.createElement("div", { key: m.id, className: "fam-row" },
+                        React.createElement(Ava, { src: m.ava, name: m.name }),
+                        React.createElement("span", { className: "fam-who" },
+                            React.createElement("b", null, m.name || "Без имени"),
+                            React.createElement("em", null,
+                                "\u0432 \u043F\u043E\u0435\u0437\u0434\u043A\u0430\u0445: ",
+                                ((_c = cardOf(m)) === null || _c === void 0 ? void 0 : _c.name) || "—")),
+                        React.createElement("span", { className: "fam-acts" },
+                            React.createElement("span", { className: "since-pick fam-relink", "aria-label": "\u041A\u0442\u043E \u044D\u0442\u043E \u0432 \u043F\u043E\u0435\u0437\u0434\u043A\u0430\u0445" },
+                                React.createElement("span", null, "\u270E"),
+                                React.createElement("select", { value: ((_d = cardOf(m)) === null || _d === void 0 ? void 0 : _d.id) || "", onChange: (e) => e.target.value && ops.relink(m.id, e.target.value) },
+                                    React.createElement("option", { value: "" }, "\u041A\u0442\u043E \u044D\u0442\u043E \u0432 \u043F\u043E\u0435\u0437\u0434\u043A\u0430\u0445?"),
+                                    people
+                                        .filter((c) => !c.link || c.link === m.id)
+                                        .map((c) => (React.createElement("option", { key: c.id, value: c.id }, c.name))))),
+                            React.createElement("button", { className: "icon-btn small", "aria-label": "\u0418\u0441\u043A\u043B\u044E\u0447\u0438\u0442\u044C", onClick: () => setAsk({
+                                    title: `Исключить: ${m.name || "участник"}?`,
+                                    text: "Поездки, которые уже пришли, останутся. Новые от этого человека приниматься не будут.",
+                                    yes: "Исключить",
+                                    onYes: () => ops.remove(m.id),
+                                }) }, "\u2715"))));
+                }),
+                !members.length && (React.createElement("p", { className: "hint small" }, "\u041F\u043E\u043A\u0430 \u0432 \u0441\u0435\u043C\u044C\u0435 \u0442\u043E\u043B\u044C\u043A\u043E \u0432\u044B. \u041F\u0440\u0438\u0433\u043B\u0430\u0441\u0438\u0442\u0435 \u0440\u043E\u0434\u043D\u044B\u0445 \u043D\u0438\u0436\u0435.")))),
+            mode === "" && (React.createElement(React.Fragment, null,
+                React.createElement("p", { className: "step-title" }, "\u041E\u0431\u043C\u0435\u043D \u043F\u043E\u0435\u0437\u0434\u043A\u0430\u043C\u0438"),
+                React.createElement("button", { className: "switch-row", onClick: onNear },
+                    React.createElement("span", { className: "switch-text" },
+                        "\u041E\u0431\u043C\u0435\u043D\u044F\u0442\u044C\u0441\u044F \u0440\u044F\u0434\u043E\u043C",
+                        React.createElement("em", null, "\u041F\u043E \u043A\u043E\u0434\u0443 \u043D\u0430 \u044D\u043A\u0440\u0430\u043D\u0435, \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u044B \u0432 \u043E\u0434\u043D\u043E\u0439 \u0441\u0435\u0442\u0438 Wi-Fi. \u0422\u0430\u043A \u0436\u0435 \u043F\u0440\u0438\u043D\u0438\u043C\u0430\u044E\u0442 \u0432 \u0441\u0435\u043C\u044C\u044E")),
+                    React.createElement("span", { className: "step-pen" }, "\u2192")),
+                fam && members.length > 0 && (React.createElement("button", { className: "switch-row", disabled: busy, onClick: async () => {
+                        setBusy(true);
+                        const r = await ops.sendFile();
+                        setBusy(false);
+                        setMsg(r === "saved"
+                            ? "Файл сохранён — отправьте его родным в мессенджере"
+                            : r === "shared"
+                                ? "Отправлено"
+                                : "");
+                    } },
+                    React.createElement("span", { className: "switch-text" },
+                        "\u041E\u0442\u043F\u0440\u0430\u0432\u0438\u0442\u044C \u043F\u043E\u0435\u0437\u0434\u043A\u0438 \u0444\u0430\u0439\u043B\u043E\u043C",
+                        React.createElement("em", null, "\u041A\u043E\u0433\u0434\u0430 \u0432\u044B \u0434\u0430\u043B\u0435\u043A\u043E: \u0444\u0430\u0439\u043B \u0447\u0435\u0440\u0435\u0437 \u043C\u0435\u0441\u0441\u0435\u043D\u0434\u0436\u0435\u0440, \u0431\u0435\u0437 \u0441\u043D\u0438\u043C\u043A\u043E\u0432")),
+                    React.createElement("span", { className: "step-pen" }, "\u2191"))),
+                React.createElement("label", { className: "switch-row" },
+                    React.createElement("span", { className: "switch-text" },
+                        "\u0417\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u043F\u043E\u0435\u0437\u0434\u043A\u0438 \u0438\u0437 \u0444\u0430\u0439\u043B\u0430",
+                        React.createElement("em", null, "\u0424\u0430\u0439\u043B \u043E\u0442 \u0447\u043B\u0435\u043D\u0430 \u0441\u0435\u043C\u044C\u0438; \u0432\u0430\u0448 \u043F\u0440\u043E\u0444\u0438\u043B\u044C \u043D\u0435 \u0438\u0437\u043C\u0435\u043D\u0438\u0442\u0441\u044F")),
+                    React.createElement("span", { className: "step-pen" }, "\u2193"),
+                    React.createElement("input", { type: "file", accept: "application/json,.json", style: { display: "none" }, onChange: (e) => {
+                            var _c;
+                            const f = (_c = e.target.files) === null || _c === void 0 ? void 0 : _c[0];
+                            e.target.value = "";
+                            if (f)
+                                onImport(f);
+                        } })),
+                React.createElement("p", { className: "step-title" }, "\u041F\u0440\u0438\u0433\u043B\u0430\u0448\u0435\u043D\u0438\u044F"),
+                React.createElement("button", { className: "switch-row", onClick: async () => {
+                        setErr("");
+                        setMsg("");
+                        setCode(await ops.invite());
+                        setMode("invite");
+                    } },
+                    React.createElement("span", { className: "switch-text" },
+                        "\u041F\u0440\u0438\u0433\u043B\u0430\u0441\u0438\u0442\u044C \u0438\u0437\u0434\u0430\u043B\u0435\u043A\u0430",
+                        React.createElement("em", null, "\u041A\u043E\u0434 \u0432 \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0438; \u0447\u0435\u043B\u043E\u0432\u0435\u043A \u0432\u0441\u0442\u0430\u0432\u0438\u0442 \u0435\u0433\u043E \u0443 \u0441\u0435\u0431\u044F \u0438 \u043F\u0440\u0438\u0448\u043B\u0451\u0442 \u043E\u0442\u0432\u0435\u0442")),
+                    React.createElement("span", { className: "step-pen" }, "\u2192")),
+                React.createElement("button", { className: "switch-row", onClick: () => {
+                        setErr("");
+                        setMsg("");
+                        setPaste("");
+                        setMode("code");
+                    } },
+                    React.createElement("span", { className: "switch-text" },
+                        "\u0423 \u043C\u0435\u043D\u044F \u0435\u0441\u0442\u044C \u043A\u043E\u0434",
+                        React.createElement("em", null, "\u041F\u0440\u0438\u0433\u043B\u0430\u0448\u0435\u043D\u0438\u0435 \u0432 \u0441\u0435\u043C\u044C\u044E \u0438\u043B\u0438 \u043E\u0442\u0432\u0435\u0442 \u043D\u0430 \u0432\u0430\u0448\u0435 \u043F\u0440\u0438\u0433\u043B\u0430\u0448\u0435\u043D\u0438\u0435")),
+                    React.createElement("span", { className: "step-pen" }, "\u2192")),
+                fam && (React.createElement("button", { className: "link-btn fam-leave", onClick: () => setAsk({
+                        title: "Выйти из семьи?",
+                        text: "Поездки, которые уже есть, останутся у вас. Новые от семьи приходить не будут, и вы перестанете отправлять свои.",
+                        yes: "Выйти",
+                        onYes: ops.leave,
+                    }) }, "\u0412\u044B\u0439\u0442\u0438 \u0438\u0437 \u0441\u0435\u043C\u044C\u0438")))),
+            mode === "invite" && (React.createElement("div", { className: "fam-box" },
+                React.createElement("p", null, "\u041E\u0442\u043F\u0440\u0430\u0432\u044C\u0442\u0435 \u044D\u0442\u043E \u043F\u0440\u0438\u0433\u043B\u0430\u0448\u0435\u043D\u0438\u0435 \u0440\u043E\u0434\u043D\u043E\u043C\u0443 \u0447\u0435\u043B\u043E\u0432\u0435\u043A\u0443. \u041E\u043D \u0432\u0441\u0442\u0430\u0432\u0438\u0442 \u0435\u0433\u043E \u0443 \u0441\u0435\u0431\u044F \u0438 \u043F\u0440\u0438\u0448\u043B\u0451\u0442 \u0432\u0430\u043C \u043E\u0442\u0432\u0435\u0442 \u2014 \u0432\u0441\u0442\u0430\u0432\u044C\u0442\u0435 \u043E\u0442\u0432\u0435\u0442 \u0432 \u00AB\u0423 \u043C\u0435\u043D\u044F \u0435\u0441\u0442\u044C \u043A\u043E\u0434\u00BB. \u041F\u0440\u0438\u0433\u043B\u0430\u0448\u0435\u043D\u0438\u0435 \u0434\u0435\u0439\u0441\u0442\u0432\u0443\u0435\u0442 \u0434\u0432\u0435 \u043D\u0435\u0434\u0435\u043B\u0438 \u0438 \u043F\u043E\u0434\u0445\u043E\u0434\u0438\u0442 \u043E\u0434\u043D\u043E\u043C\u0443 \u0447\u0435\u043B\u043E\u0432\u0435\u043A\u0443."),
+                React.createElement("textarea", { className: "fam-code", readOnly: true, value: code, onFocus: (e) => e.target.select() }),
+                React.createElement("div", { className: "fam-ask-btns" },
+                    React.createElement("button", { className: "btn-ghost", onClick: () => setMode("") }, "\u041D\u0430\u0437\u0430\u0434"),
+                    React.createElement("button", { className: "btn-main", onClick: () => shareOut(inviteText(code)) }, "\u041F\u043E\u0434\u0435\u043B\u0438\u0442\u044C\u0441\u044F")))),
+            mode === "code" && (React.createElement("div", { className: "fam-box" },
+                React.createElement("p", null, "\u0412\u0441\u0442\u0430\u0432\u044C\u0442\u0435 \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0435 \u0441 \u043A\u043E\u0434\u043E\u043C \u0446\u0435\u043B\u0438\u043A\u043E\u043C \u2014 \u043B\u0438\u0448\u043D\u0438\u0439 \u0442\u0435\u043A\u0441\u0442 \u043D\u0435 \u043C\u0435\u0448\u0430\u0435\u0442."),
+                React.createElement("textarea", { className: "fam-code", value: paste, placeholder: "ATLAS-\u2026", onChange: (e) => setPaste(e.target.value) }),
+                React.createElement("div", { className: "fam-ask-btns" },
+                    React.createElement("button", { className: "btn-ghost", onClick: () => setMode("") }, "\u041D\u0430\u0437\u0430\u0434"),
+                    React.createElement("button", { className: "btn-main", onClick: readPasted, disabled: !paste.trim() }, "\u041F\u0440\u043E\u0434\u043E\u043B\u0436\u0438\u0442\u044C")))),
+            (mode === "incoming" || mode === "joinreq") && got && (React.createElement("div", { className: "fam-ask" },
+                React.createElement(Ava, { name: (_d = (_c = got.data) === null || _c === void 0 ? void 0 : _c.p) === null || _d === void 0 ? void 0 : _d.name, size: 56 }),
+                React.createElement("b", null, ((_f = (_e = got.data) === null || _e === void 0 ? void 0 : _e.p) === null || _f === void 0 ? void 0 : _f.name) || "Без имени"),
+                React.createElement("p", null, mode === "incoming"
+                    ? fam && !famIds(fam).includes((_h = (_g = got.data) === null || _g === void 0 ? void 0 : _g.f) === null || _h === void 0 ? void 0 : _h.id)
+                        ? `Приглашает вас в семью «${(_k = (_j = got.data) === null || _j === void 0 ? void 0 : _j.f) === null || _k === void 0 ? void 0 : _k.name}». Сейчас вы в семье «${fam.name}» — они станут одной.`
+                        : `Приглашает вас в семью «${((_m = (_l = got.data) === null || _l === void 0 ? void 0 : _l.f) === null || _m === void 0 ? void 0 : _m.name) || "Наша семья"}». Вы будете видеть поездки друг друга. Имя, фото и настройки у каждого останутся своими.`
+                    : `Хочет вступить в семью «${(fam === null || fam === void 0 ? void 0 : fam.name) || "Наша семья"}» по вашему приглашению.`),
+                React.createElement(LinkPick, { people: people, value: link, onChange: setLink, name: (_p = (_o = got.data) === null || _o === void 0 ? void 0 : _o.p) === null || _p === void 0 ? void 0 : _p.name, memberId: (_r = (_q = got.data) === null || _q === void 0 ? void 0 : _q.p) === null || _r === void 0 ? void 0 : _r.id }),
+                React.createElement("div", { className: "fam-ask-btns" },
+                    React.createElement("button", { className: "btn-ghost", onClick: () => setMode("") }, "\u041D\u0435 \u0441\u0435\u0439\u0447\u0430\u0441"),
+                    React.createElement("button", { className: "btn-main", disabled: busy, onClick: async () => {
+                            var _c, _d;
+                            setBusy(true);
+                            try {
+                                if (mode === "incoming") {
+                                    setCode(await ops.acceptInvite(got.data, link));
+                                    setMode("reply");
+                                }
+                                else {
+                                    await ops.acceptJoin(got.data, link);
+                                    setMsg(`${((_d = (_c = got.data) === null || _c === void 0 ? void 0 : _c.p) === null || _d === void 0 ? void 0 : _d.name) || "Человек"} теперь в семье. Обменяйтесь поездками: рядом или файлом.`);
+                                    setMode("");
+                                }
+                            }
+                            finally {
+                                setBusy(false);
+                            }
+                        } }, mode === "incoming" ? "Вступить" : "Принять в семью")))),
+            mode === "reply" && got && (React.createElement("div", { className: "fam-box" },
+                React.createElement("p", null,
+                    "\u0412\u044B \u0432 \u0441\u0435\u043C\u044C\u0435. \u041E\u0442\u043F\u0440\u0430\u0432\u044C\u0442\u0435 \u044D\u0442\u043E\u0442 \u043E\u0442\u0432\u0435\u0442 \u043F\u0440\u0438\u0433\u043B\u0430\u0441\u0438\u0432\u0448\u0435\u043C\u0443",
+                    ((_t = (_s = got.data) === null || _s === void 0 ? void 0 : _s.p) === null || _t === void 0 ? void 0 : _t.name) ? ` (${got.data.p.name})` : "",
+                    ". \u041A\u0430\u043A \u0442\u043E\u043B\u044C\u043A\u043E \u043E\u0442\u0432\u0435\u0442 \u0432\u0441\u0442\u0430\u0432\u044F\u0442 \u0443 \u0441\u0435\u0431\u044F, \u0432\u044B \u0441\u043C\u043E\u0436\u0435\u0442\u0435 \u043E\u0431\u043C\u0435\u043D\u0438\u0432\u0430\u0442\u044C\u0441\u044F \u043F\u043E\u0435\u0437\u0434\u043A\u0430\u043C\u0438."),
+                React.createElement("textarea", { className: "fam-code", readOnly: true, value: code, onFocus: (e) => e.target.select() }),
+                React.createElement("div", { className: "fam-ask-btns" },
+                    React.createElement("button", { className: "btn-ghost", onClick: () => setMode("") }, "\u0413\u043E\u0442\u043E\u0432\u043E"),
+                    React.createElement("button", { className: "btn-main", onClick: () => shareOut(replyText(code)) }, "\u041E\u0442\u043F\u0440\u0430\u0432\u0438\u0442\u044C \u043E\u0442\u0432\u0435\u0442")))),
+            err && React.createElement("p", { className: "hint small near-warn" }, err),
+            msg && React.createElement("p", { className: "hint small fam-msg" }, msg),
+            React.createElement(Ask, { ask: ask, onClose: () => setAsk(null), box: box })));
+    }));
+}
+function NearSync({ makePayload, onData, onClose, box, profile, meAva = "", onJoin }) {
     // одно нажатие на обоих телефонах: каждый показывает свой код и сам читает чужой
     const [step, setStep] = useState("idle"); // idle | pair | live | done
     const [myCode, setMyCode] = useState("");
@@ -9379,7 +9940,55 @@ function NearSync({ makePayload, onData, onClose, box }) {
     const offerCode = useRef("");
     const busy = useRef(false);
     const [why, setWhy] = useState("");
+    /* знакомство: кто на том конце и согласны ли обе стороны на общую семью */
+    const [them, setThem] = useState(null); // { me:{id,name,ava}, fam }
+    const [linkCard, setLinkCard] = useState("");
+    const myOk = useRef(false);
+    const theirOk = useRef(false);
+    const chRef = useRef(null);
+    const sending = useRef(false);
+    const helloAt = useRef(0);
     useEffect(() => () => { var _c; return (_c = peer.current) === null || _c === void 0 ? void 0 : _c.pc.close(); }, []);
+    const ctlRef = useRef(null);
+    const them0 = useRef(false);
+    const profileRef0 = useRef(profile);
+    profileRef0.current = profile;
+    const say = (obj) => {
+        var _c;
+        try {
+            (_c = chRef.current) === null || _c === void 0 ? void 0 : _c.send(JSON.stringify(obj));
+        }
+        catch {
+            /* канал закрыт */
+        }
+    };
+    /* согласие на общую семью */
+    const agree = async () => {
+        var _c, _d;
+        if (!((_c = them === null || them === void 0 ? void 0 : them.me) === null || _c === void 0 ? void 0 : _c.id))
+            return;
+        setState("Сохраняем семью");
+        let brief = null;
+        try {
+            brief = await (onJoin === null || onJoin === void 0 ? void 0 : onJoin({ id: them.me.id, name: them.me.name, ava: them.me.ava || "" }, them.fam, linkCard));
+        }
+        catch {
+            brief = null;
+        }
+        myOk.current = true;
+        say({ ctl: "ok", fam: brief });
+        setStep("wait");
+        setState(theirOk.current ? "Соединяемся" : `Ждём подтверждения на телефоне: ${them.me.name || "второй телефон"}`);
+        if (theirOk.current && chRef.current) {
+            // отправку запускает общий обработчик
+            (_d = ctlRef.current) === null || _d === void 0 ? void 0 : _d.call(ctlRef, { ctl: "ok" });
+        }
+    };
+    const refuse = () => {
+        say({ ctl: "no" });
+        setStep("refused");
+        setState("Обмен отменён");
+    };
     const watch = (p) => {
         const on = () => setLink(`${p.pc.iceConnectionState || "—"} / ${p.pc.connectionState || "—"}`);
         p.pc.addEventListener("iceconnectionstatechange", on);
@@ -9413,13 +10022,17 @@ function NearSync({ makePayload, onData, onClose, box }) {
         const peerVer = got_.current.appVersion || "";
         setPeerOld(!peerVer || parseFloat(peerVer) < parseFloat(APP_VERSION));
         setReview(!!(res === null || res === void 0 ? void 0 : res.review));
-        setState((res === null || res === void 0 ? void 0 : res.review)
-            ? "Получено · есть расхождения — разберите их кнопкой ниже"
-            : res && typeof res.added === "number"
-                ? res.added
-                    ? `Обмен завершён · новых поездок: ${res.added}`
-                    : "Обмен завершён · всё уже было на месте"
-                : "Обмен завершён");
+        setState((res === null || res === void 0 ? void 0 : res.error) === "stranger"
+            ? "Второй телефон не в вашей семье — поездки не приняты"
+            : (res === null || res === void 0 ? void 0 : res.error) === "old"
+                ? "На втором телефоне старая версия — поездки не приняты"
+                : (res === null || res === void 0 ? void 0 : res.review)
+                    ? "Получено · есть расхождения — разберите их кнопкой ниже"
+                    : res && typeof res.added === "number"
+                        ? res.added
+                            ? `Обмен завершён · новых поездок: ${res.added}`
+                            : "Обмен завершён · всё уже было на месте"
+                        : "Обмен завершён");
         // даём подтверждению уйти к соседу, потом закрываем
         setTimeout(() => {
             var _c;
@@ -9451,8 +10064,17 @@ function NearSync({ makePayload, onData, onClose, box }) {
         }, (k) => setGot(k), () => {
             ackOk.current = true;
             tryFinish();
+        }, (m) => {
+            var _c;
+            if (m.ctl === "hello")
+                them0.current = true;
+            (_c = ctlRef.current) === null || _c === void 0 ? void 0 : _c.call(ctlRef, m);
         });
+        chRef.current = ch;
         const send = async () => {
+            if (sending.current)
+                return;
+            sending.current = true;
             setStep("live");
             setState(withPhotos ? "Передаём поездки и снимки" : "Передаём поездки");
             await sendPacket(ch, { ...(await makePayload(withPhotos)), appVersion: APP_VERSION }, (k) => setSent(k));
@@ -9461,9 +10083,69 @@ function NearSync({ makePayload, onData, onClose, box }) {
                 setState("Отдали, принимаем от соседа");
             tryFinish();
         };
-        ch.onopen = send;
+        const both = () => {
+            if (myOk.current && theirOk.current)
+                send();
+        };
+        ctlRef.current = (m) => {
+            var _c, _d, _e;
+            if (m.ctl === "hello") {
+                const who = { me: m.me || {}, fam: m.fam || null };
+                setThem(who);
+                const prof = profileRef0.current || {};
+                const trusted = !!((_c = m.me) === null || _c === void 0 ? void 0 : _c.id) && famHas(prof, m.me.id) && famSame(prof.family, m.fam);
+                if (m.ok)
+                    theirOk.current = true;
+                if (trusted) {
+                    myOk.current = true;
+                    say({ ctl: "ok" });
+                    setStep("wait");
+                    setState(theirOk.current ? "Соединяемся" : `Ждём подтверждения на телефоне: ${((_d = m.me) === null || _d === void 0 ? void 0 : _d.name) || "второй телефон"}`);
+                    both();
+                }
+                else {
+                    setLinkCard(guessCard(prof.people, (_e = m.me) === null || _e === void 0 ? void 0 : _e.name));
+                    setStep("ask");
+                    setState("");
+                }
+            }
+            else if (m.ctl === "ok") {
+                theirOk.current = true;
+                if (m.fam)
+                    setThem((v) => (v ? { ...v, fam: m.fam } : v));
+                if (myOk.current)
+                    both();
+                else
+                    setState((st) => st);
+            }
+            else if (m.ctl === "no") {
+                theirOk.current = false;
+                setStep("refused");
+                setState("На втором телефоне отказались от общей семьи. Обмен отменён");
+            }
+        };
+        const hello = () => {
+            helloAt.current = Date.now();
+            const prof = profileRef0.current || {};
+            say({
+                ctl: "hello",
+                v: 2,
+                me: { id: prof.deviceId, name: (prof.name || "").trim(), ava: meAva || "" },
+                fam: famBrief(prof),
+            });
+            setStep("wait");
+            setState("Знакомимся со вторым телефоном");
+            // старая версия на том конце знакомиться не умеет
+            setTimeout(() => {
+                if (!them0.current && !finished.current && !got_.current) {
+                    setPeerOld(true);
+                    setState("Второй телефон не отвечает на знакомство — вероятно, на нём старая версия");
+                }
+            }, 7000);
+        };
+        ch.onopen = hello;
         if (ch.readyState === "open")
-            send();
+            hello();
         ch.onclose = () => {
             if (got_.current)
                 finish();
@@ -9477,6 +10159,11 @@ function NearSync({ makePayload, onData, onClose, box }) {
     };
     const reset = () => {
         var _c;
+        myOk.current = false;
+        theirOk.current = false;
+        sending.current = false;
+        them0.current = false;
+        setThem(null);
         got_.current = null;
         sentOk.current = false;
         ackOk.current = false;
@@ -9495,6 +10182,11 @@ function NearSync({ makePayload, onData, onClose, box }) {
     /* старт: показываем свой код и одновременно смотрим камерой на чужой */
     const start = async () => {
         setStep("pair");
+        myOk.current = false;
+        theirOk.current = false;
+        sending.current = false;
+        them0.current = false;
+        setThem(null);
         got_.current = null;
         sentOk.current = false;
         ackOk.current = false;
@@ -9570,12 +10262,30 @@ function NearSync({ makePayload, onData, onClose, box }) {
     return (React.createElement(Sheet, { open: true, onClose: onClose, title: React.createElement(React.Fragment, null,
             "\u041E\u0431\u043C\u0435\u043D ",
             React.createElement("span", { className: "t-gold" }, "\u0440\u044F\u0434\u043E\u043C")), box: box }, () => {
-        var _c;
+        var _c, _d, _e, _f, _g, _h;
         return (React.createElement("div", { className: "sheet-body near" },
             React.createElement("p", { className: "hint small" }, "\u041F\u043E\u0435\u0437\u0434\u043A\u0438, \u043C\u0430\u0440\u0448\u0440\u0443\u0442\u044B \u0438 \u043F\u043B\u0430\u043D\u044B \u2014 \u043F\u0440\u044F\u043C\u043E \u043D\u0430 \u0441\u043E\u0441\u0435\u0434\u043D\u0438\u0439 \u0442\u0435\u043B\u0435\u0444\u043E\u043D"),
-            React.createElement("div", { className: "near-stage" },
+            React.createElement("div", { className: "near-stage" + (step === "ask" ? " ask" : "") },
                 step === "pair" && (React.createElement(QrCamera, { facing: facing, hidden: true, onCode: onCode, onClose: () => { }, onStat: (x) => setStat((v) => ({ ...v, ...x })) })),
-                step === "done" ? (React.createElement(NearDone, null)) : step === "idle" ? (React.createElement(NearHero, null)) : (React.createElement("div", { className: "near-card" + (flip ? " flip" : ""), onClick: () => setFlip((v) => !v) },
+                step === "ask" && them ? (React.createElement("div", { className: "fam-ask" },
+                    React.createElement(Ava, { src: (_c = them.me) === null || _c === void 0 ? void 0 : _c.ava, name: (_d = them.me) === null || _d === void 0 ? void 0 : _d.name, size: 64 }),
+                    React.createElement("b", null, ((_e = them.me) === null || _e === void 0 ? void 0 : _e.name) || "Второй телефон"),
+                    React.createElement("p", null, (() => {
+                        const mine = profile === null || profile === void 0 ? void 0 : profile.family;
+                        const theirs = them.fam;
+                        const tail = " Вы будете видеть поездки друг друга. Имя, фото и настройки у каждого останутся своими.";
+                        if (mine && theirs && !famSame(mine, theirs))
+                            return `У вас разные семьи: «${mine.name}» и «${theirs.name}». Если согласитесь, они станут одной, и все будут видеть поездки друг друга.`;
+                        if (mine)
+                            return `Принять в семью «${mine.name}»?` + tail;
+                        if (theirs)
+                            return `Приглашение в семью «${theirs.name}».` + tail;
+                        return "Создать общую семью?" + tail;
+                    })()),
+                    React.createElement(LinkPick, { people: (profile === null || profile === void 0 ? void 0 : profile.people) || [], value: linkCard, onChange: setLinkCard, name: (_f = them.me) === null || _f === void 0 ? void 0 : _f.name, memberId: (_g = them.me) === null || _g === void 0 ? void 0 : _g.id }),
+                    React.createElement("div", { className: "fam-ask-btns" },
+                        React.createElement("button", { className: "btn-ghost", onClick: refuse }, "\u041D\u0435 \u0441\u0435\u0439\u0447\u0430\u0441"),
+                        React.createElement("button", { className: "btn-main", onClick: agree }, "\u041F\u0440\u0438\u043D\u044F\u0442\u044C \u0432 \u0441\u0435\u043C\u044C\u044E")))) : step === "done" ? (React.createElement(NearDone, null)) : step === "idle" ? (React.createElement(NearHero, null)) : (React.createElement("div", { className: "near-card" + (flip ? " flip" : ""), onClick: () => setFlip((v) => !v) },
                     React.createElement("div", { className: "near-face near-front" }, myCode ? (React.createElement(QrBox, { text: myCode, size: 196 })) : (React.createElement("p", { className: "near-state" }, "\u0413\u043E\u0442\u043E\u0432\u0438\u043C \u043A\u043E\u0434\u2026"))),
                     React.createElement("div", { className: "near-face near-back" },
                         React.createElement("p", null, "\u041A\u043E\u0434 \u0434\u043B\u044F \u0440\u0443\u0447\u043D\u043E\u0433\u043E \u0432\u0432\u043E\u0434\u0430"),
@@ -9650,7 +10360,7 @@ function NearSync({ makePayload, onData, onClose, box }) {
                             "\u0420\u0430\u0437\u0431\u043E\u0440\u043E\u0432: ",
                             stat.tries || 0,
                             " \u00B7 \u044F\u0440\u043A\u043E\u0441\u0442\u044C \u043A\u0430\u0434\u0440\u0430:",
-                            " ", (_c = stat.bright) !== null && _c !== void 0 ? _c : "—",
+                            " ", (_h = stat.bright) !== null && _h !== void 0 ? _h : "—",
                             " \u00B7 \u0440\u0435\u0436\u0438\u043C: ",
                             stat.zoom || "—"),
                         stat.shot && (React.createElement("div", { className: "near-shot" },
@@ -9698,7 +10408,7 @@ function NearSync({ makePayload, onData, onClose, box }) {
     }));
 }
 /* разбор обмена: что придёт, что уйдёт и чьи данные оставить */
-function SyncSheet({ plan, from, onCancel, onApply, box }) {
+function SyncSheet({ plan, from, onCancel, onApply, box, whoLine }) {
     const [picks, setPicks] = useState({});
     if (!plan)
         return null;
@@ -9710,6 +10420,8 @@ function SyncSheet({ plan, from, onCancel, onApply, box }) {
         setPicks(next);
     };
     const nothing = !add.length && !del.length && !conflicts.length;
+    // одинаковые правки с разным составом — след старого объединения через файл
+    const swaps = conflicts.filter((c) => c.swap).length;
     return (React.createElement(Sheet, { open: true, onClose: onCancel, title: "\u041E\u0431\u043C\u0435\u043D \u043F\u043E\u0435\u0437\u0434\u043A\u0430\u043C\u0438", box: box }, () => (React.createElement("div", { className: "sheet-body sync" },
         React.createElement("p", { className: "hint small" }, nothing
             ? `${from ? "От: " + from + " · " : ""}всё уже совпадает`
@@ -9737,6 +10449,11 @@ function SyncSheet({ plan, from, onCancel, onApply, box }) {
                 add.length > 20 && React.createElement("em", { className: "sync-more" },
                     "\u0438 \u0435\u0449\u0451 ",
                     add.length - 20))),
+            swaps > 0 && (React.createElement("p", { className: "hint small near-warn" },
+                swaps === conflicts.length ? "Все расхождения" : `${swaps} из ${conflicts.length}`,
+                " \u2014 \u0432 \u0441\u043E\u0441\u0442\u0430\u0432\u0435: \u043E\u0434\u043D\u0430 \u0438 \u0442\u0430 \u0436\u0435 \u043F\u043E\u0435\u0437\u0434\u043A\u0430 \u0443 \u0432\u0430\u0441 \u0438 \u0443 \u043E\u0442\u043F\u0440\u0430\u0432\u0438\u0442\u0435\u043B\u044F",
+                from ? ` (${from})` : "",
+                " \u0437\u0430\u043F\u0438\u0441\u0430\u043D\u0430 \u043D\u0430 \u0440\u0430\u0437\u043D\u044B\u0445 \u043B\u044E\u0434\u0435\u0439. \u0422\u0430\u043A \u0431\u044B\u0432\u0430\u0435\u0442, \u0435\u0441\u043B\u0438 \u0440\u0430\u043D\u044C\u0448\u0435 \u043F\u043E\u0435\u0437\u0434\u043A\u0438 \u043F\u043E\u043F\u0430\u043B\u0438 \u043A \u0432\u0430\u043C \u0438\u0437 \u0447\u0443\u0436\u043E\u0439 \u043A\u043E\u043F\u0438\u0438 \u0438 \u00AB\u044F\u00BB \u0432 \u043D\u0438\u0445 \u0441\u0442\u0430\u043B\u043E \u0432\u0430\u043C\u0438. \u0415\u0441\u043B\u0438 \u044D\u0442\u043E \u043F\u043E\u0435\u0437\u0434\u043A\u0438 \u043E\u0442\u043F\u0440\u0430\u0432\u0438\u0442\u0435\u043B\u044F, \u043D\u0430\u0436\u043C\u0438\u0442\u0435 \u00AB\u0432\u0437\u044F\u0442\u044C \u0432\u0441\u0435 \u0438\u0445\u00BB.")),
             conflicts.length > 0 && (React.createElement("div", { className: "sync-group" },
                 React.createElement("p", null,
                     "\u041F\u0440\u0430\u0432\u0438\u043B\u0438 \u0441 \u0434\u0432\u0443\u0445 \u0441\u0442\u043E\u0440\u043E\u043D",
@@ -9756,6 +10473,11 @@ function SyncSheet({ plan, from, onCancel, onApply, box }) {
                                 tripLine(c.mine),
                                 " \u00B7 \u0438\u0445: ",
                                 tripLine(c.theirs)),
+                            whoLine && c.diff.includes("состав") && (React.createElement("em", { className: "sync-vs" },
+                                "\u0441\u043E\u0441\u0442\u0430\u0432 \u0443 \u0432\u0430\u0441: ",
+                                whoLine(c.mine),
+                                " \u00B7 \u0443 \u043D\u0438\u0445: ",
+                                whoLine(c.theirs))),
                             React.createElement("span", { className: "sync-pick" }, [
                                 ["mine", "моя"],
                                 ["theirs", "их"],
@@ -9788,7 +10510,7 @@ function Ask({ ask, onClose, box }) {
             React.createElement("b", null, ask.title),
             ask.text && React.createElement("span", null, ask.text),
             React.createElement("div", { className: "ask-btns" },
-                React.createElement("button", { className: "ask-no", onClick: onClose }, "\u041E\u0442\u043C\u0435\u043D\u0430"),
+                !ask.only && (React.createElement("button", { className: "ask-no", onClick: onClose }, "\u041E\u0442\u043C\u0435\u043D\u0430")),
                 ask.alt && (React.createElement("button", { className: "ask-no", onClick: () => {
                         ask.onAlt();
                         onClose();
@@ -10508,12 +11230,12 @@ const RING_PLATE = "M 2 100 a 98 26 0 1 0 196 0 a 98 26 0 1 0 -196 0 Z " +
     "M 22 100 a 78 20 0 1 0 156 0 a 78 20 0 1 0 -156 0 Z";
 const RING_INNER = "M 25 100 a 75 19 0 1 0 150 0 a 75 19 0 1 0 -150 0 Z " +
     "M 31 100 a 69 17 0 1 0 138 0 a 69 17 0 1 0 -138 0 Z";
-function Saturn({ name, n, tone = 0, size = 120, id = "s", orbit = true }) {
+function Saturn({ name, n, tone = 0, size = 120, id = "s", orbit = true, label: ls = 1 }) {
     const t = SAT_TONES[tone % SAT_TONES.length];
     const u = `sat${id}`;
     const label = String(name || "");
-    const plateW = Math.max(74, label.length * 11 + 26);
-    return (React.createElement("svg", { className: "dg-planet", viewBox: "0 0 200 250", width: size, height: size * 1.25 },
+    const plateW = Math.min(196, Math.max(74, (label.length * 11 + 26) * ls));
+    return (React.createElement("svg", { className: "dg-planet", viewBox: "0 0 200 250", style: { overflow: "visible" }, width: size, height: size * 1.25 },
         React.createElement("defs", null,
             React.createElement("radialGradient", { id: `${u}-ball`, cx: "34%", cy: "30%", r: "78%" },
                 React.createElement("stop", { offset: "0%", stopColor: t.a }),
@@ -10563,8 +11285,8 @@ function Saturn({ name, n, tone = 0, size = 120, id = "s", orbit = true }) {
             React.createElement("path", { fill: `url(#${u}-ring)`, fillRule: "evenodd", d: RING_PLATE }),
             React.createElement("path", { fill: `url(#${u}-ring)`, fillOpacity: ".5", fillRule: "evenodd", d: RING_INNER })),
         React.createElement("g", { className: "dg-sign" },
-            React.createElement("rect", { x: 100 - plateW / 2, y: "196", width: plateW, height: "34", rx: "10", fill: `url(#${u}-plate)`, stroke: t.r1, strokeWidth: "1.5" }),
-            React.createElement("text", { x: "100", y: "218", textAnchor: "middle", fontSize: "19", fontWeight: "800", fill: t.t, textLength: Math.min(plateW - 16, label.length * 11), lengthAdjust: "spacingAndGlyphs" }, label))));
+            React.createElement("rect", { x: 100 - plateW / 2, y: "196", width: plateW, height: 34 * ls, rx: "10", fill: `url(#${u}-plate)`, stroke: t.r1, strokeWidth: "1.5" }),
+            React.createElement("text", { x: "100", y: 218 + 11 * (ls - 1), textAnchor: "middle", fontSize: 19 * ls, fontWeight: "800", fill: t.t, textLength: Math.min(plateW - 16, label.length * 11 * ls), lengthAdjust: "spacingAndGlyphs" }, label))));
 }
 /* «Догоняй» в ленте: тройка лидеров.
    Когда карточка впервые показывается на экране, планеты по очереди поднимаются
@@ -10638,6 +11360,9 @@ function SoloWin({ visits, people, geo, mapProps, onClose }) {
     const row = rows.find((r) => r.id === sel) || rows[0] || null;
     const orbRef = useRef(null);
     const backRef = useRef(null);
+    // в альбомном виде шар крупнее — планеты и таблички растут вместе с ним
+    const [satK, setSatK] = useState(1);
+    const satKRef = useRef(1);
     const retry = useRef(0);
     /* гонка вокруг шара. Все летят в одну сторону, впереди первое место.
        Каждый следующий чуть быстрее того, кто перед ним, и понемногу догоняет;
@@ -10696,6 +11421,12 @@ function SoloWin({ visits, people, geo, mapProps, onClose }) {
                 c.style.height = br.height + "px";
                 c.getContext("2d").setTransform(dpr, 0, 0, dpr, 0, 0);
             });
+            const R0 = Math.min(cr.width, cr.height) / 2;
+            const k = wide ? Math.max(1.3, Math.min(1.8, (1.3 * R0) / 150)) : 1;
+            if (Math.abs(k - satKRef.current) > 0.04) {
+                satKRef.current = k;
+                setSatK(k);
+            }
             G = {
                 cx: cr.left - br.left + cr.width / 2,
                 cy: cr.top - br.top + cr.height / 2,
@@ -10765,10 +11496,10 @@ function SoloWin({ visits, people, geo, mapProps, onClose }) {
             const back = backRef.current ? [...backRef.current.querySelectorAll(".dg-sat")] : [];
             const pts = [];
             S.forEach((st, i) => {
-                var _c;
+                var _c, _d;
                 const r = R * st.rad;
                 const pw0 = ((_c = front[i]) === null || _c === void 0 ? void 0 : _c.offsetWidth) || 80;
-                const rx = Math.min(r, Math.max(R * 0.9, Math.min(cx, W - cx) - pw0 * 0.62));
+                const rx = Math.min(r, Math.max(R * 0.6, Math.min(cx, W - cx) - pw0 * 0.62));
                 const x0 = rx * Math.cos(st.th);
                 const ye = r * Math.sin(st.th) * Math.cos(lean);
                 const z = r * Math.sin(st.th) * Math.sin(lean);
@@ -10778,8 +11509,11 @@ function SoloWin({ visits, people, geo, mapProps, onClose }) {
                     (0.3 * Math.sin(st.hf[0] * T + st.hp[0]) +
                         0.13 * Math.sin(st.hf[1] * T + st.hp[1]) +
                         0.05 * Math.sin(st.hf[2] * T + st.hp[2]));
-                const y = x0 * Math.sin(tilt) + ye * Math.cos(tilt) - h;
                 const sc = 1 / (1 - z / (R * 4.4));
+                const ph0 = ((_d = front[i]) === null || _d === void 0 ? void 0 : _d.offsetHeight) || pw0 * 1.25;
+                const yLo = -cy + ph0 * 0.4 * sc + 2; // верх планеты не выше края
+                const yHi = H - cy - ph0 * 0.6 * sc - 4; // табличка не ниже края
+                const y = Math.max(yLo, Math.min(yHi, x0 * Math.sin(tilt) + ye * Math.cos(tilt) - h));
                 pts.push({ x: cx + x, y: cy + y, z, sc });
                 // плавный переход за шар и обратно
                 const fo = Math.max(0, Math.min(1, 0.5 + z / (0.16 * r)));
@@ -10893,7 +11627,7 @@ function SoloWin({ visits, people, geo, mapProps, onClose }) {
     const satLayer = (where) => (React.createElement("div", { className: "dg-orbits " + where, ref: where === "front" ? orbRef : backRef },
         React.createElement("canvas", { className: "dg-trail" }),
         rows.slice(0, 5).map((r, i) => (React.createElement("button", { key: r.id, className: "dg-sat" + (sel === r.id ? " on" : ""), "data-orbit": i, onClick: () => setSel(r.id), "aria-label": r.name },
-            React.createElement(Saturn, { name: r.short || r.name, n: r.n, tone: i, size: [78, 68, 62, 58, 54][i] || 50, orbit: i < 3, id: where[0] + r.id }))))));
+            React.createElement(Saturn, { name: r.short || r.name, n: r.n, tone: i, size: Math.round(([78, 68, 62, 58, 54][i] || 50) * satK), orbit: i < 3, label: 1.25, id: where[0] + r.id }))))));
     const globe = (React.createElement("div", { className: "sd-stage dg-stage" },
         satLayer("back"),
         React.createElement(Globe, { ...(mapProps || {}), geo: geo, pins: pins, lookAt: lookAt, dashSel: true, selected: country, full: false, noFull: true, fitBox: true, playing: !country, spinStep: 0.18, setPlaying: () => { }, onToggleFull: () => { }, onPick: (a3) => setCountry((v) => (v === a3 ? null : a3)) }),
@@ -12382,6 +13116,8 @@ function Atlas() {
     const [profile, setProfile] = useState(null);
     const loaded = useRef(false);
     const tombsRef = useRef({});
+    // чужие поездки, которые убрали только у себя: помним, чтобы не вернулись при обмене
+    const hiddenRef = useRef({});
     const visitsRef = useRef({});
     const profileRef = useRef(null);
     const receiveRef = useRef(() => { });
@@ -12861,9 +13597,11 @@ function Atlas() {
                 store.set(K_DATA, {
                     visits: fixed,
                     tombs: (data === null || data === void 0 ? void 0 : data.tombs) || {},
+                    hidden: (data === null || data === void 0 ? void 0 : data.hidden) || {},
                     at: Date.now(),
                 });
             tombsRef.current = (data === null || data === void 0 ? void 0 : data.tombs) || {};
+            hiddenRef.current = (data === null || data === void 0 ? void 0 : data.hidden) || {};
             setTombs(tombsRef.current);
             loaded.current = true;
             const st = await store.get(K_SETTINGS);
@@ -13046,7 +13784,12 @@ function Atlas() {
         setVisits(next);
         if (!loaded.current)
             return; // данные ещё читаются — не затираем
-        const payload = { visits: next, tombs: tombsRef.current, at: Date.now() };
+        const payload = {
+            visits: next,
+            tombs: tombsRef.current,
+            hidden: hiddenRef.current,
+            at: Date.now(),
+        };
         const ok = await store.set(K_DATA, payload);
         // запасная копия во всех доступных хранилищах
         try {
@@ -13179,14 +13922,21 @@ function Atlas() {
             save(next);
     };
     const removeTrip = (a3, key) => {
+        var _c;
         const arr = visits[a3] || [];
         const idx = typeof key === "number" ? key : arr.findIndex((t) => t.id === key);
         if (idx < 0)
             return;
         const gone = arr[idx];
         ((gone === null || gone === void 0 ? void 0 : gone.photos) || []).forEach((p) => store.set(photoKey(p.id), { full: "", thumb: "" }));
-        // помним, что запись удалена, иначе она вернётся при обмене
-        if (gone === null || gone === void 0 ? void 0 : gone.id) {
+        // помним, что запись удалена, иначе она вернётся при обмене.
+        // Удалить для всех может только автор; чужую поездку скрываем у себя
+        const myId = (_c = profileRef.current) === null || _c === void 0 ? void 0 : _c.deviceId;
+        const foreign = (gone === null || gone === void 0 ? void 0 : gone.by) && gone.by !== ME && gone.by !== myId;
+        if ((gone === null || gone === void 0 ? void 0 : gone.id) && foreign) {
+            hiddenRef.current = { ...hiddenRef.current, [gone.id]: Date.now() };
+        }
+        else if (gone === null || gone === void 0 ? void 0 : gone.id) {
             tombsRef.current = addTomb(tombsRef.current, gone.id);
             setTombs(tombsRef.current);
         }
@@ -13247,10 +13997,16 @@ function Atlas() {
         }
         const dump = {
             app: "atlas",
-            version: 1,
+            kind: "atlas-backup",
+            version: 2,
             savedAt: new Date().toISOString(),
+            // чья копия: по этому номеру копию не примут за свою на чужом телефоне
+            owner: { id: (profile === null || profile === void 0 ? void 0 : profile.deviceId) || "", name: ((profile === null || profile === void 0 ? void 0 : profile.name) || "").trim() },
+            name: (profile === null || profile === void 0 ? void 0 : profile.name) || "",
+            family: (profile === null || profile === void 0 ? void 0 : profile.family) || null,
             visits,
             tombs: tombsRef.current,
+            hidden: hiddenRef.current,
             settings: { cityPins, theme, photoQuality, spinStart, mapView, night },
             avatar: (profile === null || profile === void 0 ? void 0 : profile.avatar) || null,
             since: (profile === null || profile === void 0 ? void 0 : profile.since) || null,
@@ -13268,52 +14024,38 @@ function Atlas() {
         a.remove();
         setTimeout(() => URL.revokeObjectURL(url), 3000);
     }, [visits, cityPins, theme, photoQuality, spinStart, mapView, night, profile]);
-    const importData = useCallback(async (file, mode = "replace") => {
+    /* своя резервная копия: добавить поездки или вернуть телефон к копии целиком */
+    const importData = useCallback(async (d, mode = "merge") => {
         try {
-            const text = await file.text();
-            const d = JSON.parse(text);
             if (!(d === null || d === void 0 ? void 0 : d.visits))
                 return;
             for (const [id, data] of Object.entries(d.photos || {})) {
                 try {
                     const img = await loadImage(data);
-                    await store.set(photoKey(id), {
-                        full: data,
-                        thumb: scaleTo(img, 260, 0.6),
-                    });
+                    await store.set(photoKey(id), { full: data, thumb: scaleTo(img, 260, 0.6) });
                 }
                 catch {
                     await store.set(photoKey(id), { full: data, thumb: data });
                 }
             }
             if (mode === "merge") {
-                // тот же разбор, что и при обмене с родными
-                const plan = syncPlan(visitsRef.current, d.visits, tombsRef.current, d.tombs);
+                // только поездки: профиль, фото, спутники и настройки остаются как есть
+                const pkt = { visits: normVisits(d.visits), tombs: d.tombs || {}, sender: "" };
+                const plan = syncPlan(visitsRef.current, pkt.visits, deadMap(), pkt.tombs);
                 if (plan.conflicts.length || plan.del.length) {
-                    setSync({ plan, data: d, from: d.from || "файла" });
+                    setSync({ plan, data: pkt, from: "вашей копии" });
                     return;
                 }
-                const res = applyPlan(visitsRef.current, tombsRef.current, d.visits, d.tombs, plan, {});
-                tombsRef.current = res.tombs;
-                setTombs(res.tombs);
-                setVisits(res.visits);
-                await store.set(K_DATA, {
-                    visits: res.visits,
-                    tombs: res.tombs,
-                    at: Date.now(),
-                });
+                commitSync(pkt, plan, {});
+                setSheet(null);
+                return;
             }
-            else {
-                const v = normVisits(d.visits);
-                tombsRef.current = d.tombs || {};
-                setTombs(tombsRef.current);
-                setVisits(v);
-                await store.set(K_DATA, {
-                    visits: v,
-                    tombs: tombsRef.current,
-                    at: Date.now(),
-                });
-            }
+            // восстановить всё: телефон возвращается к состоянию копии
+            const v = normVisits(d.visits);
+            tombsRef.current = d.tombs || {};
+            hiddenRef.current = d.hidden || {};
+            setTombs(tombsRef.current);
+            await save(v);
             if (d.settings) {
                 if (typeof d.settings.cityPins === "boolean")
                     setCityPinsState(d.settings.cityPins);
@@ -13334,22 +14076,46 @@ function Atlas() {
                 if (typeof d.settings.spinStart === "boolean")
                     setSpinStartState(d.settings.spinStart);
             }
-            if (d.avatar || d.since || d.people || d.wish) {
-                const prof = {
-                    ...(profile || {}),
-                    ...(d.avatar ? { avatar: d.avatar } : {}),
-                    ...(d.since ? { since: d.since } : {}),
-                    ...(d.people ? { people: d.people } : {}),
-                    ...(d.wish ? { wish: d.wish } : {}),
-                };
-                await saveProfile(prof);
-            }
+            const cur = profileRef.current || {};
+            const prof = {
+                ...cur,
+                ...(d.name ? { name: d.name } : {}),
+                ...(d.avatar ? { avatar: d.avatar } : {}),
+                ...(d.since ? { since: d.since } : {}),
+                ...(d.people ? { people: d.people } : {}),
+                ...(d.wish ? { wish: d.wish } : {}),
+                ...(d.family !== undefined ? { family: d.family } : {}),
+            };
+            profileRef.current = prof;
+            await saveProfile(prof);
             setSheet(null);
         }
         catch {
             /* файл не подошёл — данные не трогаем */
         }
-    }, [profile]);
+    }, 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [profile]);
+    /* копия другого человека: только его поездки, наш профиль не меняется */
+    const importOther = useCallback((d, owner) => {
+        var _c;
+        const r = (_c = receiveRef.current) === null || _c === void 0 ? void 0 : _c.call(receiveRef, backupToPacket(d, owner), {
+            trusted: true,
+            name: owner.name,
+        });
+        if (r && !r.review)
+            setSheet(null);
+        if (r && !r.review && !r.error)
+            setTimeout(() => setAsk({
+                title: "Готово",
+                text: r.added
+                    ? `Добавлено поездок: ${r.added}. Ваш профиль не менялся.`
+                    : "Все поездки из копии уже были у вас.",
+                yes: "Понятно",
+                only: true,
+                onYes: () => { },
+            }), 60);
+    }, []);
     const reloadGeo = useCallback(async () => {
         await store.set(K_GEO, { features: [] });
         setGeo(null);
@@ -13371,45 +14137,116 @@ function Atlas() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [visits]);
     /* приём данных от родных: разбираем, спорное показываем, остальное сливаем */
-    /* пакет для обмена рядом: поездки, при желании со снимками */
-    const nearPayload = useCallback(async (withPhotos) => {
-        var _c, _d;
-        const base = familyPayload(visitsRef.current, tombsRef.current, (_c = profileRef.current) === null || _c === void 0 ? void 0 : _c.people, (_d = profileRef.current) === null || _d === void 0 ? void 0 : _d.name);
-        if (!withPhotos)
-            return base;
-        const photos = {};
-        const ids = [];
-        Object.values(visitsRef.current || {}).forEach((arr) => (arr || []).forEach((t) => (t.photos || []).forEach((id) => ids.push(id))));
-        for (const id of ids) {
-            const v = await store.get(photoKey(id));
-            if (v === null || v === void 0 ? void 0 : v.full)
-                photos[id] = v.full;
-        }
-        // снимки идут вместе со своими поездками
-        const visits = {};
-        Object.entries(visitsRef.current || {}).forEach(([a3, arr]) => {
-            const list = (arr || []).filter((t) => othersOf(t).length > 0);
-            if (list.length)
-                visits[a3] = list;
-        });
-        return { ...base, visits, photos };
-    }, []);
-    const applySync = useCallback(async (data, picks) => {
-        const plan = syncPlan(visitsRef.current, data.visits, tombsRef.current, data.tombs);
-        const res = applyPlan(visitsRef.current, tombsRef.current, data.visits, data.tombs, plan, picks || {});
-        tombsRef.current = res.tombs;
-        setTombs(res.tombs);
-        setVisits(res.visits);
-        await store.set(K_DATA, {
-            visits: res.visits,
-            tombs: res.tombs,
-            at: Date.now(),
-        });
-    }, [visits]);
-    const receiveFamily = useCallback((data) => {
+    /* маленькое фото для карточки в семье: считаем один раз */
+    const avaCache = useRef({ src: "", thumb: "" });
+    const avaThumb = useCallback(async () => {
         var _c;
+        const src = ((_c = profileRef.current) === null || _c === void 0 ? void 0 : _c.avatar) || "";
+        if (!src)
+            return "";
+        if (avaCache.current.src === src)
+            return avaCache.current.thumb;
+        try {
+            const img = await loadImage(src);
+            const thumb = scaleTo(img, 96, 0.72);
+            avaCache.current = { src, thumb };
+            return thumb;
+        }
+        catch {
+            return "";
+        }
+    }, []);
+    /* пакет для семьи: весь атлас (он общий), при желании со снимками */
+    const [meAva, setMeAva] = useState("");
+    useEffect(() => {
+        let dead = false;
+        avaThumb().then((t) => !dead && setMeAva(t));
+        return () => {
+            dead = true;
+        };
+    }, [profile === null || profile === void 0 ? void 0 : profile.avatar, avaThumb]);
+    const nearPayload = useCallback(async (withPhotos) => {
+        let photos = null;
+        if (withPhotos) {
+            photos = {};
+            for (const arr of Object.values(visitsRef.current || {}))
+                for (const t of arr || [])
+                    for (const ph of t.photos || []) {
+                        const id = (ph === null || ph === void 0 ? void 0 : ph.id) || ph;
+                        const v = await store.get(photoKey(id));
+                        const big = (v === null || v === void 0 ? void 0 : v.full) || (v === null || v === void 0 ? void 0 : v.data);
+                        if (big)
+                            photos[id] = big;
+                    }
+        }
+        return familyPacket(visitsRef.current, tombsRef.current, profileRef.current || {}, {
+            photos,
+            ava: await avaThumb(),
+        });
+    }, [avaThumb]);
+    /* удалённые для всех + скрытые у себя: скрытые не возвращаются никогда */
+    const deadMap = () => {
+        const out = { ...tombsRef.current };
+        Object.keys(hiddenRef.current || {}).forEach((id) => (out[id] = 9e15));
+        return out;
+    };
+    const commitSync = (pkt, plan, picks) => {
+        const res = applyPlan(visitsRef.current, deadMap(), pkt.visits, pkt.tombs, plan, picks || {});
+        // скрытые у себя не превращаем в удаления для всех
+        const tombs = { ...res.tombs };
+        Object.keys(hiddenRef.current || {}).forEach((id) => {
+            if (tombs[id] === 9e15) {
+                if (tombsRef.current[id])
+                    tombs[id] = tombsRef.current[id];
+                else if ((pkt.tombs || {})[id])
+                    tombs[id] = pkt.tombs[id];
+                else
+                    delete tombs[id];
+            }
+        });
+        tombsRef.current = tombs;
+        setTombs(tombs);
+        save(res.visits);
+    };
+    const applySync = useCallback(async (data, picks) => {
+        const plan = syncPlan(visitsRef.current, data.visits, deadMap(), data.tombs, data.sender || "");
+        commitSync(data, plan, picks);
+    }, 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [visits]);
+    /* приём поездок от семьи (обмен рядом или файл). Чужой профиль, фото,
+       спутники и настройки не трогаем: меняются только поездки и карточки
+       людей, которых раньше не было. opt.trusted — пользователь сам подтвердил
+       источник (например, чужую резервную копию). */
+    const receiveFamily = useCallback((data, opt = {}) => {
+        var _c, _d, _e;
+        const prof = profileRef.current || {};
         if (!(data === null || data === void 0 ? void 0 : data.visits))
-            return null;
+            return { error: "empty" };
+        if (data.kind !== "atlas-family" || !(data.v >= FAM_V))
+            return { error: "old" };
+        const sid = ((_c = data.from) === null || _c === void 0 ? void 0 : _c.id) || "";
+        const fromName = ((_d = data.from) === null || _d === void 0 ? void 0 : _d.name) || opt.name || "";
+        if (!opt.trusted) {
+            const ok = prof.family && famSame(prof.family, data.family) && famHas(prof, sid);
+            if (!ok)
+                return { error: "stranger", from: fromName };
+        }
+        const un = familyUnpack(data, prof);
+        let next = prof;
+        if (un.touched)
+            next = { ...next, people: un.people };
+        if (!opt.trusted && next.family)
+            next = {
+                ...next,
+                family: famMerge(next.family, data.family, prof.deviceId, [
+                    { id: sid, name: fromName, ava: ((_e = data.from) === null || _e === void 0 ? void 0 : _e.ava) || "" },
+                ]),
+            };
+        if (next !== prof) {
+            profileRef.current = next;
+            saveProfile(next);
+        }
         // снимки, если прислали, складываем сразу
         if (data.photos)
             (async () => {
@@ -13423,42 +14260,232 @@ function Atlas() {
                     }
                 }
             })();
-        const plan = syncPlan(visitsRef.current, data.visits, tombsRef.current, data.tombs);
+        const pkt = { visits: un.visits, tombs: data.tombs || {}, sender: sid };
+        const plan = syncPlan(visitsRef.current, pkt.visits, deadMap(), pkt.tombs, sid);
         if (plan.conflicts.length || plan.del.length) {
-            setSync({ plan, data, from: data.from || "" });
-            return { review: true, added: plan.add.length };
+            setSync({ plan, data: pkt, from: fromName });
+            return { review: true, added: plan.add.length, from: fromName };
         }
-        const res = applyPlan(visitsRef.current, tombsRef.current, data.visits, data.tombs, plan, {});
-        tombsRef.current = res.tombs;
-        setTombs(res.tombs);
-        save(res.visits);
-        // участников из группы добавляем, если таких ещё нет
-        if ((_c = data.people) === null || _c === void 0 ? void 0 : _c.length) {
-            const cur = (profile === null || profile === void 0 ? void 0 : profile.people) || [];
-            const add = data.people.filter((p) => !cur.some((x) => x.id === p.id || x.name === p.name));
-            if (add.length)
-                saveProfile({
-                    ...(profile || {}),
-                    people: [...cur, ...add.map((p) => ({ ...p, always: false }))],
-                });
-        }
-        return { added: plan.add.length };
+        commitSync(pkt, plan, {});
+        return { added: plan.add.length, from: fromName };
     }, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [visits, profile]);
     // разбор полученного пакета: ссылка обновляется при каждой отрисовке
     receiveRef.current = receiveFamily;
     const [restoreMsg, setRestoreMsg] = useState("");
-    const importAsk = useCallback((file) => setAsk({
-        title: "Что сделать с файлом?",
-        text: "Объединить — добавить поездки из файла к вашим, сохранив обе стороны. Заменить — оставить только то, что в файле.",
-        yes: "Объединить",
-        onYes: () => importData(file, "merge"),
-        alt: "Заменить",
-        onAlt: () => importData(file, "replace"),
-    }), 
+    /* что за файл выбрали: своя копия, чужая копия или поездки от семьи */
+    const later = (fn) => setTimeout(fn, 60); // следующий вопрос — после закрытия текущего
+    const askOwn = (d) => setAsk({
+        title: "Ваша копия",
+        text: "Добавить — поездки из копии присоединятся к нынешним, профиль и настройки останутся как сейчас. Восстановить всё — телефон вернётся к состоянию копии целиком: поездки, имя, фото, спутники, семья и настройки.",
+        yes: "Добавить поездки",
+        onYes: () => importData(d, "merge"),
+        alt: "Восстановить всё",
+        onAlt: () => importData(d, "replace"),
+    });
+    const tellFamilyResult = (r) => {
+        if (!r || r.review)
+            return;
+        const text = r.error === "stranger"
+            ? `${r.from || "Отправитель"} пока не в вашей семье. Сначала вступите в одну семью: обменяйтесь рядом или по коду приглашения (Профиль → Семья).`
+            : r.error === "old"
+                ? "Файл сделан старой версией Атласа. Попросите отправителя обновить приложение и отправить поездки ещё раз."
+                : r.error
+                    ? "В файле нет поездок."
+                    : r.added
+                        ? `${r.from ? `Отправитель: ${r.from}. ` : ""}Новых поездок: ${r.added}.`
+                        : `${r.from ? `Отправитель: ${r.from}. ` : ""}Всё уже было на месте.`;
+        later(() => setAsk({ title: r.error ? "Не получилось" : "Поездки получены", text, yes: "Понятно", only: true, onYes: () => { } }));
+    };
+    const importAsk = useCallback(async (file) => {
+        var _c, _d;
+        let d = null;
+        try {
+            d = JSON.parse(await file.text());
+        }
+        catch {
+            d = null;
+        }
+        if (!d || !d.visits) {
+            setAsk({ title: "Файл не подошёл", text: "Это не файл Атласа.", yes: "Понятно", only: true, onYes: () => { } });
+            return;
+        }
+        // поездки от семьи
+        if (d.kind === "atlas-family") {
+            tellFamilyResult((_c = receiveRef.current) === null || _c === void 0 ? void 0 : _c.call(receiveRef, d));
+            return;
+        }
+        const me = profileRef.current || {};
+        const owner = ((_d = d.owner) === null || _d === void 0 ? void 0 : _d.id) ? d.owner : null;
+        if (owner && owner.id !== me.deviceId) {
+            const nm = owner.name || "другого человека";
+            setAsk({
+                title: `Копия: ${nm}`,
+                text: `Это резервная копия с другого телефона. Поездки из неё добавятся в ваш атлас с подписью, чьи они. Ваши имя, фото, спутники и настройки не изменятся.`,
+                yes: "Добавить поездки",
+                onYes: () => importOther(d, owner),
+            });
+            return;
+        }
+        if (owner) {
+            askOwn(d);
+            return;
+        }
+        // старая копия: в ней не записано, чья она
+        setAsk({
+            title: "Чья это копия?",
+            text: "В старых копиях не записано, с какого телефона они сделаны. Если копия чужая, её поездки добавятся к вашим, а ваш профиль не изменится.",
+            yes: "Моя",
+            onYes: () => later(() => askOwn(d)),
+            alt: "Другого человека",
+            onAlt: () => later(() => {
+                const nm = window.prompt("Как зовут владельца копии?", "");
+                if (nm === null)
+                    return;
+                importOther(d, { id: uid("old"), name: nm.trim() || "Автор копии" });
+            }),
+        });
+    }, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    []);
+    [importData, importOther]);
+    /* ── семья: состав, приглашения, связь с карточками спутников ────── */
+    const saveFamily = useCallback(async (family, people) => {
+        const prof = {
+            ...(profileRef.current || {}),
+            family,
+            ...(people ? { people } : {}),
+        };
+        profileRef.current = prof;
+        await saveProfile(prof);
+        return prof;
+    }, [saveProfile]);
+    /* принять человека в семью; link — карточка спутника, которая и есть он
+       ("" — завести новую) */
+    const joinMember = useCallback(async (them, brief, link) => {
+        const prof = profileRef.current || {};
+        const myId = prof.deviceId;
+        let fam = prof.family;
+        if (!fam)
+            fam = brief
+                ? { id: brief.id, name: brief.name || "Наша семья", alias: [], members: [], since: Date.now() }
+                : {
+                    // у обоих семьи нет: номер выходит одинаковым на обоих телефонах
+                    id: "f" + [myId, them.id].sort()[0],
+                    name: "Наша семья",
+                    alias: [],
+                    members: [],
+                    since: Date.now(),
+                };
+        fam = famMerge(fam, brief, myId, [them]);
+        let people = (prof.people || []).map((c) => c.link === them.id && c.id !== link ? { ...c, link: undefined } : c);
+        if (link)
+            people = people.map((c) => (c.id === link ? { ...c, link: them.id } : c));
+        else if (!people.some((c) => c.link === them.id))
+            people = [
+                ...people,
+                { id: uid("p"), name: them.name || "Без имени", role: "Семья", always: false, link: them.id },
+            ];
+        await saveFamily(fam, people);
+        return famBrief(profileRef.current);
+    }, [saveFamily]);
+    const familyOps = {
+        rename: (name) => {
+            var _c;
+            const f = (_c = profileRef.current) === null || _c === void 0 ? void 0 : _c.family;
+            if (f)
+                saveFamily({ ...f, name });
+        },
+        relink: (memberId, cardId) => {
+            const prof = profileRef.current || {};
+            const people = (prof.people || []).map((c) => c.id === cardId ? { ...c, link: memberId } : c.link === memberId ? { ...c, link: undefined } : c);
+            saveFamily(prof.family, people);
+        },
+        remove: (memberId) => {
+            const prof = profileRef.current || {};
+            const f = prof.family;
+            if (!f)
+                return;
+            saveFamily({ ...f, members: (f.members || []).filter((m) => m.id !== memberId) });
+        },
+        leave: () => saveFamily(null),
+        /* приглашение издалека: код с номером семьи и одноразовым ключом */
+        invite: async () => {
+            const prof = profileRef.current || {};
+            let f = prof.family || {
+                id: "f" + prof.deviceId,
+                name: "Наша семья",
+                alias: [],
+                members: [],
+                since: Date.now(),
+            };
+            const k = uid("k");
+            const fresh = (f.invites || []).filter((x) => Date.now() - x.at < 14 * 864e5);
+            f = { ...f, invites: [...fresh, { k, at: Date.now() }] };
+            await saveFamily(f);
+            return packCode("I", {
+                f: { id: f.id, name: f.name },
+                p: { id: prof.deviceId, name: (prof.name || "").trim() },
+                k,
+            });
+        },
+        /* пришло приглашение: вступаем и готовим ответ для пригласившего */
+        acceptInvite: async (data, link) => {
+            const prof = profileRef.current || {};
+            await joinMember({ id: data.p.id, name: data.p.name }, { id: data.f.id, name: data.f.name, alias: [], members: [] }, link);
+            return packCode("J", {
+                f: { id: data.f.id },
+                p: { id: prof.deviceId, name: (prof.name || "").trim() },
+                k: data.k,
+            });
+        },
+        /* пришёл ответ на наше приглашение */
+        checkJoin: (data) => {
+            var _c, _d;
+            const f = (_c = profileRef.current) === null || _c === void 0 ? void 0 : _c.family;
+            if (!f || !famIds(f).includes((_d = data === null || data === void 0 ? void 0 : data.f) === null || _d === void 0 ? void 0 : _d.id))
+                return "Этот ответ относится к другой семье.";
+            if (!(f.invites || []).some((x) => x.k === data.k))
+                return "Это приглашение уже использовано или устарело. Отправьте новое.";
+            return "";
+        },
+        acceptJoin: async (data, link) => {
+            var _c;
+            await joinMember({ id: data.p.id, name: data.p.name }, null, link);
+            const f = (_c = profileRef.current) === null || _c === void 0 ? void 0 : _c.family;
+            if (f)
+                await saveFamily({ ...f, invites: (f.invites || []).filter((x) => x.k !== data.k) });
+        },
+        /* поездки семье файлом: через «Поделиться» или загрузкой */
+        sendFile: async () => {
+            var _c;
+            const prof = profileRef.current || {};
+            const packet = await nearPayload(false);
+            const text = JSON.stringify(packet);
+            const who = (prof.name || "атлас").trim().split(/\s+/)[0] || "атлас";
+            const fname = `atlas-семья-${who}-${new Date().toISOString().slice(0, 10)}.json`;
+            const file = new File([text], fname, { type: "application/json" });
+            try {
+                if ((_c = navigator.canShare) === null || _c === void 0 ? void 0 : _c.call(navigator, { files: [file] })) {
+                    await navigator.share({ files: [file], title: "Поездки для семьи" });
+                    return "shared";
+                }
+            }
+            catch (e) {
+                if ((e === null || e === void 0 ? void 0 : e.name) === "AbortError")
+                    return "cancel";
+            }
+            const url = URL.createObjectURL(file);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = fname;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 3000);
+            return "saved";
+        },
+    };
     const restoreData = useCallback(async () => {
         setRestoreMsg("Ищем…");
         const found = await findAllData();
@@ -13702,11 +14729,7 @@ function Atlas() {
                             }, onReports: () => {
                                 setSheetBack("profile");
                                 setSheet("reports");
-                            }, onSettings: () => setSheet("settings"), onShelf: () => setSheet("shelf"), onFamily: () => {
-                                setNearBack(sheet);
-                                setSheet(null);
-                                setNear(true);
-                            }, onSince: async (v) => {
+                            }, onSettings: () => setSheet("settings"), onShelf: () => setSheet("shelf"), onFamily: () => setSheet("family"), onSince: async (v) => {
                                 const prof = { ...profile, since: v };
                                 await saveProfile(prof);
                             }, home: profile.home || null, onHome: async (h) => {
@@ -13854,7 +14877,7 @@ function Atlas() {
                                 setPage: () => { },
                                 isWish,
                             } })),
-                        near && (React.createElement(NearSync, { box: box, makePayload: nearPayload, onData: (d) => {
+                        near && (React.createElement(NearSync, { box: box, profile: profile, meAva: meAva, onJoin: joinMember, makePayload: nearPayload, onData: (d) => {
                                 var _c;
                                 const r = (_c = receiveRef.current) === null || _c === void 0 ? void 0 : _c.call(receiveRef, d);
                                 // если нужны решения по расхождениям — уступаем место их экрану
@@ -13865,7 +14888,17 @@ function Atlas() {
                                     setSheet(nearBack);
                                 setNearBack(null);
                             } })),
-                        sync && !near && (React.createElement(SyncSheet, { plan: sync.plan, from: sync.from, box: box, onCancel: () => setSync(null), onApply: (picks) => {
+                        React.createElement(FamilySheet, { open: sheet === "family", onClose: () => setSheet("profile"), box: box, profile: profile, ops: familyOps, onNear: () => {
+                                setNearBack("family");
+                                setSheet(null);
+                                setNear(true);
+                            }, onImport: importAsk }),
+                        sync && !near && (React.createElement(SyncSheet, { plan: sync.plan, from: sync.from, whoLine: (t) => [
+                                (t.who || []).includes(ME) ? "вы" : null,
+                                ...whoNames(t, (profile === null || profile === void 0 ? void 0 : profile.people) || []),
+                            ]
+                                .filter(Boolean)
+                                .join(", ") || "никто", box: box, onCancel: () => setSync(null), onApply: (picks) => {
                                 applySync(sync.data, picks);
                                 setSync(null);
                             } })),
@@ -14324,9 +15357,46 @@ body > div{max-width:100%;}
 .near-lead b span{color:var(--gold);}
 .near-lead em{display:block; margin-top:6px; font-style:normal; font-size:0.8rem; color:var(--dim); line-height:1.4;}
 .near-stage{height:200px; flex:none; display:flex; align-items:center; justify-content:center; position:relative;}
+.sheet-body.near .near-stage.ask{height:auto; border:0; padding:0; width:100%; max-width:none; background:none; box-shadow:none;}
+.fam-link .since-pick{display:flex; flex-direction:row; flex-wrap:nowrap; align-items:center;}
+.fam-link .since-pick > span{flex:none; display:inline;}
+.fam-link .since-pick b{flex:1 1 auto; min-width:0;}
 .near-hero{display:block; width:100%; max-width:340px; height:100%;}
 .near-status{flex:none; min-height:68px; display:flex; flex-direction:column; gap:8px; justify-content:center;}
 .near-warn{margin:0; padding:10px 12px; border-radius:12px; background:rgba(232,184,75,.12); color:var(--gold); line-height:1.35;}
+/* семья */
+.fam-ava{flex:none; display:inline-flex; align-items:center; justify-content:center; border-radius:50%;
+  overflow:hidden; background:var(--el2); border:1px solid var(--line); color:var(--gold); font-weight:700;}
+.fam-ava img{width:100%; height:100%; object-fit:cover; display:block;}
+.fam-ask{display:flex; flex-direction:column; align-items:center; gap:10px; text-align:center;
+  padding:16px 14px; background:var(--el); border:1px solid var(--line); border-radius:16px; width:100%; box-sizing:border-box;}
+.fam-ask > b{font-size:1.05rem;}
+.fam-ask > p{margin:0; font-size:0.85rem; color:var(--dim); line-height:1.4;}
+.fam-ask-btns{display:flex; gap:10px; width:100%;}
+.fam-ask-btns > button{flex:1 1 0;}
+.fam-link{display:flex; flex-direction:column; align-items:stretch; gap:6px; width:100%; text-align:left;}
+.fam-link > span:first-child{font-size:0.72rem; color:var(--dim);}
+.fam-link .since-pick{justify-content:space-between;}
+.fam-link .since-pick b{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.fam-list{display:flex; flex-direction:column; gap:6px; margin:4px 0 6px;}
+.fam-row{display:flex; align-items:center; gap:10px; padding:9px 11px; background:var(--el);
+  border:1px solid var(--line); border-radius:12px; min-width:0;}
+.fam-who{flex:1 1 auto; min-width:0; display:flex; flex-direction:column;}
+.fam-who b{font-size:0.9rem; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.fam-who em{font-style:normal; font-size:0.7rem; color:var(--dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.fam-acts{flex:none; display:flex; align-items:center; gap:6px;}
+.fam-relink{padding:6px 10px;}
+.fam-box{display:flex; flex-direction:column; gap:10px; padding:14px; background:var(--el);
+  border:1px solid var(--line); border-radius:16px;}
+.fam-box > p{margin:0; font-size:0.84rem; color:var(--dim); line-height:1.4;}
+.fam-code{width:100%; min-height:96px; box-sizing:border-box; padding:10px 12px; border-radius:10px;
+  border:1px solid var(--line); background:var(--field); color:var(--ink); font:0.78rem/1.35 ui-monospace,Menlo,monospace;
+  resize:vertical; word-break:break-all;}
+.fam-name{flex-direction:column; align-items:stretch; gap:0; padding:6px 12px;}
+.fam-name > span{font-size:0.7rem; color:var(--dim);}
+.fam-name .tf-input{height:32px;}
+.fam-msg{margin:0; padding:10px 12px; border-radius:12px; background:rgba(120,200,160,.12); color:#9fe0bf;}
+.fam-leave{margin-top:6px; color:var(--dim);}
 .near-zone{flex:1 1 auto; min-height:0; display:flex; flex-direction:column; gap:10px;
   justify-content:flex-start; overflow-y:auto; overscroll-behavior:contain;}
 .near-zone .btn-main, .near-zone .btn-ghost{flex:none;}
