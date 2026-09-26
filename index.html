@@ -2585,7 +2585,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "37.1";
+const APP_VERSION = "37.3";
 const APP_BUILD = "2026-09-12";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -10545,6 +10545,7 @@ function Saturn({ name, n, tone = 0, size = 120, id = "s", orbit = true }) {
         React.createElement("g", { transform: "rotate(-14 100 100)", clipPath: `url(#${u}-up)` },
             React.createElement("path", { fill: `url(#${u}-ring)`, fillRule: "evenodd", d: RING_PLATE }),
             React.createElement("path", { fill: `url(#${u}-ring)`, fillOpacity: ".5", fillRule: "evenodd", d: RING_INNER })),
+        React.createElement("path", { d: "M 100 140 L 100 197", stroke: t.r1, strokeWidth: "4", strokeLinecap: "round", fill: "none" }),
         React.createElement("g", { transform: "translate(100 100) scale(0.88) translate(-100 -100)" },
             React.createElement("circle", { cx: "100", cy: "100", r: "70", fill: `url(#${u}-ball)` }),
             React.createElement("g", { fill: "none", stroke: "#fff", strokeOpacity: ".18", strokeLinecap: "round" },
@@ -10561,26 +10562,61 @@ function Saturn({ name, n, tone = 0, size = 120, id = "s", orbit = true }) {
         React.createElement("g", { transform: "rotate(-14 100 100)", clipPath: `url(#${u}-dn)` },
             React.createElement("path", { fill: `url(#${u}-ring)`, fillRule: "evenodd", d: RING_PLATE }),
             React.createElement("path", { fill: `url(#${u}-ring)`, fillOpacity: ".5", fillRule: "evenodd", d: RING_INNER })),
-        React.createElement("path", { d: `M 100 156 L 100 196`, stroke: t.r1, strokeWidth: "4", strokeLinecap: "round", fill: "none" }),
-        React.createElement("circle", { cx: "100", cy: "158", r: "4.5", fill: t.r2 }),
-        React.createElement("rect", { x: 100 - plateW / 2, y: "196", width: plateW, height: "34", rx: "10", fill: `url(#${u}-plate)`, stroke: t.r1, strokeWidth: "1.5" }),
-        React.createElement("text", { x: "100", y: "218", textAnchor: "middle", fontSize: "19", fontWeight: "800", fill: t.t, textLength: Math.min(plateW - 16, label.length * 11), lengthAdjust: "spacingAndGlyphs" }, label)));
+        React.createElement("g", { className: "dg-sign" },
+            React.createElement("rect", { x: 100 - plateW / 2, y: "196", width: plateW, height: "34", rx: "10", fill: `url(#${u}-plate)`, stroke: t.r1, strokeWidth: "1.5" }),
+            React.createElement("text", { x: "100", y: "218", textAnchor: "middle", fontSize: "19", fontWeight: "800", fill: t.t, textLength: Math.min(plateW - 16, label.length * 11), lengthAdjust: "spacingAndGlyphs" }, label))));
 }
-/* «Догоняй» в ленте: тройка лидеров */
+/* «Догоняй» в ленте: тройка лидеров.
+   Когда карточка впервые показывается на экране, планеты по очереди поднимаются
+   на невидимый пьедестал — третья, вторая, первая, — число на шаре набегает,
+   а затем таблички с именами прокручиваются и встают лицом к нам. */
 function SoloPodium({ data }) {
     const top = data.rows.slice(0, 3);
+    const ref = useRef(null);
+    const [go, setGo] = useState(false);
+    const [k, setK] = useState(0); // доля набега чисел 0…1
+    useEffect(() => {
+        const el = ref.current;
+        if (!el || go)
+            return;
+        const start = () => setGo(true);
+        if (typeof IntersectionObserver === "undefined")
+            return start();
+        const io = new IntersectionObserver((es) => {
+            if (es.some((e) => e.isIntersecting)) {
+                io.disconnect();
+                start();
+            }
+        }, { threshold: 0.35 });
+        io.observe(el);
+        return () => io.disconnect();
+    }, [go]);
+    useEffect(() => {
+        var _c;
+        if (!go)
+            return;
+        const reduce = (_c = window.matchMedia) === null || _c === void 0 ? void 0 : _c.call(window, "(prefers-reduced-motion: reduce)").matches;
+        if (reduce)
+            return setK(1);
+        let raf = 0;
+        const t0 = performance.now() + 250;
+        const tick = (now) => {
+            const u = Math.max(0, Math.min(1, (now - t0) / 1400));
+            setK(1 - Math.pow(1 - u, 3));
+            if (u < 1)
+                raf = requestAnimationFrame(tick);
+        };
+        raf = requestAnimationFrame(tick);
+        return () => cancelAnimationFrame(raf);
+    }, [go]);
     if (!top.length)
         return React.createElement("p", { className: "hint small" }, "\u041F\u043E\u043A\u0430 \u0443 \u0432\u0441\u0435\u0445 \u0441\u0442\u0440\u0430\u043D\u044B \u043E\u0431\u0449\u0438\u0435.");
     const order = [top[1], top[0], top[2]].filter(Boolean);
-    const place = { 0: "1 место", 1: "2 место", 2: "3 место" };
-    const lead = top[0];
-    const second = top[1];
-    return (React.createElement(React.Fragment, null,
-        React.createElement("div", { className: "dg-podium" }, order.map((r) => {
-            const i = top.indexOf(r);
-            return (React.createElement("div", { key: r.id, className: "dg-pl p" + i },
-                React.createElement(Saturn, { name: r.short || r.name, n: r.n, tone: i, size: i === 0 ? 104 : i === 1 ? 88 : 80, id: r.id })));
-        }))));
+    return (React.createElement("div", { className: "dg-podium" + (go ? " go" : ""), ref: ref }, order.map((r) => {
+        const i = top.indexOf(r);
+        return (React.createElement("div", { key: r.id, className: "dg-pl p" + i },
+            React.createElement(Saturn, { name: r.short || r.name, n: go ? Math.round(r.n * k) : 0, tone: i, size: i === 0 ? 104 : i === 1 ? 88 : 80, id: r.id })));
+    })));
 }
 /* «Догоняй» во весь экран: планеты вокруг шара и страны участника */
 function SoloWin({ visits, people, geo, mapProps, onClose }) {
@@ -10603,88 +10639,233 @@ function SoloWin({ visits, people, geo, mapProps, onClose }) {
     const orbRef = useRef(null);
     const backRef = useRef(null);
     const retry = useRef(0);
-    /* орбиты вокруг самого шара: наклон, глубина и заход за планету */
+    /* гонка вокруг шара. Все летят в одну сторону, впереди первое место.
+       Каждый следующий чуть быстрее того, кто перед ним, и понемногу догоняет;
+       когда догнал почти вплотную, тот, кто впереди, делает рывок с хвостом
+       и снова отрывается. Высота над экватором плавно гуляет у каждого своя. */
     useEffect(() => {
         var _c;
         const box = orbRef.current;
         if (!box)
             return;
         let stop = false;
-        const анимации = [];
-        const build = () => {
+        let raf = 0;
+        const reduce = typeof window !== "undefined" &&
+            window.matchMedia &&
+            window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        const TAU = Math.PI * 2;
+        const rnd = (a, b) => a + Math.random() * (b - a);
+        const n = Math.min(rows.length, 5);
+        const LAP = 26; // секунд на круг у лидера без рывков
+        const base = TAU / LAP;
+        const G_MIN = 0.42; // догнал почти вплотную — пора рывок
+        const G_HARD = 0.3; // ближе не подпускаем никогда
+        const TAIL = 0.9; // сколько секунд живёт хвост
+        const tilt = -12 * (Math.PI / 180); // наклон плоскости полёта
+        const lean = 70 * (Math.PI / 180); // насколько плоскость «положена»
+        const EPS = [0.025, 0.05]; // насколько каждый быстрее того, кто впереди
+        // стартовые зазоры чуть больше «вплотную» — первые рывки в первые секунды
+        const g0 = [0, ...Array.from({ length: Math.max(0, n - 1) }, () => rnd(0.46, 0.64))];
+        const S = Array.from({ length: n }, (_, i) => ({
+            th: 1.2 - g0.slice(0, i + 1).reduce((a, b) => a + b, 0), // лидер впереди
+            eps: rnd(EPS[0], EPS[1]),
+            epsAt: rnd(3, 7),
+            boost: null, // { t0, T, D } — рывок: за T секунд уйти вперёд на D радиан
+            rest: 0, // после рывка немного не дёргаемся снова
+            trail: [],
+            rad: 1.2 + i * 0.075,
+            hp: [rnd(0, TAU), rnd(0, TAU), rnd(0, TAU)],
+            hf: [rnd(0.05, 0.09), rnd(0.12, 0.19), rnd(0.25, 0.36)],
+        }));
+        let G = null;
+        const cvs = () => { var _c; return [box.querySelector(".dg-trail"), (_c = backRef.current) === null || _c === void 0 ? void 0 : _c.querySelector(".dg-trail")]; };
+        const measure = () => {
             var _c;
-            анимации.forEach((a) => a.cancel());
-            анимации.length = 0;
-            const cv = (_c = box.parentElement) === null || _c === void 0 ? void 0 : _c.querySelector("canvas");
+            const cv = (_c = box.parentElement) === null || _c === void 0 ? void 0 : _c.querySelector("canvas:not(.dg-trail)");
             const br = box.getBoundingClientRect();
             const cr = cv === null || cv === void 0 ? void 0 : cv.getBoundingClientRect();
-            if (!br.width || !(cr === null || cr === void 0 ? void 0 : cr.width)) {
-                // шар ещё не подобрал размер — пробуем ещё раз
-                clearTimeout(retry.current);
-                retry.current = setTimeout(build, 200);
+            if (!br.width || !(cr === null || cr === void 0 ? void 0 : cr.width))
+                return false;
+            const dpr = Math.min(2, window.devicePixelRatio || 1);
+            cvs().forEach((c) => {
+                if (!c)
+                    return;
+                c.width = Math.round(br.width * dpr);
+                c.height = Math.round(br.height * dpr);
+                c.style.width = br.width + "px";
+                c.style.height = br.height + "px";
+                c.getContext("2d").setTransform(dpr, 0, 0, dpr, 0, 0);
+            });
+            G = {
+                cx: cr.left - br.left + cr.width / 2,
+                cy: cr.top - br.top + cr.height / 2,
+                R: Math.min(cr.width, cr.height) / 2,
+                W: br.width,
+                H: br.height,
+            };
+            return true;
+        };
+        // скорость рывка по синусу: плавно разгоняется и плавно гасит
+        const boostV = (b, t) => {
+            if (!b)
+                return 0;
+            const u = (t - b.t0) / b.T;
+            if (u < 0 || u > 1)
+                return 0;
+            return ((b.D * Math.PI) / (2 * b.T)) * Math.sin(Math.PI * u);
+        };
+        let last = 0;
+        let T = 0;
+        const frame = (now) => {
+            if (stop)
+                return;
+            if (!G && !measure()) {
+                raf = requestAnimationFrame(frame);
                 return;
             }
-            // центр и радиус настоящего шара, а не всей области
-            const cx = cr.left - br.left + cr.width / 2;
-            const cy = cr.top - br.top + cr.height / 2;
-            const R = Math.min(cr.width, cr.height) / 2;
+            const dt = last ? Math.min(0.05, (now - last) / 1000) : 0;
+            last = now;
+            T += dt;
+            // скорости: лидер ровно, каждый следующий чуть быстрее переднего
+            const v = [];
+            const cruise = [];
+            for (let i = 0; i < n; i++) {
+                const st = S[i];
+                if (st.boost && T > st.boost.t0 + st.boost.T) {
+                    st.boost = null;
+                    st.rest = T + rnd(1.2, 2.5);
+                }
+                if (T > st.epsAt) {
+                    st.eps = rnd(EPS[0], EPS[1]);
+                    st.epsAt = T + rnd(4, 8);
+                }
+                // свой ровный ход: у лидера базовый, у остальных — чуть быстрее хода переднего
+                let c = i ? cruise[i - 1] * (1 + st.eps) : base;
+                let vi = c + boostV(st.boost, T);
+                if (i) {
+                    const gap = S[i - 1].th - st.th;
+                    // почти догнал — передний рвёт вперёд
+                    const ahead = S[i - 1];
+                    if (gap < G_MIN + rnd(0, 0.05) && !ahead.boost && T > ahead.rest) {
+                        ahead.boost = { t0: T, T: rnd(1.1, 1.7), D: rnd(0.4, 0.65) };
+                    }
+                    // и никогда не обгоняет: у самой границы сбавляет до скорости переднего
+                    const cap = v[i - 1] + 2.2 * Math.max(0, gap - G_HARD);
+                    vi = Math.min(vi, cap);
+                    c = Math.min(c, vi);
+                }
+                cruise.push(c);
+                v.push(vi);
+            }
+            // рывок переднего пересчитываем после решения выше
+            for (let i = 0; i < n; i++)
+                S[i].th += v[i] * dt;
+            const { cx, cy, R, W, H } = G;
             const front = [...box.querySelectorAll(".dg-sat")];
             const back = backRef.current ? [...backRef.current.querySelectorAll(".dg-sat")] : [];
-            front.forEach((el, i) => {
-                const pw = el.offsetWidth || 90;
-                const phh = el.offsetHeight || pw;
-                const tilt = (-11 - i * 4) * (Math.PI / 180); // наклон плоскости орбиты
-                const rad = R * (1.16 + i * 0.13); // радиус орбиты вокруг шара
-                const lean = (58 + i * 6) * (Math.PI / 180); // насколько плоскость «положена»
-                const steps = 120;
-                const fF = [];
-                const fB = [];
-                for (let k = 0; k <= steps; k++) {
-                    const a = (k / steps) * Math.PI * 2 + (i * Math.PI * 2) / 3;
-                    // точка на круге в пространстве: z — глубина к зрителю
-                    const x0 = rad * Math.cos(a);
-                    const y0 = rad * Math.sin(a) * Math.cos(lean);
-                    const z = rad * Math.sin(a) * Math.sin(lean);
-                    const x = x0 * Math.cos(tilt) - y0 * Math.sin(tilt);
-                    const y = x0 * Math.sin(tilt) + y0 * Math.cos(tilt);
-                    // перспектива: ближе — крупнее
-                    const sc = 1 / (1 - z / (R * 4.4));
-                    const near = z >= 0;
-                    // шар планеты должен попадать на орбиту, а табличка висеть ниже
-                    const pos = `translate(${(cx + x - pw / 2).toFixed(1)}px, ${(cy +
-                        y -
-                        phh * 0.4).toFixed(1)}px) scale(${sc.toFixed(3)})`;
-                    fF.push({ transform: pos, opacity: near ? 1 : 0 });
-                    fB.push({ transform: pos, opacity: near ? 0 : 0.92 });
+            const pts = [];
+            S.forEach((st, i) => {
+                var _c;
+                const r = R * st.rad;
+                const pw0 = ((_c = front[i]) === null || _c === void 0 ? void 0 : _c.offsetWidth) || 80;
+                const rx = Math.min(r, Math.max(R * 0.9, Math.min(cx, W - cx) - pw0 * 0.62));
+                const x0 = rx * Math.cos(st.th);
+                const ye = r * Math.sin(st.th) * Math.cos(lean);
+                const z = r * Math.sin(st.th) * Math.sin(lean);
+                const x = x0 * Math.cos(tilt) - ye * Math.sin(tilt);
+                // высота над экватором шара: плавная сумма медленных волн
+                const h = R *
+                    (0.3 * Math.sin(st.hf[0] * T + st.hp[0]) +
+                        0.13 * Math.sin(st.hf[1] * T + st.hp[1]) +
+                        0.05 * Math.sin(st.hf[2] * T + st.hp[2]));
+                const y = x0 * Math.sin(tilt) + ye * Math.cos(tilt) - h;
+                const sc = 1 / (1 - z / (R * 4.4));
+                pts.push({ x: cx + x, y: cy + y, z, sc });
+                // плавный переход за шар и обратно
+                const fo = Math.max(0, Math.min(1, 0.5 + z / (0.16 * r)));
+                const el = front[i];
+                const bk = back[i];
+                [el, bk].forEach((node, k) => {
+                    if (!node)
+                        return;
+                    const pw = node.offsetWidth || 80;
+                    const ph = node.offsetHeight || pw;
+                    node.style.transformOrigin = "50% 40%";
+                    node.style.transform = `translate(${(cx + x - pw / 2).toFixed(1)}px, ${(cy + y - ph * 0.4).toFixed(1)}px) scale(${sc.toFixed(3)})`;
+                    node.style.opacity = String(k ? (1 - fo) * 0.92 : fo);
+                    node.style.zIndex = String(Math.round(200 + z));
+                });
+                // хвост: пока идёт рывок и чуть после
+                if (st.boost || (st.trail.length && T - st.trail[st.trail.length - 1].t < TAIL)) {
+                    if (st.boost)
+                        st.trail.push({ x: cx + x, y: cy + y, z, t: T, w: ((el === null || el === void 0 ? void 0 : el.offsetWidth) || 70) * 0.3 * sc });
                 }
-                const opt = {
-                    duration: (26 + i * 8) * 1000,
-                    iterations: Infinity,
-                    easing: "linear",
-                };
-                анимации.push(el.animate(fF, opt));
-                if (back[i])
-                    анимации.push(back[i].animate(fB, opt));
+                while (st.trail.length && T - st.trail[0].t > TAIL)
+                    st.trail.shift();
             });
+            // рисуем хвосты: ближние на переднем холсте, дальние — на заднем
+            const [cf, cb] = cvs();
+            const xf = cf === null || cf === void 0 ? void 0 : cf.getContext("2d");
+            const xb = cb === null || cb === void 0 ? void 0 : cb.getContext("2d");
+            [xf, xb].forEach((x) => x && x.clearRect(0, 0, W, H));
+            S.forEach((st, i) => {
+                const tr = st.trail;
+                if (tr.length < 2)
+                    return;
+                const tone = SAT_TONES[i % SAT_TONES.length];
+                // хвост тянется от планеты назад, к ней он толще и ярче
+                const head = { ...pts[i], t: T, w: tr[tr.length - 1].w };
+                const line = st.boost ? [...tr, head] : tr;
+                for (let k = 1; k < line.length; k++) {
+                    const p0 = line[k - 1];
+                    const p1 = line[k];
+                    const age = T - p1.t;
+                    const f = Math.max(0, 1 - age / TAIL);
+                    const ctx = p1.z >= 0 ? xf : xb;
+                    if (!ctx)
+                        continue;
+                    ctx.save();
+                    ctx.globalCompositeOperation = "lighter";
+                    ctx.lineCap = "round";
+                    ctx.strokeStyle = tone.b;
+                    ctx.globalAlpha = 0.85 * f;
+                    ctx.lineWidth = Math.max(0.5, p1.w * (0.2 + 0.8 * f));
+                    ctx.shadowColor = tone.b;
+                    ctx.shadowBlur = 18 * f;
+                    ctx.beginPath();
+                    ctx.moveTo(p0.x, p0.y);
+                    ctx.lineTo(p1.x, p1.y);
+                    ctx.stroke();
+                    // светлая середина хвоста
+                    ctx.globalAlpha = 0.95 * f;
+                    ctx.strokeStyle = tone.a;
+                    ctx.lineWidth = Math.max(0.3, p1.w * 0.35 * f);
+                    ctx.shadowBlur = 0;
+                    ctx.stroke();
+                    ctx.restore();
+                }
+            });
+            if (!reduce)
+                raf = requestAnimationFrame(frame);
         };
-        build();
-        const ro = new ResizeObserver(() => !stop && build());
+        raf = requestAnimationFrame(frame);
+        const ro = new ResizeObserver(() => {
+            if (!stop && measure() && reduce)
+                requestAnimationFrame(frame);
+        });
         ro.observe(box);
-        const cv0 = (_c = box.parentElement) === null || _c === void 0 ? void 0 : _c.querySelector("canvas");
+        const cv0 = (_c = box.parentElement) === null || _c === void 0 ? void 0 : _c.querySelector("canvas:not(.dg-trail)");
         if (cv0)
             ro.observe(cv0);
-        const t = setTimeout(build, 400); // ждём, пока шар подберёт размер
-        const onTurn = () => !stop && setTimeout(build, 260);
+        const onTurn = () => !stop && setTimeout(measure, 260);
         window.addEventListener("orientationchange", onTurn);
         window.addEventListener("resize", onTurn);
         return () => {
             stop = true;
-            clearTimeout(t);
-            clearTimeout(retry.current);
+            cancelAnimationFrame(raf);
             window.removeEventListener("orientationchange", onTurn);
             window.removeEventListener("resize", onTurn);
             ro.disconnect();
-            анимации.forEach((a) => a.cancel());
         };
         // перестраиваем и при смене положения экрана: разметка там другая
     }, [rows.length, wide]);
@@ -10709,8 +10890,10 @@ function SoloWin({ visits, people, geo, mapProps, onClose }) {
         const c = country && BY_A3[country];
         return c ? { lon: c.lon, lat: c.lat, id: `solo:${country}`, force: true } : null;
     }, [country]);
-    const satLayer = (where) => (React.createElement("div", { className: "dg-orbits " + where, ref: where === "front" ? orbRef : backRef }, rows.slice(0, 5).map((r, i) => (React.createElement("button", { key: r.id, className: "dg-sat" + (sel === r.id ? " on" : ""), "data-orbit": i, onClick: () => setSel(r.id), "aria-label": r.name },
-        React.createElement(Saturn, { name: r.short || r.name, n: r.n, tone: i, size: [78, 68, 62, 58, 54][i] || 50, orbit: i < 3, id: where[0] + r.id }))))));
+    const satLayer = (where) => (React.createElement("div", { className: "dg-orbits " + where, ref: where === "front" ? orbRef : backRef },
+        React.createElement("canvas", { className: "dg-trail" }),
+        rows.slice(0, 5).map((r, i) => (React.createElement("button", { key: r.id, className: "dg-sat" + (sel === r.id ? " on" : ""), "data-orbit": i, onClick: () => setSel(r.id), "aria-label": r.name },
+            React.createElement(Saturn, { name: r.short || r.name, n: r.n, tone: i, size: [78, 68, 62, 58, 54][i] || 50, orbit: i < 3, id: where[0] + r.id }))))));
     const globe = (React.createElement("div", { className: "sd-stage dg-stage" },
         satLayer("back"),
         React.createElement(Globe, { ...(mapProps || {}), geo: geo, pins: pins, lookAt: lookAt, dashSel: true, selected: country, full: false, noFull: true, fitBox: true, playing: !country, spinStep: 0.18, setPlaying: () => { }, onToggleFull: () => { }, onPick: (a3) => setCountry((v) => (v === a3 ? null : a3)) }),
@@ -14298,12 +14481,45 @@ body > div{max-width:100%;}
 .dg-pl.p0{order:2;}
 .dg-pl.p1{order:1;}
 .dg-pl.p2{order:3;}
+/* пьедестал в ленте: до показа планеты внизу и прозрачны */
+.dg-podium .dg-pl{opacity:0; transform:translateY(46px) scale(.7);}
+.dg-podium .dg-sign{transform-box:fill-box; transform-origin:50% 0; transform:scaleY(0);}
+.dg-podium.go .dg-pl{animation:dgRise .9s cubic-bezier(.2,1.35,.4,1) forwards;}
+.dg-podium.go .dg-pl.p2{animation-delay:.05s;}
+.dg-podium.go .dg-pl.p1{animation-delay:.3s;}
+.dg-podium.go .dg-pl.p0{animation-delay:.55s;}
+.dg-podium.go .dg-sign{animation:dgSign 1.1s ease-out forwards;}
+.dg-podium.go .p2 .dg-sign{animation-delay:1.05s;}
+.dg-podium.go .p1 .dg-sign{animation-delay:1.25s;}
+.dg-podium.go .p0 .dg-sign{animation-delay:1.45s;}
+/* подъём на свою ступень: первое место выше всех */
+@keyframes dgRise{
+  0%{opacity:0; transform:translateY(46px) scale(.7);}
+  60%{opacity:1;}
+  100%{opacity:1; transform:translateY(var(--lift,0)) scale(1);}
+}
+.dg-podium .dg-pl.p0{--lift:-14px;}
+.dg-podium .dg-pl.p1{--lift:-4px;}
+.dg-podium .dg-pl.p2{--lift:0px;}
+/* табличка прокручивается вокруг штыря два раза и встаёт лицом */
+@keyframes dgSign{
+  0%{transform:scaleY(0);}
+  22%{transform:scaleY(1);}
+  40%{transform:scaleY(.04);}
+  62%{transform:scaleY(1);}
+  78%{transform:scaleY(.3);}
+  100%{transform:scaleY(1);}
+}
+@media (prefers-reduced-motion: reduce){
+  .dg-podium .dg-pl, .dg-podium .dg-sign{opacity:1; transform:none; animation:none !important;}
+}
 .dg-line{margin-top:8px; text-align:center;}
 .dg-planet{display:block; overflow:visible;}
 .dg-stage{position:relative;}
 .dg-orbits{position:absolute; inset:0; pointer-events:none;}
 .dg-orbits.back{z-index:0;}
 .dg-orbits.front{z-index:3;}
+.dg-trail{position:absolute; left:0; top:0; pointer-events:none; z-index:0;}
 .dg-stage > .globe-stage, .dg-stage > div:not(.dg-orbits){position:relative; z-index:1;}
 .dg-sat{position:absolute; left:0; top:0; border:0; background:none; padding:0;
   pointer-events:auto; cursor:pointer; line-height:0;}
