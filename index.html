@@ -2892,7 +2892,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "39.9";
+const APP_VERSION = "40.0";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -13041,7 +13041,11 @@ function YearsWin({ visits, geo, home, mapProps, onClose, onOpenTrip }) {
         const done = d.years.filter((y) => d.by[y].trips.length);
         return done.filter((y) => y <= nowY).slice(-1)[0] || done.slice(-1)[0] || d.years.slice(-1)[0] || null;
     };
-    const [year, setYear] = useState(() => lastOf(yearsData(visits, hm)));
+    // по умолчанию — все страны и все годы
+    const [year, setYear] = useState(null);
+    // карточка, к стране которой повернули шар; повторное касание открывает поездку
+    const [pick, setPick] = useState(null);
+    const [spin, setSpin] = useState(true);
     const empty = { trips: [], plans: [], countries: new Set(), fresh: new Set(), km: 0 };
     // «Все годы» — складываем годы вместе
     const rec = useMemo(() => {
@@ -13062,14 +13066,15 @@ function YearsWin({ visits, geo, home, mapProps, onClose, onOpenTrip }) {
     }, [data, year]);
     const wide = useWide();
     const routes = useMemo(() => tripRoutes(shown, hm, year).routes, [shown, hm, year]);
+    // шар: выбрана страна (в списке или карточкой) — повёрнут к ней, иначе крутится
+    const focus = (pick === null || pick === void 0 ? void 0 : pick.a3) || only;
     const lookAt = useMemo(() => {
-        const pts = rec.trips.map((x) => BY_A3[x.a3]).filter(Boolean);
-        if (!pts.length)
-            return null;
-        const lon = pts.reduce((s2, c) => s2 + c.lon, 0) / pts.length;
-        const lat = pts.reduce((s2, c) => s2 + c.lat, 0) / pts.length;
-        return { lon, lat, id: `y:${year}:${only}`, force: true };
-    }, [rec, year, only]);
+        const c = focus && BY_A3[focus];
+        return c ? { lon: c.lon, lat: c.lat, id: `f:${focus}:${(pick === null || pick === void 0 ? void 0 : pick.id) || ""}`, force: true } : null;
+    }, [focus, pick]);
+    useEffect(() => {
+        setSpin(!focus);
+    }, [focus]);
     const filters = (React.createElement("div", { className: "cw-filters" },
         React.createElement("label", { className: "who-sel cw-pick" },
             React.createElement("b", null, only ? (React.createElement(React.Fragment, null,
@@ -13080,6 +13085,7 @@ function YearsWin({ visits, geo, home, mapProps, onClose, onOpenTrip }) {
             React.createElement("select", { value: only || "", onChange: (e) => {
                     const v = e.target.value || null;
                     setOnly(v);
+                    setPick(null);
                     // у страны может не быть выбранного года — берём её последний
                     const d = yearsData(v ? { [v]: (visits || {})[v] || [] } : visits, hm);
                     if (year && !d.by[year])
@@ -13093,42 +13099,42 @@ function YearsWin({ visits, geo, home, mapProps, onClose, onOpenTrip }) {
         React.createElement("label", { className: "who-sel cw-pick yr" },
             React.createElement("b", null, year || "Все годы"),
             React.createElement("i", null, "\u25BE"),
-            React.createElement("select", { value: year || "", onChange: (e) => setYear(+e.target.value || null) },
+            React.createElement("select", { value: year || "", onChange: (e) => {
+                    setYear(+e.target.value || null);
+                    setPick(null);
+                } },
                 React.createElement("option", { value: "" }, "\u0412\u0441\u0435 \u0433\u043E\u0434\u044B"),
                 [...data.years].reverse().map((y) => (React.createElement("option", { key: y, value: y }, y)))))));
-    const km = Math.round(rec.km);
-    const globe = (React.createElement("div", { className: "sd-stage" },
-        React.createElement(Globe, { ...(mapProps || {}), geo: geo, isOn: (a3) => rec.countries.has(a3), isWish: () => false, glow: rec.fresh, lookAt: lookAt, selected: null, full: false, noFull: true, fitBox: true, playing: false, setPlaying: () => { }, flights: routes, flying: true, onToggleFull: () => { }, onPick: () => { } })));
+    const globe = (React.createElement("div", { className: "sd-stage", "data-spin": spin ? 1 : 0 },
+        React.createElement(Globe, { ...(mapProps || {}), geo: geo, isOn: (a3) => rec.countries.has(a3), isWish: () => false, lookAt: lookAt, selected: focus || null, full: false, noFull: true, fitBox: true, playing: spin, spinStep: 0.18, setPlaying: setSpin, flights: routes, flying: true, onToggleFull: () => { }, onPick: () => { } })));
     const panel = (React.createElement(React.Fragment, null,
         filters,
         React.createElement("div", { className: "yw-tiles" },
             React.createElement("div", null,
                 React.createElement("b", null, rec.trips.length),
+                " ",
                 React.createElement("em", null, pw(rec.trips.length, "trip"))),
             React.createElement("div", null,
                 React.createElement("b", null, rec.countries.size),
-                React.createElement("em", null, pw(rec.countries.size, "country"))),
-            year ? (React.createElement("div", null,
-                React.createElement("b", null, rec.fresh.size ? `+${rec.fresh.size}` : "0"),
-                React.createElement("em", null, "\u043D\u043E\u0432\u044B\u0445"))) : (React.createElement("div", null,
-                React.createElement("b", null, data.years.filter((y) => data.by[y].trips.length).length),
-                React.createElement("em", null, pw(data.years.filter((y) => data.by[y].trips.length).length, "year")))),
-            React.createElement("div", null,
-                React.createElement("b", null, km >= 10000 ? `${Math.round(km / 1000)} т` : km.toLocaleString("ru-RU")),
-                React.createElement("em", null, "\u043A\u043C \u0432 \u043F\u0443\u0442\u0438"))),
+                " ",
+                React.createElement("em", null, pw(rec.countries.size, "country")))),
         React.createElement("div", { className: "ag-frame sd-frame yw-list" },
             React.createElement("p", { className: "cw-head" },
                 year || "Все годы",
                 only ? ` · ${((_d = BY_A3[only]) === null || _d === void 0 ? void 0 : _d.name) || only}` : ""),
             [...rec.plans, ...rec.trips].map((it) => {
                 var _c;
-                return (React.createElement("button", { key: it.t.id || it.at, className: "ww-row cw-card" + (it.t.plan ? " plan" : "") + (it.fresh ? " now" : ""), onClick: () => onOpenTrip === null || onOpenTrip === void 0 ? void 0 : onOpenTrip(it.a3, it.t.id) },
+                return (React.createElement("button", { key: it.t.id || it.at, className: "ww-row cw-card" + (it.t.plan ? " plan" : "") + ((pick === null || pick === void 0 ? void 0 : pick.id) === (it.t.id || it.at) ? " sel" : ""), onClick: () => {
+                        const id = it.t.id || it.at;
+                        if ((pick === null || pick === void 0 ? void 0 : pick.id) === id)
+                            onOpenTrip === null || onOpenTrip === void 0 ? void 0 : onOpenTrip(it.a3, it.t.id);
+                        else
+                            setPick({ a3: it.a3, id });
+                    } },
                     React.createElement("span", { className: "ww-fl" },
                         React.createElement(Flg, { a3: it.a3 })),
                     React.createElement("span", { className: "ww-nm" },
-                        React.createElement("span", { className: "yw-nl" },
-                            ((_c = BY_A3[it.a3]) === null || _c === void 0 ? void 0 : _c.name) || it.a3,
-                            it.fresh && React.createElement("u", { className: "yw-new" }, "\u043D\u043E\u0432\u0430\u044F")),
+                        ((_c = BY_A3[it.a3]) === null || _c === void 0 ? void 0 : _c.name) || it.a3,
                         React.createElement("em", null,
                             tripLabel(it.t),
                             (it.t.cities || []).length ? ` · ${it.t.cities.join(", ")}` : "")),
@@ -17232,14 +17238,12 @@ button, input, select, textarea{font-family:inherit;}
 /* «Поездки по годам» во весь экран: всё строго под шаром (лёжа — справа) */
 .yw-body{gap:8px;}
 .pg-layer .yw-globe{flex:1 1 auto; min-height:180px;}
-.yw-tiles{flex:none; display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:6px;}
-.yw-tiles div{padding:8px 4px; border-radius:12px; border:1px solid var(--line); background:var(--el); text-align:center; min-width:0;}
-.yw-tiles b{display:block; font-size:17px; color:var(--gold); white-space:nowrap;}
-.yw-tiles em{font-style:normal; font-size:11px; color:var(--dim);}
-.yw-new{align-self:flex-start; display:inline-block; width:auto; text-decoration:none; font-size:11px; font-weight:600; color:#1a1206; background:var(--gold); border-radius:6px; padding:1px 6px; margin-left:6px; vertical-align:1px;}
 .pg-layer .yw-list{height:26vh; height:26dvh;}
 .yw-side .yw-list{flex:1 1 auto; min-height:0;}
-.yw-nl{display:flex; align-items:center; gap:0; min-width:0;}
+.yw-tiles{flex:none; display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+.yw-tiles div{display:flex; align-items:baseline; justify-content:center; gap:6px; padding:10px 8px; border-radius:12px; border:1px solid var(--line); background:var(--el); white-space:nowrap;}
+.yw-tiles b{font-size:20px; color:var(--gold);}
+.yw-tiles em{font-style:normal; font-size:14px; color:var(--dim);}
 `;
 const __b = document.getElementById('boot');
 if (__b)
