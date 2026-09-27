@@ -2892,7 +2892,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "39.2";
+const APP_VERSION = "39.3";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -4094,19 +4094,26 @@ function flagSprite(c) {
             x.drawImage(im, 6, 12, 84, 48);
         }
         else {
-            // пустой цвет: если вместо флага выйдет «нет знака», его не будет видно
-            x.fillStyle = "rgba(0,0,0,0)";
+            // Safari берёт прозрачность эмодзи из цвета заливки — заливка непрозрачная.
+            // Если вместо флага выйдет серый квадрат «нет знака», проверка ниже его отсеет
+            x.fillStyle = "#808080";
             x.font = '60px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
             x.textAlign = "center";
             x.textBaseline = "middle";
             x.fillText(flag(c.a2), 48, 40);
         }
+        // флаг цветной: считаем точки, где цвет заметно отличается от серого
         const d = x.getImageData(0, 0, 96, 72).data;
         let ink = 0;
-        for (let i = 3; i < d.length; i += 16)
-            if (d[i] > 40)
+        for (let i = 0; i < d.length; i += 16) {
+            if (d[i + 3] < 120)
+                continue;
+            const mx = Math.max(d[i], d[i + 1], d[i + 2]);
+            const mn = Math.min(d[i], d[i + 1], d[i + 2]);
+            if (mx - mn > 40 || mx > 235 || mx < 25)
                 ink++;
-        if (ink < 40) {
+        }
+        if (ink < 30) {
             FLAG_SPR[key] = { at: Date.now() };
             return null;
         }
@@ -4124,14 +4131,35 @@ const PLANE = [
     [0, 8.6], [-4.4, 9.8], [-4.4, 8.6], [-2.2, 6.5], [-2.2, 2.4], [-9, 4], [-9, 2], [-2.2, -2.5],
 ];
 /* новые перелёты: изредка по одному, иногда сразу два-три */
-function launchFlights(st, routes) {
+function launchFlights(st, routes, rot, spin) {
     const now = Date.now();
+    // пока шар крутится, летим быстрее: иначе маршрут уедет на обратную сторону
+    const durOf = (dist) => (spin ? 1700 + dist * 700 : 2600 + dist * 1500);
     st.list = st.list.filter((f) => now - f.t0 < f.dur * 1.35);
     if (!(routes === null || routes === void 0 ? void 0 : routes.length) || now < st.next || st.list.length >= 3)
         return;
-    const burst = Math.random() < 0.25 ? 1 + Math.floor(Math.random() * 2) : 0;
+    // только маршруты на видимой стороне шара — с учётом того, куда он повернётся
+    // к середине полёта (при вращении ~60 кадров в секунду)
+    const seen = (r) => {
+        const A = [r.from.lon, r.from.lat];
+        const B = [r.to.lon, r.to.lat];
+        const dur = durOf(d3.geoDistance(A, B));
+        const c = [-(rot[0] + (spin || 0) * 60 * (dur / 2000)), -rot[1]];
+        const mid = d3.geoInterpolate(A, B)(0.5);
+        // середина пути на лицевой стороне или хотя бы один конец ближе к центру
+        const dm = d3.geoDistance(mid, c);
+        const da = d3.geoDistance(A, c);
+        const db = d3.geoDistance(B, c);
+        return (dm < 1.15 && Math.max(da, db) < 1.6) || Math.min(da, db) < 0.9;
+    };
+    const pool = routes.filter(seen);
+    if (!pool.length) {
+        st.next = now + 400;
+        return;
+    }
+    const burst = Math.random() < 0.3 ? 1 + Math.floor(Math.random() * 2) : 0;
     for (let k = 0; k <= burst && st.list.length < 3; k++) {
-        const r = routes[Math.floor(Math.random() * routes.length)];
+        const r = pool[Math.floor(Math.random() * pool.length)];
         const A = [r.from.lon, r.from.lat];
         const B = [r.to.lon, r.to.lat];
         const dist = d3.geoDistance(A, B);
@@ -4139,7 +4167,7 @@ function launchFlights(st, routes) {
             A,
             B,
             t0: now + k * 350,
-            dur: 2600 + dist * 1500,
+            dur: durOf(dist),
             lift: 0.05 + Math.min(0.1, dist * 0.04) + Math.random() * 0.03,
         });
     }
@@ -4887,12 +4915,14 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                 ctx.lineCap = "round";
                 // весь путь едва заметно, пройденный — ярче
                 ctx.strokeStyle = "rgba(244,239,226,1)";
-                ctx.lineWidth = 0.8;
-                ctx.globalAlpha = 0.22 * fade;
+                ctx.lineWidth = 1;
+                ctx.globalAlpha = 0.35 * fade;
                 trace(0, N);
                 ctx.strokeStyle = "#e8b84b";
-                ctx.lineWidth = 1.2;
-                ctx.globalAlpha = 0.75 * fade;
+                ctx.shadowColor = "rgba(232,184,75,.7)";
+                ctx.shadowBlur = 4;
+                ctx.lineWidth = 1.6;
+                ctx.globalAlpha = 0.95 * fade;
                 trace(0, Math.min(N, i0 + 1));
                 const p0 = pts[i0];
                 const p1 = pts[i0 + 1];
@@ -4901,9 +4931,10 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                     const x = p0[0] + (p1[0] - p0[0]) * fr;
                     const y = p0[1] + (p1[1] - p0[1]) * fr;
                     ctx.globalAlpha = fade;
+                    ctx.shadowBlur = 0;
                     ctx.translate(x, y);
                     ctx.rotate(Math.atan2(p1[1] - p0[1], p1[0] - p0[0]) + Math.PI / 2);
-                    ctx.scale(0.62, 0.62);
+                    ctx.scale(0.75, 0.75);
                     ctx.fillStyle = "#f4efe2";
                     ctx.strokeStyle = "rgba(8,16,26,.8)";
                     ctx.lineWidth = 1.4;
@@ -5132,7 +5163,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         let raf2 = 0;
         const step = () => {
             belt.current += 0.006;
-            launchFlights(fly.current, state.current.flights);
+            launchFlights(fly.current, state.current.flights, rot.current, playRef.current ? spinStep || 0.7 : 0);
             drawRef.current();
             raf2 = requestAnimationFrame(step);
         };
