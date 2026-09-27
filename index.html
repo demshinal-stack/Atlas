@@ -2892,7 +2892,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "39.1";
+const APP_VERSION = "39.2";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -4067,7 +4067,85 @@ function sunPoint(now) {
 /*  Карта                                                             */
 /* ================================================================== */
 const flagCache = {};
-function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home, marks, light, playing, setPlaying, view, page: pageProp, setPage, isWish, arcs, noFull, fitBox, onArcPick, spinStep, glow, lookAt, pins, dashSel }) {
+/* флаг-эмодзи рисуем один раз на отдельный холст и дальше берём картинкой.
+   Если Safari не нарисовал эмодзи (пустой холст) — пробуем позже */
+const FLAG_SPR = {};
+function flagSprite(c) {
+    const key = c.a3;
+    const hit = FLAG_SPR[key];
+    if (hit === null || hit === void 0 ? void 0 : hit.cv)
+        return hit.cv;
+    if (hit && Date.now() - hit.at < 1500)
+        return null;
+    try {
+        const own = OWN_FLAGS[c.a3];
+        const cv = document.createElement("canvas");
+        cv.width = 96;
+        cv.height = 72;
+        const x = cv.getContext("2d", { willReadFrequently: true });
+        if (own) {
+            const im = flagCache[c.a3] || (flagCache[c.a3] = new Image());
+            if (!im.src)
+                im.src = own;
+            if (!(im.complete && im.naturalWidth)) {
+                FLAG_SPR[key] = { at: Date.now() };
+                return null;
+            }
+            x.drawImage(im, 6, 12, 84, 48);
+        }
+        else {
+            // пустой цвет: если вместо флага выйдет «нет знака», его не будет видно
+            x.fillStyle = "rgba(0,0,0,0)";
+            x.font = '60px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+            x.textAlign = "center";
+            x.textBaseline = "middle";
+            x.fillText(flag(c.a2), 48, 40);
+        }
+        const d = x.getImageData(0, 0, 96, 72).data;
+        let ink = 0;
+        for (let i = 3; i < d.length; i += 16)
+            if (d[i] > 40)
+                ink++;
+        if (ink < 40) {
+            FLAG_SPR[key] = { at: Date.now() };
+            return null;
+        }
+        FLAG_SPR[key] = { cv };
+        return cv;
+    }
+    catch {
+        FLAG_SPR[key] = { at: Date.now() };
+        return null;
+    }
+}
+/* силуэт самолёта: нос вверх, размах 18 */
+const PLANE = [
+    [0, -9], [2.2, -2.5], [9, 2], [9, 4], [2.2, 2.4], [2.2, 6.5], [4.4, 8.6], [4.4, 9.8],
+    [0, 8.6], [-4.4, 9.8], [-4.4, 8.6], [-2.2, 6.5], [-2.2, 2.4], [-9, 4], [-9, 2], [-2.2, -2.5],
+];
+/* новые перелёты: изредка по одному, иногда сразу два-три */
+function launchFlights(st, routes) {
+    const now = Date.now();
+    st.list = st.list.filter((f) => now - f.t0 < f.dur * 1.35);
+    if (!(routes === null || routes === void 0 ? void 0 : routes.length) || now < st.next || st.list.length >= 3)
+        return;
+    const burst = Math.random() < 0.25 ? 1 + Math.floor(Math.random() * 2) : 0;
+    for (let k = 0; k <= burst && st.list.length < 3; k++) {
+        const r = routes[Math.floor(Math.random() * routes.length)];
+        const A = [r.from.lon, r.from.lat];
+        const B = [r.to.lon, r.to.lat];
+        const dist = d3.geoDistance(A, B);
+        st.list.push({
+            A,
+            B,
+            t0: now + k * 350,
+            dur: 2600 + dist * 1500,
+            lift: 0.05 + Math.min(0.1, dist * 0.04) + Math.random() * 0.03,
+        });
+    }
+    st.next = now + 1400 + Math.random() * 2600;
+}
+function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home, marks, light, playing, setPlaying, view, page: pageProp, setPage, isWish, arcs, noFull, fitBox, onArcPick, spinStep, glow, lookAt, pins, dashSel, flights }) {
     const wrapRef = useRef(null);
     const canvasRef = useRef(null);
     const [size, setSize] = useState(320);
@@ -4082,6 +4160,8 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
     const playRaf = useRef(0);
     const playRef = useRef(false);
     const belt = useRef(0);
+    // перелёты во весь экран: какие сейчас в воздухе и когда взлетит следующий
+    const fly = useRef({ list: [], next: 0 });
     const panY = useRef(0);
     const panX = useRef(0);
     const page = useRef(pageProp || 0);
@@ -4092,7 +4172,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
     const state = useRef({ isOn, selected, geo, marks, light, full, isMap, isWish, arcs, glow, glowAt: 0 });
     if (state.current.glow !== glow)
         state.current.glowAt = Date.now();
-    state.current = { ...state.current, isOn, selected, geo, marks, light, full, isMap, isWish, arcs, glow, pins, dashSel, night };
+    state.current = { ...state.current, isOn, selected, geo, marks, light, full, isMap, isWish, arcs, glow, pins, dashSel, night, flights };
     /* размер: по фактической ширине плитки, с повторами до готовности разметки */
     useEffect(() => {
         var _c;
@@ -4235,15 +4315,16 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                 const x = cx + beltRx * Math.cos(a);
                 const y = beltY + beltRy * sn;
                 const k = 0.62 + 0.4 * (sn + 1) * 0.5;
+                // флаг берём готовой картинкой: Safari при рисовании эмодзи в каждом
+                // кадре разными размерами то теряет их, то рисует пустые квадраты
+                const spr = flagSprite(c);
+                if (!spr)
+                    return;
+                const h = 24 * k;
+                const w = (h * spr.width) / spr.height;
                 ctx.save();
                 ctx.globalAlpha = front ? 1 : 0.5;
-                ctx.font = `${Math.round(22 * k)}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`;
-                ctx.textBaseline = "middle";
-                // эмодзи-флаг шире своей метрики, поэтому центрируем вручную
-                ctx.textAlign = "left";
-                const em = flag(c.a2);
-                const w = ctx.measureText(em).width;
-                ctx.fillText(em, x - w / 2, y);
+                ctx.drawImage(spr, x - w / 2, y - h / 2, w, h);
                 ctx.restore();
             });
         };
@@ -4765,6 +4846,76 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
             ctx.restore();
         });
         arcHit.current = arcHits;
+        // во весь экран: по нашим маршрутам время от времени пролетают самолётики.
+        // Дуга тонкая и полупрозрачная, самолёт маленький — шар под ними виден
+        if (fs && !state.current.isMap && fly.current.list.length) {
+            const now = Date.now();
+            fly.current.list.forEach((f) => {
+                const u = (now - f.t0) / f.dur; // 0…1 полёт, дальше — угасание
+                if (u < 0)
+                    return;
+                const fade = u > 1 ? Math.max(0, 1 - (u - 1) / 0.35) : Math.min(1, u * 6);
+                const N = 48;
+                const pts = [];
+                for (let i = 0; i <= N; i++) {
+                    const t = i / N;
+                    pts.push(lift3d(bendPoint(f.A, f.B, t, 0), f.lift * Math.sin(Math.PI * t)));
+                }
+                const trace = (from, to) => {
+                    let open = false;
+                    ctx.beginPath();
+                    for (let i = from; i <= to; i++) {
+                        const q = pts[i];
+                        if (!q) {
+                            open = false;
+                            continue;
+                        }
+                        if (!open) {
+                            ctx.moveTo(q[0], q[1]);
+                            open = true;
+                        }
+                        else
+                            ctx.lineTo(q[0], q[1]);
+                    }
+                    ctx.stroke();
+                };
+                const pos = Math.min(1, Math.max(0, u));
+                const e = pos < 0.5 ? 2 * pos * pos : 1 - Math.pow(-2 * pos + 2, 2) / 2;
+                const tt = e * N;
+                const i0 = Math.min(N - 1, Math.floor(tt));
+                ctx.save();
+                ctx.lineCap = "round";
+                // весь путь едва заметно, пройденный — ярче
+                ctx.strokeStyle = "rgba(244,239,226,1)";
+                ctx.lineWidth = 0.8;
+                ctx.globalAlpha = 0.22 * fade;
+                trace(0, N);
+                ctx.strokeStyle = "#e8b84b";
+                ctx.lineWidth = 1.2;
+                ctx.globalAlpha = 0.75 * fade;
+                trace(0, Math.min(N, i0 + 1));
+                const p0 = pts[i0];
+                const p1 = pts[i0 + 1];
+                if (u <= 1 && p0 && p1) {
+                    const fr = tt - i0;
+                    const x = p0[0] + (p1[0] - p0[0]) * fr;
+                    const y = p0[1] + (p1[1] - p0[1]) * fr;
+                    ctx.globalAlpha = fade;
+                    ctx.translate(x, y);
+                    ctx.rotate(Math.atan2(p1[1] - p0[1], p1[0] - p0[0]) + Math.PI / 2);
+                    ctx.scale(0.62, 0.62);
+                    ctx.fillStyle = "#f4efe2";
+                    ctx.strokeStyle = "rgba(8,16,26,.8)";
+                    ctx.lineWidth = 1.4;
+                    ctx.beginPath();
+                    PLANE.forEach(([px, py], i) => (i ? ctx.lineTo(px, py) : ctx.moveTo(px, py)));
+                    ctx.closePath();
+                    ctx.stroke();
+                    ctx.fill();
+                }
+                ctx.restore();
+            });
+        }
         // флажок на булавке у новых стран — рисуем последним, поверх всего
         const flagPins = state.current.pins || [];
         if (flagPins.length) {
@@ -4981,11 +5132,15 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         let raf2 = 0;
         const step = () => {
             belt.current += 0.006;
+            launchFlights(fly.current, state.current.flights);
             drawRef.current();
             raf2 = requestAnimationFrame(step);
         };
         raf2 = requestAnimationFrame(step);
-        return () => cancelAnimationFrame(raf2);
+        return () => {
+            cancelAnimationFrame(raf2);
+            fly.current = { list: [], next: 0 };
+        };
     }, [full]);
     /* автовращение: ровный ход без наездов */
     useEffect(() => {
@@ -14621,6 +14776,39 @@ function AtlasApp() {
     visitsRef.current = visits;
     profileRef.current = profile;
     const doubles = useMemo(() => findDoubles(visits), [visits]);
+    /* маршруты наших поездок для самолётиков во весь экран: откуда вылетали → куда */
+    const flights = useMemo(() => {
+        // дом не указан — считаем домом страну, куда ездили чаще всего (как в отчётах)
+        let hm = (profile === null || profile === void 0 ? void 0 : profile.home) && isFinite(profile.home.lon) && isFinite(profile.home.lat)
+            ? { lon: +profile.home.lon, lat: +profile.home.lat }
+            : null;
+        if (!hm) {
+            const cnt = {};
+            Object.entries(visits || {}).forEach(([a3, arr]) => (arr || []).forEach((t) => !t.plan && (cnt[a3] = (cnt[a3] || 0) + 1)));
+            const top = Object.entries(cnt).sort((a, b) => b[1] - a[1])[0];
+            const c = top && BY_A3[top[0]];
+            if (c)
+                hm = { lon: c.lon, lat: c.lat };
+        }
+        const out = [];
+        const seen = new Set();
+        Object.entries(visits || {}).forEach(([a3, arr]) => (arr || []).forEach((t) => {
+            if (t.plan)
+                return;
+            const from = depPoint(t, hm);
+            const to = distPoint(a3, (t.cities || [])[0]);
+            if (!from || !to)
+                return;
+            if (d3.geoDistance([from.lon, from.lat], [to[0], to[1]]) < 0.03)
+                return;
+            const key = [from.lon, from.lat, to[0], to[1]].map((v) => (+v).toFixed(1)).join("|");
+            if (seen.has(key))
+                return;
+            seen.add(key);
+            out.push({ from: { lon: from.lon, lat: from.lat }, to: { lon: to[0], lat: to[1] } });
+        }));
+        return out;
+    }, [visits, profile === null || profile === void 0 ? void 0 : profile.home]);
     const joinDouble = useCallback((pr) => {
         const arr = visits[pr.a3] || [];
         const merged = joinTrips(pr.a, pr.b);
@@ -14751,7 +14939,7 @@ function AtlasApp() {
                         full && (React.createElement(Globe, { geo: geo, isOn: isOn, onPick: (a3) => {
                                 setSelected(BY_A3[a3] ? a3 : null);
                                 setEditId(null);
-                            }, selected: selected, full: true, onToggleFull: () => setFull(false), visitKey: visitKey, home: lastTrip, marks: marks, light: light, playing: spinning, setPlaying: setSpinning, view: mapView, page: mapPage, setPage: setMapPage, isWish: isWish }))),
+                            }, selected: selected, full: true, onToggleFull: () => setFull(false), flights: flights, visitKey: visitKey, home: lastTrip, marks: marks, light: light, playing: spinning, setPlaying: setSpinning, view: mapView, page: mapPage, setPage: setMapPage, isWish: isWish }))),
                     React.createElement("div", { className: "col-side" },
                         overdue.length > 0 && (React.createElement("div", { className: "due" },
                             React.createElement("b", { className: "due-title" }, overdue.length === 1
