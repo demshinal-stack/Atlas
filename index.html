@@ -2892,7 +2892,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "39.3";
+const APP_VERSION = "39.4";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -9456,7 +9456,7 @@ function QrCamera({ onCode, onClose, facing = "environment", hidden = false, onS
         let reads = 0;
         const cv = document.createElement("canvas");
         (async () => {
-            var _c, _d, _e, _f, _g, _h, _j, _k;
+            var _c, _d, _e, _f, _g, _h, _j;
             try {
                 // Нужен самый широкий обзор. Кадр 16:9 на iPhone — это обрезка датчика,
                 // поэтому просим 4:3 (весь датчик) в хорошем разрешении, потом попроще.
@@ -9478,19 +9478,58 @@ function QrCamera({ onCode, onClose, facing = "environment", hidden = false, onS
                         await new Promise((r) => setTimeout(r, 250));
                     }
                 }
-                // и самое мелкое увеличение, какое камера разрешает: шире обзор
-                try {
-                    const track = stream.getVideoTracks()[0];
-                    const caps = ((_d = track === null || track === void 0 ? void 0 : track.getCapabilities) === null || _d === void 0 ? void 0 : _d.call(track)) || {};
-                    const cur = ((_e = track === null || track === void 0 ? void 0 : track.getSettings) === null || _e === void 0 ? void 0 : _e.call(track)) || {};
-                    if (caps.zoom && typeof caps.zoom.min === "number" && caps.zoom.min < ((_f = cur.zoom) !== null && _f !== void 0 ? _f : 1))
-                        await track.applyConstraints({ advanced: [{ zoom: caps.zoom.min }] });
-                    const now = ((_g = track === null || track === void 0 ? void 0 : track.getSettings) === null || _g === void 0 ? void 0 : _g.call(track)) || {};
-                    (_h = cbStat.current) === null || _h === void 0 ? void 0 : _h.call(cbStat, { lens: now.zoom != null ? `увеличение ${now.zoom}` : "увеличение не меняется" });
-                }
-                catch {
-                    /* не все камеры дают менять увеличение */
-                }
+                // Настраиваем уже полученную камеру — всё по возможности, ошибки не мешают
+                const track = stream.getVideoTracks()[0];
+                const caps = (() => {
+                    var _c;
+                    try {
+                        return ((_c = track === null || track === void 0 ? void 0 : track.getCapabilities) === null || _c === void 0 ? void 0 : _c.call(track)) || {};
+                    }
+                    catch {
+                        return {};
+                    }
+                })();
+                const got = () => { var _c; return ((_c = track === null || track === void 0 ? void 0 : track.getSettings) === null || _c === void 0 ? void 0 : _c.call(track)) || {}; };
+                const long = (st) => Math.max(st.width || 0, st.height || 0);
+                const short = (st) => Math.min(st.width || 0, st.height || 0) || 1;
+                const tryEach = async (list) => {
+                    for (const c of list) {
+                        try {
+                            await track.applyConstraints(c);
+                            return true;
+                        }
+                        catch {
+                            /* эта настройка не подошла — пробуем следующую */
+                        }
+                    }
+                    return false;
+                };
+                // 1. кадр вытянутый (16:9) — это обрезка датчика; пробуем 4:3 в обе стороны
+                if (long(got()) / short(got()) > 1.5)
+                    await tryEach([
+                        { aspectRatio: { exact: 4 / 3 } },
+                        { aspectRatio: { exact: 3 / 4 } },
+                        { width: { ideal: 1920 }, height: { ideal: 1440 } },
+                        { width: { ideal: 1440 }, height: { ideal: 1920 } },
+                    ]);
+                // 2. самое мелкое увеличение — шире обзор
+                if (caps.zoom && typeof caps.zoom.min === "number" && caps.zoom.min < ((_d = got().zoom) !== null && _d !== void 0 ? _d : 1))
+                    await tryEach([{ advanced: [{ zoom: caps.zoom.min }] }]);
+                // 3. непрерывная наводка на резкость, если камера умеет
+                const fm = caps.focusMode || [];
+                if (fm.includes("continuous"))
+                    await tryEach([{ advanced: [{ focusMode: "continuous" }] }]);
+                const st = got();
+                (_e = cbStat.current) === null || _e === void 0 ? void 0 : _e.call(cbStat, {
+                    lens: [
+                        st.width ? `кадр ${st.width}×${st.height}` : "",
+                        ((_f = caps.width) === null || _f === void 0 ? void 0 : _f.max) ? `наибольший ${caps.width.max}×${(_g = caps.height) === null || _g === void 0 ? void 0 : _g.max}` : "",
+                        st.zoom != null ? `увеличение ${st.zoom}${caps.zoom ? ` (от ${caps.zoom.min})` : ""}` : "увеличение не меняется",
+                        fm.length ? `фокус: ${st.focusMode || "—"}` : "фокус не настраивается",
+                    ]
+                        .filter(Boolean)
+                        .join(" · "),
+                });
                 if (stop)
                     return stream.getTracks().forEach((t) => t.stop());
                 const v = video.current;
@@ -9514,9 +9553,9 @@ function QrCamera({ onCode, onClose, facing = "environment", hidden = false, onS
                 catch {
                     detector = null;
                 }
-                (_j = cbStat.current) === null || _j === void 0 ? void 0 : _j.call(cbStat, { cam: "работает", sys: !!detector });
+                (_h = cbStat.current) === null || _h === void 0 ? void 0 : _h.call(cbStat, { cam: "работает", sys: !!detector });
                 const tick = async () => {
-                    var _c, _d, _e, _f, _g;
+                    var _c, _d, _e, _f, _g, _h;
                     if (stop)
                         return;
                     const w = v.videoWidth;
@@ -9566,6 +9605,16 @@ function QrCamera({ onCode, onClose, facing = "environment", hidden = false, onS
                         }
                         if (frames % 4 === 0)
                             (_e = cbStat.current) === null || _e === void 0 ? void 0 : _e.call(cbStat, { cam: `кадров ${frames}`, res: `${w}×${h}`, sys: !!detector });
+                        // весь кадр камеры маленькой картинкой — видно, какой на самом деле обзор
+                        if (frames % 8 === 1) {
+                            const fw = 200;
+                            const fh = Math.round((fw * h) / w);
+                            const fc = document.createElement("canvas");
+                            fc.width = fw;
+                            fc.height = fh;
+                            fc.getContext("2d").drawImage(v, 0, 0, fw, fh);
+                            (_f = cbStat.current) === null || _f === void 0 ? void 0 : _f.call(cbStat, { full: fc.toDataURL("image/jpeg", 0.5) });
+                        }
                         if (text) {
                             // камеру не выключаем: первый прочитанный код может оказаться
                             // не тем, который нужен, и телефон должен дождаться следующего
@@ -9574,8 +9623,8 @@ function QrCamera({ onCode, onClose, facing = "environment", hidden = false, onS
                                 lastText = text;
                                 lastAt = now;
                                 reads += 1;
-                                (_f = cbStat.current) === null || _f === void 0 ? void 0 : _f.call(cbStat, { cam: "код распознан", read: text.slice(0, 5), reads });
-                                (_g = cbCode.current) === null || _g === void 0 ? void 0 : _g.call(cbCode, text);
+                                (_g = cbStat.current) === null || _g === void 0 ? void 0 : _g.call(cbStat, { cam: "код распознан", read: text.slice(0, 5), reads });
+                                (_h = cbCode.current) === null || _h === void 0 ? void 0 : _h.call(cbCode, text);
                             }
                         }
                     }
@@ -9585,7 +9634,7 @@ function QrCamera({ onCode, onClose, facing = "environment", hidden = false, onS
             }
             catch (e) {
                 setErr("Камера недоступна");
-                (_k = cbStat.current) === null || _k === void 0 ? void 0 : _k.call(cbStat, { cam: "нет доступа: " + String((e === null || e === void 0 ? void 0 : e.name) || e) });
+                (_j = cbStat.current) === null || _j === void 0 ? void 0 : _j.call(cbStat, { cam: "нет доступа: " + String((e === null || e === void 0 ? void 0 : e.name) || e) });
             }
         })();
         return () => {
@@ -10532,9 +10581,10 @@ function NearSync({ makePayload, onData, onClose, box, profile, meAva = "", onJo
                             " ", (_j = stat.bright) !== null && _j !== void 0 ? _j : "—",
                             " \u00B7 \u0440\u0435\u0436\u0438\u043C: ",
                             stat.zoom || "—"),
-                        stat.shot && (React.createElement("div", { className: "near-shot" },
-                            React.createElement("img", { src: stat.shot, alt: "" }),
-                            React.createElement("span", null, "\u0447\u0442\u043E \u0432\u0438\u0434\u0438\u0442 \u043A\u0430\u043C\u0435\u0440\u0430"))),
+                        (stat.full || stat.shot) && (React.createElement("div", { className: "near-shot" },
+                            stat.full && React.createElement("img", { src: stat.full, alt: "", className: "full" }),
+                            stat.shot && React.createElement("img", { src: stat.shot, alt: "" }),
+                            React.createElement("span", null, "\u0441\u043B\u0435\u0432\u0430 \u0432\u0435\u0441\u044C \u043A\u0430\u0434\u0440 \u043A\u0430\u043C\u0435\u0440\u044B, \u0441\u043F\u0440\u0430\u0432\u0430 \u0443\u0447\u0430\u0441\u0442\u043E\u043A, \u043A\u043E\u0442\u043E\u0440\u044B\u0439 \u0441\u0435\u0439\u0447\u0430\u0441 \u0440\u0430\u0437\u0431\u0438\u0440\u0430\u0435\u043C"))),
                         React.createElement("p", null,
                             "\u041C\u043E\u0439 \u043D\u043E\u043C\u0435\u0440: ",
                             rank.current || "—",
@@ -15755,7 +15805,7 @@ body > div{max-width:100%;}
 /* окошко камеры: видимое, иначе телефон отдаёт кадры низкого качества */
 .qr-hole{position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); border-radius:50%; overflow:hidden; box-shadow:0 0 0 2px var(--gold); background:#0b1622; z-index:4;}
 .qr-cam.hidden{position:absolute; inset:0; width:100%; height:100%; border-radius:50%; overflow:hidden;}
-.qr-cam.hidden video{width:100%; height:100%; object-fit:cover; border-radius:0; transform:scaleX(-1);}
+.qr-cam.hidden video{width:100%; height:100%; object-fit:contain; background:#05090d; border-radius:0; transform:scaleX(-1);}
 .qr-cam{position:relative; display:flex; flex-direction:column; gap:8px; align-items:center;}
 .qr-cam video{width:100%; max-height:46vh; border-radius:16px; background:#000; object-fit:cover;}
 .qr-cam p{margin:0; font-size:11px; color:var(--dim); text-align:center;}
@@ -16747,6 +16797,7 @@ button, input, select, textarea{font-family:inherit;}
 /* экран с кодом: воздух между кодом и «Отменой» */
 .near-stage.code{margin:6px 0 22px;}
 @media (max-height:720px){ .near-stage.code{margin:2px 0 14px;} }
+.near-shot img.full{width:auto; height:120px; object-fit:contain; background:#000;}
 `;
 const __b = document.getElementById('boot');
 if (__b)
