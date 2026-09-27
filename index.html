@@ -2892,7 +2892,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "39.6";
+const APP_VERSION = "39.7";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -12750,10 +12750,11 @@ const CAL_MONTH = [
     "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
     "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь",
 ];
-function calData(visits, year) {
+function calData(visits, year, only = null) {
     const months = Array.from({ length: 12 }, () => ({ c: {}, plan: 0, trips: [] }));
     const years = new Set();
     const all = [];
+    const countries = new Set();
     Object.entries(visits || {}).forEach(([a3, arr]) => (arr || []).forEach((t0) => {
         var _c;
         const t = normTrip(t0);
@@ -12774,6 +12775,9 @@ function calData(visits, year) {
             put.push([a ? a.y : t.y, (a ? a.m : t.m) - 1]);
         if (!put.length)
             return;
+        countries.add(a3);
+        if (only && a3 !== only)
+            return; // фильтр по стране
         put.forEach(([y]) => years.add(y));
         const item = { a3, t, y: put[0][0], m: put[0][1], at: a ? new Date(a.y, a.m - 1, a.d).getTime() : new Date(t.y, (t.m || 1) - 1, 1).getTime() };
         all.push(item);
@@ -12808,6 +12812,7 @@ function calData(visits, year) {
         months,
         max,
         years: [...years].sort((x, y) => y - x),
+        countries: [...countries].sort((x, y) => { var _c, _d; return (((_c = BY_A3[x]) === null || _c === void 0 ? void 0 : _c.name) || x).localeCompare(((_d = BY_A3[y]) === null || _d === void 0 ? void 0 : _d.name) || y, "ru"); }),
         latest: past[0] || done[0] || null,
     };
 }
@@ -12838,10 +12843,15 @@ function CalCard({ it, onOpen }) {
         React.createElement("span", { className: "cw-days" }, t.plan ? "план" : days ? `${days} дн` : "")));
 }
 function CalendarWin({ visits, onClose, onOpenTrip }) {
+    var _c;
     const [year, setYear] = useState(null);
+    const [only, setOnly] = useState(null); // страна
     const [sel, setSel] = useState(null);
-    const data = useMemo(() => calData(visits, year), [visits, year]);
-    const allYears = useMemo(() => calData(visits, null).years, [visits]);
+    const data = useMemo(() => calData(visits, year, only), [visits, year, only]);
+    // годы — те, где была выбранная страна; страны — все, где есть поездки с датами
+    const base = useMemo(() => calData(visits, null, only), [visits, only]);
+    const allYears = base.years;
+    const allCountries = base.countries;
     const wide = useWide();
     const list = sel
         ? data.months[sel.m].trips
@@ -12851,10 +12861,36 @@ function CalendarWin({ visits, onClose, onOpenTrip }) {
     const head = sel
         ? `${CAL_MONTH[sel.m]}${year ? ` ${year}` : ""} · ${np(list.length, "trip")}`
         : "Последняя поездка";
-    const years = (React.createElement("div", { className: "cw-years" }, [null, ...allYears].map((y) => (React.createElement("button", { key: y || "all", className: year === y ? "on" : "", onClick: () => {
-            setYear(y);
-            setSel(null);
-        } }, y || "Все годы")))));
+    // фильтры: страны слева, годы справа; по умолчанию — всё
+    const filters = (React.createElement("div", { className: "cw-filters" },
+        React.createElement("label", { className: "who-sel cw-pick" },
+            React.createElement("b", null, only ? (React.createElement(React.Fragment, null,
+                React.createElement(Flg, { a3: only }),
+                " ",
+                ((_c = BY_A3[only]) === null || _c === void 0 ? void 0 : _c.name) || only)) : ("Все страны")),
+            React.createElement("i", null, "\u25BE"),
+            React.createElement("select", { value: only || "", onChange: (e) => {
+                    const v = e.target.value || null;
+                    setOnly(v);
+                    setSel(null);
+                    // выбранного года у этой страны может не быть
+                    if (v && year && !calData(visits, null, v).years.includes(year))
+                        setYear(null);
+                } },
+                React.createElement("option", { value: "" }, "\u0412\u0441\u0435 \u0441\u0442\u0440\u0430\u043D\u044B"),
+                allCountries.map((a3) => {
+                    var _c, _d;
+                    return (React.createElement("option", { key: a3, value: a3 }, `${((_c = BY_A3[a3]) === null || _c === void 0 ? void 0 : _c.a2) ? flag(BY_A3[a3].a2) + " " : ""}${((_d = BY_A3[a3]) === null || _d === void 0 ? void 0 : _d.name) || a3}`));
+                }))),
+        React.createElement("label", { className: "who-sel cw-pick yr" },
+            React.createElement("b", null, year || "Все годы"),
+            React.createElement("i", null, "\u25BE"),
+            React.createElement("select", { value: year || "", onChange: (e) => {
+                    setYear(+e.target.value || null);
+                    setSel(null);
+                } },
+                React.createElement("option", { value: "" }, "\u0412\u0441\u0435 \u0433\u043E\u0434\u044B"),
+                allYears.map((y) => (React.createElement("option", { key: y, value: y }, y)))))));
     const legend = (React.createElement("div", { className: "cw-legend" },
         CONT_ORDER.filter((k) => data.months.some((mo) => mo.c[k])).map((k) => (React.createElement("span", { key: k },
             React.createElement("i", { style: { background: CONT_COLORS[k] } }),
@@ -12863,7 +12899,7 @@ function CalendarWin({ visits, onClose, onOpenTrip }) {
             React.createElement("i", { className: "plan" }),
             "\u043F\u043B\u0430\u043D\u044B"))));
     const chart = (React.createElement("div", { className: "cw-stage" },
-        years,
+        filters,
         React.createElement(CalChart, { data: data, sel: sel, onSel: setSel }),
         legend));
     const cards = (React.createElement(React.Fragment, null,
@@ -16954,10 +16990,6 @@ button, input, select, textarea{font-family:inherit;}
 /* «Календарь поездок» во весь экран */
 .cw-map{align-items:stretch;}
 .cw-stage{flex:1 1 auto; min-width:0; min-height:0; display:flex; flex-direction:column; gap:8px; padding-top:6px;}
-.cw-years{flex:none; display:flex; gap:6px; overflow-x:auto; scrollbar-width:none; padding-bottom:2px;}
-.cw-years::-webkit-scrollbar{display:none;}
-.cw-years button{flex:none; min-height:36px; padding:0 14px; border-radius:12px; border:1px solid var(--line); background:var(--field); color:var(--dim); font-size:13px; cursor:pointer;}
-.cw-years button.on{background:var(--gold); border-color:var(--gold); color:#1a1206; font-weight:600;}
 .cw-chart{flex:1 1 auto; min-height:170px; display:grid; grid-template-columns:repeat(12, minmax(0,1fr)); gap:3px;}
 .cw-col{display:flex; flex-direction:column; align-items:center; min-width:0; border-radius:10px; padding:4px 0 2px; cursor:pointer; transition:opacity .2s, background .2s;}
 .cw-col.on{background:rgba(232,184,75,.1);}
@@ -16976,6 +17008,11 @@ button, input, select, textarea{font-family:inherit;}
 .cw-days{flex:none; font-size:12px; color:var(--dim);}
 .cw-card.plan{border-style:dashed; border-color:rgba(143,212,255,.5);}
 .pg-wide .cw-map{padding:12px;}
+.cw-filters{flex:none; display:flex; gap:8px;}
+.cw-pick{flex:1 1 0; min-width:0;}
+.cw-pick.yr{flex:0 0 38%;}
+.cw-pick b{text-align:left; color:var(--ink);}
+.cw-pick b .own-flag{width:18px; height:auto; vertical-align:-2px;}
 `;
 const __b = document.getElementById('boot');
 if (__b)
