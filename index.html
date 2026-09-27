@@ -2892,7 +2892,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "40.0";
+const APP_VERSION = "40.1";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -13128,8 +13128,11 @@ function YearsWin({ visits, geo, home, mapProps, onClose, onOpenTrip }) {
                         const id = it.t.id || it.at;
                         if ((pick === null || pick === void 0 ? void 0 : pick.id) === id)
                             onOpenTrip === null || onOpenTrip === void 0 ? void 0 : onOpenTrip(it.a3, it.t.id);
-                        else
+                        else {
+                            // касание карточки ставит её страну в фильтр — дальше всё как при выборе в списке
+                            setOnly(it.a3);
                             setPick({ a3: it.a3, id });
+                        }
                     } },
                     React.createElement("span", { className: "ww-fl" },
                         React.createElement(Flg, { a3: it.a3 })),
