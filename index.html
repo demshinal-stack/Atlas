@@ -2892,7 +2892,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "39.5";
+const APP_VERSION = "39.6";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -12744,15 +12744,14 @@ function GridChart({ grid, planGrid, vague, years, onOpen }) {
 }
 /* «Календарь поездок» во весь экран: сезоны — все годы (или один) сложены
    в 12 месяцев. Столбик — дни в пути за месяц, цвет — часть света, голубым —
-   планы. Под месяцем — самые частые страны. Внизу карточки поездок:
-   выбранного месяца или страны, иначе самая свежая поездка. */
+   планы. Внизу карточки поездок выбранного месяца, иначе самая свежая. */
 const CAL_MN = ["я", "ф", "м", "а", "м", "и", "и", "а", "с", "о", "н", "д"];
 const CAL_MONTH = [
     "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
     "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь",
 ];
 function calData(visits, year) {
-    const months = Array.from({ length: 12 }, () => ({ c: {}, plan: 0, fl: {}, trips: [] }));
+    const months = Array.from({ length: 12 }, () => ({ c: {}, plan: 0, trips: [] }));
     const years = new Set();
     const all = [];
     Object.entries(visits || {}).forEach(([a3, arr]) => (arr || []).forEach((t0) => {
@@ -12789,7 +12788,6 @@ function calData(visits, year) {
                 mo.c[cont] = (mo.c[cont] || 0) + 1;
             if (!seen.has(m)) {
                 seen.add(m);
-                mo.fl[a3] = (mo.fl[a3] || 0) + 1;
                 mo.trips.push(item);
             }
         });
@@ -12798,10 +12796,6 @@ function calData(visits, year) {
     const max = Math.max(1, ...months.map(total));
     months.forEach((mo) => {
         mo.total = total(mo);
-        mo.top = Object.entries(mo.fl)
-            .sort((x, y) => y[1] - x[1])
-            .slice(0, 2)
-            .map(([a3]) => a3);
         mo.trips.sort((x, y) => y.at - x.at);
     });
     // самая свежая — последняя уже состоявшаяся; будущих без отметки «план» не берём
@@ -12820,21 +12814,13 @@ function calData(visits, year) {
 function CalChart({ data, sel, onSel }) {
     return (React.createElement("div", { className: "cw-chart" }, data.months.map((mo, m) => {
         const on = sel && sel.m === m;
-        return (React.createElement("div", { key: m, className: "cw-col" + (on ? " on" : "") + (sel && !on ? " dim" : ""), onClick: () => onSel(on && !sel.a3 ? null : { m }) },
+        return (React.createElement("div", { key: m, className: "cw-col" + (on ? " on" : "") + (sel && !on ? " dim" : ""), onClick: () => onSel(on ? null : { m }) },
             React.createElement("div", { className: "cw-area" },
                 React.createElement("em", { className: "cw-n" }, mo.total || ""),
                 React.createElement("div", { className: "cw-bar", style: { height: `${(mo.total / data.max) * 100}%` } },
                     CONT_ORDER.filter((k) => mo.c[k]).map((k) => (React.createElement("i", { key: k, style: { flexGrow: mo.c[k], background: CONT_COLORS[k] } }))),
                     mo.plan > 0 && React.createElement("i", { className: "plan", style: { flexGrow: mo.plan } }))),
-            React.createElement("b", { className: "cw-m" }, CAL_MN[m]),
-            React.createElement("div", { className: "cw-fl" }, mo.top.map((a3) => {
-                var _c;
-                return (React.createElement("button", { key: a3, className: sel && sel.m === m && sel.a3 === a3 ? "on" : "", "aria-label": ((_c = BY_A3[a3]) === null || _c === void 0 ? void 0 : _c.name) || a3, onClick: (e) => {
-                        e.stopPropagation();
-                        onSel(sel && sel.m === m && sel.a3 === a3 ? null : { m, a3 });
-                    } },
-                    React.createElement(Flg, { a3: a3 })));
-            }))));
+            React.createElement("b", { className: "cw-m" }, CAL_MN[m])));
     })));
 }
 function CalCard({ it, onOpen }) {
@@ -12852,19 +12838,18 @@ function CalCard({ it, onOpen }) {
         React.createElement("span", { className: "cw-days" }, t.plan ? "план" : days ? `${days} дн` : "")));
 }
 function CalendarWin({ visits, onClose, onOpenTrip }) {
-    var _c;
     const [year, setYear] = useState(null);
     const [sel, setSel] = useState(null);
     const data = useMemo(() => calData(visits, year), [visits, year]);
     const allYears = useMemo(() => calData(visits, null).years, [visits]);
     const wide = useWide();
     const list = sel
-        ? data.months[sel.m].trips.filter((x) => !sel.a3 || x.a3 === sel.a3)
+        ? data.months[sel.m].trips
         : data.latest
             ? [data.latest]
             : [];
     const head = sel
-        ? `${CAL_MONTH[sel.m]}${sel.a3 ? ` · ${((_c = BY_A3[sel.a3]) === null || _c === void 0 ? void 0 : _c.name) || sel.a3}` : ""}${year ? ` ${year}` : ""} · ${np(list.length, "trip")}`
+        ? `${CAL_MONTH[sel.m]}${year ? ` ${year}` : ""} · ${np(list.length, "trip")}`
         : "Последняя поездка";
     const years = (React.createElement("div", { className: "cw-years" }, [null, ...allYears].map((y) => (React.createElement("button", { key: y || "all", className: year === y ? "on" : "", onClick: () => {
             setYear(y);
@@ -16984,10 +16969,6 @@ button, input, select, textarea{font-family:inherit;}
 .cw-bar i.plan, .cw-legend i.plan{background:repeating-linear-gradient(135deg, rgba(143,212,255,.75) 0 3px, rgba(143,212,255,.2) 3px 6px);}
 .cw-m{font-size:12px; font-weight:500; color:var(--dim); margin-top:5px;}
 .cw-col.on .cw-m{color:var(--gold); font-weight:700;}
-.cw-fl{display:flex; flex-direction:column; align-items:center; gap:2px; margin-top:3px; min-height:60px;}
-.cw-fl button{position:relative; width:30px; height:28px; padding:0; border:1px solid transparent; border-radius:8px; background:none; font-size:17px; line-height:1; cursor:pointer;}
-.cw-fl button.on{border-color:var(--gold); background:rgba(232,184,75,.12);}
-.cw-fl .own-flag{width:20px; height:auto;}
 .cw-legend{flex:none; display:flex; flex-wrap:wrap; justify-content:center; gap:4px 12px; font-size:11px; color:var(--dim);}
 .cw-legend i{display:inline-block; width:9px; height:9px; border-radius:3px; margin-right:5px; vertical-align:-1px;}
 .cw-head{margin:0 0 2px; font-size:13px; color:var(--gold);}
