@@ -2892,7 +2892,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "39.0";
+const APP_VERSION = "39.1";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -10262,7 +10262,7 @@ function NearSync({ makePayload, onData, onClose, box, profile, meAva = "", onJo
         var _c, _d, _e, _f, _g, _h, _j;
         return (React.createElement("div", { className: "sheet-body near" },
             step === "idle" && (React.createElement("p", { className: "hint small near-sub" }, "\u041F\u043E\u0435\u0437\u0434\u043A\u0438, \u043C\u0430\u0440\u0448\u0440\u0443\u0442\u044B \u0438 \u043F\u043B\u0430\u043D\u044B \u2014 \u043F\u0440\u044F\u043C\u043E \u043D\u0430 \u0441\u043E\u0441\u0435\u0434\u043D\u0438\u0439 \u0442\u0435\u043B\u0435\u0444\u043E\u043D")),
-            React.createElement("div", { className: "near-stage" + (step === "ask" ? " ask" : "") }, step === "ask" && them ? (React.createElement("div", { className: "fam-ask" },
+            React.createElement("div", { className: "near-stage" + (step === "ask" ? " ask" : "") + (step === "pair" ? " code" : "") }, step === "ask" && them ? (React.createElement("div", { className: "fam-ask" },
                 React.createElement(Ava, { src: (_c = them.me) === null || _c === void 0 ? void 0 : _c.ava, name: (_d = them.me) === null || _d === void 0 ? void 0 : _d.name, size: 64 }),
                 React.createElement("b", null, ((_e = them.me) === null || _e === void 0 ? void 0 : _e.name) || "Второй телефон"),
                 React.createElement("p", null, (() => {
@@ -16525,6 +16525,9 @@ button, input, select, textarea{font-family:inherit;}
   .near-photos em{display:none;}
   .sheet-body.near{gap:8px;}
 }
+/* экран с кодом: воздух между кодом и «Отменой» */
+.near-stage.code{margin:6px 0 22px;}
+@media (max-height:720px){ .near-stage.code{margin:2px 0 14px;} }
 `;
 const __b = document.getElementById('boot');
 if (__b)
