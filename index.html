@@ -2892,7 +2892,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "39.4";
+const APP_VERSION = "39.5";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -12742,10 +12742,169 @@ function GridChart({ grid, planGrid, vague, years, onOpen }) {
             React.createElement("i", { className: "vg" }),
             " \u043D\u0435\u0442\u043E\u0447\u043D\u0430\u044F \u0434\u0430\u0442\u0430")));
 }
+/* «Календарь поездок» во весь экран: сезоны — все годы (или один) сложены
+   в 12 месяцев. Столбик — дни в пути за месяц, цвет — часть света, голубым —
+   планы. Под месяцем — самые частые страны. Внизу карточки поездок:
+   выбранного месяца или страны, иначе самая свежая поездка. */
+const CAL_MN = ["я", "ф", "м", "а", "м", "и", "и", "а", "с", "о", "н", "д"];
+const CAL_MONTH = [
+    "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
+    "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь",
+];
+function calData(visits, year) {
+    const months = Array.from({ length: 12 }, () => ({ c: {}, plan: 0, fl: {}, trips: [] }));
+    const years = new Set();
+    const all = [];
+    Object.entries(visits || {}).forEach(([a3, arr]) => (arr || []).forEach((t0) => {
+        var _c;
+        const t = normTrip(t0);
+        if (t.approx)
+            return; // неточный период в месяцы не раскладывается
+        const a = dParts(t.from);
+        const b = dParts(t.to);
+        const cont = ((_c = BY_A3[a3]) === null || _c === void 0 ? void 0 : _c.cont) || "EU";
+        // дни по месяцам: точные даты — по календарю, иначе один день в месяце поездки
+        const put = [];
+        if (a && b) {
+            const d1 = new Date(a.y, a.m - 1, a.d);
+            const d2 = new Date(b.y, b.m - 1, b.d);
+            for (let d = new Date(d1); d <= d2 && put.length < 400; d.setDate(d.getDate() + 1))
+                put.push([d.getFullYear(), d.getMonth()]);
+        }
+        else if (a || (t.y && t.m))
+            put.push([a ? a.y : t.y, (a ? a.m : t.m) - 1]);
+        if (!put.length)
+            return;
+        put.forEach(([y]) => years.add(y));
+        const item = { a3, t, y: put[0][0], m: put[0][1], at: a ? new Date(a.y, a.m - 1, a.d).getTime() : new Date(t.y, (t.m || 1) - 1, 1).getTime() };
+        all.push(item);
+        const seen = new Set();
+        put.forEach(([y, m]) => {
+            if (year && y !== year)
+                return;
+            const mo = months[m];
+            if (t.plan)
+                mo.plan += 1;
+            else
+                mo.c[cont] = (mo.c[cont] || 0) + 1;
+            if (!seen.has(m)) {
+                seen.add(m);
+                mo.fl[a3] = (mo.fl[a3] || 0) + 1;
+                mo.trips.push(item);
+            }
+        });
+    }));
+    const total = (mo) => Object.values(mo.c).reduce((s, v) => s + v, 0) + mo.plan;
+    const max = Math.max(1, ...months.map(total));
+    months.forEach((mo) => {
+        mo.total = total(mo);
+        mo.top = Object.entries(mo.fl)
+            .sort((x, y) => y[1] - x[1])
+            .slice(0, 2)
+            .map(([a3]) => a3);
+        mo.trips.sort((x, y) => y.at - x.at);
+    });
+    // самая свежая — последняя уже состоявшаяся; будущих без отметки «план» не берём
+    const now = Date.now();
+    const done = all
+        .filter((x) => !x.t.plan && (!year || x.y === year))
+        .sort((x, y) => y.at - x.at);
+    const past = done.filter((x) => x.at <= now);
+    return {
+        months,
+        max,
+        years: [...years].sort((x, y) => y - x),
+        latest: past[0] || done[0] || null,
+    };
+}
+function CalChart({ data, sel, onSel }) {
+    return (React.createElement("div", { className: "cw-chart" }, data.months.map((mo, m) => {
+        const on = sel && sel.m === m;
+        return (React.createElement("div", { key: m, className: "cw-col" + (on ? " on" : "") + (sel && !on ? " dim" : ""), onClick: () => onSel(on && !sel.a3 ? null : { m }) },
+            React.createElement("div", { className: "cw-area" },
+                React.createElement("em", { className: "cw-n" }, mo.total || ""),
+                React.createElement("div", { className: "cw-bar", style: { height: `${(mo.total / data.max) * 100}%` } },
+                    CONT_ORDER.filter((k) => mo.c[k]).map((k) => (React.createElement("i", { key: k, style: { flexGrow: mo.c[k], background: CONT_COLORS[k] } }))),
+                    mo.plan > 0 && React.createElement("i", { className: "plan", style: { flexGrow: mo.plan } }))),
+            React.createElement("b", { className: "cw-m" }, CAL_MN[m]),
+            React.createElement("div", { className: "cw-fl" }, mo.top.map((a3) => {
+                var _c;
+                return (React.createElement("button", { key: a3, className: sel && sel.m === m && sel.a3 === a3 ? "on" : "", "aria-label": ((_c = BY_A3[a3]) === null || _c === void 0 ? void 0 : _c.name) || a3, onClick: (e) => {
+                        e.stopPropagation();
+                        onSel(sel && sel.m === m && sel.a3 === a3 ? null : { m, a3 });
+                    } },
+                    React.createElement(Flg, { a3: a3 })));
+            }))));
+    })));
+}
+function CalCard({ it, onOpen }) {
+    var _c;
+    const t = it.t;
+    const days = tripDays(t);
+    return (React.createElement("button", { className: "ww-row cw-card" + (t.plan ? " plan" : ""), onClick: () => onOpen === null || onOpen === void 0 ? void 0 : onOpen(it.a3, t.id) },
+        React.createElement("span", { className: "ww-fl" },
+            React.createElement(Flg, { a3: it.a3 })),
+        React.createElement("span", { className: "ww-nm" },
+            ((_c = BY_A3[it.a3]) === null || _c === void 0 ? void 0 : _c.name) || it.a3,
+            React.createElement("em", null,
+                tripLabel(t),
+                (t.cities || []).length ? ` · ${t.cities.join(", ")}` : "")),
+        React.createElement("span", { className: "cw-days" }, t.plan ? "план" : days ? `${days} дн` : "")));
+}
+function CalendarWin({ visits, onClose, onOpenTrip }) {
+    var _c;
+    const [year, setYear] = useState(null);
+    const [sel, setSel] = useState(null);
+    const data = useMemo(() => calData(visits, year), [visits, year]);
+    const allYears = useMemo(() => calData(visits, null).years, [visits]);
+    const wide = useWide();
+    const list = sel
+        ? data.months[sel.m].trips.filter((x) => !sel.a3 || x.a3 === sel.a3)
+        : data.latest
+            ? [data.latest]
+            : [];
+    const head = sel
+        ? `${CAL_MONTH[sel.m]}${sel.a3 ? ` · ${((_c = BY_A3[sel.a3]) === null || _c === void 0 ? void 0 : _c.name) || sel.a3}` : ""}${year ? ` ${year}` : ""} · ${np(list.length, "trip")}`
+        : "Последняя поездка";
+    const years = (React.createElement("div", { className: "cw-years" }, [null, ...allYears].map((y) => (React.createElement("button", { key: y || "all", className: year === y ? "on" : "", onClick: () => {
+            setYear(y);
+            setSel(null);
+        } }, y || "Все годы")))));
+    const legend = (React.createElement("div", { className: "cw-legend" },
+        CONT_ORDER.filter((k) => data.months.some((mo) => mo.c[k])).map((k) => (React.createElement("span", { key: k },
+            React.createElement("i", { style: { background: CONT_COLORS[k] } }),
+            CONTINENTS[k]))),
+        data.months.some((mo) => mo.plan) && (React.createElement("span", null,
+            React.createElement("i", { className: "plan" }),
+            "\u043F\u043B\u0430\u043D\u044B"))));
+    const chart = (React.createElement("div", { className: "cw-stage" },
+        years,
+        React.createElement(CalChart, { data: data, sel: sel, onSel: setSel }),
+        legend));
+    const cards = (React.createElement(React.Fragment, null,
+        React.createElement("p", { className: "cw-head" }, head),
+        list.length ? (list.map((it) => React.createElement(CalCard, { key: it.t.id || it.at, it: it, onOpen: onOpenTrip }))) : (React.createElement("p", { className: "hint small" }, "\u041F\u043E\u0435\u0437\u0434\u043E\u043A \u0441 \u0434\u0430\u0442\u0430\u043C\u0438 \u043F\u043E\u043A\u0430 \u043D\u0435\u0442."))));
+    if (wide)
+        return (React.createElement("div", { className: "pg-wide", onClick: onClose },
+            React.createElement("div", { className: "pg-panel", onClick: (e) => e.stopPropagation() },
+                React.createElement("div", { className: "pg-map cw-map" }, chart),
+                React.createElement("div", { className: "pg-side ag-side" },
+                    React.createElement("div", { className: "pg-side-head" },
+                        React.createElement("b", null, "\u041A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u044C \u043F\u043E\u0435\u0437\u0434\u043E\u043A"),
+                        React.createElement("button", { className: "zoom-x", onClick: onClose, "aria-label": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C" }, "\u2715")),
+                    React.createElement("div", { className: "ag-frame sd-frame" }, cards)))));
+    return (React.createElement("div", { className: "zoom-layer pg-layer", onClick: onClose },
+        React.createElement("div", { className: "zoom-box", onClick: (e) => e.stopPropagation() },
+            React.createElement("button", { className: "zoom-x", onClick: onClose, "aria-label": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C" }, "\u2715"),
+            React.createElement("div", { className: "zoom-body rep" },
+                React.createElement("b", null, "\u041A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u044C \u043F\u043E\u0435\u0437\u0434\u043E\u043A"),
+                React.createElement("div", { className: "pg-map far-map cw-map" }, chart),
+                React.createElement("div", { className: "ag-frame sd-frame" }, cards)))));
+}
 /* Атлас · 22 · экран отчётов.
    Части собираются по номерам в один файл (tools/rebuild.sh) и видят друг друга напрямую. */
 /* шторка отчётов */
-function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], onOpenTrip, geo, home, onPerson, onFar, onAir, onSeason, onConts, onWorld, onOften, onSolo, meName = "", repCfg = null }) {
+function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], onOpenTrip, geo, home, onPerson, onFar, onAir, onSeason, onConts, onWorld, onOften, onSolo, onCalendar, meName = "", repCfg = null }) {
     ME_NAME = meName;
     const r = useMemo(() => reportData(visits, since, people), [visits, since, people]);
     const crew = useMemo(() => travelerStats(visits, people), [visits, people, meName]);
@@ -13006,7 +13165,7 @@ function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], o
                     React.createElement("b", null, "\u0427\u0430\u0441\u0442\u0438 \u0441\u0432\u0435\u0442\u0430 \u043B\u0435\u043F\u0435\u0441\u0442\u043A\u0430\u043C\u0438"),
                     React.createElement("em", null, "\u0443 \u043A\u043E\u0433\u043E \u043A\u0430\u043A\u043E\u0439 \u043F\u0435\u0440\u0435\u043A\u043E\u0441"),
                     React.createElement(RadarChart, { rows: crewR.rows })))),
-            React.createElement(Reveal, { rid: "calendar", className: "rep" },
+            React.createElement(Reveal, { rid: "calendar", className: "rep", zoomable: false, onFull: () => onCalendar === null || onCalendar === void 0 ? void 0 : onCalendar() },
                 React.createElement("b", null, "\u041A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u044C \u043F\u043E\u0435\u0437\u0434\u043E\u043A"),
                 React.createElement("em", null, "\u0433\u043E\u0434 \u0438 \u043C\u0435\u0441\u044F\u0446, \u044F\u0440\u0447\u0435 \u2014 \u0434\u043E\u043B\u044C\u0448\u0435"),
                 React.createElement(GridChart, { grid: r.grid, planGrid: r.planGrid, vague: r.vague, years: years.slice(-8), onOpen: onOpenTrip })))))))));
@@ -14091,6 +14250,7 @@ function AtlasApp() {
     const [seasonWin, setSeasonWin] = useState(false);
     const [contsWin, setContsWin] = useState(false);
     const [worldWin, setWorldWin] = useState(false);
+    const [calWin, setCalWin] = useState(false);
     const [oftenWin, setOftenWin] = useState(false);
     const [soloWin, setSoloWin] = useState(false);
     // разбор обмена с родными: показываем, пока пользователь не решит
@@ -14223,6 +14383,7 @@ function AtlasApp() {
         setSync(null);
         setContsWin(false);
         setWorldWin(false);
+        setCalWin(false);
         setOftenWin(false);
         setSoloWin(false);
         if (typeof window !== "undefined")
@@ -15180,7 +15341,7 @@ function AtlasApp() {
                                 setSheet(null);
                             } }),
                         React.createElement(DoublesSheet, { open: sheet === "doubles", onClose: () => setSheet("settings"), box: box, pairs: doubles, people: profile.people || [], home: profile.home || null, onJoin: joinDouble }),
-                        React.createElement(ReportsSheet, { open: sheet === "reports", onClose: () => setSheet(sheetBack === "profile" ? "profile" : null), box: box, visits: visits, since: profile.since, stats: stats, people: profile.people || [], home: profile.home || null, geo: geo, onPerson: setPerson, onFar: setFar, onAir: setAirWin, onSeason: () => setSeasonWin(true), onConts: () => setContsWin(true), onWorld: () => setWorldWin(true), onOften: () => setOftenWin(true), onSolo: () => setSoloWin(true), repCfg: profile.reports || null, meName: profile.name || "", onOpenTrip: (a3, id) => {
+                        React.createElement(ReportsSheet, { open: sheet === "reports", onClose: () => setSheet(sheetBack === "profile" ? "profile" : null), box: box, visits: visits, since: profile.since, stats: stats, people: profile.people || [], home: profile.home || null, geo: geo, onPerson: setPerson, onFar: setFar, onAir: setAirWin, onSeason: () => setSeasonWin(true), onConts: () => setContsWin(true), onWorld: () => setWorldWin(true), onCalendar: () => setCalWin(true), onOften: () => setOftenWin(true), onSolo: () => setSoloWin(true), repCfg: profile.reports || null, meName: profile.name || "", onOpenTrip: (a3, id) => {
                                 setSelected(a3);
                                 setEditId(id || null);
                                 setSheet(null);
@@ -15197,6 +15358,12 @@ function AtlasApp() {
                                 setEditId(id || null);
                             }, onDone: (a3, id) => editTrip(a3, id, { plan: false }), box: box, mode: listMode, since: profile.since, wishCount: wish.length, onFilters: openFilters }),
                         seasonWin && React.createElement(SeasonWin, { visits: visits, onClose: () => setSeasonWin(false) }),
+                        calWin && (React.createElement(CalendarWin, { visits: visits, onClose: () => setCalWin(false), onOpenTrip: (a3, id) => {
+                                setCalWin(false);
+                                setSelected(a3);
+                                setEditId(id || null);
+                                setSheet(null);
+                            } })),
                         contsWin && React.createElement(ContsWin, { visits: visits, geo: geo, onClose: () => setContsWin(false) }),
                         soloWin && (React.createElement(SoloWin, { visits: visits, people: profile.people || [], geo: geo, onClose: () => setSoloWin(false), mapProps: {
                                 isOn,
@@ -15651,7 +15818,7 @@ body > div{max-width:100%;}
 .air-open-globe{flex:none; order:3;}
 .ag-side{gap:10px;}
 .ag-side .pg-side-head{padding-right:0; align-items:center; justify-content:space-between; min-height:40px;}
-.ag-side .pg-side-head .zoom-x{position:static; flex:none;}
+.ag-side .pg-side-head .zoom-x{position:relative; flex:none;}
 .ag-sel{flex:1 1 auto; min-height:0; display:flex; flex-direction:column; gap:8px;}
 .ag-sel-head{display:flex; align-items:center; gap:8px; flex-wrap:wrap;}
 .ag-sel-head b{font-size:14px;}
@@ -16798,6 +16965,36 @@ button, input, select, textarea{font-family:inherit;}
 .near-stage.code{margin:6px 0 22px;}
 @media (max-height:720px){ .near-stage.code{margin:2px 0 14px;} }
 .near-shot img.full{width:auto; height:120px; object-fit:contain; background:#000;}
+
+/* «Календарь поездок» во весь экран */
+.cw-map{align-items:stretch;}
+.cw-stage{flex:1 1 auto; min-width:0; min-height:0; display:flex; flex-direction:column; gap:8px; padding-top:6px;}
+.cw-years{flex:none; display:flex; gap:6px; overflow-x:auto; scrollbar-width:none; padding-bottom:2px;}
+.cw-years::-webkit-scrollbar{display:none;}
+.cw-years button{flex:none; min-height:36px; padding:0 14px; border-radius:12px; border:1px solid var(--line); background:var(--field); color:var(--dim); font-size:13px; cursor:pointer;}
+.cw-years button.on{background:var(--gold); border-color:var(--gold); color:#1a1206; font-weight:600;}
+.cw-chart{flex:1 1 auto; min-height:170px; display:grid; grid-template-columns:repeat(12, minmax(0,1fr)); gap:3px;}
+.cw-col{display:flex; flex-direction:column; align-items:center; min-width:0; border-radius:10px; padding:4px 0 2px; cursor:pointer; transition:opacity .2s, background .2s;}
+.cw-col.on{background:rgba(232,184,75,.1);}
+.cw-col.dim{opacity:.45;}
+.cw-area{flex:1 1 auto; width:100%; min-height:80px; display:flex; flex-direction:column; justify-content:flex-end; align-items:center;}
+.cw-n{font-style:normal; font-size:11px; color:var(--ink); margin-bottom:3px;}
+.cw-bar{width:72%; min-height:0; display:flex; flex-direction:column-reverse; border-radius:5px 5px 2px 2px; overflow:hidden; transition:height .5s ease;}
+.cw-bar i{display:block; min-height:2px; flex-basis:0;}
+.cw-bar i.plan, .cw-legend i.plan{background:repeating-linear-gradient(135deg, rgba(143,212,255,.75) 0 3px, rgba(143,212,255,.2) 3px 6px);}
+.cw-m{font-size:12px; font-weight:500; color:var(--dim); margin-top:5px;}
+.cw-col.on .cw-m{color:var(--gold); font-weight:700;}
+.cw-fl{display:flex; flex-direction:column; align-items:center; gap:2px; margin-top:3px; min-height:60px;}
+.cw-fl button{position:relative; width:30px; height:28px; padding:0; border:1px solid transparent; border-radius:8px; background:none; font-size:17px; line-height:1; cursor:pointer;}
+.cw-fl button.on{border-color:var(--gold); background:rgba(232,184,75,.12);}
+.cw-fl .own-flag{width:20px; height:auto;}
+.cw-legend{flex:none; display:flex; flex-wrap:wrap; justify-content:center; gap:4px 12px; font-size:11px; color:var(--dim);}
+.cw-legend i{display:inline-block; width:9px; height:9px; border-radius:3px; margin-right:5px; vertical-align:-1px;}
+.cw-head{margin:0 0 2px; font-size:13px; color:var(--gold);}
+.cw-card .ww-nm{flex:1 1 auto; min-width:0;}
+.cw-days{flex:none; font-size:12px; color:var(--dim);}
+.cw-card.plan{border-style:dashed; border-color:rgba(143,212,255,.5);}
+.pg-wide .cw-map{padding:12px;}
 `;
 const __b = document.getElementById('boot');
 if (__b)
