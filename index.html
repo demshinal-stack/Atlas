@@ -2897,7 +2897,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "40.5";
+const APP_VERSION = "40.6";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -4826,44 +4826,61 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
             }
             ctx.save();
             ctx.lineCap = "round";
-            ctx.strokeStyle = a.color || "#e2b551";
-            ctx.shadowColor = a.color || "#e2b551";
-            ctx.shadowBlur = a.width && a.width > 2 ? 10 : 5;
-            ctx.lineWidth = a.width || 2.6;
+            const arcCol = lt && (!a.color || a.color === "#e2b551") ? "#d08f10" : a.color || "#e2b551";
+            const arcPath = () => {
+                let open = false;
+                ctx.beginPath();
+                pts.forEach((q) => {
+                    if (!q) {
+                        open = false;
+                        return;
+                    }
+                    if (!open) {
+                        ctx.moveTo(q[0], q[1]);
+                        open = true;
+                    }
+                    else
+                        ctx.lineTo(q[0], q[1]);
+                });
+            };
             ctx.globalAlpha = a.alpha == null ? 1 : a.alpha;
             if (a.dash)
                 ctx.setLineDash([6, 5]);
-            let open = false;
-            ctx.beginPath();
-            pts.forEach((q) => {
-                if (!q) {
-                    open = false;
-                    return;
-                }
-                if (!open) {
-                    ctx.moveTo(q[0], q[1]);
-                    open = true;
-                }
-                else
-                    ctx.lineTo(q[0], q[1]);
-            });
+            // светлая тема: тёмная подложка под дугой, иначе золото сливается со светлым шаром
+            if (lt) {
+                ctx.strokeStyle = "rgba(20,45,70,.42)";
+                ctx.lineWidth = (a.width || 2.6) + 2.2;
+                arcPath();
+                ctx.stroke();
+            }
+            ctx.strokeStyle = arcCol;
+            ctx.shadowColor = lt ? "transparent" : arcCol;
+            ctx.shadowBlur = lt ? 0 : a.width && a.width > 2 ? 10 : 5;
+            ctx.lineWidth = a.width || 2.6;
+            arcPath();
             ctx.stroke();
             const end = pts[N];
             if (end) {
                 ctx.beginPath();
                 ctx.arc(end[0], end[1], a.dot || 3, 0, Math.PI * 2);
-                ctx.fillStyle = a.color === "#8fd4ff" ? "#8fd4ff" : "#f4efe2";
+                ctx.fillStyle = a.color === "#8fd4ff" ? "#8fd4ff" : lt ? "#ffffff" : "#f4efe2";
                 ctx.shadowBlur = 0;
                 ctx.globalAlpha = 1;
                 ctx.fill();
+                if (lt) {
+                    ctx.setLineDash([]);
+                    ctx.strokeStyle = "rgba(20,45,70,.7)";
+                    ctx.lineWidth = 1.3;
+                    ctx.stroke();
+                }
                 if (a.tag) {
                     // плашка с флагом у конца дуги
                     ctx.font = "13px system-ui, -apple-system, sans-serif";
                     const tw = ctx.measureText(a.tag).width + 14;
                     const tx = Math.min(size - tw - 4, Math.max(4, end[0] - tw / 2));
                     const ty = Math.max(14, end[1] - 22);
-                    ctx.fillStyle = "rgba(10,20,32,.88)";
-                    ctx.strokeStyle = "rgba(143,179,214,.35)";
+                    ctx.fillStyle = lt ? "rgba(255,255,255,.94)" : "rgba(10,20,32,.88)";
+                    ctx.strokeStyle = lt ? "rgba(70,110,150,.35)" : "rgba(143,179,214,.35)";
                     ctx.lineWidth = 1;
                     const rr = 7;
                     ctx.beginPath();
@@ -4875,7 +4892,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                     ctx.closePath();
                     ctx.fill();
                     ctx.stroke();
-                    ctx.fillStyle = "#e6edf4";
+                    ctx.fillStyle = lt ? "#16242f" : "#e6edf4";
                     ctx.textBaseline = "middle";
                     ctx.fillText(a.tag, tx + 7, ty + 11);
                 }
@@ -4923,13 +4940,20 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                 ctx.save();
                 ctx.lineCap = "round";
                 // весь путь едва заметно, пройденный — ярче
-                ctx.strokeStyle = "rgba(244,239,226,1)";
+                ctx.strokeStyle = lt ? "rgba(20,45,70,1)" : "rgba(244,239,226,1)";
                 ctx.lineWidth = 1;
-                ctx.globalAlpha = 0.35 * fade;
+                ctx.globalAlpha = (lt ? 0.3 : 0.35) * fade;
                 trace(0, N);
-                ctx.strokeStyle = "#e8b84b";
-                ctx.shadowColor = "rgba(232,184,75,.7)";
-                ctx.shadowBlur = 4;
+                if (lt) {
+                    // светлая тема: тёмная подложка под пройденным путём
+                    ctx.strokeStyle = "rgba(20,45,70,.45)";
+                    ctx.lineWidth = 3.4;
+                    ctx.globalAlpha = 0.9 * fade;
+                    trace(0, Math.min(N, i0 + 1));
+                }
+                ctx.strokeStyle = lt ? "#d08f10" : "#e8b84b";
+                ctx.shadowColor = lt ? "transparent" : "rgba(232,184,75,.7)";
+                ctx.shadowBlur = lt ? 0 : 4;
                 ctx.lineWidth = 1.6;
                 ctx.globalAlpha = 0.95 * fade;
                 trace(0, Math.min(N, i0 + 1));
@@ -4943,10 +4967,11 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                     ctx.shadowBlur = 0;
                     ctx.translate(x, y);
                     ctx.rotate(Math.atan2(p1[1] - p0[1], p1[0] - p0[0]) + Math.PI / 2);
-                    ctx.scale(0.75, 0.75);
-                    ctx.fillStyle = "#f4efe2";
-                    ctx.strokeStyle = "rgba(8,16,26,.8)";
-                    ctx.lineWidth = 1.4;
+                    // светлая тема: тёмный самолётик с белой обводкой — виден на светлом шаре
+                    ctx.scale(lt ? 0.85 : 0.75, lt ? 0.85 : 0.75);
+                    ctx.fillStyle = lt ? "#1f3b57" : "#f4efe2";
+                    ctx.strokeStyle = lt ? "#ffffff" : "rgba(8,16,26,.8)";
+                    ctx.lineWidth = lt ? 2.2 : 1.4;
                     ctx.beginPath();
                     PLANE.forEach(([px, py], i) => (i ? ctx.lineTo(px, py) : ctx.moveTo(px, py)));
                     ctx.closePath();
@@ -8318,12 +8343,14 @@ function SpanGlobe({ rows, geo, home }) {
             return { x: cx + x * k, y: cy + y * k, z, hidden };
         };
         const draw = (time) => {
+            var _c;
             proj.rotate(rot.current);
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
             ctx.clearRect(0, 0, w, w);
+            const lt = !!((_c = c.closest) === null || _c === void 0 ? void 0 : _c.call(c, ".root.light")); // светлая тема — светлый шар и контрастные дуги
             // атмосфера
             const halo = ctx.createRadialGradient(cx, cy, R * 0.92, cx, cy, R * 1.18);
-            halo.addColorStop(0, "rgba(120,180,230,.20)");
+            halo.addColorStop(0, lt ? "rgba(90,140,190,.16)" : "rgba(120,180,230,.20)");
             halo.addColorStop(1, "rgba(120,180,230,0)");
             ctx.fillStyle = halo;
             ctx.beginPath();
@@ -8331,23 +8358,23 @@ function SpanGlobe({ rows, geo, home }) {
             ctx.fill();
             // сам шар
             const ball = ctx.createRadialGradient(cx - R * 0.35, cy - R * 0.4, R * 0.1, cx, cy, R);
-            ball.addColorStop(0, "#16344f");
-            ball.addColorStop(1, "#091a2a");
+            ball.addColorStop(0, lt ? "#f4f8fb" : "#16344f");
+            ball.addColorStop(1, lt ? "#c9dcec" : "#091a2a");
             ctx.beginPath();
             path({ type: "Sphere" });
             ctx.fillStyle = ball;
             ctx.fill();
             ctx.beginPath();
             path(grat);
-            ctx.strokeStyle = "rgba(130,165,200,.13)";
+            ctx.strokeStyle = lt ? "rgba(70,110,150,.14)" : "rgba(130,165,200,.13)";
             ctx.lineWidth = 0.5;
             ctx.stroke();
             ((geo === null || geo === void 0 ? void 0 : geo.features) || []).forEach((f) => {
                 ctx.beginPath();
                 path(f);
-                ctx.fillStyle = "rgba(125,160,195,.26)";
+                ctx.fillStyle = lt ? "rgba(110,160,205,.42)" : "rgba(125,160,195,.26)";
                 ctx.fill();
-                ctx.strokeStyle = "rgba(160,195,225,.22)";
+                ctx.strokeStyle = lt ? "rgba(255,255,255,.7)" : "rgba(160,195,225,.22)";
                 ctx.lineWidth = 0.4;
                 ctx.stroke();
             });
@@ -8366,24 +8393,33 @@ function SpanGlobe({ rows, geo, home }) {
                 ctx.lineCap = "round";
                 ctx.lineJoin = "round";
                 // за шаром дуга прячется — как и положено при повороте
-                ctx.shadowColor = a.who.color;
-                ctx.shadowBlur = 7;
+                const line = () => {
+                    let open = false;
+                    ctx.beginPath();
+                    pts.forEach((q) => {
+                        if (q.hidden) {
+                            open = false;
+                            return;
+                        }
+                        if (!open) {
+                            ctx.moveTo(q.x, q.y);
+                            open = true;
+                        }
+                        else
+                            ctx.lineTo(q.x, q.y);
+                    });
+                };
+                if (lt) {
+                    ctx.strokeStyle = "rgba(20,45,70,.4)";
+                    ctx.lineWidth = 4.6;
+                    line();
+                    ctx.stroke();
+                }
+                ctx.shadowColor = lt ? "transparent" : a.who.color;
+                ctx.shadowBlur = lt ? 0 : 7;
                 ctx.strokeStyle = a.who.color;
                 ctx.lineWidth = 2.4;
-                let open = false;
-                ctx.beginPath();
-                pts.forEach((q) => {
-                    if (q.hidden) {
-                        open = false;
-                        return;
-                    }
-                    if (!open) {
-                        ctx.moveTo(q.x, q.y);
-                        open = true;
-                    }
-                    else
-                        ctx.lineTo(q.x, q.y);
-                });
+                line();
                 ctx.stroke();
                 // бегущий блик вдоль видимой части
                 ctx.globalAlpha = 0.5;
@@ -8460,11 +8496,17 @@ function SpanGlobe({ rows, geo, home }) {
                     ctx.lineTo(-1.9, -3.5);
                     ctx.closePath();
                     ctx.fillStyle = a.who.color;
-                    ctx.shadowColor = a.who.color;
-                    ctx.shadowBlur = 8;
+                    ctx.shadowColor = lt ? "transparent" : a.who.color;
+                    ctx.shadowBlur = lt ? 0 : 8;
+                    if (lt) {
+                        // светлая тема: белая обводка под самолётом и тёмный контур
+                        ctx.lineWidth = 3;
+                        ctx.strokeStyle = "#ffffff";
+                        ctx.stroke();
+                    }
                     ctx.fill();
-                    ctx.lineWidth = 0.8;
-                    ctx.strokeStyle = "rgba(10,20,32,.75)";
+                    ctx.lineWidth = lt ? 1.1 : 0.8;
+                    ctx.strokeStyle = lt ? "rgba(20,45,70,.9)" : "rgba(10,20,32,.75)";
                     ctx.shadowBlur = 0;
                     ctx.stroke();
                     ctx.restore();
@@ -8482,7 +8524,7 @@ function SpanGlobe({ rows, geo, home }) {
                     return;
                 ctx.beginPath();
                 ctx.arc(s.x, s.y, 4.4, 0, Math.PI * 2);
-                ctx.fillStyle = "#f4efe2";
+                ctx.fillStyle = lt ? "#ffffff" : "#f4efe2";
                 ctx.fill();
                 ctx.strokeStyle = "rgba(9,19,31,.8)";
                 ctx.lineWidth = 1.4;
@@ -9074,35 +9116,37 @@ function PersonGlobe({ row, home, geo, onClose, mapProps }) {
             return { x: cx + x * k, y: cy + y * k, hidden: z < 0 && Math.hypot(x, y) * (1 + lift) < 1 };
         };
         const draw = (time) => {
+            var _c;
             fit();
             proj.rotate(rot.current);
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
             ctx.clearRect(0, 0, w, w);
+            const lt = !!((_c = c.closest) === null || _c === void 0 ? void 0 : _c.call(c, ".root.light")); // светлая тема — светлый шар и контрастные дуги
             const halo = ctx.createRadialGradient(cx, cy, R * 0.92, cx, cy, R * 1.16);
-            halo.addColorStop(0, "rgba(120,180,230,.18)");
+            halo.addColorStop(0, lt ? "rgba(90,140,190,.16)" : "rgba(120,180,230,.18)");
             halo.addColorStop(1, "rgba(120,180,230,0)");
             ctx.fillStyle = halo;
             ctx.beginPath();
             ctx.arc(cx, cy, R * 1.16, 0, Math.PI * 2);
             ctx.fill();
             const ball = ctx.createRadialGradient(cx - R * 0.35, cy - R * 0.4, R * 0.1, cx, cy, R);
-            ball.addColorStop(0, "#16344f");
-            ball.addColorStop(1, "#091a2a");
+            ball.addColorStop(0, lt ? "#f4f8fb" : "#16344f");
+            ball.addColorStop(1, lt ? "#c9dcec" : "#091a2a");
             ctx.beginPath();
             path({ type: "Sphere" });
             ctx.fillStyle = ball;
             ctx.fill();
             ctx.beginPath();
             path(grat);
-            ctx.strokeStyle = "rgba(130,165,200,.12)";
+            ctx.strokeStyle = lt ? "rgba(70,110,150,.14)" : "rgba(130,165,200,.12)";
             ctx.lineWidth = 0.5;
             ctx.stroke();
             ((geo === null || geo === void 0 ? void 0 : geo.features) || []).forEach((f) => {
                 ctx.beginPath();
                 path(f);
-                ctx.fillStyle = "rgba(125,160,195,.24)";
+                ctx.fillStyle = lt ? "rgba(110,160,205,.42)" : "rgba(125,160,195,.24)";
                 ctx.fill();
-                ctx.strokeStyle = "rgba(160,195,225,.2)";
+                ctx.strokeStyle = lt ? "rgba(255,255,255,.7)" : "rgba(160,195,225,.2)";
                 ctx.lineWidth = 0.4;
                 ctx.stroke();
             });
@@ -9122,33 +9166,49 @@ function PersonGlobe({ row, home, geo, onClose, mapProps }) {
                 hits.push({ key: q.key, pts });
                 ctx.save();
                 ctx.lineCap = "round";
-                ctx.strokeStyle = on ? "#8fd4ff" : row.color;
-                ctx.shadowColor = on ? "#8fd4ff" : row.color;
-                ctx.shadowBlur = on ? 10 : 5;
+                const selC = lt ? "#2b7fd0" : "#8fd4ff";
+                const ray = () => {
+                    let open = false;
+                    ctx.beginPath();
+                    pts.forEach((s2) => {
+                        if (s2.hidden) {
+                            open = false;
+                            return;
+                        }
+                        if (!open) {
+                            ctx.moveTo(s2.x, s2.y);
+                            open = true;
+                        }
+                        else
+                            ctx.lineTo(s2.x, s2.y);
+                    });
+                };
                 ctx.globalAlpha = on ? 1 : selRef.current ? 0.28 : 0.5 + 0.4 * (q.km / far);
-                ctx.lineWidth = on ? 2.6 : 0.9 + 1.1 * (q.km / far);
-                let open = false;
-                ctx.beginPath();
-                pts.forEach((s2) => {
-                    if (s2.hidden) {
-                        open = false;
-                        return;
-                    }
-                    if (!open) {
-                        ctx.moveTo(s2.x, s2.y);
-                        open = true;
-                    }
-                    else
-                        ctx.lineTo(s2.x, s2.y);
-                });
+                const lw = on ? 2.6 : 0.9 + 1.1 * (q.km / far);
+                if (lt) {
+                    ctx.strokeStyle = "rgba(20,45,70,.35)";
+                    ctx.lineWidth = lw + 1.8;
+                    ray();
+                    ctx.stroke();
+                }
+                ctx.strokeStyle = on ? selC : row.color;
+                ctx.shadowColor = lt ? "transparent" : on ? selC : row.color;
+                ctx.shadowBlur = lt ? 0 : on ? 10 : 5;
+                ctx.lineWidth = lw;
+                ray();
                 ctx.stroke();
                 ctx.restore();
                 const end = place([q.lon, q.lat], 0);
                 if (!end.hidden) {
                     ctx.beginPath();
                     ctx.arc(end.x, end.y, on ? 4 : 2.1 + (q.n > 1 ? 1.1 : 0), 0, Math.PI * 2);
-                    ctx.fillStyle = on ? "#8fd4ff" : "#f4efe2";
+                    ctx.fillStyle = on ? (lt ? "#2b7fd0" : "#8fd4ff") : lt ? "#ffffff" : "#f4efe2";
                     ctx.fill();
+                    if (lt) {
+                        ctx.strokeStyle = "rgba(20,45,70,.7)";
+                        ctx.lineWidth = 1;
+                        ctx.stroke();
+                    }
                 }
             });
             hitRef.current = hits;
@@ -12594,12 +12654,12 @@ function SeasonDial({ data, sel, onSel, play = false, size = 300 }) {
             React.createElement("g", { transform: `translate(${cx} ${cy - size * 0.135}) scale(${size / 300})` },
                 React.createElement("path", { d: "M9 1.5v-1a1 1 0 0 0-2 0v1L1 5v1.5l6-1.5V9L5 10.5V12l3-1 3 1v-1.5L9 9V5l6 1.5V5z", transform: "translate(-8 -6)", fill: "#9cc9ee" })),
             cur ? (React.createElement(React.Fragment, null,
-                React.createElement("text", { x: cx, y: cy - size * 0.055, textAnchor: "middle", fontSize: size * 0.042, fontWeight: "600", fill: "#e6edf4" }, MONTHS[cur.i][0].toUpperCase() + MONTHS[cur.i].slice(1)),
+                React.createElement("text", { x: cx, y: cy - size * 0.055, textAnchor: "middle", fontSize: size * 0.042, fontWeight: "600", fill: "var(--ink)" }, MONTHS[cur.i][0].toUpperCase() + MONTHS[cur.i].slice(1)),
                 React.createElement("text", { x: cx, y: cy + size * 0.045, textAnchor: "middle", fontSize: size * 0.085, fontWeight: "700", fill: "var(--gold)" }, pct(cur.share)),
                 React.createElement("text", { x: cx, y: cy + size * 0.09, textAnchor: "middle", fontSize: size * 0.028, fill: "var(--dim)" }, np(cur.n, "trip")),
                 React.createElement("text", { x: cx, y: cy + size * 0.135, textAnchor: "middle", fontSize: size * 0.026, fill: "var(--gold)" }, "\u21BA \u0432\u0441\u0435 \u043C\u0435\u0441\u044F\u0446\u044B"))) : (React.createElement(React.Fragment, null,
-                React.createElement("text", { x: cx, y: cy - size * 0.075, textAnchor: "middle", fontSize: size * 0.032, fill: "#e6edf4" }, "\u0421\u0435\u0437\u043E\u043D"),
-                React.createElement("text", { x: cx, y: cy - size * 0.04, textAnchor: "middle", fontSize: size * 0.032, fill: "#e6edf4" }, "\u043F\u0443\u0442\u0435\u0448\u0435\u0441\u0442\u0432\u0438\u0439"),
+                React.createElement("text", { x: cx, y: cy - size * 0.075, textAnchor: "middle", fontSize: size * 0.032, fill: "var(--ink)" }, "\u0421\u0435\u0437\u043E\u043D"),
+                React.createElement("text", { x: cx, y: cy - size * 0.04, textAnchor: "middle", fontSize: size * 0.032, fill: "var(--ink)" }, "\u043F\u0443\u0442\u0435\u0448\u0435\u0441\u0442\u0432\u0438\u0439"),
                 data.season && (React.createElement(React.Fragment, null,
                     React.createElement("text", { x: cx, y: cy - size * 0.003, textAnchor: "middle", fontSize: size * 0.028, fill: "var(--dim)" },
                         MON3[data.season.from],
@@ -17294,7 +17354,7 @@ button, input, select, textarea{font-family:inherit;}
 /* шар в «Частях света» и в обмене */
 .root.light #dgball stop:nth-child(1), .root.light #nhGlobe stop:nth-child(1), .root.light #noGlobe stop:nth-child(1){stop-color:#eef4f9;}
 .root.light #dgball stop:nth-child(2), .root.light #nhGlobe stop:nth-child(2), .root.light #noGlobe stop:nth-child(2){stop-color:#cddfee;}
-.root.light .donut-globe path{fill:#8fb6d6;}
+.root.light .donut-globe path{fill:#a9c6df;}
 .root.light .donut-globe g{opacity:.8;}
 .root.light .donut-globe > circle:last-child{stroke:rgba(70,110,150,.35);}
 /* телефоны на картинке обмена */
@@ -17319,6 +17379,13 @@ button, input, select, textarea{font-family:inherit;}
 .root.light .shelf-cell i{filter:grayscale(1) brightness(1.15) opacity(.45);}
 .root.light .shelf-cell.got i{filter:none;}
 .root.light .shelf-cell.wish i{filter:grayscale(.5) opacity(.8);}
+/* 40.6: графики — пунктирные направляющие, плашки, линия тренда, подписи по центру */
+.root.light svg line[stroke-dasharray="3 3"]{stroke:#5d7386; opacity:.9;}
+.root.light svg [stroke="#22384d"]{stroke:#c9d6e2;}
+.root.light svg polyline[stroke="#c3ced9"]{stroke:#8d9fb0;}
+.root.light svg text[fill="#e2b551"]{fill:#c98a0c;}
+.root.light .donut-globe ~ g text{paint-order:stroke; stroke:rgba(255,255,255,.85); stroke-width:5px; stroke-linejoin:round;}
+.root.light .near-orb .orb-spin{stroke:rgba(70,110,150,.32);}
 `;
 const __b = document.getElementById('boot');
 if (__b)
