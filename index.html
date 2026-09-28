@@ -2897,7 +2897,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "40.6";
+const APP_VERSION = "40.7";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -7349,7 +7349,7 @@ function SettingsSheet({ reportsCfg, onReportsCfg, open, onClose, box, theme, on
                 React.createElement("b", null, where)),
             React.createElement("div", { className: "about-row" },
                 React.createElement("span", null, "\u0413\u0440\u0430\u043D\u0438\u0446\u044B"),
-                React.createElement("b", null, geoCount ? `${geoCount} стран` : "по контурам материков")),
+                React.createElement("b", null, geoCount ? np(geoCount, "country") : "по контурам материков")),
             React.createElement("button", { className: "switch-row", onClick: onReloadGeo },
                 React.createElement("span", { className: "switch-text" },
                     "\u041E\u0431\u043D\u043E\u0432\u0438\u0442\u044C \u043A\u0430\u0440\u0442\u0443 \u0433\u0440\u0430\u043D\u0438\u0446",
@@ -14448,13 +14448,13 @@ function useExchange(x) {
         const count = Object.keys(best.v.visits).length;
         const now = Object.keys(visits).length;
         if (count <= now) {
-            setRestoreMsg(`Всё на месте: ${now} стран, это самая полная копия.`);
+            setRestoreMsg(`Всё на месте: ${np(now, "country")}, это самая полная копия.`);
             return;
         }
         loaded.current = true;
         setVisits(best.v.visits);
         await store.set(K_DATA, best.v);
-        setRestoreMsg(`Восстановлено ${count} стран · ${best.where}`);
+        setRestoreMsg(`Восстановлено ${np(count, "country")} · ${best.where}`);
     }, [visits]);
     return { exportData, meAva, nearPayload, applySync, restoreMsg, importAsk, joinMember, familyOps, restoreData, who, whoDone, whoCancel };
 }
@@ -15600,8 +15600,7 @@ function AtlasApp() {
                                         "\u0438\u0437 ",
                                         TOTAL,
                                         " \u0441\u0442\u0440\u0430\u043D \u00B7 ",
-                                        stats.trips,
-                                        " \u043F\u043E\u0435\u0437\u0434\u043E\u043A"))),
+                                        np(stats.trips, "trip")))),
                             React.createElement("p", { className: "focus-empty" }, mapView === "map"
                                 ? "Нажмите страну на карте, чтобы посмотреть её."
                                 : "Поверните глобус и нажмите страну, чтобы посмотреть её.")))),
