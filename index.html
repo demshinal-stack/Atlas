@@ -2897,7 +2897,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "41.2";
+const APP_VERSION = "41.3";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -11878,7 +11878,7 @@ function Saturn({ name, n, tone = 0, size = 120, id = "s", orbit = true, label: 
     const u = `sat${id}`;
     const label = String(name || "");
     const plateW = Math.min(196 * Math.max(1, ls / 1.25), Math.max(74, (label.length * 11 + 26) * ls));
-    return (React.createElement("svg", { className: "dg-planet", viewBox: "0 0 200 250", style: { overflow: "visible" }, width: size, height: size * 1.25 },
+    return (React.createElement("svg", { className: "dg-planet", viewBox: "0 0 200 250", style: { overflow: "visible", "--pc": t.c, "--pb": t.b }, width: size, height: size * 1.25 },
         React.createElement("defs", null,
             React.createElement("linearGradient", { id: `${u}-ring`, x1: "0%", y1: "0%", x2: "100%", y2: "0%" },
                 React.createElement("stop", { offset: "0%", stopColor: t.r1 }),
@@ -11890,9 +11890,9 @@ function Saturn({ name, n, tone = 0, size = 120, id = "s", orbit = true, label: 
                 React.createElement("stop", { offset: "0%", stopColor: "#fff", stopOpacity: ".26" }),
                 React.createElement("stop", { offset: "65%", stopColor: "#fff", stopOpacity: ".08" }),
                 React.createElement("stop", { offset: "100%", stopColor: "#fff", stopOpacity: "0" })),
-            React.createElement("linearGradient", { id: `${u}-plate`, x1: "0%", y1: "0%", x2: "0%", y2: "100%" },
-                React.createElement("stop", { offset: "0%", stopColor: t.r2 }),
-                React.createElement("stop", { offset: "100%", stopColor: t.r1 })),
+            React.createElement("linearGradient", { id: `${u}-lglass`, x1: "0%", y1: "0%", x2: "0%", y2: "100%" },
+                React.createElement("stop", { offset: "0%", stopColor: t.b, stopOpacity: ".22" }),
+                React.createElement("stop", { offset: "100%", stopColor: t.c, stopOpacity: ".34" })),
             React.createElement("radialGradient", { id: `${u}-glass`, cx: "50%", cy: "50%", r: "50%" },
                 React.createElement("stop", { offset: "0%", stopColor: t.b, stopOpacity: ".14" }),
                 React.createElement("stop", { offset: "72%", stopColor: t.b, stopOpacity: ".26" }),
@@ -11921,8 +11921,8 @@ function Saturn({ name, n, tone = 0, size = 120, id = "s", orbit = true, label: 
                 React.createElement("path", { fill: t.b, fillRule: "evenodd", d: RING_PLATE, opacity: ".12" }))),
         React.createElement("path", { d: "M 100 140 L 100 197", stroke: t.r1, strokeWidth: "4", strokeLinecap: "round", fill: "none" }),
         React.createElement("circle", { cx: "100", cy: "100", r: SR, fill: `url(#${u}-glass)` }),
-        React.createElement("circle", { cx: "100", cy: "100", r: SR, fill: "none", stroke: t.a, strokeOpacity: ".75", strokeWidth: "1.6" }),
-        React.createElement("g", { fill: "none", stroke: t.a, strokeWidth: "1.4" }, GLASS_GRID),
+        React.createElement("circle", { className: "dg-rim", cx: "100", cy: "100", r: SR, fill: "none", stroke: t.a, strokeOpacity: ".75", strokeWidth: "1.6" }),
+        React.createElement("g", { className: "dg-grid", fill: "none", stroke: t.a, strokeWidth: "1.4" }, GLASS_GRID),
         React.createElement("ellipse", { cx: "78", cy: "72", rx: "16", ry: "22", fill: "#fff", fillOpacity: ".22", transform: "rotate(-25 78 72)" }),
         React.createElement("ellipse", { cx: "73", cy: "66", rx: "5", ry: "8", fill: "#fff", fillOpacity: ".45", transform: "rotate(-25 73 66)" }),
         React.createElement("g", { clipPath: `url(#${u}-in)` },
@@ -11932,9 +11932,26 @@ function Saturn({ name, n, tone = 0, size = 120, id = "s", orbit = true, label: 
             React.createElement("path", { fill: `url(#${u}-ring)`, fillRule: "evenodd", d: RING_PLATE }),
             React.createElement("path", { fill: "none", stroke: t.a, strokeOpacity: ".8", strokeWidth: "1", d: "M 2 100 a 98 26 0 1 0 196 0" }),
             React.createElement("path", { fill: "none", stroke: t.c, strokeOpacity: ".6", strokeWidth: "1", d: "M 22 100 a 78 20 0 1 0 156 0" })),
-        React.createElement("g", { className: "dg-sign" },
-            React.createElement("rect", { x: 100 - plateW / 2, y: "196", width: plateW, height: 34 * ls, rx: "10", fill: `url(#${u}-plate)`, stroke: t.r1, strokeWidth: "1.5" }),
-            React.createElement("text", { x: "100", y: 218 + 11 * (ls - 1), textAnchor: "middle", fontSize: 19 * ls, fontWeight: "800", fill: t.t, textLength: Math.min(plateW - 16, label.length * 11 * ls), lengthAdjust: "spacingAndGlyphs" }, label))));
+        (() => {
+            const f = 19 * ls * 0.92;
+            const h = f * 1.64;
+            const w = Math.min(plateW + 20, Math.max(70, label.length * f * 0.645 + f * 1.55));
+            const x = 100 - w / 2;
+            const y = 197;
+            const ty = y + h * 0.69;
+            const tl = Math.min(w - f * 1.2, label.length * f * 0.6);
+            return (React.createElement(React.Fragment, null,
+                React.createElement("g", { className: "dg-sign dg-sign-d" },
+                    React.createElement("rect", { x: x, y: y, width: w, height: h, rx: h / 2, fill: t.b, fillOpacity: ".16", stroke: t.a, strokeOpacity: ".7", strokeWidth: "1.4" }),
+                    React.createElement("rect", { x: x + 3, y: y + 2, width: w - 6, height: h * 0.36, rx: h * 0.18, fill: "#fff", fillOpacity: ".1" }),
+                    React.createElement("text", { x: "100", y: ty, textAnchor: "middle", fontSize: f, fontWeight: "700", fill: t.a, textLength: tl, lengthAdjust: "spacingAndGlyphs", style: { paintOrder: "stroke", stroke: "rgba(8,16,26,.55)", strokeWidth: 3 } }, label)),
+                React.createElement("g", { className: "dg-sign dg-sign-l" },
+                    React.createElement("rect", { x: x, y: y + 3, width: w, height: h, rx: h / 2, fill: t.c, opacity: ".18" }),
+                    React.createElement("rect", { x: x, y: y, width: w, height: h, rx: h / 2, fill: `url(#${u}-lglass)`, stroke: t.c, strokeOpacity: ".55", strokeWidth: "1.3" }),
+                    React.createElement("rect", { x: x + 4, y: y + 2.5, width: w - 8, height: h * 0.33, rx: h * 0.165, fill: "#fff", fillOpacity: ".75" }),
+                    React.createElement("path", { d: `M ${x + 12} ${y + h - 4.5} L ${x + w - 12} ${y + h - 4.5}`, stroke: "#fff", strokeOpacity: ".6", strokeWidth: "1.2", strokeLinecap: "round" }),
+                    React.createElement("text", { x: "100", y: ty, textAnchor: "middle", fontSize: f, fontWeight: "700", fill: t.t, textLength: tl, lengthAdjust: "spacingAndGlyphs", style: { paintOrder: "stroke", stroke: "rgba(255,255,255,.55)", strokeWidth: 2.5 } }, label))));
+        })()));
 }
 /* «Догоняй» в ленте: тройка лидеров.
    Когда карточка впервые показывается на экране, планеты по очереди поднимаются
@@ -17673,6 +17690,14 @@ button, input, select, textarea{font-family:inherit;}
    прячутся за прямоугольником карты и «растворяются» в пустоте. Фон — у самой сцены */
 .dg-stage .map-wrap{background:none; border-color:transparent; box-shadow:none;}
 .pg-wide .dg-stage{background:var(--el); border:1px solid var(--line); border-radius:16px;}
+
+/* табличка планеты: тёмная/светлая копия */
+.dg-sign-l{display:none;}
+.root.light .dg-sign-l{display:inline;}
+.root.light .dg-sign-d{display:none;}
+/* светлая тема: сетка и край стеклянной планеты темнее, иначе белое стекло теряется на белом */
+.root.light .dg-planet .dg-grid{stroke:var(--pc);}
+.root.light .dg-planet .dg-rim{stroke:var(--pc); stroke-opacity:.6;}
 `;
 const __b = document.getElementById('boot');
 if (__b)
