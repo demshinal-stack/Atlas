@@ -2465,6 +2465,8 @@ function findDoubles(visits) {
     });
     return pairs;
 }
+/* ключ пары похожих поездок: по нему помним «это разные, оставить как есть» */
+const doubleKey = (pr) => { var _c, _d; return [((_c = pr.a) === null || _c === void 0 ? void 0 : _c.id) || `${pr.a3}:${tripLabel(pr.a)}`, ((_d = pr.b) === null || _d === void 0 ? void 0 : _d.id) || `${pr.a3}:${tripLabel(pr.b)}`].sort().join("+"); };
 /* склейка двух поездок в одну: берём всё лучшее */
 function joinTrips(a, b) {
     const uniq = (x = [], y = []) => [...new Set([...x, ...y])];
@@ -2892,7 +2894,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "40.2";
+const APP_VERSION = "40.3";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -13493,9 +13495,9 @@ function ShelfSheet({ open, onClose, box, isOn, isWish, onPick }) {
         }))))))));
 }
 /* шторка: похожие поездки — предлагаем объединить */
-function DoublesSheet({ open, onClose, box, pairs, people, onJoin }) {
+function DoublesSheet({ open, onClose, box, pairs, people, onJoin, onKeep }) {
     return (React.createElement(Sheet, { open: open, onClose: onClose, title: "\u041F\u043E\u0445\u043E\u0436\u0438\u0435 \u043F\u043E\u0435\u0437\u0434\u043A\u0438", box: box }, () => (React.createElement("div", { className: "sheet-body" }, pairs.length === 0 ? (React.createElement("p", { className: "hint small" }, "\u0421\u043E\u0432\u043F\u0430\u0434\u0435\u043D\u0438\u0439 \u043D\u0435\u0442.")) : (React.createElement(React.Fragment, null,
-        React.createElement("p", { className: "hint small" }, "\u0414\u0430\u0442\u044B \u044D\u0442\u0438\u0445 \u043F\u043E\u0435\u0437\u0434\u043E\u043A \u043F\u0435\u0440\u0435\u0441\u0435\u043A\u0430\u044E\u0442\u0441\u044F \u2014 \u0432\u043E\u0437\u043C\u043E\u0436\u043D\u043E, \u043E\u0434\u043D\u0430 \u0438 \u0442\u0430 \u0436\u0435 \u0437\u0430\u043F\u0438\u0441\u0430\u043D\u0430 \u0434\u0432\u0430\u0436\u0434\u044B. \u041E\u0431\u044A\u0435\u0434\u0438\u043D\u0435\u043D\u0438\u0435 \u0441\u043E\u0445\u0440\u0430\u043D\u0438\u0442 \u0433\u043E\u0440\u043E\u0434\u0430, \u043E\u0442\u0435\u043B\u0438, \u0443\u0447\u0430\u0441\u0442\u043D\u0438\u043A\u043E\u0432 \u0438 \u0441\u043D\u0438\u043C\u043A\u0438 \u043E\u0431\u0435\u0438\u0445."),
+        React.createElement("p", { className: "hint small" }, "\u0414\u0430\u0442\u044B \u044D\u0442\u0438\u0445 \u043F\u043E\u0435\u0437\u0434\u043E\u043A \u043F\u0435\u0440\u0435\u0441\u0435\u043A\u0430\u044E\u0442\u0441\u044F \u2014 \u0432\u043E\u0437\u043C\u043E\u0436\u043D\u043E, \u043E\u0434\u043D\u0430 \u0438 \u0442\u0430 \u0436\u0435 \u0437\u0430\u043F\u0438\u0441\u0430\u043D\u0430 \u0434\u0432\u0430\u0436\u0434\u044B. \u041E\u0431\u044A\u0435\u0434\u0438\u043D\u0435\u043D\u0438\u0435 \u0441\u043E\u0445\u0440\u0430\u043D\u0438\u0442 \u0433\u043E\u0440\u043E\u0434\u0430, \u043E\u0442\u0435\u043B\u0438, \u0443\u0447\u0430\u0441\u0442\u043D\u0438\u043A\u043E\u0432 \u0438 \u0441\u043D\u0438\u043C\u043A\u0438 \u043E\u0431\u0435\u0438\u0445. \u0415\u0441\u043B\u0438 \u044D\u0442\u043E \u0440\u0430\u0437\u043D\u044B\u0435 \u043F\u043E\u0435\u0437\u0434\u043A\u0438 \u2014 \u00AB\u041E\u0441\u0442\u0430\u0432\u0438\u0442\u044C \u043A\u0430\u043A \u0435\u0441\u0442\u044C\u00BB, \u0438 \u043F\u0430\u0440\u0430 \u0431\u043E\u043B\u044C\u0448\u0435 \u043D\u0435 \u043F\u043E\u044F\u0432\u0438\u0442\u0441\u044F."),
         pairs.map((pr, i) => {
             var _c;
             return (React.createElement("div", { key: i, className: "double" },
@@ -13516,7 +13518,9 @@ function DoublesSheet({ open, onClose, box, pairs, people, onJoin }) {
                     ]
                         .filter(Boolean)
                         .join(" · ") || "без подробностей")),
-                React.createElement("button", { className: "btn-main wide", onClick: () => onJoin(pr) }, "\u041E\u0431\u044A\u0435\u0434\u0438\u043D\u0438\u0442\u044C")));
+                React.createElement("div", { className: "double-acts" },
+                    React.createElement("button", { className: "btn-ghost", onClick: () => onKeep === null || onKeep === void 0 ? void 0 : onKeep(pr) }, "\u041E\u0441\u0442\u0430\u0432\u0438\u0442\u044C \u043A\u0430\u043A \u0435\u0441\u0442\u044C"),
+                    React.createElement("button", { className: "btn-main", onClick: () => onJoin(pr) }, "\u041E\u0431\u044A\u0435\u0434\u0438\u043D\u0438\u0442\u044C"))));
         })))))));
 }
 /* шторка: фильтры — для глобуса и для списка поездок */
@@ -13884,6 +13888,7 @@ function useExchange(x) {
             since: (profile === null || profile === void 0 ? void 0 : profile.since) || null,
             people: (profile === null || profile === void 0 ? void 0 : profile.people) || [],
             selfAka: (profile === null || profile === void 0 ? void 0 : profile.selfAka) || [],
+            notDoubles: (profile === null || profile === void 0 ? void 0 : profile.notDoubles) || [],
             wish: (profile === null || profile === void 0 ? void 0 : profile.wish) || [],
             photos,
         };
@@ -13938,6 +13943,7 @@ function useExchange(x) {
                 ...(d.since ? { since: d.since } : {}),
                 ...(d.people ? { people: d.people } : {}),
                 ...(d.selfAka ? { selfAka: d.selfAka } : {}),
+                ...(d.notDoubles ? { notDoubles: d.notDoubles } : {}),
                 ...(d.wish ? { wish: d.wish } : {}),
                 ...(d.family !== undefined ? { family: d.family } : {}),
             };
@@ -15286,7 +15292,11 @@ function AtlasApp() {
     const [ask, setAsk] = useState(null);
     visitsRef.current = visits;
     profileRef.current = profile;
-    const doubles = useMemo(() => findDoubles(visits), [visits]);
+    // пары, про которые сказали «это разные поездки», больше не показываем
+    const doubles = useMemo(() => {
+        const keep = new Set((profile === null || profile === void 0 ? void 0 : profile.notDoubles) || []);
+        return findDoubles(visits).filter((pr) => !keep.has(doubleKey(pr)));
+    }, [visits, profile === null || profile === void 0 ? void 0 : profile.notDoubles]);
     /* маршруты наших поездок для самолётиков во весь экран: откуда вылетали → куда */
     const flights = useMemo(() => tripRoutes(visits, profile === null || profile === void 0 ? void 0 : profile.home).routes, [visits, profile === null || profile === void 0 ? void 0 : profile.home]);
     const joinDouble = useCallback((pr) => {
@@ -15584,7 +15594,12 @@ function AtlasApp() {
                                 setEditId(null);
                                 setSheet(null);
                             } }),
-                        React.createElement(DoublesSheet, { open: sheet === "doubles", onClose: () => setSheet("settings"), box: box, pairs: doubles, people: profile.people || [], home: profile.home || null, onJoin: joinDouble }),
+                        React.createElement(DoublesSheet, { open: sheet === "doubles", onClose: () => setSheet("settings"), box: box, pairs: doubles, people: profile.people || [], home: profile.home || null, onJoin: joinDouble, onKeep: async (pr) => {
+                                const prof = profileRef.current || profile;
+                                const next = { ...prof, notDoubles: [...new Set([...(prof.notDoubles || []), doubleKey(pr)])] };
+                                profileRef.current = next;
+                                await saveProfile(next);
+                            } }),
                         React.createElement(ReportsSheet, { open: sheet === "reports", onClose: () => setSheet(sheetBack === "profile" ? "profile" : null), box: box, visits: visits, since: profile.since, stats: stats, people: profile.people || [], home: profile.home || null, geo: geo, onPerson: setPerson, onFar: setFar, onAir: setAirWin, onSeason: () => setSeasonWin(true), onConts: () => setContsWin(true), onWorld: () => setWorldWin(true), onCalendar: () => setCalWin(true), onYears: () => setYearsWin(true), onOften: () => setOftenWin(true), onSolo: () => setSoloWin(true), repCfg: profile.reports || null, meName: profile.name || "", onOpenTrip: (a3, id) => {
                                 setSelected(a3);
                                 setEditId(id || null);
@@ -17260,6 +17275,8 @@ button, input, select, textarea{font-family:inherit;}
 .yw-tiles div{display:flex; align-items:baseline; justify-content:center; gap:6px; padding:10px 8px; border-radius:12px; border:1px solid var(--line); background:var(--el); white-space:nowrap;}
 .yw-tiles b{font-size:20px; color:var(--gold);}
 .yw-tiles em{font-style:normal; font-size:14px; color:var(--dim);}
+.double-acts{display:flex; gap:8px;}
+.double-acts button{flex:1 1 0; width:0; min-height:48px; margin:0;}
 `;
 const __b = document.getElementById('boot');
 if (__b)
