@@ -2897,7 +2897,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "40.7";
+const APP_VERSION = "40.8";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -6851,8 +6851,7 @@ function HomePicker({ home, onHome }) {
 }
 /* Атлас · 15 · профиль, настройки, курсы валют, страна, режим снимков.
    Части собираются по номерам в один файл (tools/rebuild.sh) и видят друг друга напрямую. */
-function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, since, onSince, people, onPeople, onShelf, onSettings, onFamily, family = null, onInvite, visits, onMergeWho, onCardIsMe, home, onHome, }) {
-    const [showAll, setShowAll] = useState(false);
+function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, since, onSince, people, onPeople, onShelf, onAwards, onSettings, onFamily, family = null, onInvite, visits, onMergeWho, onCardIsMe, home, onHome, }) {
     const [addPerson, setAddPerson] = useState(false);
     const crew = useMemo(() => travelerStats(visits, people), [visits, people]);
     const [newName, setNewName] = useState("");
@@ -7076,57 +7075,19 @@ function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, 
                         React.createElement("em", { className: "opt-role" }, newRole)))))) : (React.createElement("button", { className: "link-btn", onClick: () => setAddPerson(true) }, "\uFF0B \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u043F\u0443\u0442\u0435\u0448\u0435\u0441\u0442\u0432\u0435\u043D\u043D\u0438\u043A\u0430")),
             React.createElement("p", { className: "step-title" }, "\u041D\u0430\u0433\u0440\u0430\u0434\u044B"),
             (() => {
-                const st = awardStats(visits, since);
-                const rows = [];
-                AWARDS.forEach((a) => {
-                    const value = st[a.id] || 0;
-                    a.steps.forEach(([need, title, tier]) => {
-                        rows.push({
-                            key: a.id + need,
-                            title,
-                            tier,
-                            need,
-                            value,
-                            unitKey: a.unitKey,
-                            suffix: a.suffix || "",
-                            group: a.group,
-                            done: value >= need,
-                        });
-                    });
-                });
-                const done = rows.filter((r) => r.done);
-                const left = rows.filter((r) => !r.done);
-                const best = done
-                    .slice()
-                    .sort((a, b) => b.tier - a.tier || b.need - a.need)[0];
-                const next = left
-                    .slice()
-                    .sort((a, b) => (a.need - a.value) / a.need - (b.need - b.value) / b.need)[0];
-                const metal = TIER_COLOR[(best === null || best === void 0 ? void 0 : best.tier) || 3];
-                return (React.createElement("div", { className: "awards-card" },
-                    React.createElement("button", { className: "switch-row aw-row" + (showAll ? " on" : ""), onClick: () => setShowAll((v) => !v) },
-                        React.createElement("span", { className: "aw-cup", style: { color: metal } },
-                            React.createElement("svg", { viewBox: "0 0 24 24", width: "22", height: "22" },
-                                React.createElement("path", { d: "M7 4h10v4.2a5 5 0 0 1-10 0z", fill: "currentColor" }),
-                                React.createElement("path", { d: "M10.2 13.4h3.6v3.1H17V19H7v-2.5h3.2z", fill: "currentColor" }))),
-                        React.createElement("span", { className: "switch-text" },
-                            done.length,
-                            " \u0438\u0437 ",
-                            np(rows.length, "award"),
-                            React.createElement("em", null,
-                                best ? `лучшая: ${best.title}` : "пока пусто",
-                                next ? ` · ближайшая: ${next.title}` : "")),
-                        React.createElement("span", { className: "step-pen fold" + (showAll ? " up" : "") }, "\u2304")),
-                    showAll && (React.createElement("div", { className: "awards" }, rows.map((r) => (React.createElement("div", { key: r.key, className: "award" + (r.done ? " on" : "") },
-                        React.createElement("span", { className: "cup", style: r.done ? { color: TIER_COLOR[r.tier] } : undefined },
-                            React.createElement("svg", { viewBox: "0 0 24 24", width: "24", height: "24" },
-                                React.createElement("path", { d: "M7 4h10v4.2a5 5 0 0 1-10 0z", fill: "currentColor" }),
-                                React.createElement("path", { d: "M10.2 13.4h3.6v3.1H17V19H7v-2.5h3.2z", fill: "currentColor" }))),
-                        React.createElement("span", { className: "award-text" },
-                            React.createElement("b", null, r.title),
-                            React.createElement("em", null, r.done
-                                ? TIER_NAME[r.tier]
-                                : `ещё ${np(r.need - r.value, r.unitKey)}${r.suffix ? " " + r.suffix : ""}`)))))))));
+                var _c, _d;
+                const sum = awardSummary(awardSeries(visits || {}, since));
+                const g = sum.goals[0];
+                return (React.createElement("button", { className: "switch-row aw-row", onClick: onAwards },
+                    React.createElement(AwardCup, { tier: ((_d = (_c = sum.best) === null || _c === void 0 ? void 0 : _c.cur) === null || _d === void 0 ? void 0 : _d.tier) || 0, size: 52, glow: true }),
+                    React.createElement("span", { className: "switch-text" },
+                        sum.got,
+                        " \u0438\u0437 ",
+                        np(sum.total, "award"),
+                        React.createElement("em", null,
+                            sum.best ? `лучшая: ${sum.best.cur.title}` : "пока пусто",
+                            g ? ` · ближайшая: ${g.next.title}, ${leftText(g)}` : "")),
+                    React.createElement("span", { className: "step-pen" }, "\u203A")));
             })(),
             React.createElement(Ask, { ask: ask, onClose: () => setAsk(null), box: box })));
     }));
@@ -7581,12 +7542,6 @@ function PhotoModeSheet({ open, onClose, box, quality, usage }) {
 /* ------------------------------------------------------------------ */
 /*  Награды: считаются сами по отметкам в атласе                      */
 /* ------------------------------------------------------------------ */
-const TIER_COLOR = {
-    1: "#b07a4a", // бронза
-    2: "#b9c3cd", // серебро
-    3: "#e2b551", // золото
-    4: "#9fe3e0", // платина
-};
 const TIER_NAME = { 1: "бронза", 2: "серебро", 3: "золото", 4: "платина" };
 const AWARDS = [
     {
@@ -7712,6 +7667,21 @@ const AWARDS = [
         ],
     },
 ];
+/* за полярным кругом: центры стран южнее круга, поэтому Исландия и Гренландия
+   считаются целиком, а у остальных — по городам за кругом */
+const POLAR_WHOLE = new Set(["ISL", "GRL", "SJM"]);
+const POLAR_CITIES = new Set(("мурманск тромсё тромсе рованиеми киркенес кируна абиску лонгйир нуук норильск " +
+    "воркута салехард анадырь певек диксон териберка кировск апатиты мончегорск " +
+    "лофотены лофотенские свольвер буде нордкап хоннингсвог альта саариселькя " +
+    "инари леви куусамо юккасъярви фэрбанкс барроу уткиагвик инувик икалуит " +
+    "дудинка тикси хатанга мирный").split(" "));
+function isPolarTrip(a3, trips) {
+    if (POLAR_WHOLE.has(a3))
+        return true;
+    return (trips || []).some((t) => !t.plan &&
+        (t.cities || []).some((x) => POLAR_CITIES.has(String(x).toLowerCase().replace(/ё/g, "е").split(/[ ,(]/)[0]) ||
+            POLAR_CITIES.has(String(x).toLowerCase().split(/[ ,(]/)[0])));
+}
 /* островные государства — для награды «Островитянин» */
 const ISLAND_A3 = new Set(("JPN PHL IDN LKA MDV MLT CYP ISL IRL NZL FJI MUS SYC CUB JAM DOM HTI BHS BRB TTO " +
     "SGP TWN HKG MAC COM CPV STP KIR TON WSM VUT SLB PLW FSM MHL NRU TUV ATG DMA GRD " +
@@ -7734,7 +7704,7 @@ function awardStats(visits, since) {
         const c = BY_A3[a3];
         if (c) {
             conts.add(c.cont);
-            if (c.lat > 66)
+            if (isPolarTrip(a3, visits[a3]))
                 polar += 1;
             if (c.lat < 0)
                 south += 1;
@@ -8237,6 +8207,213 @@ function tzHours(pt) {
     return Math.round(((pt === null || pt === void 0 ? void 0 : pt.lon) || 0) / 15);
 }
 const hoursText = (n) => `${Math.abs(Math.round(n))} ч`;
+/* ------------------------------------------------------------------ */
+/*  Награды сериями: уровень сейчас, следующий приз и как до него дойти */
+/* ------------------------------------------------------------------ */
+const QUARTER_NAME = {
+    EN: ["восток Северного полушария", "Турция, Китай, Индия"],
+    WN: ["запад Северного полушария", "США, Мексика, Куба"],
+    ES: ["восток Южного полушария", "ЮАР, Индонезия, Австралия"],
+    WS: ["запад Южного полушария", "Бразилия, Аргентина, Перу"],
+};
+const SOUTH_IDEAS = ["IDN", "AUS", "BRA", "ARG", "MUS", "TZA", "ZAF", "PER", "NZL", "SYC", "CHL", "NAM"];
+const ISLAND_IDEAS = ["LKA", "MLT", "ISL", "MUS", "SYC", "PHL", "IDN", "CUB", "DOM", "CYP", "MDV", "JPN", "NZL", "IRL", "SGP"];
+const names = (list) => list.map((a3) => { var _c; return (_c = BY_A3[a3]) === null || _c === void 0 ? void 0 : _c.name; }).filter(Boolean).join(", ");
+/* 12 серий: по каждой — где вы сейчас и что дальше */
+function awardSeries(visits, since) {
+    const st = awardStats(visits, since);
+    const real = Object.keys(visits || {}).filter((a3) => (visits[a3] || []).some((t) => !t.plan));
+    const has = new Set(real);
+    const conts = new Set(real.map((a3) => { var _c; return (_c = BY_A3[a3]) === null || _c === void 0 ? void 0 : _c.cont; }).filter(Boolean));
+    const quarters = new Set(real.map((a3) => BY_A3[a3]).filter(Boolean).map((c) => `${c.lon >= 0 ? "E" : "W"}${c.lat >= 0 ? "N" : "S"}`));
+    const idea = (list, n = 3) => names(list.filter((a3) => !has.has(a3) && BY_A3[a3]).slice(0, n));
+    const hint = {
+        countries: "каждая новая страна — шаг вперёд",
+        conts: (() => {
+            const miss = CONT_ORDER.filter((k) => !conts.has(k)).map((k) => CONTINENTS[k]);
+            return miss.length ? `не хватает: ${miss.join(", ")}` : "";
+        })(),
+        cities: "добавляйте города в карточки поездок",
+        years: since ? `счёт идёт с ${since} года — путешествуйте каждый год` : "путешествуйте каждый год",
+        trips: "каждая поездка в атласе считается",
+        quarters: (() => {
+            const miss = Object.keys(QUARTER_NAME).filter((k) => !quarters.has(k));
+            return miss.length ? `нужен ${QUARTER_NAME[miss[0]][0]}: ${QUARTER_NAME[miss[0]][1]}` : "";
+        })(),
+        polar: "Исландия, север Норвегии (Тромсё), Мурманск или Рованиеми",
+        south: `ниже экватора, например: ${idea(SOUTH_IDEAS)}`,
+        islands: `ближе всего: ${idea(ISLAND_IDEAS)}`,
+        family: "отмечайте в поездках, кто ездил с вами",
+        photos: "добавляйте снимки в поездки",
+        hotels: "записывайте отели в поездках",
+    };
+    return AWARDS.map((a) => {
+        const value = st[a.id] || 0;
+        const steps = a.steps.map(([need, title, tier]) => ({ need, title, tier, done: value >= need }));
+        const done = steps.filter((x) => x.done);
+        const cur = done[done.length - 1] || null;
+        const next = steps.find((x) => !x.done) || null;
+        const from = cur ? cur.need : 0;
+        const p = next ? Math.max(0, Math.min(1, (value - from) / (next.need - from))) : 1;
+        return {
+            id: a.id,
+            group: a.group,
+            unitKey: a.unitKey,
+            suffix: a.suffix || "",
+            value,
+            steps,
+            cur,
+            next,
+            left: next ? next.need - value : 0,
+            p,
+            share: next ? value / next.need : 1,
+            hint: hint[a.id] || "",
+        };
+    });
+}
+/* кубок: металл уровня, блик и звезда; tier 0 — ещё не взят, с замочком */
+let AW_ID = 0;
+const CUP_METAL = {
+    0: ["#3a526a", "#2a3f54", "#1c2d3e"],
+    1: ["#f0b98a", "#b07a4a", "#6e4424"],
+    2: ["#ffffff", "#b9c3cd", "#6f7c89"],
+    3: ["#fff0b3", "#e2b551", "#9a6b12"],
+    4: ["#eaffff", "#9fe3e0", "#3f8f8c"],
+};
+function AwardCup({ tier = 0, size = 48, glow = false }) {
+    const idRef = useRef(null);
+    if (!idRef.current)
+        idRef.current = "awc" + ++AW_ID;
+    const id = idRef.current;
+    const [a, b, c] = CUP_METAL[tier] || CUP_METAL[0];
+    const lock = !tier;
+    return (React.createElement("span", { className: "aw-cupw" + (lock ? " lock" : " got"), style: { width: size, height: size } },
+        glow && !lock && React.createElement("span", { className: "aw-glow", style: { background: b } }),
+        React.createElement("svg", { viewBox: "0 0 64 64", width: size, height: size, "aria-hidden": "true" },
+            React.createElement("defs", null,
+                React.createElement("linearGradient", { id: id, x1: "0", y1: "0", x2: "1", y2: "1" },
+                    React.createElement("stop", { offset: "0", stopColor: a }),
+                    React.createElement("stop", { offset: ".45", stopColor: b }),
+                    React.createElement("stop", { offset: "1", stopColor: c })),
+                React.createElement("linearGradient", { id: id + "s", x1: "0", y1: "0", x2: "1", y2: "0" },
+                    React.createElement("stop", { offset: "0", stopColor: "#fff", stopOpacity: "0" }),
+                    React.createElement("stop", { offset: ".5", stopColor: "#fff", stopOpacity: lock ? 0 : 0.55 }),
+                    React.createElement("stop", { offset: "1", stopColor: "#fff", stopOpacity: "0" })),
+                React.createElement("clipPath", { id: id + "c" },
+                    React.createElement("path", { d: "M16 8h32v11c0 10-7 17-16 17S16 29 16 19z" }))),
+            React.createElement("path", { d: "M18 12c-8 0-9 12 3 17", fill: "none", stroke: `url(#${id})`, strokeWidth: "3.2", strokeLinecap: "round" }),
+            React.createElement("path", { d: "M46 12c8 0 9 12-3 17", fill: "none", stroke: `url(#${id})`, strokeWidth: "3.2", strokeLinecap: "round" }),
+            React.createElement("path", { d: "M16 8h32v11c0 10-7 17-16 17S16 29 16 19z", fill: `url(#${id})` }),
+            React.createElement("path", { d: "M21 10h5v10c0 6 2 10 5 12-6-1-10-6-10-12z", fill: `url(#${id}s)` }),
+            !lock && (React.createElement("g", { clipPath: `url(#${id}c)` },
+                React.createElement("rect", { className: "aw-shine", x: "-20", y: "0", width: "12", height: "40", fill: "#fff", opacity: ".45", transform: "skewX(-20)" }))),
+            React.createElement("path", { d: "M28 36h8l-1 8h-6z", fill: `url(#${id})` }),
+            React.createElement("rect", { x: "22", y: "44", width: "20", height: "5", rx: "2", fill: `url(#${id})` }),
+            React.createElement("rect", { x: "18", y: "49", width: "28", height: "7", rx: "2.5", fill: lock ? "#1c2d3e" : c, className: "aw-base" }),
+            lock ? (React.createElement("path", { className: "aw-lock", d: "M29 18a3 3 0 0 1 6 0v3h1.5v7h-9v-7H29zm1.6 3h2.8v-3a1.4 1.4 0 0 0-2.8 0z", fill: "#4d6680" })) : (React.createElement("path", { d: "M32 14l2.3 4.7 5.2.8-3.8 3.6.9 5.1-4.6-2.4-4.6 2.4.9-5.1-3.8-3.6 5.2-.8z", fill: c, opacity: ".55" })))));
+}
+/* кубок с кольцом прогресса до следующего уровня */
+function CupRing({ s, size = 92, cup = 62 }) {
+    var _c, _d;
+    const r = size / 2 - 4;
+    const len = 2 * Math.PI * r;
+    const col = s.next ? "var(--gold)" : CUP_METAL[((_c = s.cur) === null || _c === void 0 ? void 0 : _c.tier) || 0][1];
+    return (React.createElement("span", { className: "aw-ring", style: { width: size, height: size } },
+        React.createElement("svg", { width: size, height: size, "aria-hidden": "true" },
+            React.createElement("circle", { cx: size / 2, cy: size / 2, r: r, fill: "none", className: "aw-track", strokeWidth: "4" }),
+            React.createElement("circle", { cx: size / 2, cy: size / 2, r: r, fill: "none", stroke: col, strokeWidth: "4", strokeLinecap: "round", strokeDasharray: `${len * s.p} ${len}`, transform: `rotate(-90 ${size / 2} ${size / 2})` })),
+        React.createElement(AwardCup, { tier: ((_d = s.cur) === null || _d === void 0 ? void 0 : _d.tier) || 0, size: cup, glow: true })));
+}
+const leftText = (s) => `ещё ${np(s.left, s.unitKey)}${s.suffix ? " " + s.suffix : ""}`;
+/* сводка для профиля: сколько взято, лучший кубок, ближайшая цель */
+function awardSummary(series) {
+    const total = series.reduce((n, s) => n + s.steps.length, 0);
+    const got = series.reduce((n, s) => n + s.steps.filter((x) => x.done).length, 0);
+    const closed = series.filter((s) => !s.next).length;
+    const best = series
+        .filter((s) => s.cur)
+        .sort((a, b) => b.cur.tier - a.cur.tier || b.steps.indexOf(b.cur) - a.steps.indexOf(a.cur))[0];
+    const goals = series.filter((s) => s.next).sort((a, b) => b.share - a.share);
+    return { total, got, closed, best, goals };
+}
+function AwardsSheet({ open, onClose, box, visits, since }) {
+    const [pick, setPick] = useState(null);
+    const series = useMemo(() => awardSeries(visits || {}, since), [visits, since]);
+    const sum = awardSummary(series);
+    const sel = series.find((s) => s.id === pick) || null;
+    useEffect(() => {
+        if (!open)
+            setPick(null);
+    }, [open]);
+    const Goal = ({ s }) => (React.createElement("button", { className: "aw-goal", onClick: () => setPick(s.id) },
+        React.createElement(AwardCup, { tier: s.next.tier, size: 44 }),
+        React.createElement("span", { className: "aw-goal-t" },
+            React.createElement("b", null, s.next.title),
+            React.createElement("em", null,
+                leftText(s),
+                s.hint ? ` · ${s.hint}` : ""),
+            React.createElement("span", { className: "aw-bar" },
+                React.createElement("i", { style: { width: Math.round(s.share * 100) + "%" } }))),
+        React.createElement("span", { className: "aw-pc" },
+            Math.round(s.share * 100),
+            "%")));
+    return (React.createElement(Sheet, { open: open, onClose: onClose, title: sel ? sel.group : "Награды", box: box }, () => sel ? (React.createElement("div", { className: "sheet-body aw-one", key: "one" },
+        React.createElement("button", { className: "link-btn aw-back", onClick: () => setPick(null) }, "\u2039 \u0412\u0441\u0435 \u043D\u0430\u0433\u0440\u0430\u0434\u044B"),
+        React.createElement("div", { className: "aw-one-top" },
+            React.createElement(CupRing, { s: sel, size: 150, cup: 104 }),
+            React.createElement("b", null, sel.cur ? sel.cur.title : "Пока нет"),
+            React.createElement("em", { style: { color: sel.cur ? CUP_METAL[sel.cur.tier][1] : undefined } }, sel.cur
+                ? `${TIER_NAME[sel.cur.tier]} · уровень ${sel.steps.indexOf(sel.cur) + 1} из ${sel.steps.length}`
+                : `уровень 0 из ${sel.steps.length}`)),
+        sel.next ? (React.createElement("div", { className: "aw-next" },
+            React.createElement(AwardCup, { tier: sel.next.tier, size: 46, glow: true }),
+            React.createElement("span", null,
+                React.createElement("u", null,
+                    "\u0421\u043B\u0435\u0434\u0443\u044E\u0449\u0430\u044F \u00B7 ",
+                    TIER_NAME[sel.next.tier]),
+                React.createElement("b", null,
+                    sel.next.title,
+                    " \u00B7 ",
+                    leftText(sel)),
+                sel.hint && React.createElement("em", null, sel.hint[0].toUpperCase() + sel.hint.slice(1))))) : (React.createElement("div", { className: "aw-next done" },
+            React.createElement("span", null,
+                React.createElement("u", null, "\u0421\u0435\u0440\u0438\u044F \u0437\u0430\u043A\u0440\u044B\u0442\u0430"),
+                React.createElement("b", null, "\u0412\u0441\u0435 \u0441\u0442\u0443\u043F\u0435\u043D\u0438 \u0432\u0437\u044F\u0442\u044B \u2014 \u0432\u044B\u0441\u0448\u0430\u044F \u043D\u0430\u0433\u0440\u0430\u0434\u0430 \u0432\u0430\u0448\u0430")))),
+        React.createElement("div", { className: "aw-steps" }, sel.steps.map((x) => (React.createElement("div", { key: x.need, className: "aw-step" + (x.done ? " on" : "") + (x === sel.cur ? " cur" : "") + (x === sel.next ? " nx" : "") },
+            React.createElement(AwardCup, { tier: x.done ? x.tier : 0, size: 40 }),
+            React.createElement("span", { className: "aw-step-t" },
+                React.createElement("b", null, x.title),
+                React.createElement("em", null,
+                    np(x.need, sel.unitKey),
+                    sel.suffix ? " " + sel.suffix : "",
+                    " \u00B7 ",
+                    TIER_NAME[x.tier])),
+            React.createElement("i", null, x.done ? "✓" : x === sel.next ? `${sel.value}/${x.need}` : ""))))))) : (React.createElement("div", { className: "sheet-body aw-all", key: "all" },
+        React.createElement("p", { className: "aw-sub" },
+            sum.got,
+            " \u0438\u0437 ",
+            np(sum.total, "award"),
+            " \u00B7 \u0441\u0435\u0440\u0438\u0439 \u0437\u0430\u043A\u0440\u044B\u0442\u043E ",
+            sum.closed,
+            " \u0438\u0437 ",
+            series.length),
+        sum.goals.length > 0 && (React.createElement(React.Fragment, null,
+            React.createElement("p", { className: "aw-sec" }, "\u0411\u043B\u0438\u0436\u0430\u0439\u0448\u0438\u0435 \u0446\u0435\u043B\u0438"),
+            sum.goals.slice(0, 3).map((s) => (React.createElement(Goal, { key: s.id, s: s }))))),
+        React.createElement("p", { className: "aw-sec" }, "\u0412\u0441\u0435 \u0441\u0435\u0440\u0438\u0438"),
+        React.createElement("div", { className: "aw-grid" }, series.map((s) => (React.createElement("button", { key: s.id, className: "aw-tile" + (s.cur ? "" : " none"), onClick: () => setPick(s.id) },
+            React.createElement("span", { className: "aw-lv" },
+                s.steps.filter((x) => x.done).length,
+                "/",
+                s.steps.length),
+            React.createElement(CupRing, { s: s }),
+            React.createElement("span", { className: "aw-g" }, s.group),
+            React.createElement("b", null, s.cur ? s.cur.title : "Впереди"),
+            React.createElement("em", null, s.next ? (React.createElement(React.Fragment, null,
+                leftText(s),
+                " \u2192 ",
+                React.createElement("u", null, TIER_NAME[s.next.tier]))) : ("серия закрыта ✓"))))))))));
+}
 /* Атлас · 17 · шары отчётов: период, перелёты, дальше всего, человек; радар.
    Части собираются по номерам в один файл (tools/rebuild.sh) и видят друг друга напрямую. */
 /* глобус с дугами: у каждого своя дуга от южной точки к северной */
@@ -15617,7 +15794,7 @@ function AtlasApp() {
                             }, home: profile.home || null, onPeople: async (list) => {
                                 const prof = { ...profile, people: list };
                                 await saveProfile(prof);
-                            }, onSettings: () => setSheet("settings"), onShelf: () => setSheet("shelf"), onFamily: () => setSheet("family"), onSince: async (v) => {
+                            }, onSettings: () => setSheet("settings"), onShelf: () => setSheet("shelf"), onAwards: () => setSheet("awards"), onFamily: () => setSheet("family"), onSince: async (v) => {
                                 const prof = { ...profile, since: v };
                                 await saveProfile(prof);
                             }, onHome: async (h) => {
@@ -15656,6 +15833,7 @@ function AtlasApp() {
                             }, regionGaps: regionGaps, onFillRegions: fillRegions, depGaps: depGaps, onFillDeparture: fillDeparture, onExport: exportData, onImport: importAsk, onRestore: restoreData, restoreMsg: restoreMsg, doubles: doubles.length, onDoubles: () => setSheet("doubles"), home: profile.home || null }),
                         React.createElement(CountrySheet, { country: sel, open: sheet === "country" && !!sel, onClose: () => setSheet(null), box: box }),
                         React.createElement(PhotoModeSheet, { open: sheet === "photomode", onClose: () => setSheet("settings"), box: box, quality: photoQuality, usage: photoUsage }),
+                        React.createElement(AwardsSheet, { open: sheet === "awards", onClose: () => setSheet("profile"), box: box, visits: visits, since: profile.since }),
                         React.createElement(ShelfSheet, { open: sheet === "shelf", onClose: () => setSheet("profile"), box: box, isOn: isOn, isWish: isWish, onPick: (a3) => {
                                 setSelected(a3);
                                 setEditId(null);
@@ -16265,8 +16443,6 @@ body > div{max-width:100%;}
 .step-pen.fold.up{transform:rotate(180deg);}
 .switch-row.on .switch-text{color:var(--gold);}
 .aw-row{gap:10px;}
-.aw-cup{flex:none; display:flex;}
-.awards-card{display:flex; flex-direction:column; gap:8px;}
 .near-diag{display:flex; flex-direction:column; gap:6px; padding:10px 12px; border-radius:12px;
   border:1px dashed var(--line); background:rgba(255,255,255,.02);}
 .near-diag p{margin:0; font-size:11px; color:var(--dim);}
@@ -17014,15 +17190,7 @@ body > div{max-width:100%;}
 .sheet .suggest{position:relative;}
 .sheet .inline-list{max-height:46vh; overflow-y:auto; margin-top:10px;}
 .sheet .hotel-rows{display:flex; flex-direction:column; gap:7px; margin-bottom:8px;}
-.sheet .awards-card{margin-bottom:10px; padding:4px 4px 6px; border-radius:16px; border:1px solid var(--line);
-  background:linear-gradient(160deg,#16293c 0%,#1b3247 55%,#132436 100%);}
-.awards{display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:8px; padding:0 10px 10px;}
-.award{display:flex; align-items:center; gap:9px; padding:10px; border-radius:12px; border:1px solid var(--line); background:var(--el); min-width:0;}
-.award:not(.on){opacity:.55;}
 .cup{flex:none; color:var(--dim); display:flex;}
-.award-text{flex:1 1 auto; min-width:0;}
-.award-text b{display:block; font-size:12px; font-weight:500; line-height:1.25; overflow:hidden; text-overflow:ellipsis;}
-.award-text em{display:block; margin-top:2px; font-style:normal; font-size:11px; color:var(--dim);}
 .people{display:flex; flex-direction:column; gap:7px; margin-bottom:9px;}
 .person{display:flex; align-items:center; gap:9px; padding:9px 11px; background:var(--el); border:1px solid var(--line); border-radius:12px; min-width:0;}
 .person-stat{display:block; margin-top:2px; font-style:normal; font-size:11px; color:var(--dim);}
@@ -17372,7 +17540,6 @@ button, input, select, textarea{font-family:inherit;}
 .root.light .sd stop[stop-color="#3d4d5f"]{stop-color:#9fb3c6;}
 .root.light .sd-base rect{fill:rgba(70,110,150,.07);}
 /* награды, переключатели, код, полка */
-.root.light .sheet .awards-card{background:linear-gradient(160deg,#fff8e8 0%,#fdf3dc 55%,#f7ecd2 100%); border-color:#ecdcb4;}
 .root.light .sw i{background:#ffffff; box-shadow:0 1px 3px rgba(20,40,60,.25);}
 .root.light .qr-hole{background:#eef4f9;}
 .root.light .shelf-cell i{filter:grayscale(1) brightness(1.15) opacity(.45);}
@@ -17385,6 +17552,65 @@ button, input, select, textarea{font-family:inherit;}
 .root.light svg text[fill="#e2b551"]{fill:#c98a0c;}
 .root.light .donut-globe ~ g text{paint-order:stroke; stroke:rgba(255,255,255,.85); stroke-width:5px; stroke-linejoin:round;}
 .root.light .near-orb .orb-spin{stroke:rgba(70,110,150,.32);}
+
+/* ===== награды сериями (40.8) ===== */
+.sheet .aw-row{align-items:center; gap:12px; padding:10px 14px 10px 10px; background:linear-gradient(135deg,rgba(232,184,75,.14),rgba(232,184,75,.03)); border-color:rgba(232,184,75,.4);}
+.aw-row .step-pen{font-size:22px; color:var(--gold);}
+.aw-cupw{position:relative; display:inline-flex; align-items:center; justify-content:center; flex:none;}
+.aw-cupw svg{position:relative; overflow:visible;}
+.aw-glow{position:absolute; inset:-8%; border-radius:50%; filter:blur(9px); opacity:.5;}
+.aw-shine{animation:awShine 4.5s ease-in-out infinite;}
+@keyframes awShine{0%,62%{transform:skewX(-20deg) translateX(0);} 82%,100%{transform:skewX(-20deg) translateX(84px);}}
+.aw-cupw.got{animation:awFloat 5s ease-in-out infinite;}
+@keyframes awFloat{0%,100%{transform:translateY(0);} 50%{transform:translateY(-2px);}}
+@media (prefers-reduced-motion:reduce){ .aw-shine, .aw-cupw.got{animation:none;} }
+.aw-ring{position:relative; display:inline-flex; align-items:center; justify-content:center; flex:none;}
+.aw-ring > svg{position:absolute; inset:0;}
+.aw-track{stroke:var(--track);}
+.aw-sub{margin:0 0 12px; font-size:13px; color:var(--dim);}
+.aw-sec{margin:14px 2px 8px; font-size:13px; color:var(--dim);}
+.aw-all .aw-sec:first-of-type{margin-top:0;}
+.aw-goal{display:flex; align-items:center; gap:11px; width:100%; margin-bottom:8px; padding:10px 12px; border-radius:14px; border:1px solid var(--line); background:var(--el); color:var(--ink); font:inherit; text-align:left; cursor:pointer;}
+.aw-goal-t{flex:1; min-width:0;}
+.aw-goal-t b{display:block; font-size:15px; font-weight:600;}
+.aw-goal-t em{display:block; margin-top:2px; font-style:normal; font-size:12px; line-height:1.3; color:var(--dim);}
+.aw-bar{display:block; height:6px; margin-top:6px; border-radius:4px; background:var(--track); overflow:hidden;}
+.aw-bar i{display:block; height:100%; border-radius:4px; background:linear-gradient(90deg,#c9923a,#f3cf73);}
+.aw-pc{flex:none; font-size:14px; font-weight:700; color:var(--gold);}
+.aw-grid{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px;}
+.aw-tile{position:relative; display:flex; flex-direction:column; align-items:center; gap:2px; padding:12px 8px 11px; border-radius:18px; border:1px solid var(--line); background:var(--el); color:var(--ink); font:inherit; text-align:center; cursor:pointer; min-width:0;}
+.aw-tile .aw-ring{margin-bottom:4px;}
+.aw-tile .aw-g{font-size:11px; color:var(--dim); text-transform:uppercase; letter-spacing:.03em;}
+.aw-tile b{font-size:14px; font-weight:600; line-height:1.2;}
+.aw-tile em{font-style:normal; font-size:11.5px; line-height:1.3; color:var(--dim);}
+.aw-tile em u{text-decoration:none; color:var(--gold);}
+.aw-tile.none b{color:var(--dim);}
+.aw-lv{position:absolute; top:8px; right:10px; font-size:11px; color:var(--dim);}
+.aw-back{display:block; margin:-6px 0 4px; padding:4px 0;}
+.aw-one-top{display:flex; flex-direction:column; align-items:center; gap:3px; margin-bottom:12px; text-align:center;}
+.aw-one-top .aw-ring{margin-bottom:6px;}
+.aw-one-top b{font-size:20px;}
+.aw-one-top em{font-style:normal; font-size:13px; color:var(--dim);}
+.aw-next{display:flex; align-items:center; gap:12px; margin-bottom:12px; padding:12px; border-radius:16px; border:1px solid rgba(232,184,75,.45); background:linear-gradient(135deg,rgba(232,184,75,.16),rgba(232,184,75,.04));}
+.aw-next > span:last-child{flex:1; min-width:0;}
+.aw-next u{display:block; text-decoration:none; font-size:11px; color:var(--gold); text-transform:uppercase; letter-spacing:.04em;}
+.aw-next b{display:block; margin:2px 0 3px; font-size:16px;}
+.aw-next em{display:block; font-style:normal; font-size:12.5px; line-height:1.35; color:var(--dim);}
+.aw-steps{display:flex; flex-direction:column; gap:7px;}
+.aw-step{text-align:left; display:flex; align-items:center; gap:11px; padding:8px 12px; border-radius:14px; border:1px solid var(--line); background:var(--el); opacity:.55;}
+.aw-step.on, .aw-step.nx{opacity:1;}
+.aw-step.cur{border-color:var(--gold);}
+.aw-step-t{flex:1; min-width:0;}
+.aw-step b{display:block; font-size:14px; font-weight:600;}
+.aw-step em{display:block; font-style:normal; font-size:12px; color:var(--dim);}
+.aw-step i{font-style:normal; font-size:13px; font-weight:700; color:var(--dim);}
+.aw-step.on i{color:#6cc38a;}
+.root.light .aw-lock{fill:#9fb3c6;}
+.root.light .aw-cupw.lock stop:nth-child(1){stop-color:#e3eaf1;}
+.root.light .aw-cupw.lock stop:nth-child(2){stop-color:#cfdae5;}
+.root.light .aw-cupw.lock stop:nth-child(3){stop-color:#b9c9d8;}
+.root.light .aw-cupw.lock .aw-base{fill:#c3d1de;}
+.root.light .sheet .aw-row{background:linear-gradient(135deg,#fff8e8,#fdf3dc); border-color:#ecdcb4;}
 `;
 const __b = document.getElementById('boot');
 if (__b)
