@@ -428,6 +428,9 @@ const regionOf = (a3, city) => (CITY_REG[a3] || {})[city] || null;
 const OWN_FLAGS = {
     ABH: "data:image/webp;base64,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",
 };
+/* флаг текстом (для полей и списков, где картинку не вставить): у стран со
+   своим рисунком флага значка-смайлика нет — лучше ничего, чем белый флаг */
+const flagText = (a3) => { var _c; return (OWN_FLAGS[a3] ? "" : ((_c = BY_A3[a3]) === null || _c === void 0 ? void 0 : _c.a2) ? flag(BY_A3[a3].a2) : ""); };
 /* флаг как элемент: картинка, если своя, иначе обычный значок */
 function Flg({ a3, a2, className = "" }) {
     var _c;
@@ -2894,7 +2897,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "40.3";
+const APP_VERSION = "40.4";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -6464,7 +6467,7 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, onRemove, mode
                                 " \u00B7 ",
                                 via)),
                         React.createElement("span", { className: "ct" }, CONTINENTS[c.cont])));
-                })))) : (React.createElement(Done, { label: "\u0421\u0442\u0440\u0430\u043D\u0430", value: `${flag(country.a2)} ${country.name}`, onEdit: () => setDraft(null) })),
+                })))) : (React.createElement(Done, { label: "\u0421\u0442\u0440\u0430\u043D\u0430", value: `${flagText(country.a3)} ${country.name}`.trim(), onEdit: () => setDraft(null) })),
             country &&
                 (editWhen ? (React.createElement("div", { className: "step" },
                     React.createElement("p", { className: "step-title" }, "\u041A\u043E\u0433\u0434\u0430 \u044D\u0442\u043E \u0431\u044B\u043B\u043E"),
@@ -12908,8 +12911,8 @@ function CalendarWin({ visits, onClose, onOpenTrip }) {
                 } },
                 React.createElement("option", { value: "" }, "\u0412\u0441\u0435 \u0441\u0442\u0440\u0430\u043D\u044B"),
                 allCountries.map((a3) => {
-                    var _c, _d;
-                    return (React.createElement("option", { key: a3, value: a3 }, `${((_c = BY_A3[a3]) === null || _c === void 0 ? void 0 : _c.a2) ? flag(BY_A3[a3].a2) + " " : ""}${((_d = BY_A3[a3]) === null || _d === void 0 ? void 0 : _d.name) || a3}`));
+                    var _c;
+                    return (React.createElement("option", { key: a3, value: a3 }, `${flagText(a3) ? flagText(a3) + " " : ""}${((_c = BY_A3[a3]) === null || _c === void 0 ? void 0 : _c.name) || a3}`));
                 }))),
         React.createElement("label", { className: "who-sel cw-pick yr" },
             React.createElement("b", null, year || "Все годы"),
@@ -13096,8 +13099,8 @@ function YearsWin({ visits, geo, home, mapProps, onClose, onOpenTrip }) {
                 } },
                 React.createElement("option", { value: "" }, "\u0412\u0441\u0435 \u0441\u0442\u0440\u0430\u043D\u044B"),
                 allCountries.map((a3) => {
-                    var _c, _d;
-                    return (React.createElement("option", { key: a3, value: a3 }, `${((_c = BY_A3[a3]) === null || _c === void 0 ? void 0 : _c.a2) ? flag(BY_A3[a3].a2) + " " : ""}${((_d = BY_A3[a3]) === null || _d === void 0 ? void 0 : _d.name) || a3}`));
+                    var _c;
+                    return (React.createElement("option", { key: a3, value: a3 }, `${flagText(a3) ? flagText(a3) + " " : ""}${((_c = BY_A3[a3]) === null || _c === void 0 ? void 0 : _c.name) || a3}`));
                 }))),
         React.createElement("label", { className: "who-sel cw-pick yr" },
             React.createElement("b", null, year || "Все годы"),
@@ -15476,7 +15479,7 @@ function AtlasApp() {
                                 " \u0436\u0434\u0443\u0442 \u0432 \u0441\u043F\u0438\u0441\u043A\u0435 \u043F\u043E\u0435\u0437\u0434\u043E\u043A.")))),
                         React.createElement("section", { className: "focus" }, sel ? (React.createElement(React.Fragment, null,
                             React.createElement("div", { className: "focus-head" },
-                                React.createElement("span", { className: "big-fl" }, flag(sel.a2)),
+                                React.createElement("span", { className: "big-fl" }, React.createElement(Flg, { a3: sel.a3 })),
                                 React.createElement("div", { className: "focus-title" },
                                     React.createElement("div", { className: "sel-name" + ((curTrip === null || curTrip === void 0 ? void 0 : curTrip.plan) ? " is-plan" : "") }, sel.name),
                                     React.createElement("div", { className: "sel-cont" }, selTrips.length ? (React.createElement(React.Fragment, null,
@@ -17277,6 +17280,7 @@ button, input, select, textarea{font-family:inherit;}
 .yw-tiles em{font-style:normal; font-size:14px; color:var(--dim);}
 .double-acts{display:flex; gap:8px;}
 .double-acts button{flex:1 1 0; width:0; min-height:48px; margin:0;}
+.big-fl .own-flag{width:1.3em; height:auto; vertical-align:middle; border-radius:3px;}
 `;
 const __b = document.getElementById('boot');
 if (__b)
