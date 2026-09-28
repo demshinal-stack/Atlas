@@ -2897,7 +2897,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "41.0";
+const APP_VERSION = "41.1";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -12006,7 +12006,7 @@ function SoloWin({ visits, people, geo, mapProps, onClose }) {
             boost: null, // { t0, T, D } — рывок: за T секунд уйти вперёд на D радиан
             rest: 0, // после рывка немного не дёргаемся снова
             trail: [],
-            rad: (wide ? 1.32 : 1.2) + i * 0.075, // в альбомном шар меньше — орбита шире, облёт виден
+            rad: 1.2 + i * 0.075,
             hp: [rnd(0, TAU), rnd(0, TAU), rnd(0, TAU)],
             hf: [rnd(0.05, 0.09), rnd(0.12, 0.19), rnd(0.25, 0.36)],
         }));
@@ -12032,7 +12032,7 @@ function SoloWin({ visits, people, geo, mapProps, onClose }) {
             const R0 = Math.min(cr.width, cr.height) / 2;
             // планеты меньше шара, чтобы облетали его вокруг, а не заслоняли;
             // табличку при этом держим крупной (см. label ниже)
-            const k = wide ? Math.max(0.85, Math.min(1.05, R0 / 150)) : 0.85;
+            const k = wide ? Math.max(0.75, Math.min(0.85, R0 / 190)) : 0.85;
             if (Math.abs(k - satKRef.current) > 0.04) {
                 satKRef.current = k;
                 setSatK(k);
@@ -12109,11 +12109,12 @@ function SoloWin({ visits, people, geo, mapProps, onClose }) {
                 var _c, _d;
                 const r = R * st.rad;
                 const pw0 = ((_c = front[i]) === null || _c === void 0 ? void 0 : _c.offsetWidth) || 80;
-                const rx = Math.min(r, Math.max(R * 0.6, Math.min(cx, W - cx) - pw0 * 0.62));
+                const rx = Math.min(r, Math.max(R * 0.6, Math.min(cx, W - cx) - pw0 * 0.52));
                 const x0 = rx * Math.cos(st.th);
                 const ye = r * Math.sin(st.th) * Math.cos(lean);
                 const z = r * Math.sin(st.th) * Math.sin(lean);
-                const x = x0 * Math.cos(tilt) - ye * Math.sin(tilt);
+                const xRoom = Math.min(cx, W - cx) - pw0 * 0.45; // не обрезаться краем окна
+                const x = Math.max(-xRoom, Math.min(xRoom, x0 * Math.cos(tilt) - ye * Math.sin(tilt)));
                 // высота над экватором шара: плавная сумма медленных волн
                 const h = R *
                     (0.3 * Math.sin(st.hf[0] * T + st.hp[0]) +
@@ -12125,8 +12126,10 @@ function SoloWin({ visits, people, geo, mapProps, onClose }) {
                 const yHi = H - cy - ph0 * 0.6 * sc - 4; // табличка не ниже края
                 const y = Math.max(yLo, Math.min(yHi, x0 * Math.sin(tilt) + ye * Math.cos(tilt) - h));
                 pts.push({ x: cx + x, y: cy + y, z, sc });
-                // плавный переход за шар и обратно
-                const fo = Math.max(0, Math.min(1, 0.5 + z / (0.16 * r)));
+                /* переход за шар и обратно — почти мгновенно, в крайней точке орбиты сбоку
+                   от шара. Планету за шаром закрывает сам шар (задний слой под холстом),
+                   поэтому она не гаснет, а уходит за край и выходит с другой стороны */
+                const fo = Math.max(0, Math.min(1, 0.5 + z / (0.09 * r)));
                 const el = front[i];
                 const bk = back[i];
                 [el, bk].forEach((node, k) => {
@@ -12136,7 +12139,7 @@ function SoloWin({ visits, people, geo, mapProps, onClose }) {
                     const ph = node.offsetHeight || pw;
                     node.style.transformOrigin = "50% 40%";
                     node.style.transform = `translate(${(cx + x - pw / 2).toFixed(1)}px, ${(cy + y - ph * 0.4).toFixed(1)}px) scale(${sc.toFixed(3)})`;
-                    node.style.opacity = String(k ? (1 - fo) * 0.92 : fo);
+                    node.style.opacity = String(k ? (1 - fo) * 0.96 : fo);
                     node.style.zIndex = String(Math.round(200 + z));
                 });
                 // хвост: пока идёт рывок и чуть после
@@ -12240,7 +12243,7 @@ function SoloWin({ visits, people, geo, mapProps, onClose }) {
             React.createElement(Saturn, { name: r.short || r.name, n: r.n, tone: i, size: Math.round(([78, 68, 62, 58, 54][i] || 50) * satK), orbit: i < 3, label: Math.min(2.1, 1.25 / Math.min(1, satK * ([78, 68, 62, 58, 54][i] || 50) / 78)), id: where[0] + r.id }))))));
     const globe = (React.createElement("div", { className: "sd-stage dg-stage" },
         satLayer("back"),
-        React.createElement(Globe, { ...(mapProps || {}), geo: geo, pins: pins, lookAt: lookAt, dashSel: true, selected: country, full: false, noFull: true, fitBox: true, fitK: wide ? 0.7 : 1, playing: !country, spinStep: 0.18, setPlaying: () => { }, onToggleFull: () => { }, onPick: (a3) => setCountry((v) => (v === a3 ? null : a3)) }),
+        React.createElement(Globe, { ...(mapProps || {}), geo: geo, pins: pins, lookAt: lookAt, dashSel: true, selected: country, full: false, noFull: true, fitBox: true, playing: !country, spinStep: 0.18, setPlaying: () => { }, onToggleFull: () => { }, onPick: (a3) => setCountry((v) => (v === a3 ? null : a3)) }),
         satLayer("front")));
     const chips = (React.createElement("div", { className: "dg-chips" }, rows.map((r, i) => (React.createElement("button", { key: r.id, className: "dg-chip" + (sel === r.id ? " on" : ""), onClick: () => {
             setSel(r.id);
@@ -17635,6 +17638,11 @@ button, input, select, textarea{font-family:inherit;}
 .root.light .aw-cupw.lock stop:nth-child(3){stop-color:#b9c9d8;}
 .root.light .aw-cupw.lock .aw-base{fill:#c3d1de;}
 .root.light .sheet .aw-row{background:linear-gradient(135deg,#fff8e8,#fdf3dc); border-color:#ecdcb4;}
+
+/* «Догоняй»: фон окна под шаром прозрачный, иначе планеты за шаром (задний слой)
+   прячутся за прямоугольником карты и «растворяются» в пустоте. Фон — у самой сцены */
+.dg-stage .map-wrap{background:none; border-color:transparent; box-shadow:none;}
+.pg-wide .dg-stage{background:var(--el); border:1px solid var(--line); border-radius:16px;}
 `;
 const __b = document.getElementById('boot');
 if (__b)
