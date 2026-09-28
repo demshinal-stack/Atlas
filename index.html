@@ -2892,7 +2892,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "40.1";
+const APP_VERSION = "40.2";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -5109,7 +5109,8 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
     /* доворот к выбранной стране */
     useEffect(() => {
         const c = selected ? BY_A3[selected] : null;
-        if (!c || playRef.current)
+        // playRef обновится позже в этом же проходе — смотрим и на свежий проп
+        if (!c || (playRef.current && playing))
             return;
         const from = rot.current;
         let d = -c.lon - from[0];
@@ -14609,6 +14610,12 @@ function AtlasApp() {
     visitsRef.current = visits;
     const [selected, setSelected] = useState(null);
     const [full, setFull] = useState(false);
+    // во весь экран шар крутится сам, пока не выбрана страна (как в «Поездках по годам»)
+    const [fullSpin, setFullSpin] = useState(true);
+    useEffect(() => {
+        if (full)
+            setFullSpin(true);
+    }, [full]);
     const [sheet, setSheet] = useState(null);
     const [editId, setEditId] = useState(null);
     const [listMode, setListMode] = useState("year");
@@ -15412,7 +15419,13 @@ function AtlasApp() {
                         full && (React.createElement(Globe, { geo: geo, isOn: isOn, onPick: (a3) => {
                                 setSelected(BY_A3[a3] ? a3 : null);
                                 setEditId(null);
-                            }, selected: selected, full: true, onToggleFull: () => setFull(false), flights: flights, visitKey: visitKey, home: lastTrip, marks: marks, light: light, playing: spinning, setPlaying: setSpinning, view: mapView, page: mapPage, setPage: setMapPage, isWish: isWish }))),
+                            }, selected: selected, full: true, onToggleFull: () => setFull(false), flights: selected ? flights.filter((r) => r.a3 === selected) : flights, visitKey: visitKey, home: lastTrip, marks: marks, light: light, playing: fullSpin && !selected, setPlaying: (v) => {
+                                // «крутить» при выбранной стране — снимаем выбор и крутим дальше
+                                const on = typeof v === "function" ? v(fullSpin && !selected) : v;
+                                setFullSpin(on);
+                                if (on && selected)
+                                    setSelected(null);
+                            }, spinStep: 0.18, view: mapView, page: mapPage, setPage: setMapPage, isWish: isWish }))),
                     React.createElement("div", { className: "col-side" },
                         overdue.length > 0 && (React.createElement("div", { className: "due" },
                             React.createElement("b", { className: "due-title" }, overdue.length === 1
