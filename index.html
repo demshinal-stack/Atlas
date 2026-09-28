@@ -2897,7 +2897,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "40.4";
+const APP_VERSION = "40.5";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -13823,7 +13823,8 @@ const SETTINGS_DEFAULT = {
     photoQuality: "light",
     spinStart: false,
     mapView: "globe",
-    night: true,
+    night: false, // ночь на глобусе: по умолчанию выключена (с 40.5)
+    nightSet: false, // включали/выключали вручную
 };
 /* настройки: читаем при запуске, меняем по одному полю, сохраняем целиком.
    Раньше каждое поле сохранялось своим кодом из своих копий значений —
@@ -13853,8 +13854,12 @@ function useSettings() {
             patch.spinStart = st.spinStart;
         if (st.mapView)
             patch.mapView = st.mapView;
-        if (typeof st.night === "boolean")
+        /* до 40.5 ночь была включена по умолчанию и сохранялась у всех;
+           теперь по умолчанию выключена — берём сохранённое, только если его меняли руками */
+        if (st.nightSet === true && typeof st.night === "boolean") {
             patch.night = st.night;
+            patch.nightSet = true;
+        }
         return putSettings(patch, persist);
     }, [putSettings]);
     return { settings, putSettings, adoptSettings };
@@ -14612,7 +14617,7 @@ function AtlasApp() {
     const setTheme = useCallback((v) => putSettings({ theme: v }), [putSettings]);
     const light = theme === "light" || (theme === "system" && !sysDark);
     const [avatarDraft, setAvatarDraft] = useState(null);
-    const setNight = useCallback((v) => putSettings({ night: v }), [putSettings]);
+    const setNight = useCallback((v) => putSettings({ night: v, nightSet: true }), [putSettings]);
     const setCityPins = useCallback((v) => putSettings({ cityPins: v }), [putSettings]);
     const [geo, setGeo] = useState(null);
     const [visits, setVisits] = useState({});
@@ -15822,8 +15827,8 @@ body > div{max-width:100%;}
   overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch; overscroll-behavior:contain;
 }
 .root.light{
-  --ink:#16242f; --dim:#5d7386; --deep:#eef2f6; --panel:#ffffff;
-  --line:#d7e0e8; --gold:#c08a1e; --el:#ffffff; --el2:#f2f5f8;
+  --ink:#16242f; --dim:#5a7084; --deep:#eef2f6; --panel:#ffffff;
+  --line:#d7e0e8; --gold:#d49a17; --el:#ffffff; --el2:#f2f5f8;
   --blue:#2f6fae; --silver:#7d8b98;
   --field:#f7f9fb; --sheet:#ffffff; --track:#d7e0e8; --shadow:rgba(20,40,60,.18);
 }
@@ -17281,6 +17286,39 @@ button, input, select, textarea{font-family:inherit;}
 .double-acts{display:flex; gap:8px;}
 .double-acts button{flex:1 1 0; width:0; min-height:48px; margin:0;}
 .big-fl .own-flag{width:1.3em; height:auto; vertical-align:middle; border-radius:3px;}
+
+/* ===== светлая тема «Мягкий свет» (40.5): никаких тёмных подложек и рисунков ===== */
+.root.light .sheet-layer.in .sheet-dim{background:rgba(90,115,140,.22);}
+.root.light .zoom-layer, .root.light .pg-wide{background:rgba(236,241,246,.82); -webkit-backdrop-filter:blur(10px); backdrop-filter:blur(10px);}
+.root.light .ask-layer{background:rgba(90,115,140,.25);}
+/* шар в «Частях света» и в обмене */
+.root.light #dgball stop:nth-child(1), .root.light #nhGlobe stop:nth-child(1), .root.light #noGlobe stop:nth-child(1){stop-color:#eef4f9;}
+.root.light #dgball stop:nth-child(2), .root.light #nhGlobe stop:nth-child(2), .root.light #noGlobe stop:nth-child(2){stop-color:#cddfee;}
+.root.light .donut-globe path{fill:#8fb6d6;}
+.root.light .donut-globe g{opacity:.8;}
+.root.light .donut-globe > circle:last-child{stroke:rgba(70,110,150,.35);}
+/* телефоны на картинке обмена */
+.root.light #nhPhone stop:nth-child(1){stop-color:#ffffff;}
+.root.light #nhPhone stop:nth-child(2){stop-color:#e6eef5;}
+.root.light .near-hero rect[fill="#0c1a27"]{fill:#f6f9fc;}
+.root.light .near-hero rect[fill="rgba(230,237,244,.8)"]{fill:rgba(40,60,80,.55);}
+.root.light .near-hero rect[fill="rgba(255,255,255,.12)"]{fill:rgba(40,60,80,.12);}
+.root.light .near-hero g[stroke], .root.light .near-hero rect[stroke]{stroke:rgba(70,110,150,.35);}
+/* графики */
+.root.light .area-fill{fill:#d6e6f3;}
+.root.light rect[fill="#16283a"]{fill:#ffffff;}
+.root.light .sd stop[stop-color="#2a3a4b"]{stop-color:#e3eaf1;}
+.root.light .sd stop[stop-color="#223242"]{stop-color:#d4dee8;}
+.root.light .sd stop[stop-color="#5d6f83"]{stop-color:#b9c9d8;}
+.root.light .sd stop[stop-color="#3d4d5f"]{stop-color:#9fb3c6;}
+.root.light .sd-base rect{fill:rgba(70,110,150,.07);}
+/* награды, переключатели, код, полка */
+.root.light .sheet .awards-card{background:linear-gradient(160deg,#fff8e8 0%,#fdf3dc 55%,#f7ecd2 100%); border-color:#ecdcb4;}
+.root.light .sw i{background:#ffffff; box-shadow:0 1px 3px rgba(20,40,60,.25);}
+.root.light .qr-hole{background:#eef4f9;}
+.root.light .shelf-cell i{filter:grayscale(1) brightness(1.15) opacity(.45);}
+.root.light .shelf-cell.got i{filter:none;}
+.root.light .shelf-cell.wish i{filter:grayscale(.5) opacity(.8);}
 `;
 const __b = document.getElementById('boot');
 if (__b)
