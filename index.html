@@ -2897,7 +2897,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "41.1";
+const APP_VERSION = "41.2";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -11843,6 +11843,31 @@ const SAT_TONES = [
     { a: "#efe2ff", b: "#b58fd8", c: "#6b4b98", r1: "#8163b0", r2: "#e3d2f8", t: "#221836" },
     { a: "#dcf3e8", b: "#86c6a8", c: "#3d7960", r1: "#57967a", r2: "#cdeedd", t: "#12301f" },
 ];
+/* стеклянный шар планеты: радиус и сетка (передние линии ярче, задние — пунктиром) */
+const SR = 62;
+const GLASS_GRID = (() => {
+    const out = [];
+    const R = SR;
+    const rad = Math.PI / 180;
+    [-45, -22, 0, 22, 45].forEach((l) => {
+        const y = 100 - R * Math.sin(l * rad) * 0.94;
+        const rx = R * Math.cos(l * rad);
+        const ry = rx * 0.3;
+        out.push(React.createElement("path", { key: "pf" + l, d: `M ${100 - rx} ${y} A ${rx} ${ry} 0 0 0 ${100 + rx} ${y}`, strokeOpacity: ".7" }));
+        out.push(React.createElement("path", { key: "pb" + l, d: `M ${100 - rx} ${y} A ${rx} ${ry} 0 0 1 ${100 + rx} ${y}`, strokeOpacity: ".28", strokeWidth: "1.1", strokeDasharray: "3 3" }));
+    });
+    [0, 30, 60, 90, 120, 150].forEach((m) => {
+        const rx = Math.abs(R * Math.cos(m * rad));
+        if (rx < 1) {
+            out.push(React.createElement("line", { key: "m" + m, x1: "100", y1: 100 - R, x2: "100", y2: 100 + R, strokeOpacity: ".7" }));
+            return;
+        }
+        const f = m < 90;
+        out.push(React.createElement("path", { key: "mf" + m, d: `M 100 ${100 - R} A ${rx} ${R} 0 0 ${f ? 0 : 1} 100 ${100 + R}`, strokeOpacity: ".7" }));
+        out.push(React.createElement("path", { key: "mb" + m, d: `M 100 ${100 - R} A ${rx} ${R} 0 0 ${f ? 1 : 0} 100 ${100 + R}`, strokeOpacity: ".28", strokeWidth: "1.1", strokeDasharray: "3 3" }));
+    });
+    return out;
+})();
 /* кольцо как плоская пластина: внешний обод и внутренняя часть за прорезью */
 const RING_PLATE = "M 2 100 a 98 26 0 1 0 196 0 a 98 26 0 1 0 -196 0 Z " +
     "M 22 100 a 78 20 0 1 0 156 0 a 78 20 0 1 0 -156 0 Z";
@@ -11855,10 +11880,6 @@ function Saturn({ name, n, tone = 0, size = 120, id = "s", orbit = true, label: 
     const plateW = Math.min(196 * Math.max(1, ls / 1.25), Math.max(74, (label.length * 11 + 26) * ls));
     return (React.createElement("svg", { className: "dg-planet", viewBox: "0 0 200 250", style: { overflow: "visible" }, width: size, height: size * 1.25 },
         React.createElement("defs", null,
-            React.createElement("radialGradient", { id: `${u}-ball`, cx: "34%", cy: "30%", r: "78%" },
-                React.createElement("stop", { offset: "0%", stopColor: t.a }),
-                React.createElement("stop", { offset: "55%", stopColor: t.b }),
-                React.createElement("stop", { offset: "100%", stopColor: t.c })),
             React.createElement("linearGradient", { id: `${u}-ring`, x1: "0%", y1: "0%", x2: "100%", y2: "0%" },
                 React.createElement("stop", { offset: "0%", stopColor: t.r1 }),
                 React.createElement("stop", { offset: "22%", stopColor: t.r2 }),
@@ -11872,6 +11893,15 @@ function Saturn({ name, n, tone = 0, size = 120, id = "s", orbit = true, label: 
             React.createElement("linearGradient", { id: `${u}-plate`, x1: "0%", y1: "0%", x2: "0%", y2: "100%" },
                 React.createElement("stop", { offset: "0%", stopColor: t.r2 }),
                 React.createElement("stop", { offset: "100%", stopColor: t.r1 })),
+            React.createElement("radialGradient", { id: `${u}-glass`, cx: "50%", cy: "50%", r: "50%" },
+                React.createElement("stop", { offset: "0%", stopColor: t.b, stopOpacity: ".14" }),
+                React.createElement("stop", { offset: "72%", stopColor: t.b, stopOpacity: ".26" }),
+                React.createElement("stop", { offset: "100%", stopColor: t.a, stopOpacity: ".62" })),
+            React.createElement("clipPath", { id: `${u}-in` },
+                React.createElement("circle", { cx: "100", cy: "100", r: SR })),
+            React.createElement("mask", { id: `${u}-out` },
+                React.createElement("rect", { x: "-40", y: "-40", width: "280", height: "330", fill: "#fff" }),
+                React.createElement("circle", { cx: "100", cy: "100", r: SR, fill: "#000" })),
             React.createElement("clipPath", { id: `${u}-up` },
                 React.createElement("rect", { x: "-20", y: "-20", width: "240", height: "120" })),
             React.createElement("clipPath", { id: `${u}-dn` },
@@ -11882,26 +11912,26 @@ function Saturn({ name, n, tone = 0, size = 120, id = "s", orbit = true, label: 
             React.createElement("circle", { cx: "24", cy: "100", r: "4", fill: "#fff", fillOpacity: ".5", stroke: "none" }),
             React.createElement("circle", { cx: "100", cy: "62", r: "3.5", fill: "#fff", fillOpacity: ".65", stroke: "none" }),
             React.createElement("circle", { cx: "176", cy: "100", r: "4.5", fill: "#fff", fillOpacity: ".45", stroke: "none" }))),
-        React.createElement("g", { transform: "rotate(-14 100 100)", clipPath: `url(#${u}-up)` },
-            React.createElement("path", { fill: `url(#${u}-ring)`, fillRule: "evenodd", d: RING_PLATE }),
-            React.createElement("path", { fill: `url(#${u}-ring)`, fillOpacity: ".5", fillRule: "evenodd", d: RING_INNER })),
+        React.createElement("g", { mask: `url(#${u}-out)` },
+            React.createElement("g", { transform: "rotate(-14 100 100)", clipPath: `url(#${u}-up)` },
+                React.createElement("path", { fill: `url(#${u}-ring)`, fillRule: "evenodd", d: RING_PLATE, opacity: ".42" }),
+                React.createElement("path", { fill: t.c, fillRule: "evenodd", d: RING_PLATE, opacity: ".35" }))),
+        React.createElement("g", { clipPath: `url(#${u}-in)` },
+            React.createElement("g", { transform: "rotate(-14 100 100)", clipPath: `url(#${u}-up)` },
+                React.createElement("path", { fill: t.b, fillRule: "evenodd", d: RING_PLATE, opacity: ".12" }))),
         React.createElement("path", { d: "M 100 140 L 100 197", stroke: t.r1, strokeWidth: "4", strokeLinecap: "round", fill: "none" }),
-        React.createElement("g", { transform: "translate(100 100) scale(0.88) translate(-100 -100)" },
-            React.createElement("circle", { cx: "100", cy: "100", r: "70", fill: `url(#${u}-ball)` }),
-            React.createElement("g", { fill: "none", stroke: "#fff", strokeOpacity: ".18", strokeLinecap: "round" },
-                React.createElement("path", { d: "M 43 70 C 70 62, 130 62, 157 70", strokeWidth: "7" }),
-                React.createElement("path", { d: "M 34 83 C 65 76, 135 76, 166 83", strokeWidth: "9" }),
-                React.createElement("path", { d: "M 31 98 C 63 92, 137 92, 169 98", strokeWidth: "6" }),
-                React.createElement("path", { d: "M 31 112 C 63 118, 137 118, 169 112", strokeWidth: "10" }),
-                React.createElement("path", { d: "M 38 128 C 68 135, 132 135, 162 128", strokeWidth: "7" }),
-                React.createElement("path", { d: "M 50 143 C 73 149, 127 149, 150 143", strokeWidth: "6" })),
-            React.createElement("ellipse", { cx: "78", cy: "74", rx: "19", ry: "27", fill: "#fff", fillOpacity: ".18", transform: "rotate(-25 78 74)" }),
-            React.createElement("ellipse", { cx: "72", cy: "67", rx: "7", ry: "11", fill: "#fff", fillOpacity: ".28", transform: "rotate(-25 72 67)" }),
-            React.createElement("ellipse", { cx: "128", cy: "126", rx: "31", ry: "39", fill: "#000", fillOpacity: ".13", transform: "rotate(-25 128 126)" })),
-        React.createElement("text", { x: "100", y: "96", textAnchor: "middle", fontSize: "40", fontWeight: "800", fill: t.t, style: { paintOrder: "stroke", stroke: t.a, strokeWidth: 4, strokeLinejoin: "round" } }, n),
+        React.createElement("circle", { cx: "100", cy: "100", r: SR, fill: `url(#${u}-glass)` }),
+        React.createElement("circle", { cx: "100", cy: "100", r: SR, fill: "none", stroke: t.a, strokeOpacity: ".75", strokeWidth: "1.6" }),
+        React.createElement("g", { fill: "none", stroke: t.a, strokeWidth: "1.4" }, GLASS_GRID),
+        React.createElement("ellipse", { cx: "78", cy: "72", rx: "16", ry: "22", fill: "#fff", fillOpacity: ".22", transform: "rotate(-25 78 72)" }),
+        React.createElement("ellipse", { cx: "73", cy: "66", rx: "5", ry: "8", fill: "#fff", fillOpacity: ".45", transform: "rotate(-25 73 66)" }),
+        React.createElement("g", { clipPath: `url(#${u}-in)` },
+            React.createElement("ellipse", { cx: "100", cy: "116", rx: "80", ry: "12", transform: "rotate(-14 100 100)", fill: t.c, opacity: ".32" })),
+        React.createElement("text", { x: "100", y: "114", textAnchor: "middle", fontSize: "40", fontWeight: "800", fill: "#fff", style: { paintOrder: "stroke", stroke: t.c, strokeWidth: 6, strokeLinejoin: "round" } }, n),
         React.createElement("g", { transform: "rotate(-14 100 100)", clipPath: `url(#${u}-dn)` },
             React.createElement("path", { fill: `url(#${u}-ring)`, fillRule: "evenodd", d: RING_PLATE }),
-            React.createElement("path", { fill: `url(#${u}-ring)`, fillOpacity: ".5", fillRule: "evenodd", d: RING_INNER })),
+            React.createElement("path", { fill: "none", stroke: t.a, strokeOpacity: ".8", strokeWidth: "1", d: "M 2 100 a 98 26 0 1 0 196 0" }),
+            React.createElement("path", { fill: "none", stroke: t.c, strokeOpacity: ".6", strokeWidth: "1", d: "M 22 100 a 78 20 0 1 0 156 0" })),
         React.createElement("g", { className: "dg-sign" },
             React.createElement("rect", { x: 100 - plateW / 2, y: "196", width: plateW, height: 34 * ls, rx: "10", fill: `url(#${u}-plate)`, stroke: t.r1, strokeWidth: "1.5" }),
             React.createElement("text", { x: "100", y: 218 + 11 * (ls - 1), textAnchor: "middle", fontSize: 19 * ls, fontWeight: "800", fill: t.t, textLength: Math.min(plateW - 16, label.length * 11 * ls), lengthAdjust: "spacingAndGlyphs" }, label))));
