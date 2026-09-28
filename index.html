@@ -2897,7 +2897,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "41.4";
+const APP_VERSION = "41.5";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -4944,14 +4944,14 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                 ctx.save();
                 ctx.lineCap = "round";
                 // весь путь едва заметно, пройденный — ярче
-                ctx.strokeStyle = lt ? "rgba(20,45,70,1)" : "rgba(244,239,226,1)";
+                ctx.strokeStyle = lt ? "rgba(29,127,224,1)" : "rgba(244,239,226,1)";
                 ctx.lineWidth = 1;
                 ctx.globalAlpha = (lt ? 0.3 : 0.35) * fade;
                 trace(0, N);
                 if (lt) {
                     // светлая тема: тёмная подложка под пройденным путём
-                    ctx.strokeStyle = "rgba(20,45,70,.45)";
-                    ctx.lineWidth = 3.4;
+                    ctx.strokeStyle = "rgba(255,255,255,.85)";
+                    ctx.lineWidth = 3.6;
                     ctx.globalAlpha = 0.9 * fade;
                     trace(0, Math.min(N, i0 + 1));
                 }
@@ -4973,7 +4973,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                     ctx.rotate(Math.atan2(p1[1] - p0[1], p1[0] - p0[0]) + Math.PI / 2);
                     // светлая тема: тёмный самолётик с белой обводкой — виден на светлом шаре
                     ctx.scale(lt ? 0.85 : 0.75, lt ? 0.85 : 0.75);
-                    ctx.fillStyle = lt ? "#1f3b57" : "#f4efe2";
+                    ctx.fillStyle = lt ? "#1d7fe0" : "#f4efe2"; // светлая тема: ярко-синий, не чёрный
                     ctx.strokeStyle = lt ? "#ffffff" : "rgba(8,16,26,.8)";
                     ctx.lineWidth = lt ? 2.2 : 1.4;
                     ctx.beginPath();
