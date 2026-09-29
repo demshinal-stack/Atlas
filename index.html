@@ -2917,7 +2917,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "41.6";
+const APP_VERSION = "41.7";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -4142,8 +4142,30 @@ function flagSprite(c) {
             FLAG_SPR[key] = { at: Date.now() };
             return null;
         }
-        FLAG_SPR[key] = { cv };
-        return cv;
+        // обрезаем по самому рисунку: у эмодзи бывают поля с одной стороны,
+        // из-за них пояс казался сдвинутым вправо (41.7)
+        let x0 = 96, x1 = -1, y0 = 72, y1 = -1;
+        for (let yy = 0; yy < 72; yy++)
+            for (let xx = 0; xx < 96; xx++)
+                if (d[(yy * 96 + xx) * 4 + 3] > 40) {
+                    if (xx < x0)
+                        x0 = xx;
+                    if (xx > x1)
+                        x1 = xx;
+                    if (yy < y0)
+                        y0 = yy;
+                    if (yy > y1)
+                        y1 = yy;
+                }
+        let out = cv;
+        if (x1 > x0 && y1 > y0) {
+            out = document.createElement("canvas");
+            out.width = x1 - x0 + 1;
+            out.height = y1 - y0 + 1;
+            out.getContext("2d").drawImage(cv, x0, y0, out.width, out.height, 0, 0, out.width, out.height);
+        }
+        FLAG_SPR[key] = { cv: out };
+        return out;
     }
     catch {
         FLAG_SPR[key] = { at: Date.now() };
@@ -4362,7 +4384,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
             ? COUNTRIES.filter((c) => on(c.a3))
             : [];
         const beltY = cy + R * 0.6;
-        const beltRx = Math.min(R * 0.92, size / 2 - 26);
+        const beltRx = Math.min(R * 0.92, size / 2 - 32);
         const beltRy = beltRx * 0.26;
         const drawBelt = (front) => {
             if (!beltFlags.length)
@@ -4381,10 +4403,13 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                 const spr = flagSprite(c);
                 if (!spr)
                     return;
-                const h = 24 * k;
+                const h = 19 * k; // 41.7: флаги крупнее (спрайт обрезан по рисунку — это высота самого флага)
                 const w = (h * spr.width) / spr.height;
                 ctx.save();
-                ctx.globalAlpha = front ? 1 : 0.5;
+                // у краёв пояса флаг плавно гаснет и уходит за шар — концы пояса
+                // не «торчат» то слева, то справа, и пояс смотрится ровно по центру
+                const edge = Math.min(1, Math.abs(sn) * 3.2);
+                ctx.globalAlpha = (front ? 1 : 0.5) * edge;
                 ctx.drawImage(spr, x - w / 2, y - h / 2, w, h);
                 ctx.restore();
             });
@@ -5452,6 +5477,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         !noFull && (React.createElement("button", { onClick: onToggleFull, "aria-label": "\u0412\u043E \u0432\u0435\u0441\u044C \u044D\u043A\u0440\u0430\u043D" }, full ? "✕" : "⛶"))));
     if (full)
         return (React.createElement("div", { className: "globe-full", ref: wrapRef },
+            !isMap && React.createElement(SpaceBackdrop, { light: !!light, moving: !!playing }),
             stage,
             pager,
             controls));
@@ -5459,6 +5485,376 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         stage,
         pager,
         controls));
+}
+/* Атлас · 12b · космос за глобусом во весь экран (41.7).
+   Тёмная тема — «Живая Вселенная», светлая — «Утро в космосе».
+   Неподвижное (дымка, туманности, мелкие звёзды) рисуется один раз в запасной
+   холст; в каждом кадре — сдвиг вслед за вращением шара, мерцание ярких звёзд,
+   дрейф планеты, изредка комета и падающая звезда.
+   Части собираются по номерам в один файл (tools/rebuild.sh) и видят друг друга напрямую. */
+function spaceLayer(W, H, dpr, light) {
+    const cv = document.createElement("canvas");
+    cv.width = Math.round(W * dpr);
+    cv.height = Math.round(H * dpr);
+    const c = cv.getContext("2d");
+    c.scale(dpr, dpr);
+    let seed = 7;
+    const R = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    const cloud = (x, y, r, rgb, a) => {
+        const g = c.createRadialGradient(x, y, 0, x, y, r);
+        g.addColorStop(0, `rgba(${rgb},${a})`);
+        g.addColorStop(1, `rgba(${rgb},0)`);
+        c.fillStyle = g;
+        c.beginPath();
+        c.arc(x, y, r, 0, 7);
+        c.fill();
+    };
+    if (light) {
+        const g = c.createLinearGradient(0, 0, W * 0.3, H);
+        g.addColorStop(0, "#dcebfa");
+        g.addColorStop(0.45, "#eef2fb");
+        g.addColorStop(0.75, "#f3ecf7");
+        g.addColorStop(1, "#fbeee6");
+        c.fillStyle = g;
+        c.fillRect(0, 0, W, H);
+        cloud(W * 0.85, H * 0.12, Math.max(W, H) * 0.25, "160,190,240", 0.35);
+        cloud(W * 0.1, H * 0.35, Math.max(W, H) * 0.22, "200,180,240", 0.3);
+        cloud(W * 0.8, H * 0.78, Math.max(W, H) * 0.26, "250,200,190", 0.35);
+        const n = Math.round((W * H) / 2200);
+        for (let i = 0; i < n; i++) {
+            const t = R();
+            cloud(-40 + t * (W + 80), H * 0.1 + t * H * 0.6 + (R() - 0.5) * 110, 30 + R() * 70, "255,255,255", 0.12 + R() * 0.12);
+        }
+    }
+    else {
+        const bg = c.createRadialGradient(W * 0.5, H * 0.45, 50, W * 0.5, H * 0.5, Math.max(W, H) * 0.8);
+        bg.addColorStop(0, "#0b1830");
+        bg.addColorStop(0.6, "#060d1c");
+        bg.addColorStop(1, "#02060e");
+        c.fillStyle = bg;
+        c.fillRect(0, 0, W, H);
+        const cols = ["150,170,230", "190,170,220", "120,160,210"];
+        const n = Math.round((W * H) / 4000);
+        for (let i = 0; i < n; i++) {
+            const t = R();
+            cloud(-60 + t * (W + 120), H * 0.12 + t * H * 0.55 + (R() - 0.5) * 120, 30 + R() * 90, cols[i % 3], (0.03 + R() * 0.05) * 1.3);
+        }
+        cloud(W * 0.85, H * 0.15, 150, "90,110,200", 0.08);
+        cloud(W * 0.1, H * 0.8, 170, "70,120,190", 0.07);
+    }
+    return cv;
+}
+/* мелкие звёзды на прозрачном холсте — его можно сдвигать по кругу без шва */
+function starLayer(W, H, dpr, light) {
+    const cv = document.createElement("canvas");
+    cv.width = Math.round(W * dpr);
+    cv.height = Math.round(H * dpr);
+    const c = cv.getContext("2d");
+    c.scale(dpr, dpr);
+    let seed = 13;
+    const R = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    const dot = (x, y, r, col, a) => {
+        c.globalAlpha = a;
+        c.fillStyle = col;
+        c.beginPath();
+        c.arc(x, y, r, 0, 7);
+        c.fill();
+    };
+    if (light) {
+        const m = Math.round((W * H) / 1500);
+        for (let i = 0; i < m; i++)
+            dot(R() * W, R() * H, 0.5 + R() * 0.7, ["#6d86b8", "#9a86c8", "#c79a6a"][i % 3], 0.25 + R() * 0.35);
+    }
+    else {
+        const sc = ["#ffffff", "#dfe8ff", "#fff4dc", "#cfe0ff", "#ffe2c8"];
+        const m = Math.round((W * H) / 640);
+        for (let i = 0; i < m; i++)
+            dot(R() * W, R() * H, 0.35 + R() * 0.4, sc[i % 5], 0.25 + R() * 0.45);
+        const k = Math.round((W * H) / 3700);
+        for (let i = 0; i < k; i++)
+            dot(R() * W, R() * H, 0.7 + R() * 0.5, sc[i % 5], 0.5 + R() * 0.4);
+    }
+    c.globalAlpha = 1;
+    return cv;
+}
+function SpaceBackdrop({ light, moving = true }) {
+    const ref = useRef(null);
+    const movingRef = useRef(moving);
+    movingRef.current = moving;
+    useEffect(() => {
+        var _c, _d;
+        const cv = ref.current;
+        if (!cv)
+            return;
+        const reduce = (_d = (_c = window.matchMedia) === null || _c === void 0 ? void 0 : _c.call(window, "(prefers-reduced-motion: reduce)")) === null || _d === void 0 ? void 0 : _d.matches;
+        const dpr = Math.min(2, window.devicePixelRatio || 1);
+        let W = 0;
+        let H = 0;
+        let layer = null;
+        let dots = null;
+        let stars = [];
+        let raf = 0;
+        let stop = false;
+        let last = 0;
+        let shift = 0;
+        let comet = null;
+        let meteor = null;
+        let nextComet = 3 + Math.random() * 5;
+        let nextMeteor = 2 + Math.random() * 4;
+        let T = 0;
+        const ctx = cv.getContext("2d");
+        const size = () => {
+            const b = cv.parentElement.getBoundingClientRect();
+            if (!b.width || !b.height)
+                return false;
+            if (Math.abs(b.width - W) < 2 && Math.abs(b.height - H) < 2 && layer)
+                return true;
+            W = b.width;
+            H = b.height;
+            cv.width = Math.round(W * dpr);
+            cv.height = Math.round(H * dpr);
+            cv.style.width = W + "px";
+            cv.style.height = H + "px";
+            layer = spaceLayer(W, H, dpr, light);
+            dots = starLayer(W, H, dpr, light);
+            const cols = light ? ["#5b7fd0", "#d49a17", "#a078d8"] : ["#ffffff", "#dfe8ff", "#fff4dc", "#cfe0ff", "#ffe2c8"];
+            const n = Math.max(8, Math.round((W * H) / 20000));
+            stars = Array.from({ length: n }, (_, i) => ({
+                x: Math.random() * W,
+                y: Math.random() * H,
+                r: light ? 4 + Math.random() * 5 : 1.1 + Math.random() * 0.6,
+                col: cols[i % cols.length],
+                ph: Math.random() * 6.28,
+                f: 0.6 + Math.random() * 1.2,
+                z: 0.4 + Math.random() * 0.6, // ближние сдвигаются быстрее
+            }));
+            return true;
+        };
+        const spark = (x, y, r, col, a) => {
+            ctx.globalAlpha = a;
+            ctx.fillStyle = col;
+            ctx.beginPath();
+            ctx.moveTo(x, y - r);
+            ctx.quadraticCurveTo(x, y, x + r, y);
+            ctx.quadraticCurveTo(x, y, x, y + r);
+            ctx.quadraticCurveTo(x, y, x - r, y);
+            ctx.quadraticCurveTo(x, y, x, y - r);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+        };
+        const glowStar = (x, y, r, col, a) => {
+            ctx.globalAlpha = a;
+            ctx.fillStyle = col;
+            ctx.beginPath();
+            ctx.arc(x, y, r, 0, 7);
+            ctx.fill();
+            const g = ctx.createRadialGradient(x, y, 0, x, y, r * 6);
+            g.addColorStop(0, col);
+            g.addColorStop(1, "rgba(255,255,255,0)");
+            ctx.globalAlpha = a * 0.35;
+            ctx.fillStyle = g;
+            ctx.beginPath();
+            ctx.arc(x, y, r * 6, 0, 7);
+            ctx.fill();
+            ctx.globalAlpha = a * 0.6;
+            ctx.strokeStyle = col;
+            ctx.lineWidth = 0.6;
+            ctx.beginPath();
+            ctx.moveTo(x - r * 7, y);
+            ctx.lineTo(x + r * 7, y);
+            ctx.moveTo(x, y - r * 7);
+            ctx.lineTo(x, y + r * 7);
+            ctx.stroke();
+            ctx.globalAlpha = 1;
+        };
+        const planet = (px, py, pr) => {
+            const ring = (a0, a1) => {
+                ctx.save();
+                ctx.translate(px, py);
+                ctx.rotate(-0.35);
+                ctx.strokeStyle = light ? "rgba(210,160,90,.8)" : "rgba(240,215,170,.6)";
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.ellipse(0, 0, pr * 2, pr * 0.5, 0, a0, a1);
+                ctx.stroke();
+                ctx.restore();
+            };
+            ring(Math.PI, 2 * Math.PI);
+            const g = ctx.createRadialGradient(px - pr * 0.35, py - pr * 0.35, 2, px, py, pr);
+            if (light) {
+                g.addColorStop(0, "#fff3dc");
+                g.addColorStop(0.6, "#f0c48c");
+                g.addColorStop(1, "#c78d55");
+            }
+            else {
+                g.addColorStop(0, "#f3d9a8");
+                g.addColorStop(0.6, "#b98a55");
+                g.addColorStop(1, "#3a2614");
+            }
+            ctx.fillStyle = g;
+            ctx.beginPath();
+            ctx.arc(px, py, pr, 0, 7);
+            ctx.fill();
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(px, py, pr, 0, 7);
+            ctx.clip();
+            ctx.globalAlpha = 0.25;
+            ctx.fillStyle = light ? "#b87a40" : "#7a5530";
+            for (let k = -3; k < 4; k++)
+                ctx.fillRect(px - pr, py + k * pr * 0.27, pr * 2, pr * 0.12);
+            ctx.restore();
+            ctx.globalAlpha = 1;
+            ring(0, Math.PI);
+        };
+        const moon = (mx, my, mr) => {
+            const g = ctx.createRadialGradient(mx - mr * 0.5, my - mr * 0.4, 4, mx, my, mr);
+            if (light) {
+                g.addColorStop(0, "#ffffff");
+                g.addColorStop(0.6, "#d9d3ea");
+                g.addColorStop(1, "#a79fc4");
+            }
+            else {
+                g.addColorStop(0, "#c9b7c8");
+                g.addColorStop(0.55, "#6f5f78");
+                g.addColorStop(1, "#171325");
+            }
+            ctx.fillStyle = g;
+            ctx.beginPath();
+            ctx.arc(mx, my, mr, 0, 7);
+            ctx.fill();
+            ctx.globalAlpha = light ? 0.35 : 0.25;
+            ctx.fillStyle = light ? "#b3aacb" : "#2a2236";
+            [[-0.27, -0.14, 0.16], [0.18, 0.23, 0.11], [0.32, -0.32, 0.09], [-0.09, 0.36, 0.07]].forEach(([dx, dy, r]) => {
+                ctx.beginPath();
+                ctx.arc(mx + dx * mr, my + dy * mr, r * mr, 0, 7);
+                ctx.fill();
+            });
+            ctx.globalAlpha = 1;
+        };
+        const streak = (x, y, dx, dy, len, w, col0, head) => {
+            const n = Math.hypot(dx, dy) || 1;
+            const tx = x - (dx / n) * len;
+            const ty = y - (dy / n) * len;
+            const g = ctx.createLinearGradient(x, y, tx, ty);
+            g.addColorStop(0, col0);
+            g.addColorStop(1, "rgba(255,255,255,0)");
+            ctx.strokeStyle = g;
+            ctx.lineCap = "round";
+            ctx.lineWidth = w;
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(tx, ty);
+            ctx.stroke();
+            if (head)
+                head(x, y);
+        };
+        const frame = (now) => {
+            if (stop)
+                return;
+            if (!size()) {
+                raf = requestAnimationFrame(frame);
+                return;
+            }
+            const dt = last ? Math.min(0.1, (now - last) / 1000) : 0;
+            // ~30 кадров в секунду достаточно для фона
+            if (last && now - last < 30) {
+                raf = requestAnimationFrame(frame);
+                return;
+            }
+            last = now;
+            T += dt;
+            // вслед за вращением шара небо медленно плывёт
+            shift = (shift + dt * (movingRef.current ? 4 : 0.6)) % W;
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.drawImage(layer, 0, 0);
+            ctx.drawImage(dots, -shift * dpr, 0);
+            ctx.drawImage(dots, (W - shift) * dpr, 0);
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            // яркие звёзды мерцают, ближние плывут быстрее
+            stars.forEach((s) => {
+                const x = (((s.x - shift * (1 + s.z)) % W) + W) % W;
+                const a = 0.55 + 0.45 * Math.sin(T * s.f + s.ph);
+                if (light)
+                    spark(x, s.y, s.r * (0.85 + 0.15 * a), s.col, 0.35 + 0.4 * a);
+                else
+                    glowStar(x, s.y, s.r, s.col, 0.5 + 0.5 * a);
+            });
+            // далёкая планета и луна: очень медленно
+            const pr = Math.max(18, Math.min(W, H) * 0.066);
+            planet(W * 0.2 + Math.sin(T * 0.02) * 14, H * 0.13 + Math.sin(T * 0.05) * 6, pr);
+            moon(W * 0.9 + Math.sin(T * 0.03) * 8, H * 0.82, Math.max(28, Math.min(W, H) * 0.11));
+            // комета: раз в 15–25 секунд, пересекает экран за ~7 секунд
+            if (!comet && T > nextComet)
+                comet = { t0: T, y0: H * (0.04 + Math.random() * 0.2), d: 6 + Math.random() * 3 };
+            if (comet) {
+                const u = (T - comet.t0) / comet.d;
+                if (u > 1) {
+                    comet = null;
+                    nextComet = T + 15 + Math.random() * 10;
+                }
+                else {
+                    const x = W * (1.1 - 1.3 * u);
+                    const y = comet.y0 + H * 0.35 * u;
+                    const a = Math.min(1, u * 5, (1 - u) * 5);
+                    ctx.globalAlpha = a;
+                    const tail = light ? "rgba(90,140,230,.8)" : "rgba(200,235,255,.85)";
+                    streak(x, y, -1.3 * W, 0.35 * H, 150, 5, tail, null);
+                    streak(x, y, -1.3 * W, 0.2 * H, 120, 1.5, tail, null);
+                    if (light)
+                        spark(x, y, 7, "#4d82e0", a);
+                    else
+                        glowStar(x, y, 2.2, "#eaf6ff", a);
+                    ctx.globalAlpha = 1;
+                }
+            }
+            // падающая звезда: короткая вспышка
+            if (!meteor && T > nextMeteor)
+                meteor = { t0: T, x: W * (0.15 + Math.random() * 0.7), y: H * (0.05 + Math.random() * 0.5), d: 0.9 };
+            if (meteor) {
+                const u = (T - meteor.t0) / meteor.d;
+                if (u > 1) {
+                    meteor = null;
+                    nextMeteor = T + 6 + Math.random() * 8;
+                }
+                else {
+                    const x = meteor.x + 90 * u;
+                    const y = meteor.y + 36 * u;
+                    ctx.globalAlpha = Math.sin(Math.PI * u);
+                    streak(x, y, 90, 36, 70, 1.4, light ? "rgba(212,154,23,.9)" : "rgba(255,255,255,.9)", null);
+                    ctx.globalAlpha = 1;
+                }
+            }
+            if (!reduce)
+                raf = requestAnimationFrame(frame);
+        };
+        raf = requestAnimationFrame(frame);
+        const onVis = () => {
+            if (document.hidden)
+                cancelAnimationFrame(raf);
+            else if (!reduce) {
+                last = 0;
+                raf = requestAnimationFrame(frame);
+            }
+        };
+        const onSize = () => {
+            layer = null;
+            W = 0;
+            if (reduce)
+                requestAnimationFrame(frame);
+        };
+        document.addEventListener("visibilitychange", onVis);
+        window.addEventListener("resize", onSize);
+        window.addEventListener("orientationchange", onSize);
+        return () => {
+            stop = true;
+            cancelAnimationFrame(raf);
+            document.removeEventListener("visibilitychange", onVis);
+            window.removeEventListener("resize", onSize);
+            window.removeEventListener("orientationchange", onSize);
+        };
+    }, [light]);
+    return React.createElement("canvas", { className: "space-bg", ref: ref, "aria-hidden": "true" });
 }
 /* Атлас · 13 · код входа, шторка, снимки, поля ввода, выбор даты.
    Части собираются по номерам в один файл (tools/rebuild.sh) и видят друг друга напрямую. */
@@ -17874,6 +18270,10 @@ button, input, select, textarea{font-family:inherit;}
 .fam-myname-row .tf-input{flex:1; min-width:0;}
 .fam-myname-row .btn-main{flex:none; padding:0 16px;}
 .fam-link-hint{display:block; margin-top:6px; font-style:normal; font-size:12px; line-height:1.35; color:var(--dim);}
+
+/* космос за глобусом во весь экран (41.7): холст под всем содержимым окна */
+.globe-full .space-bg{position:absolute; left:0; top:0; z-index:-1; pointer-events:none;}
+.globe-full .map-wrap{background:transparent;}
 `;
 const __b = document.getElementById('boot');
 if (__b)
