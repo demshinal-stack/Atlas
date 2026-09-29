@@ -2956,7 +2956,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "41.9";
+const APP_VERSION = "42.0";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -3258,12 +3258,119 @@ const COUNTRY_R = {
     CHE: 1.1, AUT: 1.6, BEL: 1, NLD: 1, DNK: 1.2, CZE: 1.4, MDA: 1.1,
 };
 const countryR = (a3) => COUNTRY_R[a3] || 1.9;
-/* посещённые страны: Россия — серебро, остальные — золото */
+/* посещённые страны — золото. Большие страны с областями (42.0): вся страна —
+   светлое золото, области, где были, — обычное золото */
 const WISH_FILL = "#4a7fb5";
-const SILVER = "#c3ced9";
 const SILVER_LINE = "rgba(198,210,222,.72)";
 const GOLD_FILL = "#e2b551";
-function fillStyleFor(ctx, a3, bounds, wish) {
+const CHAMP_FILL = "#f4dc9c";
+/* области больших стран: грузятся один раз из data/regions-map.json */
+const REG = { ready: false, feats: [], big: new Set(), loading: null };
+const K_REG = "atlas:regions:v1";
+function regionsFrom(j) {
+    const feats = [];
+    ((j === null || j === void 0 ? void 0 : j.r) || []).forEach((r) => {
+        const coords = (r.g || []).map((poly) => {
+            // обход по d3: если площадь больше полушария — кольца развернуты
+            const a = d3.geoArea({ type: "Polygon", coordinates: poly });
+            return a > 2 * Math.PI ? poly.map((ring) => [...ring].reverse()) : poly;
+        });
+        feats.push({
+            type: "Feature",
+            properties: { a3: r.a3, n: r.n, key: r.a3 + "|" + r.n },
+            geometry: { type: "MultiPolygon", coordinates: coords },
+        });
+    });
+    return feats;
+}
+function loadRegions() {
+    if (REG.ready)
+        return Promise.resolve(true);
+    if (REG.loading)
+        return REG.loading;
+    REG.loading = (async () => {
+        var _c, _d;
+        let j = null;
+        try {
+            j = await store.get(K_REG);
+        }
+        catch {
+            j = null;
+        }
+        if (!((_c = j === null || j === void 0 ? void 0 : j.r) === null || _c === void 0 ? void 0 : _c.length)) {
+            try {
+                const r = await fetch("./data/regions-map.json?v=1");
+                if (r.ok) {
+                    j = await r.json();
+                    store.set(K_REG, j);
+                }
+            }
+            catch {
+                j = null;
+            }
+        }
+        if (!((_d = j === null || j === void 0 ? void 0 : j.r) === null || _d === void 0 ? void 0 : _d.length)) {
+            REG.loading = null;
+            return false;
+        }
+        REG.feats = regionsFrom(j);
+        REG.big = new Set(REG.feats.map((f) => f.properties.a3));
+        REG.ready = true;
+        return true;
+    })();
+    return REG.loading;
+}
+/* в каких областях были: город с координатами внутри области или
+   название города/региона совпадает с названием области */
+const regWord = (x) => String(x || "").toLowerCase().replace(/ё/g, "е").split(/[\s,(-]/)[0];
+function visitedRegions(visits, keep = () => true) {
+    const out = new Set();
+    if (!REG.ready)
+        return out;
+    Object.entries(visits || {}).forEach(([a3, arr]) => {
+        if (!REG.big.has(a3))
+            return;
+        const feats = REG.feats.filter((f) => f.properties.a3 === a3);
+        (arr || []).forEach((t) => {
+            if (t.plan || !keep(t))
+                return;
+            [...(t.cities || []), ...(t.regions || [])].forEach((name) => {
+                const pt = distPoint(a3, name);
+                let hit = null;
+                if (pt && !pt[2])
+                    hit = feats.find((f) => d3.geoContains(f, [pt[0], pt[1]]));
+                if (!hit) {
+                    const w = regWord(name);
+                    if (w.length >= 4)
+                        hit = feats.find((f) => {
+                            const n = String(f.properties.n).toLowerCase().replace(/ё/g, "е");
+                            return n.includes(w) || (w.length >= 6 && n.split(/[\s-]/).some((x) => x.slice(0, 6) === w.slice(0, 6)));
+                        });
+                }
+                if (!hit && pt && pt[2] === "approx")
+                    hit = feats.find((f) => d3.geoContains(f, [pt[0], pt[1]]));
+                if (hit)
+                    out.add(hit.properties.key);
+            });
+        });
+    });
+    return out;
+}
+function goldGrad(ctx, bounds, c0, c1, c2, flat) {
+    if (!bounds)
+        return flat;
+    const [[x0, y0], [x1, y1]] = bounds;
+    if (!isFinite(x0) || !isFinite(y1))
+        return flat;
+    const g = ctx.createLinearGradient(x0, y0, x1, y1);
+    g.addColorStop(0, c0);
+    g.addColorStop(0.5, c1);
+    g.addColorStop(1, c2);
+    return g;
+}
+function fillStyleFor(ctx, _a3, bounds, wish, champ = false) {
+    if (champ)
+        return goldGrad(ctx, bounds, "#fbeec4", CHAMP_FILL, "#e7c67a", CHAMP_FILL);
     if (wish) {
         if (!bounds)
             return WISH_FILL;
@@ -3273,18 +3380,6 @@ function fillStyleFor(ctx, a3, bounds, wish) {
         const g = ctx.createLinearGradient(x0, y0, x1, y1);
         g.addColorStop(0, "#5e93c9");
         g.addColorStop(1, "#33608f");
-        return g;
-    }
-    if (a3 === "RUS") {
-        if (!bounds)
-            return SILVER;
-        const [[x0, y0], [x1, y1]] = bounds;
-        if (!isFinite(x0) || !isFinite(y1))
-            return SILVER;
-        const g = ctx.createLinearGradient(x0, y0, x1, y1);
-        g.addColorStop(0, "#d7e1ea");
-        g.addColorStop(0.5, SILVER);
-        g.addColorStop(1, "#a8b6c4");
         return g;
     }
     if (!bounds)
@@ -4263,7 +4358,7 @@ function launchFlights(st, routes, rot, spin) {
     }
     st.next = now + 1400 + Math.random() * 2600;
 }
-function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home, marks, light, playing, setPlaying, view, page: pageProp, setPage, isWish, arcs, noFull, fitBox, onArcPick, spinStep, glow, lookAt, pins, dashSel, flights, flying, fitK = 1 }) {
+function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home, marks, light, playing, setPlaying, view, page: pageProp, setPage, isWish, arcs, noFull, fitBox, onArcPick, spinStep, glow, lookAt, pins, dashSel, flights, flying, fitK = 1, regions }) {
     const fitKRef = useRef(fitK);
     fitKRef.current = fitK;
     const wrapRef = useRef(null);
@@ -4292,7 +4387,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
     const state = useRef({ isOn, selected, geo, marks, light, full, isMap, isWish, arcs, glow, glowAt: 0 });
     if (state.current.glow !== glow)
         state.current.glowAt = Date.now();
-    state.current = { ...state.current, isOn, selected, geo, marks, light, full, isMap, isWish, arcs, glow, pins, dashSel, night, flights, flying };
+    state.current = { ...state.current, isOn, selected, geo, marks, light, full, isMap, isWish, arcs, glow, pins, dashSel, night, flights, flying, regions };
     /* размер: по фактической ширине плитки, с повторами до готовности разметки */
     useEffect(() => {
         var _c;
@@ -4502,6 +4597,9 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
             let needFrame = false;
             const mapMode = state.current.isMap;
             const mine = (a3) => !mapMode || onPage(a3, page.current);
+            // большие страны с областями: страна светлым золотом, области — золотом
+            const regs = state.current.regions;
+            const champOf = (a3) => !!regs && REG.ready && REG.big.has(a3) && !(state.current.arcs || []).length;
             g.features.forEach((f) => {
                 var _c;
                 if (f.id)
@@ -4522,7 +4620,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                 const wished = !visited && wish(f.id);
                 if (state.current.isMap) {
                     if (visited || wished) {
-                        ctx.fillStyle = fillStyleFor(ctx, f.id, path.bounds(f), wished);
+                        ctx.fillStyle = fillStyleFor(ctx, f.id, path.bounds(f), wished, visited && champOf(f.id));
                         ctx.globalAlpha = sel === f.id ? 1 : 0.9;
                         ctx.fill();
                         ctx.globalAlpha = 1;
@@ -4542,7 +4640,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                     const hot = (_c = state.current.glow) === null || _c === void 0 ? void 0 : _c.has(f.id);
                     ctx.fillStyle =
                         visited || wished
-                            ? fillStyleFor(ctx, f.id, path.bounds(f), wished)
+                            ? fillStyleFor(ctx, f.id, path.bounds(f), wished, visited && champOf(f.id))
                             : lt
                                 ? "#e8eef3"
                                 : "#2f5e7e";
@@ -4611,6 +4709,31 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
             });
             if (needFrame)
                 needDraw = true;
+            if (regs && REG.ready && !(state.current.arcs || []).length) {
+                REG.feats.forEach((f) => {
+                    const a3 = f.properties.a3;
+                    if (!on(a3) || !mine(a3))
+                        return;
+                    const b = path.bounds(f);
+                    if (!isFinite(b[0][0]) || b[1][0] - b[0][0] < 0.6)
+                        return;
+                    ctx.beginPath();
+                    path(f);
+                    if (regs.has(f.properties.key)) {
+                        ctx.fillStyle = fillStyleFor(ctx, a3, b, false);
+                        ctx.globalAlpha = sel === a3 ? 1 : 0.95;
+                        ctx.fill();
+                        ctx.globalAlpha = 1;
+                        ctx.strokeStyle = lt ? "rgba(150,100,20,.55)" : "rgba(255,236,190,.75)";
+                        ctx.lineWidth = 0.7;
+                    }
+                    else {
+                        ctx.strokeStyle = "rgba(150,110,40,.3)";
+                        ctx.lineWidth = 0.4;
+                    }
+                    ctx.stroke();
+                });
+            }
             // мелкие страны и территории, которых нет в наборе границ,
             // подсвечиваем кругом — иначе их не видно
             const tiny = new Set();
@@ -16326,11 +16449,25 @@ function AtlasApp() {
         });
         return out;
     }, [visits, yearFilter, cityPins]);
+    /* области больших стран (42.0): грузим один раз, потом считаем, где были */
+    const [regReady, setRegReady] = useState(REG.ready);
+    useEffect(() => {
+        let dead = false;
+        loadRegions().then((ok) => !dead && ok && setRegReady(true));
+        return () => {
+            dead = true;
+        };
+    }, []);
+    const regionsOn = useMemo(() => regReady
+        ? visitedRegions(visits, (t) => yearFilter === "all" || (!t.approx && t.y === +yearFilter))
+        : null, [visits, yearFilter, regReady]);
     const visitKey = useMemo(() => [...activeSet].sort().join(",") +
         "|" +
         yearFilter +
         "|" +
-        marks.length, [activeSet, yearFilter, marks]);
+        marks.length +
+        "|" +
+        (regionsOn ? [...regionsOn].sort().join(",") : "-"), [activeSet, yearFilter, marks, regionsOn]);
     const stats = useMemo(() => {
         const per = {};
         CONT_ORDER.forEach((k) => (per[k] = 0));
@@ -16372,11 +16509,11 @@ function AtlasApp() {
                         React.createElement(Globe, { geo: geo, isOn: isOn, onPick: (a3) => {
                                 setSelected(BY_A3[a3] ? a3 : null);
                                 setEditId(null);
-                            }, selected: selected, full: false, onToggleFull: () => setFull(true), visitKey: visitKey, home: lastTrip, marks: marks, light: light, playing: spinning, setPlaying: setSpinning, view: mapView, page: mapPage, setPage: setMapPage, isWish: isWish }),
+                            }, selected: selected, full: false, onToggleFull: () => setFull(true), visitKey: visitKey, home: lastTrip, marks: marks, regions: regionsOn, light: light, playing: spinning, setPlaying: setSpinning, view: mapView, page: mapPage, setPage: setMapPage, isWish: isWish }),
                         full && (React.createElement(Globe, { geo: geo, isOn: isOn, onPick: (a3) => {
                                 setSelected(BY_A3[a3] ? a3 : null);
                                 setEditId(null);
-                            }, selected: selected, full: true, onToggleFull: () => setFull(false), flights: selected ? flights.filter((r) => r.a3 === selected) : flights, visitKey: visitKey, home: lastTrip, marks: marks, light: light, playing: fullSpin && !selected, setPlaying: (v) => {
+                            }, selected: selected, full: true, onToggleFull: () => setFull(false), flights: selected ? flights.filter((r) => r.a3 === selected) : flights, visitKey: visitKey, home: lastTrip, marks: marks, regions: regionsOn, light: light, playing: fullSpin && !selected, setPlaying: (v) => {
                                 // «крутить» при выбранной стране — снимаем выбор и крутим дальше
                                 const on = typeof v === "function" ? v(fullSpin && !selected) : v;
                                 setFullSpin(on);
