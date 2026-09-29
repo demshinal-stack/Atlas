@@ -2956,7 +2956,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "42.3";
+const APP_VERSION = "42.5";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -4606,6 +4606,13 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
             let needFrame = false;
             const mapMode = state.current.isMap;
             const mine = (a3) => !mapMode || onPage(a3, page.current);
+            // мигание выбранной границы: 4 вспышки за ~3 с, потом ровно
+            const selPulse = () => {
+                const t = Date.now() - (state.current.selAt || 0);
+                if (t > 3000)
+                    return 1;
+                return 0.5 + 0.5 * Math.cos((t / 750) * Math.PI * 2);
+            };
             // большие страны с областями: страна светлым золотом, области — золотом
             const regs = state.current.regions;
             const champOf = (a3) => !!regs && REG.ready && REG.big.has(a3) && !(state.current.arcs || []).length;
@@ -4701,6 +4708,20 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                 if (sel === f.id)
                     ctx.strokeStyle = "#eef3f8";
                 ctx.stroke();
+                // выбранная страна (без области) мигает границей (42.4)
+                if (sel === f.id && !(state.current.selRegion || "").startsWith(f.id + "|")) {
+                    const pu = selPulse();
+                    if (pu < 1)
+                        needFrame = true;
+                    ctx.save();
+                    ctx.strokeStyle = lt ? "#1d7fe0" : "#8fd4ff";
+                    ctx.globalAlpha = 0.35 + 0.65 * pu;
+                    ctx.lineWidth = 1.8 + 1.6 * (1 - pu);
+                    ctx.shadowColor = lt ? "rgba(29,127,224,.7)" : "rgba(143,212,255,.95)";
+                    ctx.shadowBlur = 4 + 10 * (1 - pu);
+                    ctx.stroke();
+                    ctx.restore();
+                }
                 if (sel === f.id && state.current.dashSel) {
                     // выбранная в ленте страна: пунктир другим цветом
                     ctx.save();
@@ -4747,17 +4768,33 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                 // выбранная область — светлый контур с бегущим пунктиром
                 const sr = state.current.selRegion && regionByKey(state.current.selRegion);
                 if (sr && mine(sr.properties.a3)) {
+                    const pu = selPulse();
                     ctx.save();
                     ctx.beginPath();
                     path(sr);
-                    ctx.strokeStyle = lt ? "#1d7fe0" : "#ffffff";
-                    ctx.lineWidth = 2;
-                    ctx.shadowColor = lt ? "rgba(29,127,224,.6)" : "rgba(255,255,255,.8)";
-                    ctx.shadowBlur = 6;
+                    // область мигает границей несколько раз после выбора, потом горит ровно
+                    ctx.strokeStyle = lt ? "#1d7fe0" : "#8fd4ff";
+                    ctx.globalAlpha = 0.35 + 0.65 * pu;
+                    ctx.lineWidth = 2 + 1.8 * (1 - pu);
+                    ctx.shadowColor = lt ? "rgba(29,127,224,.7)" : "rgba(143,212,255,.95)";
+                    ctx.shadowBlur = 6 + 10 * (1 - pu);
                     ctx.stroke();
+                    // мелкая область: вокруг неё ещё и кольцо, иначе мигание не заметить
+                    const rb = path.bounds(sr);
+                    const rw = Math.max(rb[1][0] - rb[0][0], rb[1][1] - rb[0][1]);
+                    if (isFinite(rw) && rw < 26) {
+                        const c = path.centroid(sr);
+                        if (isFinite(c[0])) {
+                            ctx.beginPath();
+                            ctx.arc(c[0], c[1], rw / 2 + 8 + 6 * (1 - pu), 0, Math.PI * 2);
+                            ctx.lineWidth = 1.8;
+                            ctx.stroke();
+                        }
+                    }
+                    ctx.globalAlpha = 1;
                     ctx.setLineDash([5, 4]);
                     ctx.lineDashOffset = -((Date.now() / 60) % 9);
-                    ctx.strokeStyle = lt ? "#ffffff" : "#e8b84b";
+                    ctx.strokeStyle = "#ffffff";
                     ctx.lineWidth = 1.2;
                     ctx.shadowBlur = 0;
                     ctx.stroke();
@@ -5318,6 +5355,15 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
     const wantFrame = useRef(false);
     const drawRef = useRef(draw);
     drawRef.current = draw;
+    // выбор страны или области — запускаем мигание границы
+    useEffect(() => {
+        var _c;
+        if (!selected && !selRegion)
+            return;
+        state.current.selAt = Date.now();
+        (_c = requestDrawRef.current) === null || _c === void 0 ? void 0 : _c.call(requestDrawRef);
+    }, [selected, selRegion]);
+    const requestDrawRef = useRef(null);
     const requestDraw = useCallback(() => {
         if (raf.current)
             return;
@@ -5331,6 +5377,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
             }
         });
     }, []);
+    requestDrawRef.current = requestDraw;
     useEffect(() => {
         requestDraw();
     }, [size, selected, visitKey, geo, light, isMap, arcs, night, requestDraw]);
@@ -6806,42 +6853,6 @@ function Stars({ value, onPick }) {
             e.stopPropagation();
             onPick(n === value ? 0 : n);
         }, "aria-label": `${n} звёзд` }, "\u2605")))));
-}
-/* страна › область на главном экране (42.3): переключатель «вся страна / область»,
-   свёрнутый список областей, где были, и поездки выбранного уровня */
-function RegionBar({ info, all, sel, name, trips, cur, onSel, onTrip }) {
-    const [open, setOpen] = useState(false);
-    const [more, setMore] = useState(false);
-    const n = sel ? info.count.get(sel) || 0 : 0;
-    const hints = sel && !n ? citiesInRegion(sel, 3) : [];
-    const shown = more ? trips : trips.slice(0, 4);
-    return (React.createElement("div", { className: "regbar" },
-        sel && (React.createElement("div", { className: "reg-seg" },
-            React.createElement("button", { onClick: () => onSel(null) },
-                "\u0412\u0441\u044F \u0441\u0442\u0440\u0430\u043D\u0430",
-                React.createElement("em", null, all)),
-            React.createElement("button", { className: "on" },
-                React.createElement("span", null, name),
-                React.createElement("em", null, n)))),
-        sel && !trips.length && (React.createElement("div", { className: "reg-empty" },
-            React.createElement("b", null,
-                "\u0412 \u043E\u0431\u043B\u0430\u0441\u0442\u0438 \u00AB",
-                name,
-                "\u00BB \u043F\u043E\u043A\u0430 \u043D\u0435 \u0431\u044B\u043B\u0438"),
-            hints.length ? `${hints.join(", ")} — добавить поездку?` : "Добавить поездку — кнопкой ниже")),
-        trips.length > 1 && (React.createElement("div", { className: "reg-trips" },
-            shown.map((t) => (React.createElement("button", { key: t.id, className: "reg-trip" + (t.plan ? " plan" : "") + ((cur === null || cur === void 0 ? void 0 : cur.id) === t.id ? " on" : ""), onClick: () => onTrip(t.id) },
-                React.createElement("i", null),
-                React.createElement("span", null,
-                    (t.cities || []).join(", ") || "поездка",
-                    React.createElement("em", null, tripLabel(t))),
-                React.createElement("u", null, t.plan ? "план" : tripDays(t) ? `${tripDays(t)} дн` : "")))),
-            trips.length > 4 && (React.createElement("button", { className: "link-btn reg-more", onClick: () => setMore((v) => !v) }, more ? "Свернуть" : `Ещё ${np(trips.length - 4, "trip")}`)))),
-        info.list.length > 0 && (React.createElement(React.Fragment, null,
-            React.createElement("button", { className: "link-btn reg-toggle", onClick: () => setOpen((v) => !v) }, open ? "Скрыть области ▴" : `Все области · ${info.list.length} из ${info.total} ▾`),
-            open && (React.createElement("div", { className: "reg-chips" }, info.list.map((r) => (React.createElement("button", { key: r.key, className: sel === r.key ? "on" : "", onClick: () => onSel(sel === r.key ? null : r.key) },
-                r.name,
-                React.createElement("i", null, r.n))))))))));
 }
 /* Атлас · 14 · карточка поездки, выбор города, авиакомпании, дома.
    Части собираются по номерам в один файл (tools/rebuild.sh) и видят друг друга напрямую. */
@@ -14741,7 +14752,7 @@ function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, si
         }
         return parts.join(" · ");
     };
-    return (React.createElement(Sheet, { open: open, onClose: onClose, title: "\u041C\u043E\u0438 \u043F\u043E\u0435\u0437\u0434\u043A\u0438", box: box }, (close) => (React.createElement("div", { className: "sheet-list", ref: listRef, onScroll: onListScroll },
+    return (React.createElement(Sheet, { open: open, onClose: onClose, title: "\u041C\u043E\u0438 \u043F\u043E\u0435\u0437\u0434\u043A\u0438", box: box }, () => (React.createElement("div", { className: "sheet-list", ref: listRef, onScroll: onListScroll },
         React.createElement("div", { className: "list-head" },
             statsUp ? (React.createElement("button", { className: "stats-min", onClick: () => {
                     var _c;
@@ -14841,10 +14852,7 @@ function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, si
                     React.createElement("span", { className: "grp-chev" }, hidden ? "▾" : "▴")),
                 !hidden &&
                     rows.map((row) => (React.createElement("div", { key: key + row.a3 + row.idx, className: "trip-item" + (row.t.plan ? " is-plan" : "") },
-                        React.createElement("button", { className: "trip-main", onClick: () => {
-                                onPick(row.a3, row.t.id);
-                                close();
-                            } },
+                        React.createElement("button", { className: "trip-main", onClick: () => onPick(row.a3, row.t.id), "aria-label": "\u0418\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u043F\u043E\u0435\u0437\u0434\u043A\u0443" },
                             React.createElement("span", { className: "fl" },
                                 React.createElement(Flg, { a3: row.a3, a2: row.c.a2 })),
                             React.createElement("span", { className: "trip-body" },
@@ -14864,7 +14872,11 @@ function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, si
                                         : sub(row.t) || tripLabel(row.t))),
                             mode !== "country" && (React.createElement("span", { className: "trip-year" }, row.t.y2 && row.t.y2 !== row.t.y
                                 ? `${row.t.y}–${row.t.y2}`
-                                : row.t.y))),
+                                : row.t.y)),
+                            React.createElement("span", { className: "trip-pen", "aria-hidden": "true" },
+                                React.createElement("svg", { viewBox: "0 0 24 24", width: "17", height: "17" },
+                                    React.createElement("path", { d: "M4 20h4L19 9l-4-4L4 16v4z", fill: "none", stroke: "currentColor", strokeWidth: "1.7", strokeLinejoin: "round" }),
+                                    React.createElement("path", { d: "M14 6l4 4", fill: "none", stroke: "currentColor", strokeWidth: "1.7" })))),
                         planOverdue(row.t) && (React.createElement("button", { className: "trip-done", onClick: () => onDone(row.a3, row.t.id), "aria-label": "\u041E\u0442\u043C\u0435\u0442\u0438\u0442\u044C \u0441\u043E\u0441\u0442\u043E\u044F\u0432\u0448\u0435\u0439\u0441\u044F" }, "\u2713")))))));
         })))));
 }
@@ -15769,6 +15781,9 @@ function AtlasApp() {
     visitsRef.current = visits;
     const [selected, setSelected] = useState(null);
     const [selRegion, setSelRegion] = useState(null); // область большой страны (42.3)
+    const [selCard, setSelCard] = useState(null); // место у обычной страны (42.5)
+    const [lookNonce, setLookNonce] = useState(0);
+    const [editing, setEditing] = useState(null); // { a3, id, back } — правка поездки
     const [full, setFull] = useState(false);
     // во весь экран шар крутится сам, пока не выбрана страна (как в «Поездках по годам»)
     const [fullSpin, setFullSpin] = useState(true);
@@ -15777,12 +15792,22 @@ function AtlasApp() {
             setFullSpin(true);
     }, [full]);
     const [sheet, setSheet] = useState(null);
-    const [editId, setEditId] = useState(null);
     const [listMode, setListMode] = useState("year");
+    /* поездка из отчёта: страна на глобусе и её область (если есть) */
+    const showTrip = (a3, id) => {
+        var _c;
+        const t = (((_c = visitsRef.current) === null || _c === void 0 ? void 0 : _c[a3]) || []).find((x) => x.id === id);
+        const k = t && REG.ready ? [...tripRegionKeys(a3, t)][0] : null;
+        setTimeout(() => setSelRegion(k || null), 0);
+    };
+    const editBackRef = useRef(null);
+    editBackRef.current = (editing === null || editing === void 0 ? void 0 : editing.back) || null;
     const [sheetBack, setSheetBack] = useState(null);
     /* какой вкладке принадлежит открытая шторка — её и подсвечиваем внизу */
     const tabOf = (s, back) => {
-        if (s === null || s === "country" || s === "edit")
+        if (s === "edit")
+            return editBackRef.current === "list" ? "list" : "map";
+        if (s === null || s === "country")
             return "map";
         if (s === "list")
             return "list";
@@ -16551,6 +16576,14 @@ function AtlasApp() {
         if (selRegion && !selRegion.startsWith((selected || "") + "|"))
             setSelRegion(null);
     }, [selected, selRegion]);
+    useEffect(() => setSelCard(null), [selected]);
+    // для проверок: выбрать страну (и область) без касания глобуса
+    useEffect(() => {
+        window.__atlasPick = (a3, r) => {
+            setSelected(a3);
+            setSelRegion(r || null);
+        };
+    }, []);
     /* страна с областями: у каждой поездки — её области, у областей — число поездок */
     const regInfo = useMemo(() => {
         if (!regReady || !selected || !REG.big.has(selected))
@@ -16569,6 +16602,78 @@ function AtlasApp() {
         const total = REG.feats.filter((f) => f.properties.a3 === selected).length;
         return { byTrip, count, list, total };
     }, [regReady, selected, visits]);
+    /* карточки мест под страной: у больших стран — области, у остальных — регионы
+       или города из поездок. Выбранная — первой, дальше по числу поездок */
+    const placeCards = useMemo(() => {
+        if (!selected)
+            return [];
+        const trips = (visits[selected] || []).filter((t) => !t.plan);
+        const cards = new Map();
+        const put = (key, name, region, cities) => {
+            const c = cards.get(key) || { key, name, region, n: 0, cities: new Set() };
+            c.n += 1;
+            cities.forEach((x) => c.cities.add(x));
+            cards.set(key, c);
+        };
+        if (regInfo) {
+            const cityReg = new Map();
+            trips.forEach((t) => {
+                const ks = regInfo.byTrip.get(t.id) || new Set();
+                ks.forEach((k) => {
+                    var _c;
+                    const own = (t.cities || []).filter((c) => {
+                        if (!cityReg.has(c))
+                            cityReg.set(c, [...tripRegionKeys(selected, { cities: [c] })][0] || "");
+                        return cityReg.get(c) === k;
+                    });
+                    put(k, ((_c = regionByKey(k)) === null || _c === void 0 ? void 0 : _c.properties.n) || k.split("|")[1], true, own);
+                });
+            });
+        }
+        else {
+            // обычная страна: город → его регион из справочника (или единственный регион
+            // поездки), иначе сам город; поездка считается в каждой своей карточке один раз
+            trips.forEach((t) => {
+                const groups = new Map();
+                const one = (t.regions || []).length === 1 ? t.regions[0] : null;
+                (t.cities || []).forEach((c) => {
+                    const g = regionOf(selected, c) || one || c;
+                    if (!groups.has(g))
+                        groups.set(g, []);
+                    groups.get(g).push(c);
+                });
+                (t.regions || []).forEach((r) => {
+                    if (!groups.has(r))
+                        groups.set(r, []);
+                });
+                groups.forEach((cities, g) => put("p|" + g, g, false, cities));
+            });
+        }
+        const pick = selRegion || selCard;
+        return [...cards.values()]
+            .map((c) => ({ ...c, cities: c.cities.size }))
+            .sort((a, b) => (b.key === pick) - (a.key === pick) || b.n - a.n || a.name.localeCompare(b.name, "ru"));
+    }, [selected, visits, regInfo, selRegion, selCard]);
+    // выбрали место без контура — шар поворачивается к его городу или к стране
+    const cardLook = useMemo(() => {
+        if (!selected || !lookNonce)
+            return null;
+        const c = BY_A3[selected];
+        const card = selCard && placeCards.find((x) => x.key === selCard);
+        const city = card && card.name;
+        const p = city ? distPoint(selected, city) : null;
+        const pt = p && p[2] !== "country" ? [p[0], p[1]] : c ? [c.lon, c.lat] : null;
+        return pt ? { lon: pt[0], lat: pt[1], id: `card:${selected}:${selCard || ""}:${lookNonce}`, force: true } : null;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [lookNonce]);
+    // выбрали область в списке — шар поворачивается к ней, если она далеко
+    const regLook = useMemo(() => {
+        const f = selRegion && regReady ? regionByKey(selRegion) : null;
+        if (!f)
+            return null;
+        const [lon, lat] = d3.geoCentroid(f);
+        return { lon, lat, id: "reg:" + selRegion, force: true };
+    }, [selRegion, regReady]);
     const visitKey = useMemo(() => [...activeSet].sort().join(",") +
         "|" +
         yearFilter +
@@ -16606,10 +16711,12 @@ function AtlasApp() {
         return (React.createElement(PinScreen, { mode: "lock", onDone: tryPin, faceAvailable: faceAvailable && !!profile.credId, onFace: unlockByFace, shell: shell, name: profile.name, light: light }));
     const sel = selected ? BY_A3[selected] : null;
     const selAll = selected ? visits[selected] || [] : [];
-    const selTrips = selRegion && regInfo ? selAll.filter((t) => { var _c; return (_c = regInfo.byTrip.get(t.id)) === null || _c === void 0 ? void 0 : _c.has(selRegion); }) : selAll;
     const regName = selRegion ? ((_c = regionByKey(selRegion)) === null || _c === void 0 ? void 0 : _c.properties.n) || "" : "";
-    const curIdx = Math.max(0, editId ? selTrips.findIndex((t) => t.id === editId) : 0);
-    const curTrip = selTrips[curIdx] || selTrips[0];
+    const regHints = selRegion && regInfo && !regInfo.count.get(selRegion) ? citiesInRegion(selRegion, 3) : [];
+    const editTripObj = editing ? (visits[editing.a3] || []).find((t) => t.id === editing.id) || null : null;
+    const nextPlan = selAll
+        .filter((t) => t.plan && !planOverdue(t))
+        .sort((a, b) => String(a.from || a.y).localeCompare(String(b.from || b.y)))[0] || null;
     return (React.createElement(NightCtx.Provider, { value: night },
         React.createElement("div", { className: "root" + (light ? " light" : ""), style: shell, ref: rootRef },
             React.createElement("style", null, APP_CSS),
@@ -16621,13 +16728,11 @@ function AtlasApp() {
                         React.createElement(Globe, { geo: geo, isOn: isOn, onPick: (a3, x) => {
                                 setSelected(BY_A3[a3] ? a3 : null);
                                 setSelRegion((x === null || x === void 0 ? void 0 : x.region) || null);
-                                setEditId(null);
-                            }, selected: selected, full: false, onToggleFull: () => setFull(true), visitKey: visitKey, home: lastTrip, marks: marks, regions: regionsOn, selRegion: selRegion, light: light, playing: spinning, setPlaying: setSpinning, view: mapView, page: mapPage, setPage: setMapPage, isWish: isWish }),
+                            }, selected: selected, full: false, onToggleFull: () => setFull(true), visitKey: visitKey, home: lastTrip, marks: marks, regions: regionsOn, selRegion: selRegion, lookAt: cardLook && (!regLook || !selRegion) ? cardLook : regLook, light: light, playing: spinning, setPlaying: setSpinning, view: mapView, page: mapPage, setPage: setMapPage, isWish: isWish }),
                         full && (React.createElement(Globe, { geo: geo, isOn: isOn, onPick: (a3, x) => {
                                 setSelected(BY_A3[a3] ? a3 : null);
                                 setSelRegion((x === null || x === void 0 ? void 0 : x.region) || null);
-                                setEditId(null);
-                            }, selected: selected, full: true, onToggleFull: () => setFull(false), flights: selected ? flights.filter((r) => r.a3 === selected) : flights, visitKey: visitKey, home: lastTrip, marks: marks, regions: regionsOn, selRegion: selRegion, light: light, playing: fullSpin && !selected, setPlaying: (v) => {
+                            }, selected: selected, full: true, onToggleFull: () => setFull(false), flights: selected ? flights.filter((r) => r.a3 === selected) : flights, visitKey: visitKey, home: lastTrip, marks: marks, regions: regionsOn, selRegion: selRegion, lookAt: cardLook && (!regLook || !selRegion) ? cardLook : regLook, light: light, playing: fullSpin && !selected, setPlaying: (v) => {
                                 // «крутить» при выбранной стране — снимаем выбор и крутим дальше
                                 const on = typeof v === "function" ? v(fullSpin && !selected) : v;
                                 setFullSpin(on);
@@ -16654,8 +16759,7 @@ function AtlasApp() {
                                     React.createElement("div", { className: "due-acts" },
                                         React.createElement("button", { className: "due-yes", onClick: () => editTrip(o.a3, t.id, { plan: false }) }, "\u0421\u043E\u0441\u0442\u043E\u044F\u043B\u0430\u0441\u044C"),
                                         React.createElement("button", { className: "due-move", onClick: () => {
-                                                setSelected(o.a3);
-                                                setEditId(t.id);
+                                                setEditing({ a3: o.a3, id: t.id, back: null });
                                                 setSheet("edit");
                                             } }, "\u041F\u0435\u0440\u0435\u043D\u0435\u0441\u0442\u0438"),
                                         React.createElement("button", { className: "due-del", onClick: () => {
@@ -16673,66 +16777,62 @@ function AtlasApp() {
                                 np(overdue.length - 3, "trip"),
                                 " \u0436\u0434\u0443\u0442 \u0432 \u0441\u043F\u0438\u0441\u043A\u0435 \u043F\u043E\u0435\u0437\u0434\u043E\u043A.")))),
                         React.createElement("section", { className: "focus" }, sel ? (React.createElement(React.Fragment, null,
-                            React.createElement("div", { className: "focus-head" },
-                                React.createElement("span", { className: "big-fl" }, React.createElement(Flg, { a3: sel.a3 })),
-                                React.createElement("div", { className: "focus-title" },
-                                    React.createElement("div", { className: "sel-name" + ((curTrip === null || curTrip === void 0 ? void 0 : curTrip.plan) ? " is-plan" : "") }, selRegion && regName ? (React.createElement("span", { className: "crumb" },
-                                        React.createElement("button", { onClick: () => {
-                                                setSelRegion(null);
-                                                setEditId(null);
-                                            } }, sel.name),
-                                        React.createElement("i", null, "\u203A"),
-                                        React.createElement("b", null, regName))) : (sel.name)),
-                                    React.createElement("div", { className: "sel-cont" }, selTrips.length ? (React.createElement(React.Fragment, null,
-                                        ((curTrip === null || curTrip === void 0 ? void 0 : curTrip.cities) || []).join(", ") ||
-                                            CONTINENTS[sel.cont],
-                                        " · ",
-                                        tripLabel(curTrip))) : selRegion ? (React.createElement(React.Fragment, null, "\u043E\u0431\u043B\u0430\u0441\u0442\u044C \u00B7 \u0435\u0449\u0451 \u043D\u0435 \u0431\u044B\u043B\u0438")) : (React.createElement(React.Fragment, null,
-                                        CONTINENTS[sel.cont],
-                                        " \u00B7 \u0435\u0449\u0451 \u043D\u0435 \u0431\u044B\u043B\u0438"))),
-                                    selTrips.length > 1 && (React.createElement("div", { className: "trip-nav" },
-                                        React.createElement("button", { onClick: () => {
-                                                var _c;
-                                                return setEditId((_c = selTrips[curIdx > 0 ? curIdx - 1 : selTrips.length - 1]) === null || _c === void 0 ? void 0 : _c.id);
-                                            }, "aria-label": "\u041F\u0440\u0435\u0434\u044B\u0434\u0443\u0449\u0430\u044F \u043F\u043E\u0435\u0437\u0434\u043A\u0430" }, "\u2039"),
-                                        React.createElement("span", null,
-                                            "\u043F\u043E\u0435\u0437\u0434\u043A\u0430 ",
-                                            curIdx + 1,
-                                            " \u0438\u0437",
-                                            " ",
-                                            selTrips.length),
-                                        React.createElement("button", { onClick: () => {
-                                                var _c;
-                                                return setEditId((_c = selTrips[curIdx < selTrips.length - 1 ? curIdx + 1 : 0]) === null || _c === void 0 ? void 0 : _c.id);
-                                            }, "aria-label": "\u0421\u043B\u0435\u0434\u0443\u044E\u0449\u0430\u044F \u043F\u043E\u0435\u0437\u0434\u043A\u0430" }, "\u203A")))),
-                                (curTrip === null || curTrip === void 0 ? void 0 : curTrip.plan) && (React.createElement("div", { className: "focus-count" },
-                                    React.createElement(Countdown, { trip: curTrip })))),
-                            regInfo && (selRegion || regInfo.list.length > 0) && (React.createElement(RegionBar, { info: regInfo, all: selAll.filter((t) => !t.plan).length, sel: selRegion, name: regName, trips: selTrips, cur: curTrip, onSel: (k) => {
-                                    setSelRegion(k);
-                                    setEditId(null);
-                                }, onTrip: (id) => setEditId(id) })),
-                            React.createElement("div", { className: "focus-acts" },
-                                React.createElement("button", { className: "icon-btn", onClick: () => {
-                                        if (curTrip === null || curTrip === void 0 ? void 0 : curTrip.id)
-                                            setEditId(curTrip.id);
-                                        setSheet(selTrips.length ? "edit" : "add");
-                                    }, "aria-label": "\u0418\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u043F\u043E\u0435\u0437\u0434\u043A\u0443" },
-                                    React.createElement("svg", { viewBox: "0 0 24 24", width: "20", height: "20" },
-                                        React.createElement("path", { d: "M4 20h4L19 9l-4-4L4 16v4z", fill: "none", stroke: "currentColor", strokeWidth: "1.7", strokeLinejoin: "round" }),
-                                        React.createElement("path", { d: "M14 6l4 4", fill: "none", stroke: "currentColor", strokeWidth: "1.7" })),
-                                    React.createElement("span", { className: "act-label" }, selTrips.length ? "Изменить" : "Добавить")),
-                                React.createElement("button", { className: "icon-btn" + (isWish(sel.a3) ? " wish-on" : ""), onClick: () => toggleWish(sel.a3), "aria-label": isWish(sel.a3) ? "Убрать из желаний" : "Хочу поехать" },
-                                    React.createElement("i", { className: "act-ico" }, isWish(sel.a3) ? "★" : "☆"),
-                                    React.createElement("span", { className: "act-label" }, isWish(sel.a3) ? "В желаниях" : "Хочу поехать")),
-                                React.createElement("button", { className: "icon-btn", onClick: () => setSheet("country"), "aria-label": "\u041F\u0440\u043E \u0441\u0442\u0440\u0430\u043D\u0443" },
+                            React.createElement("div", { className: "focus-head fc-head" },
+                                React.createElement("button", { className: "fc-country", onClick: () => {
+                                        setSelRegion(null);
+                                        setSelCard(null);
+                                        setLookNonce((n) => n + 1);
+                                    } },
+                                    React.createElement("span", { className: "big-fl" }, React.createElement(Flg, { a3: sel.a3 })),
+                                    React.createElement("span", { className: "fc-name" },
+                                        React.createElement("b", { className: selRegion || selCard ? "dim" : "" }, sel.name),
+                                        React.createElement("em", null, selAll.some((t) => !t.plan)
+                                            ? np(tripCount({ [sel.a3]: selAll }), "trip")
+                                            : `${CONTINENTS[sel.cont]} · ещё не были`))),
+                                React.createElement("button", { className: "icon-btn fc-ico" + (isWish(sel.a3) ? " wish-on" : ""), onClick: () => toggleWish(sel.a3), "aria-label": isWish(sel.a3) ? "Убрать из желаний" : "Хочу поехать" },
+                                    React.createElement("i", { className: "act-ico" }, isWish(sel.a3) ? "★" : "☆")),
+                                React.createElement("button", { className: "icon-btn fc-ico", onClick: () => setSheet("country"), "aria-label": "\u041F\u0440\u043E \u0441\u0442\u0440\u0430\u043D\u0443" },
                                     React.createElement("svg", { viewBox: "0 0 24 24", width: "20", height: "20" },
                                         React.createElement("circle", { cx: "12", cy: "12", r: "8.5", fill: "none", stroke: "currentColor", strokeWidth: "1.6" }),
                                         React.createElement("path", { d: "M12 11v5.5", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round" }),
-                                        React.createElement("circle", { cx: "12", cy: "7.9", r: "1.1", fill: "currentColor" })),
-                                    React.createElement("span", { className: "act-label" }, "\u041E \u0441\u0442\u0440\u0430\u043D\u0435")),
-                                React.createElement("button", { className: "icon-btn", onClick: () => setSelected(null), "aria-label": "\u0421\u043D\u044F\u0442\u044C \u0432\u044B\u0431\u043E\u0440" },
-                                    React.createElement("i", { className: "act-ico" }, "\u2715"),
-                                    React.createElement("span", { className: "act-label" }, "\u0417\u0430\u043A\u0440\u044B\u0442\u044C"))))) : (React.createElement(React.Fragment, null,
+                                        React.createElement("circle", { cx: "12", cy: "7.9", r: "1.1", fill: "currentColor" }))),
+                                React.createElement("button", { className: "icon-btn fc-ico", onClick: () => setSelected(null), "aria-label": "\u0421\u043D\u044F\u0442\u044C \u0432\u044B\u0431\u043E\u0440" },
+                                    React.createElement("i", { className: "act-ico" }, "\u2715"))),
+                            nextPlan && (React.createElement("div", { className: "fc-plan" },
+                                React.createElement("span", null,
+                                    "\u041F\u043B\u0430\u043D: ",
+                                    (nextPlan.cities || []).join(", ") || sel.name,
+                                    " \u00B7 ",
+                                    tripLabel(nextPlan)),
+                                React.createElement(Countdown, { trip: nextPlan }))),
+                            placeCards.length ? (React.createElement("div", { className: "fc-cards", ref: (el) => {
+                                    var _c;
+                                    // выбранное место встаёт первым — показываем начало ленты
+                                    const k = selRegion || selCard || "";
+                                    if (el && el.dataset.k !== k) {
+                                        el.dataset.k = k;
+                                        (_c = el.scrollTo) === null || _c === void 0 ? void 0 : _c.call(el, { left: 0, behavior: "smooth" });
+                                    }
+                                } }, placeCards.map((c) => {
+                                const on = c.key === selRegion || c.key === selCard;
+                                return (React.createElement("button", { key: c.key, className: "fc-card" + (on ? " on" : ""), onClick: () => {
+                                        if (c.region) {
+                                            setSelRegion(c.key);
+                                            setSelCard(null);
+                                        }
+                                        else {
+                                            setSelRegion(null);
+                                            setSelCard(c.key);
+                                            setLookNonce((n) => n + 1);
+                                        }
+                                    } },
+                                    React.createElement("b", null, c.name),
+                                    React.createElement("em", null,
+                                        np(c.n, "trip"),
+                                        c.cities ? ` · ${np(c.cities, "city")}` : "")));
+                            }))) : selRegion ? (React.createElement("p", { className: "focus-empty" },
+                                regName ? `${regName}: пока не были` : "Здесь пока не были",
+                                regHints.length ? ` · ${regHints.join(", ")}` : "")) : null)) : (React.createElement(React.Fragment, null,
                             React.createElement("div", { className: "focus-head" },
                                 React.createElement("span", { className: "num" }, stats.countries),
                                 React.createElement("div", { className: "focus-title" },
@@ -16745,9 +16845,7 @@ function AtlasApp() {
                                 ? "Нажмите страну на карте, чтобы посмотреть её."
                                 : "Поверните глобус и нажмите страну, чтобы посмотреть её.")))),
                         React.createElement(TripSheet, { open: sheet === "add", onClose: () => setSheet(null), box: box, initial: null, visits: visits, onSave: (a3, trip) => addTrip(a3, trip), mode: "add", quality: photoQuality, since: profile.since, people: profile.people || [], home: profile.home || null, meId: profile.deviceId || ME }),
-                        React.createElement(TripSheet, { open: sheet === "edit" && !!sel && !!selTrips.length, onClose: () => setSheet(null), box: box, initial: sel && selTrips.length
-                                ? { a3: sel.a3, idx: (curTrip === null || curTrip === void 0 ? void 0 : curTrip.id) || curIdx, trip: curTrip }
-                                : null, visits: visits, onSave: (a3, trip) => editTrip(a3, (curTrip === null || curTrip === void 0 ? void 0 : curTrip.id) || curIdx, trip), onRemove: removeTrip, mode: "edit", quality: photoQuality, since: profile.since, people: profile.people || [], home: profile.home || null, meId: profile.deviceId || ME }),
+                        React.createElement(TripSheet, { open: sheet === "edit" && !!editTripObj, onClose: () => setSheet((editing === null || editing === void 0 ? void 0 : editing.back) || null), box: box, initial: editTripObj ? { a3: editing.a3, idx: editing.id, trip: editTripObj } : null, visits: visits, onSave: (a3, trip) => editTrip(a3, editing === null || editing === void 0 ? void 0 : editing.id, trip), onRemove: removeTrip, mode: "edit", quality: photoQuality, since: profile.since, people: profile.people || [], home: profile.home || null, meId: profile.deviceId || ME }),
                         React.createElement(ProfileSheet, { open: sheet === "profile", onClose: () => setSheet(null), box: box, avatar: profile.avatar, name: profile.name, onName: async (v) => {
                                 const prof = { ...profile, name: v };
                                 await saveProfile(prof);
@@ -16799,7 +16897,6 @@ function AtlasApp() {
                         React.createElement(AwardsSheet, { open: sheet === "awards", onClose: () => setSheet("profile"), box: box, visits: visits, since: profile.since }),
                         React.createElement(ShelfSheet, { open: sheet === "shelf", onClose: () => setSheet("profile"), box: box, isOn: isOn, isWish: isWish, onPick: (a3) => {
                                 setSelected(a3);
-                                setEditId(null);
                                 setSheet(null);
                             } }),
                         React.createElement(DoublesSheet, { open: sheet === "doubles", onClose: () => setSheet("settings"), box: box, pairs: doubles, people: profile.people || [], home: profile.home || null, onJoin: joinDouble, onKeep: async (pr) => {
@@ -16810,7 +16907,7 @@ function AtlasApp() {
                             } }),
                         React.createElement(ReportsSheet, { open: sheet === "reports", onClose: () => setSheet(sheetBack === "profile" ? "profile" : null), box: box, visits: visits, since: profile.since, stats: stats, people: profile.people || [], home: profile.home || null, geo: geo, onPerson: setPerson, onFar: setFar, onAir: setAirWin, onSeason: () => setSeasonWin(true), onConts: () => setContsWin(true), onWorld: () => setWorldWin(true), onCalendar: () => setCalWin(true), onYears: () => setYearsWin(true), onOften: () => setOftenWin(true), onSolo: () => setSoloWin(true), repCfg: profile.reports || null, meName: profile.name || "", onOpenTrip: (a3, id) => {
                                 setSelected(a3);
-                                setEditId(id || null);
+                                showTrip(a3, id);
                                 setSheet(null);
                             } }),
                         React.createElement(FiltersSheet, { open: sheet === "filters", onClose: () => setSheet(null), box: box, target: sheetBack === "list" ? "list" : "globe", years: allYears, yearFilter: yearFilter, onYear: (v) => {
@@ -16821,14 +16918,15 @@ function AtlasApp() {
                                 setSheet(sheetBack);
                             } }),
                         React.createElement(ListSheet, { visits: visits, stats: stats, open: sheet === "list", onClose: () => setSheet(null), onPick: (a3, id) => {
-                                setSelected(a3);
-                                setEditId(id || null);
+                                // правка поездки прямо из списка; на главный экран не уходим (42.5)
+                                setEditing({ a3, id, back: "list" });
+                                setSheet("edit");
                             }, onDone: (a3, id) => editTrip(a3, id, { plan: false }), box: box, mode: listMode, since: profile.since, wishCount: wish.length, onFilters: openFilters }),
                         seasonWin && React.createElement(SeasonWin, { visits: visits, onClose: () => setSeasonWin(false) }),
                         yearsWin && (React.createElement(YearsWin, { visits: visits, geo: geo, home: profile.home || null, onClose: () => setYearsWin(false), onOpenTrip: (a3, id) => {
                                 setYearsWin(false);
                                 setSelected(a3);
-                                setEditId(id || null);
+                                showTrip(a3, id);
                                 setSheet(null);
                             }, mapProps: {
                                 visitKey,
@@ -16842,7 +16940,7 @@ function AtlasApp() {
                         calWin && (React.createElement(CalendarWin, { visits: visits, onClose: () => setCalWin(false), onOpenTrip: (a3, id) => {
                                 setCalWin(false);
                                 setSelected(a3);
-                                setEditId(id || null);
+                                showTrip(a3, id);
                                 setSheet(null);
                             } })),
                         contsWin && React.createElement(ContsWin, { visits: visits, geo: geo, onClose: () => setContsWin(false) }),
@@ -18617,33 +18715,23 @@ button, input, select, textarea{font-family:inherit;}
 .sync-all button{flex:1; min-height:40px; border-radius:12px; border:1px solid var(--line); background:var(--el); color:var(--ink); font:inherit; font-size:14px; font-weight:600; cursor:pointer;}
 .sync-all button.on{border-color:var(--gold); color:var(--gold); background:rgba(232,184,75,.1);}
 
-/* страна › область (42.3) */
-.sel-name .crumb{display:inline-flex; flex-wrap:wrap; align-items:baseline; column-gap:6px; min-width:0; max-width:100%;}
-.sel-name .crumb button{background:none; border:0; padding:0; font:inherit; color:var(--dim); cursor:pointer; flex:none;}
-.sel-name .crumb i{font-style:normal; color:var(--dim); flex:none;}
-.sel-name .crumb b{color:var(--gold); font-weight:inherit; overflow-wrap:anywhere;}
-.regbar{display:flex; flex-direction:column; gap:8px; margin:4px 0 10px;}
-.reg-seg{display:flex; padding:3px; border-radius:12px; background:var(--field); border:1px solid var(--line);}
-.reg-seg button{flex:1; min-width:0; display:flex; align-items:center; justify-content:center; gap:5px; padding:7px 6px; border:0; border-radius:9px; background:none; color:var(--dim); font:inherit; font-size:13px; cursor:pointer;}
-.reg-seg button span{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-.reg-seg button em{font-style:normal; color:var(--gold); flex:none;}
-.reg-seg button.on{background:var(--el2); color:var(--ink); box-shadow:inset 0 0 0 1px var(--gold);}
-.reg-empty{padding:12px; border-radius:14px; border:1px dashed var(--line); font-size:13px; line-height:1.4; color:var(--dim); text-align:center;}
-.reg-empty b{display:block; margin-bottom:3px; color:var(--ink); font-size:14.5px;}
-.reg-trips{display:flex; flex-direction:column; gap:6px;}
-.reg-trip{display:flex; align-items:center; gap:10px; width:100%; padding:8px 11px; border-radius:12px; border:1px solid var(--line); background:var(--field); color:var(--ink); font:inherit; font-size:13.5px; text-align:left; cursor:pointer;}
-.reg-trip i{flex:none; width:8px; height:8px; border-radius:50%; background:var(--gold);}
-.reg-trip.plan{border-style:dashed;}
-.reg-trip.plan i{background:#f4e4b8;}
-.reg-trip.on{border-color:var(--gold);}
-.reg-trip span{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-.reg-trip em{display:block; font-style:normal; font-size:11.5px; color:var(--dim);}
-.reg-trip u{flex:none; text-decoration:none; font-size:11.5px; color:var(--dim);}
-.regbar .reg-more, .regbar .reg-toggle{align-self:flex-start; padding:4px 2px; border:0; background:none; color:var(--gold); font:inherit; font-size:13px; cursor:pointer;}
-.reg-chips{display:flex; flex-wrap:wrap; gap:6px;}
-.reg-chips button{padding:6px 10px; border-radius:14px; border:1px solid var(--line); background:var(--field); color:var(--ink); font:inherit; font-size:12.5px; cursor:pointer;}
-.reg-chips button i{font-style:normal; color:var(--gold); margin-left:5px;}
-.reg-chips button.on{border-color:var(--gold); background:rgba(232,184,75,.14); color:var(--gold);}
+/* главный экран: страна и лента мест (42.5) */
+.fc-head{display:flex; align-items:center; gap:6px;}
+.fc-country{flex:1; min-width:0; display:flex; align-items:center; gap:12px; padding:0; border:0; background:none; color:var(--ink); font:inherit; text-align:left; cursor:pointer;}
+.fc-name{min-width:0; display:flex; flex-direction:column;}
+.fc-name b{font-size:21px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.fc-name b.dim{color:var(--dim);}
+.fc-name em{font-style:normal; font-size:13px; color:var(--dim); margin-top:2px;}
+.fc-ico{flex:none; width:40px; height:40px; min-width:40px; padding:0; display:flex; align-items:center; justify-content:center;}
+.fc-plan{display:flex; align-items:center; justify-content:space-between; gap:10px; margin:10px 0 0; padding:8px 12px; border-radius:12px; border:1px dashed var(--line); font-size:12.5px; color:var(--dim);}
+.fc-plan > span{min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.fc-cards{display:flex; gap:8px; margin:12px -4px 2px; padding:2px 4px 6px; overflow-x:auto; scroll-snap-type:x proximity; -webkit-overflow-scrolling:touch;}
+.fc-card{flex:none; scroll-snap-align:start; min-width:132px; max-width:168px; display:flex; flex-direction:column; align-items:flex-start; gap:3px; padding:10px 12px; border-radius:14px; border:1px solid var(--line); background:var(--field); color:var(--ink); font:inherit; text-align:left; cursor:pointer;}
+.fc-card b{font-size:14.5px; font-weight:600; line-height:1.2; max-width:100%; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow-wrap:anywhere;}
+.fc-card em{font-style:normal; font-size:12px; color:var(--dim);}
+.fc-card.on{border-color:var(--gold); background:rgba(232,184,75,.12);}
+.fc-card.on b{color:var(--gold);}
+.trip-pen{flex:none; display:flex; align-items:center; justify-content:center; width:32px; height:32px; margin-left:6px; border-radius:50%; border:1px solid var(--line); color:var(--gold);}
 `;
 const __b = document.getElementById('boot');
 if (__b)
