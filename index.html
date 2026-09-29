@@ -1081,6 +1081,9 @@ const whoNames = (t, people) => othersOf(t).map((id) => {
     const p = (people || []).find((x) => x.id === id || x.name === id);
     return p ? p.name : id;
 });
+/* сколько поездок: одно правило на все экраны (41.8) — всё, что уже было,
+   включая поездки с примерной датой; планы не считаем */
+const tripCount = (visits) => Object.values(visits || {}).reduce((n, arr) => n + (arr || []).filter((t) => t && !t.plan).length, 0);
 /* приводим старую запись к новому виду: id, время правки, автор в составе */
 const normTrip = (t) => {
     if (!t)
@@ -2355,10 +2358,38 @@ const TRIP_FIELDS = [
     ["dep", "город вылета"],
     ["plan", "план"],
 ];
-const sameVal = (a, b) => JSON.stringify(a !== null && a !== void 0 ? a : null) === JSON.stringify(b !== null && b !== void 0 ? b : null);
-const tripDiff = (a, b) => TRIP_FIELDS.filter(([k]) => !sameVal(a === null || a === void 0 ? void 0 : a[k], b === null || b === void 0 ? void 0 : b[k])).map(([, t]) => t);
+/* сравниваем по смыслу, а не по записи (41.9): порядок людей и городов,
+   порядок ключей в объектах, пустое поле и пустой список — одно и то же.
+   Иначе одна и та же поездка после обмена снова выглядела «разной» */
+const SET_FIELDS = new Set(["who", "cities", "regions", "air", "move"]);
+const canon = (v, asSet) => {
+    if (v === undefined || v === null || v === "" || v === false)
+        return null;
+    if (Array.isArray(v)) {
+        const arr = v.map((x) => canon(x)).filter((x) => x !== null);
+        if (!arr.length)
+            return null;
+        const out = arr.map((x) => JSON.stringify(x));
+        return asSet ? [...new Set(out)].sort() : out;
+    }
+    if (typeof v === "object") {
+        const keys = Object.keys(v).sort();
+        const o = {};
+        keys.forEach((k) => {
+            const c = canon(v[k]);
+            if (c !== null)
+                o[k] = c;
+        });
+        return Object.keys(o).length ? o : null;
+    }
+    if (typeof v === "string")
+        return v.trim() || null;
+    return v;
+};
+const sameVal = (a, b, k) => JSON.stringify(canon(a, SET_FIELDS.has(k))) === JSON.stringify(canon(b, SET_FIELDS.has(k)));
+const tripDiff = (a, b) => TRIP_FIELDS.filter(([k]) => !sameVal(a === null || a === void 0 ? void 0 : a[k], b === null || b === void 0 ? void 0 : b[k], k)).map(([, t]) => t);
 /* что изменится при обмене: новые, удалённые и спорные поездки */
-function syncPlan(mine, theirs, tombsMine, tombsTheirs, sender = "") {
+function syncPlan(mine, theirs, tombsMine, tombsTheirs, sender = "", myId = "") {
     const my = new Map();
     Object.entries(mine || {}).forEach(([a3, arr]) => (arr || []).forEach((t) => my.set(t.id, { a3, t: normTrip(t) })));
     const add = [];
@@ -2386,6 +2417,14 @@ function syncPlan(mine, theirs, tombsMine, tombsTheirs, sender = "") {
         const sameEdit = (t.at || 0) === (was.t.at || 0);
         const swap = sameEdit && diff.length === 1 && diff[0] === "состав";
         const authorSays = sameEdit && sender && t.by === sender && (!was.t.by || was.t.by === sender);
+        /* правка одна и та же по времени, но записи разные: оба телефона должны
+           выбрать одну и ту же версию, иначе расхождение будет всплывать при каждом
+           обмене. Верим автору поездки, а если автор ни один из нас — телефону
+           с меньшим номером (так решают оба) */
+        const mineBy = was.t.by === ME || (myId && was.t.by === myId);
+        const tieTheirs = sameEdit &&
+            !!sender &&
+            (t.by === sender || (!mineBy && !!myId && sender < myId));
         conflicts.push({
             id: t.id,
             a3,
@@ -2394,7 +2433,7 @@ function syncPlan(mine, theirs, tombsMine, tombsTheirs, sender = "") {
             theirs: t,
             swap,
             // по умолчанию берём более свежую правку
-            pick: (t.at || 0) > (was.t.at || 0) || authorSays ? "theirs" : "mine",
+            pick: (t.at || 0) > (was.t.at || 0) || authorSays || tieTheirs ? "theirs" : "mine",
         });
     }));
     Object.entries(tombsTheirs || {}).forEach(([id, at]) => {
@@ -2917,7 +2956,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "41.7";
+const APP_VERSION = "41.9";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -10440,7 +10479,16 @@ function NearDone({ info }) {
                         React.createElement(Flg, { a3: x })))),
                     more > 0 && React.createElement("span", { className: "more" },
                         "+",
-                        more)))) : (React.createElement("p", null, "\u041D\u043E\u0432\u044B\u0445 \u043F\u043E\u0435\u0437\u0434\u043E\u043A \u043D\u0435\u0442 \u2014 \u0432\u0441\u0451 \u0443\u0436\u0435 \u0431\u044B\u043B\u043E \u043D\u0430 \u043C\u0435\u0441\u0442\u0435.")),
+                        more)))) : info.kind === "review" ? (React.createElement("p", null,
+                "\u041D\u043E\u0432\u044B\u0445 \u043F\u043E\u0435\u0437\u0434\u043E\u043A \u043D\u0435\u0442, \u043D\u043E \u0435\u0441\u0442\u044C \u0440\u0430\u0441\u0445\u043E\u0436\u0434\u0435\u043D\u0438\u044F",
+                info.conf ? React.createElement("b", null,
+                    " \u00B7 ",
+                    info.conf) : null,
+                " \u2014 \u0440\u0430\u0437\u0431\u0435\u0440\u0438\u0442\u0435 \u0438\u0445 \u043A\u043D\u043E\u043F\u043A\u043E\u0439 \u043D\u0438\u0436\u0435.")) : (React.createElement("p", null, "\u041D\u043E\u0432\u044B\u0445 \u043F\u043E\u0435\u0437\u0434\u043E\u043A \u043D\u0435\u0442 \u2014 \u0432\u0441\u0451 \u0443\u0436\u0435 \u0431\u044B\u043B\u043E \u043D\u0430 \u043C\u0435\u0441\u0442\u0435.")),
+            info.kind === "review" && info.added > 0 && info.conf > 0 && (React.createElement("p", { className: "dim" },
+                "\u0420\u0430\u0441\u0445\u043E\u0436\u0434\u0435\u043D\u0438\u0439: ",
+                info.conf,
+                " \u2014 \u0440\u0430\u0437\u0431\u0435\u0440\u0438\u0442\u0435 \u0438\u0445 \u043A\u043D\u043E\u043F\u043A\u043E\u0439 \u043D\u0438\u0436\u0435.")),
             info.sentN > 0 && (React.createElement("p", { className: "dim" },
                 "\u041E\u0442\u043F\u0440\u0430\u0432\u0438\u043B\u0438: ",
                 np(info.sentN, "trip"),
@@ -10974,6 +11022,7 @@ function NearSync({ makePayload, onData, onClose, box, profile, meAva = "", onJo
             name: themName.current,
             kind: !res || res.error ? "error" : res.who ? "who" : res.review ? "review" : "ok",
             added: (res === null || res === void 0 ? void 0 : res.added) || 0,
+            conf: ((res === null || res === void 0 ? void 0 : res.conflicts) || 0) + ((res === null || res === void 0 ? void 0 : res.dels) || 0),
             a3: (res === null || res === void 0 ? void 0 : res.addA3) || [],
             sentN: sentOk.current ? ((_c = mineRef.current) === null || _c === void 0 ? void 0 : _c.t) || 0 : 0,
             photos: ((_d = mineRef.current) === null || _d === void 0 ? void 0 : _d.p) || 0,
@@ -11396,11 +11445,16 @@ function SyncSheet({ plan, from, onCancel, onApply, box, whoLine }) {
         return null;
     const { add = [], del = [], conflicts = [], same = 0 } = plan;
     const set = (id, v) => setPicks((p) => ({ ...p, [id]: v }));
-    const allTheirs = () => {
+    const allTo = (v) => {
         const next = {};
-        conflicts.forEach((c) => (next[c.id] = "theirs"));
+        conflicts.forEach((c) => (next[c.id] = v));
         setPicks(next);
     };
+    const allTheirs = () => allTo("theirs");
+    const allMine = () => allTo("mine");
+    const pickOf = (c) => picks[c.id] || c.pick;
+    const nTheirs = conflicts.filter((c) => pickOf(c) === "theirs").length;
+    const nMine = conflicts.filter((c) => pickOf(c) === "mine").length;
     const nothing = !add.length && !del.length && !conflicts.length;
     // одинаковые правки с разным составом — след старого объединения через файл
     const swaps = conflicts.filter((c) => c.swap).length;
@@ -11435,11 +11489,12 @@ function SyncSheet({ plan, from, onCancel, onApply, box, whoLine }) {
                 swaps === conflicts.length ? "Все расхождения" : `${swaps} из ${conflicts.length}`,
                 " \u2014 \u0432 \u0441\u043E\u0441\u0442\u0430\u0432\u0435: \u043E\u0434\u043D\u0430 \u0438 \u0442\u0430 \u0436\u0435 \u043F\u043E\u0435\u0437\u0434\u043A\u0430 \u0443 \u0432\u0430\u0441 \u0438 \u0443 \u043E\u0442\u043F\u0440\u0430\u0432\u0438\u0442\u0435\u043B\u044F",
                 from ? ` (${from})` : "",
-                " \u0437\u0430\u043F\u0438\u0441\u0430\u043D\u0430 \u043D\u0430 \u0440\u0430\u0437\u043D\u044B\u0445 \u043B\u044E\u0434\u0435\u0439. \u0422\u0430\u043A \u0431\u044B\u0432\u0430\u0435\u0442, \u0435\u0441\u043B\u0438 \u0440\u0430\u043D\u044C\u0448\u0435 \u043F\u043E\u0435\u0437\u0434\u043A\u0438 \u043F\u043E\u043F\u0430\u043B\u0438 \u043A \u0432\u0430\u043C \u0438\u0437 \u0447\u0443\u0436\u043E\u0439 \u043A\u043E\u043F\u0438\u0438 \u0438 \u00AB\u044F\u00BB \u0432 \u043D\u0438\u0445 \u0441\u0442\u0430\u043B\u043E \u0432\u0430\u043C\u0438. \u0415\u0441\u043B\u0438 \u044D\u0442\u043E \u043F\u043E\u0435\u0437\u0434\u043A\u0438 \u043E\u0442\u043F\u0440\u0430\u0432\u0438\u0442\u0435\u043B\u044F, \u043D\u0430\u0436\u043C\u0438\u0442\u0435 \u00AB\u0432\u0437\u044F\u0442\u044C \u0432\u0441\u0435 \u0438\u0445\u00BB.")),
+                " \u0437\u0430\u043F\u0438\u0441\u0430\u043D\u0430 \u043D\u0430 \u0440\u0430\u0437\u043D\u044B\u0445 \u043B\u044E\u0434\u0435\u0439. \u0422\u0430\u043A \u0431\u044B\u0432\u0430\u0435\u0442, \u0435\u0441\u043B\u0438 \u0440\u0430\u043D\u044C\u0448\u0435 \u043F\u043E\u0435\u0437\u0434\u043A\u0438 \u043F\u043E\u043F\u0430\u043B\u0438 \u043A \u0432\u0430\u043C \u0438\u0437 \u0447\u0443\u0436\u043E\u0439 \u043A\u043E\u043F\u0438\u0438 \u0438 \u00AB\u044F\u00BB \u0432 \u043D\u0438\u0445 \u0441\u0442\u0430\u043B\u043E \u0432\u0430\u043C\u0438. \u0415\u0441\u043B\u0438 \u044D\u0442\u043E \u043F\u043E\u0435\u0437\u0434\u043A\u0438 \u043E\u0442\u043F\u0440\u0430\u0432\u0438\u0442\u0435\u043B\u044F, \u043D\u0430\u0436\u043C\u0438\u0442\u0435 \u00AB\u0412\u0437\u044F\u0442\u044C \u0432\u0441\u0435 \u0438\u0445\u00BB, \u0435\u0441\u043B\u0438 \u0432\u0430\u0448\u0438 \u2014 \u00AB\u041E\u0441\u0442\u0430\u0432\u0438\u0442\u044C \u0432\u0441\u0435 \u043C\u043E\u0438\u00BB.")),
             conflicts.length > 0 && (React.createElement("div", { className: "sync-group" },
-                React.createElement("p", null,
-                    "\u041F\u0440\u0430\u0432\u0438\u043B\u0438 \u0441 \u0434\u0432\u0443\u0445 \u0441\u0442\u043E\u0440\u043E\u043D",
-                    React.createElement("button", { className: "link-btn", onClick: allTheirs }, "\u0432\u0437\u044F\u0442\u044C \u0432\u0441\u0435 \u0438\u0445")),
+                React.createElement("p", null, "\u041F\u0440\u0430\u0432\u0438\u043B\u0438 \u0441 \u0434\u0432\u0443\u0445 \u0441\u0442\u043E\u0440\u043E\u043D"),
+                React.createElement("div", { className: "sync-all" },
+                    React.createElement("button", { className: nMine === conflicts.length ? "on" : "", onClick: allMine }, "\u041E\u0441\u0442\u0430\u0432\u0438\u0442\u044C \u0432\u0441\u0435 \u043C\u043E\u0438"),
+                    React.createElement("button", { className: nTheirs === conflicts.length ? "on" : "", onClick: allTheirs }, "\u0412\u0437\u044F\u0442\u044C \u0432\u0441\u0435 \u0438\u0445")),
                 conflicts.map((c) => {
                     var _c;
                     const pick = picks[c.id] || c.pick;
@@ -13774,16 +13829,19 @@ function tripRoutes(visits, home, year = null) {
 function yearsData(visits, home) {
     const first = worldData(visits).first; // год первой поездки в страну
     const by = {};
+    const vague = []; // поездки без точного года
     const { home: hm } = tripRoutes(visits, home);
     Object.entries(visits || {}).forEach(([a3, arr]) => (arr || []).forEach((t0) => {
         var _c, _d;
         const t = normTrip(t0);
-        if (t.approx)
-            return;
         const a = dParts(t.from);
         const y = a ? a.y : t.y;
-        if (!y)
+        // с примерной датой (или вовсе без года): в «Все годы» считаем, в отдельный год — нет
+        if (t.approx || !y) {
+            if (!t.plan)
+                vague.push({ a3, t, at: 0 });
             return;
+        }
         const rec = (by[y] = by[y] || { y, trips: [], plans: [], countries: new Set(), fresh: new Set(), km: 0 });
         const at = a ? new Date(a.y, a.m - 1, a.d).getTime() : new Date(y, (t.m || 1) - 1, 1).getTime();
         if (t.plan) {
@@ -13805,7 +13863,7 @@ function yearsData(visits, home) {
         by[y].trips.sort((a, b) => b.at - a.at);
         by[y].plans.sort((a, b) => b.at - a.at);
     });
-    return { by, years };
+    return { by, years, vague };
 }
 function YearsWin({ visits, geo, home, mapProps, onClose, onOpenTrip }) {
     var _c, _d;
@@ -13817,10 +13875,12 @@ function YearsWin({ visits, geo, home, mapProps, onClose, onOpenTrip }) {
     // страны, где есть поездки (и планы) с датами — для списка
     const allCountries = useMemo(() => {
         const set = new Set();
-        Object.values(yearsData(visits, hm).by).forEach((r) => {
+        const yd = yearsData(visits, hm);
+        Object.values(yd.by).forEach((r) => {
             r.countries.forEach((c) => set.add(c));
             r.plans.forEach((x) => set.add(x.a3));
         });
+        yd.vague.forEach((x) => set.add(x.a3));
         return [...set].sort((x, y) => { var _c, _d; return (((_c = BY_A3[x]) === null || _c === void 0 ? void 0 : _c.name) || x).localeCompare(((_d = BY_A3[y]) === null || _d === void 0 ? void 0 : _d.name) || y, "ru"); });
     }, [visits, hm]);
     const nowY = NOW.getFullYear();
@@ -13848,6 +13908,11 @@ function YearsWin({ visits, geo, home, mapProps, onClose, onOpenTrip }) {
         });
         out.trips.sort((x, y) => y.at - x.at);
         out.plans.sort((x, y) => y.at - x.at);
+        // поездки с примерной датой — в конце списка, и в общем счёте тоже
+        (data.vague || []).forEach((x) => {
+            out.trips.push(x);
+            out.countries.add(x.a3);
+        });
         return out;
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [data, year]);
@@ -14483,7 +14548,7 @@ function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, si
                 React.createElement("span", null,
                     pw(TOTAL, "country"),
                     " \u00B7 ",
-                    np(all.length, "trip")),
+                    np(tripCount(visits), "trip")),
                 React.createElement("em", null, "\u25BE"))) : (React.createElement("div", { className: "flip" + (flipped ? " on" : ""), onClick: () => setFlipped((v) => !v) },
                 React.createElement("div", { className: "flip-in" },
                     React.createElement("div", { className: "flip-side" },
@@ -14508,7 +14573,7 @@ function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, si
                         React.createElement("span", { className: "flip-hint" }, "\u041D\u0430\u0436\u043C\u0438\u0442\u0435, \u0447\u0442\u043E\u0431\u044B \u043F\u0435\u0440\u0435\u0432\u0435\u0440\u043D\u0443\u0442\u044C")),
                     React.createElement("div", { className: "flip-side back" },
                         React.createElement("div", { className: "flip-top" },
-                            React.createElement("b", null, np(all.length, "trip")),
+                            React.createElement("b", null, np(tripCount(visits), "trip")),
                             React.createElement("span", null, "\u0432\u0441\u0435\u0433\u043E")),
                         React.createElement("div", { className: "cubes" },
                             React.createElement("div", null,
@@ -14838,7 +14903,8 @@ function useExchange(x) {
         save(res.visits);
     };
     const applySync = useCallback(async (data, picks) => {
-        const plan = syncPlan(visitsRef.current, data.visits, deadMap(), data.tombs, data.sender || "");
+        var _c;
+        const plan = syncPlan(visitsRef.current, data.visits, deadMap(), data.tombs, data.sender || "", ((_c = profileRef.current) === null || _c === void 0 ? void 0 : _c.deviceId) || "");
         commitSync(data, plan, picks);
     }, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -14928,10 +14994,17 @@ function useExchange(x) {
                 }
             })();
         const pkt = { visits: un.visits, tombs: data.tombs || {}, sender: sid };
-        const plan = syncPlan(visitsRef.current, pkt.visits, deadMap(), pkt.tombs, sid);
+        const plan = syncPlan(visitsRef.current, pkt.visits, deadMap(), pkt.tombs, sid, prof.deviceId || "");
         if (plan.conflicts.length || plan.del.length) {
             setSync({ plan, data: pkt, from: fromName });
-            return { review: true, added: plan.add.length, addA3: [...new Set(plan.add.map((x) => x.a3))], from: fromName };
+            return {
+                review: true,
+                added: plan.add.length,
+                conflicts: plan.conflicts.length,
+                dels: plan.del.length,
+                addA3: [...new Set(plan.add.map((x) => x.a3))],
+                from: fromName,
+            };
         }
         commitSync(pkt, plan, {});
         return { added: plan.add.length, addA3: [...new Set(plan.add.map((x) => x.a3))], from: fromName };
@@ -16267,12 +16340,13 @@ function AtlasApp() {
             if (c)
                 per[c.cont]++;
         });
-        Object.entries(visits).forEach(([, arr]) => arr.forEach((t) => {
-            const hit = !t.plan &&
-                (yearFilter === "all" || (!t.approx && t.y === +yearFilter));
-            if (hit)
-                trips++;
-        }));
+        if (yearFilter === "all")
+            trips = tripCount(visits);
+        else
+            Object.entries(visits).forEach(([, arr]) => arr.forEach((t) => {
+                if (!t.plan && !t.approx && t.y === +yearFilter)
+                    trips++;
+            }));
         return { countries: activeSet.size, trips, per };
     }, [activeSet, visits, yearFilter]);
     if (booting)
@@ -16590,6 +16664,7 @@ function AtlasApp() {
                         near && (React.createElement(NearSync, { box: box, profile: profile, meAva: meAva, onJoin: joinMember, makePayload: nearPayload, onData: (d) => {
                                 var _c;
                                 const r = (_c = receiveRef.current) === null || _c === void 0 ? void 0 : _c.call(receiveRef, d);
+                                window.__lastNear = { d, r }; // для проверок
                                 // если нужны решения по расхождениям — уступаем место их экрану
                                 return r;
                             }, onClose: () => {
@@ -16994,7 +17069,8 @@ body > div{max-width:100%;}
 .sheet-body.sync, .sheet-body.near{display:flex; flex-direction:column; gap:12px;}
 .sync-body{display:flex; flex-direction:column; gap:12px;}
 .sync-foot{display:flex; gap:10px; justify-content:flex-end; padding-top:4px;}
-.sync-foot button{flex:1 1 auto;}
+.sync-foot button{flex:1 1 auto; min-height:46px; border-radius:14px; font:inherit; font-size:15px; cursor:pointer;}
+.sync-foot .ask-yes{background:var(--gold); color:#1a1206; font-weight:700;}
 .sync-group{display:flex; flex-direction:column; gap:6px;}
 .sync-group > p{display:flex; align-items:center; justify-content:space-between; gap:8px; margin:0;
   font-size:12px; color:var(--dim);}
@@ -18274,6 +18350,11 @@ button, input, select, textarea{font-family:inherit;}
 /* космос за глобусом во весь экран (41.7): холст под всем содержимым окна */
 .globe-full .space-bg{position:absolute; left:0; top:0; z-index:-1; pointer-events:none;}
 .globe-full .map-wrap{background:transparent;}
+
+/* обмен: выбрать сразу для всех расхождений (41.9) */
+.sync-all{display:flex; gap:8px; margin:-2px 0 10px;}
+.sync-all button{flex:1; min-height:40px; border-radius:12px; border:1px solid var(--line); background:var(--el); color:var(--ink); font:inherit; font-size:14px; font-weight:600; cursor:pointer;}
+.sync-all button.on{border-color:var(--gold); color:var(--gold); background:rgba(232,184,75,.1);}
 `;
 const __b = document.getElementById('boot');
 if (__b)
