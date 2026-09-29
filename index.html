@@ -2956,7 +2956,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "42.0";
+const APP_VERSION = "42.1";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -3263,7 +3263,7 @@ const countryR = (a3) => COUNTRY_R[a3] || 1.9;
 const WISH_FILL = "#4a7fb5";
 const SILVER_LINE = "rgba(198,210,222,.72)";
 const GOLD_FILL = "#e2b551";
-const CHAMP_FILL = "#f4dc9c";
+const CHAMP_FILL = "#f9edc8";
 /* области больших стран: грузятся один раз из data/regions-map.json */
 const REG = { ready: false, feats: [], big: new Set(), loading: null };
 const K_REG = "atlas:regions:v1";
@@ -3370,7 +3370,7 @@ function goldGrad(ctx, bounds, c0, c1, c2, flat) {
 }
 function fillStyleFor(ctx, _a3, bounds, wish, champ = false) {
     if (champ)
-        return goldGrad(ctx, bounds, "#fbeec4", CHAMP_FILL, "#e7c67a", CHAMP_FILL);
+        return goldGrad(ctx, bounds, "#fffaec", CHAMP_FILL, "#f0dfa8", CHAMP_FILL);
     if (wish) {
         if (!bounds)
             return WISH_FILL;
@@ -4679,15 +4679,16 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                         ctx.restore();
                     }
                 }
-                ctx.strokeStyle = state.current.isMap
-                    ? lt
-                        ? "rgba(90,110,130,.6)"
-                        : SILVER_LINE
+                // границы стран — тонкое серебро (42.1): видны и на золоте, и на суше
+                ctx.strokeStyle = lt
+                    ? visited
+                        ? "rgba(120,138,156,.9)"
+                        : "rgba(120,140,160,.6)"
                     : visited
-                        ? SILVER_LINE
-                        : "rgba(150,168,186,.42)";
+                        ? "rgba(222,230,240,.92)"
+                        : "rgba(175,192,210,.6)";
                 ctx.lineWidth =
-                    sel === f.id ? 1.6 : state.current.isMap ? 0.55 : 0.4;
+                    sel === f.id ? 1.6 : state.current.isMap ? 0.7 : visited ? 0.75 : 0.55;
                 if (sel === f.id)
                     ctx.strokeStyle = "#eef3f8";
                 ctx.stroke();
@@ -4724,12 +4725,13 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                         ctx.globalAlpha = sel === a3 ? 1 : 0.95;
                         ctx.fill();
                         ctx.globalAlpha = 1;
-                        ctx.strokeStyle = lt ? "rgba(150,100,20,.55)" : "rgba(255,236,190,.75)";
-                        ctx.lineWidth = 0.7;
+                        ctx.strokeStyle = lt ? "rgba(120,138,156,.9)" : "rgba(226,234,244,.95)";
+                        ctx.lineWidth = 0.75;
                     }
                     else {
-                        ctx.strokeStyle = "rgba(150,110,40,.3)";
-                        ctx.lineWidth = 0.4;
+                        // границы областей — то же серебро, чуть тоньше
+                        ctx.strokeStyle = lt ? "rgba(140,156,172,.75)" : "rgba(170,182,196,.8)";
+                        ctx.lineWidth = 0.5;
                     }
                     ctx.stroke();
                 });
