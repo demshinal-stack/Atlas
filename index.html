@@ -2956,7 +2956,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "42.7";
+const APP_VERSION = "42.8";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -4423,7 +4423,13 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
             const box = fitBox ? el.closest(".pg-map") : null;
             const roomH = box
                 ? Math.round(box.getBoundingClientRect().height) - 16
-                : Math.round(vh - (land ? 118 : 205));
+                : land && el.closest(".col-map")
+                    ? (() => {
+                        // лёжа главный глобус — во всю высоту экрана: минус поля страницы и рамка окна
+                        const cs = getComputedStyle(el.closest(".root") || document.body);
+                        return Math.round(vh - parseFloat(cs.paddingTop || 0) - parseFloat(cs.paddingBottom || 0) - 14);
+                    })()
+                    : Math.round(vh - (land ? 118 : 205));
             if (w > 140) {
                 // fitK < 1 — шар меньше области: вокруг остаётся место (планеты «Догоняй»)
                 setSize(Math.round(Math.max(200, Math.min(w - 16, fitBox ? 900 : 560, Math.max(200, roomH))) *
@@ -18708,12 +18714,20 @@ button, input, select, textarea{font-family:inherit;}
 .col-map > .map-wrap > .globe-stage{padding:8px 0;}
 /* 42.7 · на телефоне стоя страница не листается: карточка страны занимает всё до низа,
    листается только окно ленты под названием страны */
-@media (orientation:portrait), (min-height:601px){
+@media all{
   .wrap{height:100%;}
   .cols{flex:1 1 auto; min-height:0;}
   .col-side{flex:1 1 auto; min-height:0; display:flex; flex-direction:column; margin-top:0;}
   .col-side > .focus:has(> .fc-list){flex:1 1 auto; min-height:170px; display:flex; flex-direction:column;}
   .col-side > .focus > .fc-list{flex:1 1 auto; min-height:0; max-height:none; margin-bottom:0;}
+}
+/* 42.8 · лёжа: окно глобуса от верха до низа экрана, лента справа листается сама */
+@media (orientation:landscape) and (max-height:600px){
+  .cols{align-items:stretch;}
+  .col-map{align-self:stretch; display:flex; flex-basis:clamp(50%, calc(100vh - 10px), 60%);}
+  .col-map > .map-wrap{flex:1 1 auto; display:flex; align-items:center; justify-content:center;}
+  .col-map > .map-wrap > .globe-stage{padding:6px 0;}
+  .col-side{align-self:stretch;}
 }
 `;
 const __b = document.getElementById('boot');
