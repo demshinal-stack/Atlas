@@ -2552,11 +2552,15 @@ const famSame = (a, b) => {
     const x = famIds(a);
     return famIds(b).some((id) => x.includes(id));
 };
-/* член моей семьи? */
-const famHas = (profile, pid) => { var _c; return !!(((_c = profile === null || profile === void 0 ? void 0 : profile.family) === null || _c === void 0 ? void 0 : _c.members) || []).some((m) => m.id === pid); };
-const famMember = (profile, pid) => { var _c; return (((_c = profile === null || profile === void 0 ? void 0 : profile.family) === null || _c === void 0 ? void 0 : _c.members) || []).find((m) => m.id === pid) || null; };
-/* карточка спутника, связанная с членом семьи */
-const cardOfMember = (people, pid) => (people || []).find((c) => c.link === pid) || null;
+/* член моей семьи? У человека может быть несколько номеров: сменил телефон
+   или переустановил Атлас — прежние номера лежат в m.aka */
+const memberIs = (m, pid) => !!m && !!pid && (m.id === pid || (m.aka || []).includes(pid));
+const famHas = (profile, pid) => { var _c; return !!(((_c = profile === null || profile === void 0 ? void 0 : profile.family) === null || _c === void 0 ? void 0 : _c.members) || []).some((m) => memberIs(m, pid)); };
+const famMember = (profile, pid) => { var _c; return (((_c = profile === null || profile === void 0 ? void 0 : profile.family) === null || _c === void 0 ? void 0 : _c.members) || []).find((m) => memberIs(m, pid)) || null; };
+/* карточка спутника, связанная с членом семьи (по основному или прежнему номеру) */
+const cardOfMember = (people, pid) => (people || []).find((c) => c.link === pid) ||
+    (people || []).find((c) => c.link && (c.aka || []).includes(pid)) ||
+    null;
 /* короткая сводка о себе и своей семье — для рукопожатия и приглашений */
 const famBrief = (profile) => {
     const f = (profile === null || profile === void 0 ? void 0 : profile.family) || null;
@@ -2565,7 +2569,7 @@ const famBrief = (profile) => {
             id: f.id,
             name: f.name || "Наша семья",
             alias: f.alias || [],
-            members: (f.members || []).map(({ id, name }) => ({ id, name })),
+            members: (f.members || []).map(({ id, name, aka }) => ({ id, name, ...((aka === null || aka === void 0 ? void 0 : aka.length) ? { aka } : {}) })),
         }
         : null;
 };
@@ -2804,6 +2808,8 @@ function guessCard(people, name) {
 }
 /* семейный список: добавляем и обновляем участников из чужой сводки */
 function famMerge(family, brief, myId, extra = []) {
+    // myId — мой номер или список моих номеров (нынешний и прежние)
+    const mine = [].concat(myId || []).filter(Boolean);
     const f = family
         ? { ...family, members: [...(family.members || [])], alias: [...(family.alias || [])] }
         : null;
@@ -2816,15 +2822,29 @@ function famMerge(family, brief, myId, extra = []) {
         });
     }
     const put = (m) => {
-        if (!(m === null || m === void 0 ? void 0 : m.id) || m.id === myId)
+        var _c;
+        if (!(m === null || m === void 0 ? void 0 : m.id) || mine.includes(m.id) || (m.aka || []).some((a) => mine.includes(a)))
             return;
-        const i = f.members.findIndex((x) => x.id === m.id);
+        const ids = [m.id, ...(m.aka || [])];
+        const i = f.members.findIndex((x) => ids.some((id) => memberIs(x, id)));
         if (i < 0)
-            f.members.push({ id: m.id, name: m.name || "", ava: m.ava || "", at: Date.now() });
-        else
+            f.members.push({
+                id: m.id,
+                name: m.name || "",
+                ava: m.ava || "",
+                at: Date.now(),
+                ...(((_c = m.aka) === null || _c === void 0 ? void 0 : _c.length) ? { aka: [...m.aka] } : {}),
+            });
+        else {
+            const aka = [...new Set([...(f.members[i].aka || []), ...ids])].filter((x) => x !== f.members[i].id);
+            if (aka.length)
+                f.members[i] = { ...f.members[i], aka };
+        }
+        if (i >= 0)
             f.members[i] = {
                 ...f.members[i],
-                ...(m.name ? { name: m.name } : {}),
+                // пустое имя с нового телефона не затирает известное
+                ...(m.name && (f.members[i].id === m.id || !f.members[i].name) ? { name: m.name } : {}),
                 ...(m.ava ? { ava: m.ava } : {}),
             };
     };
@@ -2897,7 +2917,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "41.5";
+const APP_VERSION = "41.6";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -10096,21 +10116,28 @@ function Ava({ src, name, size = 40 }) {
 }
 /* кто этот человек среди ваших спутников: связываем с карточкой,
    чтобы старые поездки с ним стали общими */
-function LinkPick({ people, value, onChange, name, memberId }) {
+function LinkPick({ people, value, onChange, name, memberId, members = [] }) {
     const opts = (people || []).filter((c) => !c.link || c.link === memberId);
+    // уже в семье, но с другого телефона: переустановил Атлас или сменил телефон
+    const olds = (members || []).filter((m) => m.id !== memberId && !(m.aka || []).includes(memberId));
     const cur = opts.find((c) => c.id === value);
+    const curM = String(value || "").startsWith("m:") ? olds.find((m) => "m:" + m.id === value) : null;
     return (React.createElement("div", { className: "fam-link" },
         React.createElement("span", null, "\u041A\u0442\u043E \u044D\u0442\u043E \u0432 \u0432\u0430\u0448\u0438\u0445 \u043F\u043E\u0435\u0437\u0434\u043A\u0430\u0445"),
         React.createElement("span", { className: "since-pick" },
-            React.createElement("b", null, cur ? cur.name : `Новый: ${name || "без имени"}`),
+            React.createElement("b", null, curM ? `${curM.name || "Без имени"} — новый телефон` : cur ? cur.name : `Новый: ${name || "без имени"}`),
             React.createElement("span", null, "\u25BE"),
             React.createElement("select", { value: value || "", onChange: (e) => onChange(e.target.value) },
                 React.createElement("option", { value: "" },
                     "\u041D\u043E\u0432\u044B\u0439 \u043F\u0443\u0442\u0435\u0448\u0435\u0441\u0442\u0432\u0435\u043D\u043D\u0438\u043A \u2014 ",
                     name || "без имени"),
-                opts.map((c) => (React.createElement("option", { key: c.id, value: c.id },
+                olds.length > 0 && (React.createElement("optgroup", { label: "\u0423\u0436\u0435 \u0432 \u0441\u0435\u043C\u044C\u0435 \u2014 \u0441\u043C\u0435\u043D\u0438\u043B \u0442\u0435\u043B\u0435\u0444\u043E\u043D" }, olds.map((m) => (React.createElement("option", { key: m.id, value: "m:" + m.id },
+                    m.name || "Без имени",
+                    " \u2014 \u043D\u043E\u0432\u044B\u0439 \u0442\u0435\u043B\u0435\u0444\u043E\u043D"))))),
+                opts.length > 0 && (React.createElement("optgroup", { label: "\u0418\u0437 \u0432\u0430\u0448\u0438\u0445 \u0441\u043F\u0443\u0442\u043D\u0438\u043A\u043E\u0432" }, opts.map((c) => (React.createElement("option", { key: c.id, value: c.id },
                     c.name,
-                    c.role ? ` · ${c.role}` : "")))))));
+                    c.role ? ` · ${c.role}` : ""))))))),
+        !name && (React.createElement("em", { className: "fam-link-hint" }, "\u041D\u0430 \u0442\u043E\u043C \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0435 \u043D\u0435 \u0443\u043A\u0430\u0437\u0430\u043D\u043E \u0438\u043C\u044F. \u0415\u0441\u043B\u0438 \u044D\u0442\u043E \u043A\u0442\u043E-\u0442\u043E \u0438\u0437 \u0441\u0435\u043C\u044C\u0438 \u0441 \u043D\u043E\u0432\u043E\u0433\u043E \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430 \u2014 \u0432\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u0435\u0433\u043E."))));
 }
 /* ------------------------------------------------------------------ */
 /*  Семья: общий атлас, приглашения, состав                            */
@@ -10134,7 +10161,7 @@ async function shareText(text, title) {
         return "fail";
     }
 }
-function FamilySheet({ open, onClose, box, profile, ops, onNear, onImport, inviteFor = null, onInviteDone }) {
+function FamilySheet({ open, onClose, box, profile, ops, onNear, onImport, onName, inviteFor = null, onInviteDone }) {
     const fam = (profile === null || profile === void 0 ? void 0 : profile.family) || null;
     const people = (profile === null || profile === void 0 ? void 0 : profile.people) || [];
     const myId = profile === null || profile === void 0 ? void 0 : profile.deviceId;
@@ -10160,6 +10187,15 @@ function FamilySheet({ open, onClose, box, profile, ops, onNear, onImport, invit
     }, [open]);
     const members = (fam === null || fam === void 0 ? void 0 : fam.members) || [];
     const cardOf = (m) => people.find((c) => c.link === m.id);
+    /* без имени к родным не выходим: иначе у них появится «Без имени» */
+    const nameless = !((profile === null || profile === void 0 ? void 0 : profile.name) || "").trim();
+    const [myName, setMyName] = useState("");
+    const [nameErr, setNameErr] = useState(false);
+    const needName = (go) => () => {
+        if (!nameless)
+            return go();
+        setNameErr(true);
+    };
     const [forName, setForName] = useState("");
     // открыли из профиля кнопкой «Пригласить» — сразу готовим приглашение этому человеку
     useEffect(() => {
@@ -10217,6 +10253,15 @@ function FamilySheet({ open, onClose, box, profile, ops, onNear, onImport, invit
             !fam ? (React.createElement("p", { className: "hint small" }, "\u0421\u0435\u043C\u044C\u044F \u2014 \u044D\u0442\u043E \u043E\u0431\u0449\u0438\u0439 \u0430\u0442\u043B\u0430\u0441: \u0432\u0441\u0435 \u0432\u0438\u0434\u044F\u0442 \u043F\u043E\u0435\u0437\u0434\u043A\u0438 \u0434\u0440\u0443\u0433 \u0434\u0440\u0443\u0433\u0430, \u0443 \u043A\u0430\u0436\u0434\u043E\u0439 \u043F\u043E\u0435\u0437\u0434\u043A\u0438 \u043F\u043E\u0434\u043F\u0438\u0441\u0430\u043D \u0430\u0432\u0442\u043E\u0440. \u0418\u043C\u044F, \u0444\u043E\u0442\u043E, \u0441\u043F\u0443\u0442\u043D\u0438\u043A\u0438 \u0438 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438 \u0443 \u043A\u0430\u0436\u0434\u043E\u0433\u043E \u0441\u0432\u043E\u0438 \u0438 \u043F\u0440\u0438 \u043E\u0431\u043C\u0435\u043D\u0435 \u043D\u0435 \u043C\u0435\u043D\u044F\u044E\u0442\u0441\u044F. \u0427\u0442\u043E\u0431\u044B \u0441\u043E\u0437\u0434\u0430\u0442\u044C \u0441\u0435\u043C\u044C\u044E, \u043E\u0431\u043C\u0435\u043D\u044F\u0439\u0442\u0435\u0441\u044C \u0440\u044F\u0434\u043E\u043C \u0441 \u0440\u043E\u0434\u043D\u044B\u043C \u0447\u0435\u043B\u043E\u0432\u0435\u043A\u043E\u043C \u0438\u043B\u0438 \u043E\u0442\u043F\u0440\u0430\u0432\u044C\u0442\u0435 \u0435\u043C\u0443 \u043F\u0440\u0438\u0433\u043B\u0430\u0448\u0435\u043D\u0438\u0435.")) : (React.createElement("label", { className: "tf fam-name" },
                 React.createElement("span", null, "\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u0441\u0435\u043C\u044C\u0438"),
                 React.createElement("input", { className: "tf-input", value: fname, onChange: (e) => setFname(e.target.value), onBlur: () => fname.trim() && fname.trim() !== fam.name && ops.rename(fname.trim()), autoComplete: "off" }))),
+            nameless && (React.createElement("div", { className: "fam-myname" + (nameErr ? " err" : "") },
+                React.createElement("b", null, "\u041A\u0430\u043A \u0432\u0430\u0441 \u0437\u043E\u0432\u0443\u0442?"),
+                React.createElement("em", null, "\u0418\u043C\u044F \u0443\u0432\u0438\u0434\u044F\u0442 \u0440\u043E\u0434\u043D\u044B\u0435 \u043F\u043E\u0441\u043B\u0435 \u043E\u0431\u043C\u0435\u043D\u0430. \u0411\u0435\u0437 \u043D\u0435\u0433\u043E \u0443 \u043D\u0438\u0445 \u0432\u044B \u043F\u043E\u044F\u0432\u0438\u0442\u0435\u0441\u044C \u043A\u0430\u043A \u00AB\u0411\u0435\u0437 \u0438\u043C\u0435\u043D\u0438\u00BB."),
+                React.createElement("div", { className: "fam-myname-row" },
+                    React.createElement("input", { className: "tf-input", value: myName, placeholder: "\u0418\u043C\u044F \u0438 \u0444\u0430\u043C\u0438\u043B\u0438\u044F", onChange: (e) => {
+                            setMyName(e.target.value);
+                            setNameErr(false);
+                        }, autoComplete: "off" }),
+                    React.createElement("button", { className: "btn-main", disabled: !myName.trim(), onClick: () => onName === null || onName === void 0 ? void 0 : onName(myName.trim()) }, "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C")))),
             fam && (React.createElement("div", { className: "fam-list" },
                 React.createElement("div", { className: "fam-row" },
                     React.createElement(Ava, { src: profile === null || profile === void 0 ? void 0 : profile.avatar, name: profile === null || profile === void 0 ? void 0 : profile.name }),
@@ -10235,11 +10280,40 @@ function FamilySheet({ open, onClose, box, profile, ops, onNear, onImport, invit
                         React.createElement("span", { className: "fam-acts" },
                             React.createElement("span", { className: "since-pick fam-relink", "aria-label": "\u041A\u0442\u043E \u044D\u0442\u043E \u0432 \u043F\u043E\u0435\u0437\u0434\u043A\u0430\u0445" },
                                 React.createElement("span", null, "\u270E"),
-                                React.createElement("select", { value: ((_d = cardOf(m)) === null || _d === void 0 ? void 0 : _d.id) || "", onChange: (e) => e.target.value && ops.relink(m.id, e.target.value) },
+                                React.createElement("select", { value: ((_d = cardOf(m)) === null || _d === void 0 ? void 0 : _d.id) || "", onChange: (e) => {
+                                        const v = e.target.value;
+                                        if (!v)
+                                            return;
+                                        if (v === "me")
+                                            return setAsk({
+                                                title: `Это вы — ${m.name || "без имени"}?`,
+                                                text: "Так бывает после переустановки Атласа или смены телефона: прежний телефон остался в семье отдельным человеком. Его поездки станут вашими, в списке семьи он пропадёт.",
+                                                yes: "Да, это я",
+                                                onYes: () => ops.memberIsMe(m.id),
+                                            });
+                                        if (v.startsWith("m:")) {
+                                            const other = members.find((x) => x.id === v.slice(2));
+                                            return setAsk({
+                                                title: `${m.name || "Без имени"} и ${(other === null || other === void 0 ? void 0 : other.name) || "Без имени"} — один человек?`,
+                                                text: "Например, у него новый телефон или Атлас переустановлен. Два номера склеятся в одного участника, поездки объединятся.",
+                                                yes: "Объединить",
+                                                onYes: () => ops.sameMember(m.id, v.slice(2)),
+                                            });
+                                        }
+                                        ops.relink(m.id, v);
+                                    } },
                                     React.createElement("option", { value: "" }, "\u041A\u0442\u043E \u044D\u0442\u043E \u0432 \u043F\u043E\u0435\u0437\u0434\u043A\u0430\u0445?"),
                                     people
                                         .filter((c) => !c.link || c.link === m.id)
-                                        .map((c) => (React.createElement("option", { key: c.id, value: c.id }, c.name))))),
+                                        .map((c) => (React.createElement("option", { key: c.id, value: c.id }, c.name))),
+                                    React.createElement("optgroup", { label: "\u041E\u0434\u0438\u043D \u0438 \u0442\u043E\u0442 \u0436\u0435 \u0447\u0435\u043B\u043E\u0432\u0435\u043A" },
+                                        members
+                                            .filter((x) => x.id !== m.id)
+                                            .map((x) => (React.createElement("option", { key: x.id, value: "m:" + x.id },
+                                            "\u042D\u0442\u043E ",
+                                            x.name || "«Без имени»",
+                                            " \u0441 \u0434\u0440\u0443\u0433\u043E\u0433\u043E \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430"))),
+                                        React.createElement("option", { value: "me" }, "\u042D\u0442\u043E \u044F \u2014 \u043C\u043E\u0439 \u043F\u0440\u0435\u0436\u043D\u0438\u0439 \u0442\u0435\u043B\u0435\u0444\u043E\u043D")))),
                             React.createElement("button", { className: "icon-btn small", "aria-label": "\u0418\u0441\u043A\u043B\u044E\u0447\u0438\u0442\u044C", onClick: () => setAsk({
                                     title: `Исключить: ${m.name || "участник"}?`,
                                     text: "Поездки, которые уже пришли, останутся. Новые от этого человека приниматься не будут.",
@@ -10250,12 +10324,14 @@ function FamilySheet({ open, onClose, box, profile, ops, onNear, onImport, invit
                 !members.length && (React.createElement("p", { className: "hint small" }, "\u041F\u043E\u043A\u0430 \u0432 \u0441\u0435\u043C\u044C\u0435 \u0442\u043E\u043B\u044C\u043A\u043E \u0432\u044B. \u041F\u0440\u0438\u0433\u043B\u0430\u0441\u0438\u0442\u0435 \u0440\u043E\u0434\u043D\u044B\u0445 \u043D\u0438\u0436\u0435.")))),
             mode === "" && (React.createElement(React.Fragment, null,
                 React.createElement("p", { className: "step-title" }, "\u041E\u0431\u043C\u0435\u043D \u043F\u043E\u0435\u0437\u0434\u043A\u0430\u043C\u0438"),
-                React.createElement("button", { className: "switch-row", onClick: onNear },
+                React.createElement("button", { className: "switch-row", onClick: needName(onNear) },
                     React.createElement("span", { className: "switch-text" },
                         "\u041E\u0431\u043C\u0435\u043D\u044F\u0442\u044C\u0441\u044F \u0440\u044F\u0434\u043E\u043C",
                         React.createElement("em", null, "\u041F\u043E \u043A\u043E\u0434\u0443 \u043D\u0430 \u044D\u043A\u0440\u0430\u043D\u0435, \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u044B \u0432 \u043E\u0434\u043D\u043E\u0439 \u0441\u0435\u0442\u0438 Wi-Fi. \u0422\u0430\u043A \u0436\u0435 \u043F\u0440\u0438\u043D\u0438\u043C\u0430\u044E\u0442 \u0432 \u0441\u0435\u043C\u044C\u044E")),
                     React.createElement("span", { className: "step-pen" }, "\u2192")),
                 fam && members.length > 0 && (React.createElement("button", { className: "switch-row", disabled: busy, onClick: async () => {
+                        if (nameless)
+                            return setNameErr(true);
                         setBusy(true);
                         const r = await ops.sendFile();
                         setBusy(false);
@@ -10283,6 +10359,8 @@ function FamilySheet({ open, onClose, box, profile, ops, onNear, onImport, invit
                         } })),
                 React.createElement("p", { className: "step-title" }, "\u041F\u0440\u0438\u0433\u043B\u0430\u0448\u0435\u043D\u0438\u044F"),
                 React.createElement("button", { className: "switch-row", onClick: async () => {
+                        if (nameless)
+                            return setNameErr(true);
                         setErr("");
                         setMsg("");
                         setForName("");
@@ -10340,7 +10418,7 @@ function FamilySheet({ open, onClose, box, profile, ops, onNear, onImport, invit
                         ? `Приглашает вас в семью «${(_k = (_j = got.data) === null || _j === void 0 ? void 0 : _j.f) === null || _k === void 0 ? void 0 : _k.name}». Сейчас вы в семье «${fam.name}» — они станут одной.`
                         : `Приглашает вас в семью «${((_m = (_l = got.data) === null || _l === void 0 ? void 0 : _l.f) === null || _m === void 0 ? void 0 : _m.name) || "Наша семья"}». Вы будете видеть поездки друг друга. Имя, фото и настройки у каждого останутся своими.`
                     : `Хочет вступить в семью «${(fam === null || fam === void 0 ? void 0 : fam.name) || "Наша семья"}» по вашему приглашению.`),
-                React.createElement(LinkPick, { people: people, value: link, onChange: setLink, name: (_p = (_o = got.data) === null || _o === void 0 ? void 0 : _o.p) === null || _p === void 0 ? void 0 : _p.name, memberId: (_r = (_q = got.data) === null || _q === void 0 ? void 0 : _q.p) === null || _r === void 0 ? void 0 : _r.id }),
+                React.createElement(LinkPick, { people: people, value: link, onChange: setLink, name: (_p = (_o = got.data) === null || _o === void 0 ? void 0 : _o.p) === null || _p === void 0 ? void 0 : _p.name, memberId: (_r = (_q = got.data) === null || _q === void 0 ? void 0 : _q.p) === null || _r === void 0 ? void 0 : _r.id, members: (fam === null || fam === void 0 ? void 0 : fam.members) || [] }),
                 React.createElement("div", { className: "fam-ask-btns" },
                     React.createElement("button", { className: "btn-ghost", onClick: () => setMode("") }, "\u041D\u0435 \u0441\u0435\u0439\u0447\u0430\u0441"),
                     React.createElement("button", { className: "btn-main", disabled: busy, onClick: async () => {
@@ -10783,7 +10861,7 @@ function NearSync({ makePayload, onData, onClose, box, profile, meAva = "", onJo
     return (React.createElement(Sheet, { open: true, onClose: onClose, title: React.createElement(React.Fragment, null,
             "\u041E\u0431\u043C\u0435\u043D ",
             React.createElement("span", { className: "t-gold" }, "\u0440\u044F\u0434\u043E\u043C")), box: box }, () => {
-        var _c, _d, _e, _f, _g, _h, _j;
+        var _c, _d, _e, _f, _g, _h, _j, _k;
         return (React.createElement("div", { className: "sheet-body near" },
             step === "idle" && (React.createElement("p", { className: "hint small near-sub" }, "\u041F\u043E\u0435\u0437\u0434\u043A\u0438, \u043C\u0430\u0440\u0448\u0440\u0443\u0442\u044B \u0438 \u043F\u043B\u0430\u043D\u044B \u2014 \u043F\u0440\u044F\u043C\u043E \u043D\u0430 \u0441\u043E\u0441\u0435\u0434\u043D\u0438\u0439 \u0442\u0435\u043B\u0435\u0444\u043E\u043D")),
             React.createElement("div", { className: "near-stage" + (step === "ask" ? " ask" : "") + (step === "pair" ? " code" : "") }, step === "ask" && them ? (React.createElement("div", { className: "fam-ask" },
@@ -10801,10 +10879,10 @@ function NearSync({ makePayload, onData, onClose, box, profile, meAva = "", onJo
                         return `Приглашение в семью «${theirs.name}».` + tail;
                     return "Создать общую семью?" + tail;
                 })()),
-                React.createElement(LinkPick, { people: (profile === null || profile === void 0 ? void 0 : profile.people) || [], value: linkCard, onChange: setLinkCard, name: (_f = them.me) === null || _f === void 0 ? void 0 : _f.name, memberId: (_g = them.me) === null || _g === void 0 ? void 0 : _g.id }),
+                React.createElement(LinkPick, { people: (profile === null || profile === void 0 ? void 0 : profile.people) || [], value: linkCard, onChange: setLinkCard, name: (_f = them.me) === null || _f === void 0 ? void 0 : _f.name, memberId: (_g = them.me) === null || _g === void 0 ? void 0 : _g.id, members: ((_h = profile === null || profile === void 0 ? void 0 : profile.family) === null || _h === void 0 ? void 0 : _h.members) || [] }),
                 React.createElement("div", { className: "fam-ask-btns" },
                     React.createElement("button", { className: "btn-ghost", onClick: refuse }, "\u041D\u0435 \u0441\u0435\u0439\u0447\u0430\u0441"),
-                    React.createElement("button", { className: "btn-main", onClick: agree }, "\u041F\u0440\u0438\u043D\u044F\u0442\u044C \u0432 \u0441\u0435\u043C\u044C\u044E")))) : step === "done" ? (React.createElement(NearDone, { info: doneInfo })) : step === "idle" || step === "refused" ? (React.createElement(NearHero, null)) : step === "wait" || step === "live" ? (React.createElement(NearOrbits, { sent: sent, got: got, mine: mine, theirs: theirs, name: ((_h = them === null || them === void 0 ? void 0 : them.me) === null || _h === void 0 ? void 0 : _h.name) || "" })) : (React.createElement("div", { className: "near-card" + (flip ? " flip" : ""), onClick: () => setFlip((v) => !v) },
+                    React.createElement("button", { className: "btn-main", onClick: agree }, "\u041F\u0440\u0438\u043D\u044F\u0442\u044C \u0432 \u0441\u0435\u043C\u044C\u044E")))) : step === "done" ? (React.createElement(NearDone, { info: doneInfo })) : step === "idle" || step === "refused" ? (React.createElement(NearHero, null)) : step === "wait" || step === "live" ? (React.createElement(NearOrbits, { sent: sent, got: got, mine: mine, theirs: theirs, name: ((_j = them === null || them === void 0 ? void 0 : them.me) === null || _j === void 0 ? void 0 : _j.name) || "" })) : (React.createElement("div", { className: "near-card" + (flip ? " flip" : ""), onClick: () => setFlip((v) => !v) },
                 React.createElement("div", { className: "near-face near-front" },
                     myCode ? (React.createElement(QrBox, { text: myCode, hole: step === "pair", onHole: setHolePx, size: Math.min(320, Math.round((typeof window !== "undefined" ? Math.min(window.innerWidth * 0.84, window.innerHeight * 0.4) : 320))) })) : (React.createElement("p", { className: "near-state" }, "\u0413\u043E\u0442\u043E\u0432\u0438\u043C \u043A\u043E\u0434\u2026")),
                     step === "pair" && (React.createElement("div", { className: "qr-hole", style: { width: holePx, height: holePx } },
@@ -10867,7 +10945,7 @@ function NearSync({ makePayload, onData, onClose, box, profile, meAva = "", onJo
                             "\u0420\u0430\u0437\u0431\u043E\u0440\u043E\u0432: ",
                             stat.tries || 0,
                             " \u00B7 \u044F\u0440\u043A\u043E\u0441\u0442\u044C \u043A\u0430\u0434\u0440\u0430:",
-                            " ", (_j = stat.bright) !== null && _j !== void 0 ? _j : "—",
+                            " ", (_k = stat.bright) !== null && _k !== void 0 ? _k : "—",
                             " \u00B7 \u0440\u0435\u0436\u0438\u043C: ",
                             stat.zoom || "—"),
                         (stat.full || stat.shot) && (React.createElement("div", { className: "near-shot" },
@@ -11871,8 +11949,6 @@ const GLASS_GRID = (() => {
 /* кольцо как плоская пластина: внешний обод и внутренняя часть за прорезью */
 const RING_PLATE = "M 2 100 a 98 26 0 1 0 196 0 a 98 26 0 1 0 -196 0 Z " +
     "M 22 100 a 78 20 0 1 0 156 0 a 78 20 0 1 0 -156 0 Z";
-const RING_INNER = "M 25 100 a 75 19 0 1 0 150 0 a 75 19 0 1 0 -150 0 Z " +
-    "M 31 100 a 69 17 0 1 0 138 0 a 69 17 0 1 0 -138 0 Z";
 function Saturn({ name, n, tone = 0, size = 120, id = "s", orbit = true, label: ls = 1 }) {
     const t = SAT_TONES[tone % SAT_TONES.length];
     const u = `sat${id}`;
@@ -14434,7 +14510,7 @@ function useExchange(x) {
         if (!opt.trusted && next.family)
             next = {
                 ...next,
-                family: famMerge(next.family, data.family, prof.deviceId, [
+                family: famMerge(next.family, data.family, [prof.deviceId, ...(prof.selfAka || [])], [
                     { id: sid, name: fromName, ava: ((_f = data.from) === null || _f === void 0 ? void 0 : _f.ava) || "" },
                 ]),
             };
@@ -14557,9 +14633,12 @@ function useExchange(x) {
     }, [saveProfile]);
     /* принять человека в семью; link — карточка спутника, которая и есть он
        ("" — завести новую) */
-    const joinMember = useCallback(async (them, brief, link) => {
+    const joinMember = useCallback(async (them, brief, link0) => {
         const prof = profileRef.current || {};
         const myId = prof.deviceId;
+        // «m:номер» — это уже знакомый член семьи с нового телефона
+        const sameAs = String(link0 || "").startsWith("m:") ? link0.slice(2) : "";
+        const link = sameAs ? "" : link0;
         let fam = prof.family;
         if (!fam)
             fam = brief
@@ -14572,7 +14651,20 @@ function useExchange(x) {
                     members: [],
                     since: Date.now(),
                 };
-        fam = famMerge(fam, brief, myId, [them]);
+        fam = famMerge(fam, brief, [myId, ...(prof.selfAka || [])], sameAs ? [] : [them]);
+        if (sameAs) {
+            fam = {
+                ...fam,
+                members: (fam.members || [])
+                    .filter((m) => m.id !== them.id)
+                    .map((m) => m.id === sameAs
+                    ? { ...m, aka: [...new Set([...(m.aka || []), them.id])], ...(them.name && !m.name ? { name: them.name } : {}) }
+                    : m),
+            };
+            const people = (prof.people || []).map((c) => c.link === sameAs ? { ...c, aka: [...new Set([...(c.aka || []), them.id])] } : c);
+            await saveFamily(fam, people);
+            return famBrief(profileRef.current);
+        }
         let people = (prof.people || []).map((c) => c.link === them.id && c.id !== link ? { ...c, link: undefined } : c);
         if (link)
             people = people.map((c) => (c.id === link ? { ...c, link: them.id } : c));
@@ -14595,6 +14687,74 @@ function useExchange(x) {
             const prof = profileRef.current || {};
             const people = (prof.people || []).map((c) => c.id === cardId ? { ...c, link: memberId } : c.link === memberId ? { ...c, link: undefined } : c);
             saveFamily(prof.family, people);
+        },
+        /* «это я — мой прежний телефон»: этот номер теперь мой, его карточка — это я */
+        memberIsMe: async (memberId) => {
+            const prof = profileRef.current || {};
+            const f = prof.family;
+            const m = ((f === null || f === void 0 ? void 0 : f.members) || []).find((x) => x.id === memberId);
+            if (!f || !m)
+                return;
+            const ids = [m.id, ...(m.aka || [])];
+            const card = cardOfMember(prof.people || [], m.id);
+            if (card) {
+                const swap = (arr) => [...new Set((arr || []).map((w) => (w === card.id ? ME : w)))];
+                const v = {};
+                Object.entries(visitsRef.current || {}).forEach(([a3, arr]) => {
+                    v[a3] = (arr || []).map((t) => ({ ...t, who: swap(t.who), ...(t.left ? { left: swap(t.left) } : {}) }));
+                });
+                await save(v);
+            }
+            const next = {
+                ...prof,
+                ...(!(prof.name || "").trim() && m.name ? { name: m.name } : {}),
+                selfAka: [...new Set([...(prof.selfAka || []), ...ids, ...((card === null || card === void 0 ? void 0 : card.aka) || [])])],
+                people: (prof.people || []).filter((c) => !card || c.id !== card.id),
+                family: { ...f, members: f.members.filter((x) => x.id !== memberId) },
+            };
+            profileRef.current = next;
+            await saveProfile(next);
+        },
+        /* «тот же человек, что …»: у родного новый телефон — склеиваем два номера */
+        sameMember: async (fromId, toId) => {
+            const prof = profileRef.current || {};
+            const f = prof.family;
+            const a = ((f === null || f === void 0 ? void 0 : f.members) || []).find((x) => x.id === fromId);
+            const b = ((f === null || f === void 0 ? void 0 : f.members) || []).find((x) => x.id === toId);
+            if (!f || !a || !b)
+                return;
+            const ids = [a.id, ...(a.aka || [])];
+            const ca = cardOfMember(prof.people || [], a.id);
+            const cb = cardOfMember(prof.people || [], b.id);
+            let people = prof.people || [];
+            if (ca && cb) {
+                const swap = (arr) => [...new Set((arr || []).map((w) => (w === ca.id ? cb.id : w)))];
+                const v = {};
+                Object.entries(visitsRef.current || {}).forEach(([a3, arr]) => {
+                    v[a3] = (arr || []).map((t) => ({ ...t, who: swap(t.who), ...(t.left ? { left: swap(t.left) } : {}) }));
+                });
+                await save(v);
+                people = people
+                    .filter((c) => c.id !== ca.id)
+                    .map((c) => (c.id === cb.id ? { ...c, aka: [...new Set([...(c.aka || []), ...ids, ...(ca.aka || [])])] } : c));
+            }
+            else if (ca) {
+                people = people.map((c) => c.id === ca.id ? { ...c, link: b.id, aka: [...new Set([...(c.aka || []), ...ids])] } : c);
+            }
+            else if (cb) {
+                people = people.map((c) => (c.id === cb.id ? { ...c, aka: [...new Set([...(c.aka || []), ...ids])] } : c));
+            }
+            const members = f.members
+                .filter((x) => x.id !== fromId)
+                .map((x) => x.id === toId
+                ? {
+                    ...x,
+                    aka: [...new Set([...(x.aka || []), ...ids])].filter((id) => id !== x.id),
+                    ...(!x.name && a.name ? { name: a.name } : {}),
+                    ...(!x.ava && a.ava ? { ava: a.ava } : {}),
+                }
+                : x);
+            await saveFamily({ ...f, members }, people);
         },
         remove: (memberId) => {
             const prof = profileRef.current || {};
@@ -16045,7 +16205,11 @@ function AtlasApp() {
                         React.createElement(FamilySheet, { open: sheet === "family", onClose: () => {
                                 setInviteFor(null);
                                 setSheet("profile");
-                            }, box: box, profile: profile, ops: familyOps, inviteFor: inviteFor, onInviteDone: () => setInviteFor(null), onNear: () => {
+                            }, box: box, profile: profile, ops: familyOps, onName: async (v) => {
+                                const prof = { ...(profileRef.current || profile), name: v };
+                                profileRef.current = prof;
+                                await saveProfile(prof);
+                            }, inviteFor: inviteFor, onInviteDone: () => setInviteFor(null), onNear: () => {
                                 setNearBack("family");
                                 setSheet(null);
                                 setNear(true);
@@ -17698,6 +17862,18 @@ button, input, select, textarea{font-family:inherit;}
 /* светлая тема: сетка и край стеклянной планеты темнее, иначе белое стекло теряется на белом */
 .root.light .dg-planet .dg-grid{stroke:var(--pc);}
 .root.light .dg-planet .dg-rim{stroke:var(--pc); stroke-opacity:.6;}
+
+/* семья: своё имя, пока его нет (41.6) */
+.fam-myname{margin-bottom:12px; padding:12px 14px; border-radius:14px; border:1px solid rgba(232,184,75,.5); background:linear-gradient(135deg,rgba(232,184,75,.14),rgba(232,184,75,.03));}
+.fam-myname b{display:block; font-size:15px;}
+.fam-myname em{display:block; margin:3px 0 9px; font-style:normal; font-size:12.5px; line-height:1.35; color:var(--dim);}
+.fam-myname.err{border-color:#e0685a; animation:famShake .35s ease;}
+.fam-myname.err em{color:#e0685a;}
+@keyframes famShake{0%,100%{transform:none;} 25%{transform:translateX(-5px);} 75%{transform:translateX(5px);}}
+.fam-myname-row{display:flex; gap:8px;}
+.fam-myname-row .tf-input{flex:1; min-width:0;}
+.fam-myname-row .btn-main{flex:none; padding:0 16px;}
+.fam-link-hint{display:block; margin-top:6px; font-style:normal; font-size:12px; line-height:1.35; color:var(--dim);}
 `;
 const __b = document.getElementById('boot');
 if (__b)
