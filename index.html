@@ -2956,7 +2956,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "42.6";
+const APP_VERSION = "42.7";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -16601,8 +16601,8 @@ function AtlasApp() {
         const total = REG.feats.filter((f) => f.properties.a3 === selected).length;
         return { byTrip, count, list, total };
     }, [regReady, selected, visits]);
-    /* карточки мест под страной: у больших стран — области, у остальных — регионы
-       или города из поездок. Выбранная — первой, дальше по числу поездок */
+    /* лента под страной: у больших стран — области, где были, у остальных — одна
+       строка на всю страну. Первой — область с наибольшим числом городов */
     const placeCards = useMemo(() => {
         var _c;
         if (!selected)
@@ -16639,7 +16639,7 @@ function AtlasApp() {
         }
         return [...cards.values()]
             .map((c) => ({ ...c, cities: c.cities.size }))
-            .sort((a, b) => b.n - a.n || a.name.localeCompare(b.name, "ru"));
+            .sort((a, b) => b.cities - a.cities || b.n - a.n || a.name.localeCompare(b.name, "ru"));
     }, [selected, visits, regInfo]);
     // выбрали место без контура — шар поворачивается к его городу или к стране
     const cardLook = useMemo(() => {
@@ -16697,15 +16697,12 @@ function AtlasApp() {
     const regName = selRegion ? ((_c = regionByKey(selRegion)) === null || _c === void 0 ? void 0 : _c.properties.n) || "" : "";
     const regHints = selRegion && regInfo && !regInfo.count.get(selRegion) ? citiesInRegion(selRegion, 3) : [];
     const editTripObj = editing ? (visits[editing.a3] || []).find((t) => t.id === editing.id) || null : null;
-    const nextPlan = selAll
-        .filter((t) => t.plan && !planOverdue(t))
-        .sort((a, b) => String(a.from || a.y).localeCompare(String(b.from || b.y)))[0] || null;
+    // выбрана область — в ленте только она; выбрана страна — все области, где были
+    const shownCards = selRegion ? placeCards.filter((c) => c.key === selRegion) : placeCards;
     return (React.createElement(NightCtx.Provider, { value: night },
         React.createElement("div", { className: "root" + (light ? " light" : ""), style: shell, ref: rootRef },
             React.createElement("style", null, APP_CSS),
             React.createElement("div", { className: "wrap" },
-                React.createElement("header", { className: "top" },
-                    React.createElement("div", { className: "brand" }, "\u0410\u0442\u043B\u0430\u0441")),
                 React.createElement("div", { className: "cols" },
                     React.createElement("div", { className: "col-map" },
                         React.createElement(Globe, { geo: geo, isOn: isOn, onPick: (a3, x) => {
@@ -16780,47 +16777,28 @@ function AtlasApp() {
                                         React.createElement("circle", { cx: "12", cy: "7.9", r: "1.1", fill: "currentColor" }))),
                                 React.createElement("button", { className: "icon-btn fc-ico", onClick: () => setSelected(null), "aria-label": "\u0421\u043D\u044F\u0442\u044C \u0432\u044B\u0431\u043E\u0440" },
                                     React.createElement("i", { className: "act-ico" }, "\u2715"))),
-                            nextPlan && (React.createElement("div", { className: "fc-plan" },
-                                React.createElement("span", null,
-                                    "\u041F\u043B\u0430\u043D: ",
-                                    (nextPlan.cities || []).join(", ") || sel.name,
-                                    " \u00B7 ",
-                                    tripLabel(nextPlan)),
-                                React.createElement(Countdown, { trip: nextPlan }))),
-                            placeCards.length ? (React.createElement("div", { className: "ag-frame fc-list", ref: (el) => {
-                                    var _c;
-                                    // выбранная область встаёт первой: прокручиваем ленту к ней
-                                    const k = selRegion || "";
-                                    if (!el)
-                                        return;
-                                    // хвост нужен, только когда лента длиннее окна: чтобы и последняя строка могла встать первой
-                                    const tail = el.lastChild;
-                                    const long = el.scrollHeight - tail.offsetHeight > el.clientHeight + 1;
-                                    const h = long ? Math.max(0, el.clientHeight - (el.firstChild.offsetHeight || 0) - 16) + "px" : "0px";
-                                    if (tail.style.height !== h)
-                                        tail.style.height = h;
-                                    if (el.dataset.k === k)
+                            shownCards.length ? (React.createElement("div", { className: "ag-frame fc-list", ref: (el) => {
+                                    // сменили страну или область — лента снова с начала
+                                    const k = (selected || "") + "/" + (selRegion || "");
+                                    if (!el || el.dataset.k === k)
                                         return;
                                     el.dataset.k = k;
-                                    const row = k && el.querySelector(`[data-k="${CSS.escape(k)}"]`);
-                                    (_c = el.scrollTo) === null || _c === void 0 ? void 0 : _c.call(el, { top: row ? row.offsetTop - el.firstChild.offsetTop : 0, behavior: "smooth" });
-                                } },
-                                placeCards.map((c) => {
-                                    const on = c.key === selRegion;
-                                    return (React.createElement("button", { key: c.key, "data-k": c.key, className: "ww-row fc-row" + (on ? " on" : ""), onClick: () => {
-                                            if (c.region)
-                                                setSelRegion(c.key);
-                                            else {
-                                                setSelRegion(null);
-                                                setLookNonce((n) => n + 1);
-                                            }
-                                        } },
-                                        React.createElement("span", { className: "ww-nm" },
-                                            c.name,
-                                            React.createElement("em", null, c.cities ? np(c.cities, "city") : "города не указаны")),
-                                        React.createElement("span", { className: "fc-n" }, np(c.n, "trip"))));
-                                }),
-                                React.createElement("div", { className: "fc-tail" }))) : selRegion ? (React.createElement("p", { className: "focus-empty" },
+                                    el.scrollTop = 0;
+                                } }, shownCards.map((c) => {
+                                const on = c.key === selRegion;
+                                return (React.createElement("button", { key: c.key, "data-k": c.key, className: "ww-row fc-row" + (on ? " on" : ""), onClick: () => {
+                                        if (c.region)
+                                            setSelRegion(c.key);
+                                        else {
+                                            setSelRegion(null);
+                                            setLookNonce((n) => n + 1);
+                                        }
+                                    } },
+                                    React.createElement("span", { className: "ww-nm" },
+                                        c.name,
+                                        React.createElement("em", null, c.cities ? np(c.cities, "city") : "города не указаны")),
+                                    React.createElement("span", { className: "fc-n" }, np(c.n, "trip"))));
+                            }))) : selRegion ? (React.createElement("p", { className: "focus-empty" },
                                 regName ? `${regName}: пока не были` : "Здесь пока не были",
                                 regHints.length ? ` · ${regHints.join(", ")}` : "")) : null)) : (React.createElement(React.Fragment, null,
                             React.createElement("div", { className: "focus-head" },
@@ -18713,10 +18691,6 @@ button, input, select, textarea{font-family:inherit;}
 .fc-name b.dim{color:var(--dim);}
 .fc-name em{font-style:normal; font-size:13px; color:var(--dim); margin-top:2px;}
 .fc-ico{flex:none; width:40px; height:40px; min-width:40px; padding:0; display:flex; align-items:center; justify-content:center;}
-.fc-plan{display:flex; align-items:center; justify-content:space-between; gap:10px; margin:10px 0 0; padding:8px 12px; border-radius:12px; border:1px dashed var(--line); font-size:12.5px; color:var(--dim);}
-.fc-plan .cd{flex:none;}
-.fc-plan .cd-nums i:last-child{margin-right:0;}
-.fc-plan > span{min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .fc-list{flex:none; margin:12px 0 2px; max-height:min(46vh, 360px); overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; display:flex; flex-direction:column; gap:8px; padding:8px;}
 .fc-row{flex:none; display:flex; align-items:center; gap:10px; width:100%; text-align:left;}
 .fc-row .ww-nm{flex:1; min-width:0;}
@@ -18725,8 +18699,22 @@ button, input, select, textarea{font-family:inherit;}
 .fc-row.on .ww-nm{color:var(--gold);}
 .fc-row.on .fc-n{color:var(--gold);}
 /* запас снизу, чтобы и последняя область могла встать первой */
-.fc-tail{flex:none; height:0; margin-top:-8px;}
 .trip-pen{flex:none; display:flex; align-items:center; justify-content:center; width:32px; height:32px; margin-left:6px; border-radius:50%; border:1px solid var(--line); color:var(--gold);}
+
+/* 42.7 · кнопки глобуса — значками в правом верхнем углу окна, окно ниже не тянется */
+.col-map > .map-wrap > .globe-controls{position:absolute; top:8px; right:8px; z-index:2; padding:0; gap:6px; justify-content:flex-end;}
+.col-map > .map-wrap > .globe-controls button{width:34px; height:34px; border-radius:10px; font-size:14px;
+  background:color-mix(in srgb, var(--el2) 70%, transparent); -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);}
+.col-map > .map-wrap > .globe-stage{padding:8px 0;}
+/* 42.7 · на телефоне стоя страница не листается: карточка страны занимает всё до низа,
+   листается только окно ленты под названием страны */
+@media (orientation:portrait), (min-height:601px){
+  .wrap{height:100%;}
+  .cols{flex:1 1 auto; min-height:0;}
+  .col-side{flex:1 1 auto; min-height:0; display:flex; flex-direction:column; margin-top:0;}
+  .col-side > .focus:has(> .fc-list){flex:1 1 auto; min-height:170px; display:flex; flex-direction:column;}
+  .col-side > .focus > .fc-list{flex:1 1 auto; min-height:0; max-height:none; margin-bottom:0;}
+}
 `;
 const __b = document.getElementById('boot');
 if (__b)
