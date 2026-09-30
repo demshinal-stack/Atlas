@@ -2909,41 +2909,6 @@ function readCode(text) {
 }
 /* Атлас · 09 · ВЕРСИЯ ПРИЛОЖЕНИЯ, обратный отсчёт, роли, проверка хранилища.
    Части собираются по номерам в один файл (tools/rebuild.sh) и видят друг друга напрямую. */
-/* когда начинается поездка: точная дата, иначе первое число месяца; без месяца — не знаем */
-function startsAt(trip) {
-    if (!trip)
-        return null;
-    const a = dParts(trip.from);
-    if (a)
-        return new Date(a.y, a.m - 1, a.d);
-    if (trip.y && trip.m)
-        return new Date(trip.y, trip.m - 1, 1);
-    return null;
-}
-/* сколько осталось до даты: дни, часы, минуты, секунды; обновляется раз в секунду */
-function useCountdown(target) {
-    const [left, setLeft] = useState(() => target ? target.getTime() - Date.now() : 0);
-    useEffect(() => {
-        if (!target)
-            return;
-        const tick = () => setLeft(target.getTime() - Date.now());
-        tick();
-        const id = setInterval(tick, 1000);
-        return () => clearInterval(id);
-    }, [target && target.getTime()]);
-    if (!target || left <= 0)
-        return null;
-    const s = Math.floor(left / 1000);
-    return {
-        days: Math.floor(s / 86400),
-        hours: Math.floor((s % 86400) / 3600),
-        mins: Math.floor((s % 3600) / 60),
-        secs: s % 60,
-        total: s,
-    };
-}
-/* чем ближе поездка, тем заметнее карточка */
-const nearness = (days) => days == null ? 0 : days <= 1 ? 3 : days <= 7 ? 2 : days <= 30 ? 1 : 0;
 /* кто ездит вместе с вами */
 const ROLES = [
     "Супруг",
@@ -2956,7 +2921,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "42.9";
+const APP_VERSION = "42.10";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -14508,26 +14473,6 @@ function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], o
 }
 /* Атлас · 23 · отсчёт, полка сувениров, двойники, фильтры, список поездок.
    Части собираются по номерам в один файл (tools/rebuild.sh) и видят друг друга напрямую. */
-/* обратный отсчёт до запланированной поездки */
-function Countdown({ trip }) {
-    const target = useMemo(() => startsAt(trip), [trip === null || trip === void 0 ? void 0 : trip.from, trip === null || trip === void 0 ? void 0 : trip.y, trip === null || trip === void 0 ? void 0 : trip.m]);
-    const left = useCountdown(target);
-    if (!left)
-        return null;
-    const lvl = nearness(left.days);
-    const two = (n) => String(n).padStart(2, "0");
-    return (React.createElement("div", { className: "cd lvl" + lvl },
-        React.createElement("span", { className: "cd-lead" }, lvl >= 3 ? "Уже завтра" : lvl >= 2 ? "Совсем скоро" : "До поездки"),
-        React.createElement("span", { className: "cd-nums" },
-            React.createElement("b", null, left.days),
-            React.createElement("i", null, "\u0434\u043D"),
-            React.createElement("b", null, two(left.hours)),
-            React.createElement("i", null, "\u0447"),
-            React.createElement("b", null, two(left.mins)),
-            React.createElement("i", null, "\u043C\u0438\u043D"),
-            React.createElement("b", null, two(left.secs)),
-            React.createElement("i", null, "\u0441"))));
-}
 /* шторка: полка сувениров — значок за каждую страну */
 function ShelfSheet({ open, onClose, box, isOn, isWish, onPick }) {
     const [only, setOnly] = useState("all");
@@ -14596,6 +14541,14 @@ function DoublesSheet({ open, onClose, box, pairs, people, onJoin, onKeep }) {
                     React.createElement("button", { className: "btn-main", onClick: () => onJoin(pr) }, "\u041E\u0431\u044A\u0435\u0434\u0438\u043D\u0438\u0442\u044C"))));
         })))))));
 }
+/* подпись группы в разрезе «по регионам»: «Удмуртия · Россия» или просто страна */
+function groupRegionLabel(key) {
+    var _c, _d;
+    if (key.startsWith("c|"))
+        return ((_c = BY_A3[key.slice(2)]) === null || _c === void 0 ? void 0 : _c.name) || key.slice(2);
+    const [a3, ...rest] = key.split("|");
+    return `${rest.join("|")} · ${((_d = BY_A3[a3]) === null || _d === void 0 ? void 0 : _d.name) || a3}`;
+}
 /* шторка: фильтры — для глобуса и для списка поездок */
 function FiltersSheet({ open, onClose, box, target, years, yearFilter, onYear, mode, onMode, }) {
     return (React.createElement(Sheet, { open: open, onClose: onClose, title: "\u0424\u0438\u043B\u044C\u0442\u0440\u044B", box: box }, () => (React.createElement("div", { className: "sheet-body" }, target === "list" ? (React.createElement(React.Fragment, null,
@@ -14604,6 +14557,7 @@ function FiltersSheet({ open, onClose, box, target, years, yearFilter, onYear, m
             ["year", "По годам", "Поездки сгруппированы по годам"],
             ["country", "По странам", "Все поездки внутри каждой страны"],
             ["cont", "По частям света", "Европа, Азия, Африка и остальные"],
+            ["region", "По регионам", "Области больших стран, остальные страны целиком"],
         ].map(([v, t, d]) => (React.createElement("button", { key: v, className: "switch-row" + (mode === v ? " picked" : ""), onClick: () => onMode(v) },
             React.createElement("span", { className: "switch-text" },
                 t,
@@ -14621,7 +14575,7 @@ function FiltersSheet({ open, onClose, box, target, years, yearFilter, onYear, m
         years.length === 0 && (React.createElement("p", { className: "focus-empty" }, "\u0424\u0438\u043B\u044C\u0442\u0440 \u043F\u043E\u044F\u0432\u0438\u0442\u0441\u044F, \u043A\u043E\u0433\u0434\u0430 \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u0435 \u043F\u0435\u0440\u0432\u0443\u044E \u043F\u043E\u0435\u0437\u0434\u043A\u0443."))))))));
 }
 /* шторка: все поездки — свёртка групп, поиск */
-function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, since, wishCount = 0, onFilters }) {
+function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, since, wishCount = 0, onFilters, focus = null }) {
     const [q, setQ] = useState("");
     const [searchOn, setSearchOn] = useState(false);
     const [closed, setClosed] = useState({});
@@ -14642,6 +14596,29 @@ function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, si
             setClosed({});
         }
     }, [open]);
+    /* пришли с главного экрана: плавно доезжаем до группы выбранного региона */
+    useEffect(() => {
+        if (!open || !(focus === null || focus === void 0 ? void 0 : focus.k))
+            return;
+        // шапка со статистикой сворачивается на ходу, поэтому доводим в несколько приёмов
+        const timers = [];
+        const go = (n) => {
+            const box = listRef.current;
+            const g = box === null || box === void 0 ? void 0 : box.querySelector(`[data-g="${CSS.escape(focus.k)}"]`);
+            if (!box || !g)
+                return;
+            // заголовок группы встаёт сразу под закреплённой шапкой списка
+            const head = box.querySelector(".list-head");
+            const top = head ? head.getBoundingClientRect().bottom : box.getBoundingClientRect().top;
+            const dy = g.getBoundingClientRect().top - top - 6;
+            if (Math.abs(dy) > 3)
+                box.scrollTo({ top: box.scrollTop + dy, behavior: "smooth" });
+            if (n < 3)
+                timers.push(setTimeout(() => go(n + 1), 520));
+        };
+        timers.push(setTimeout(() => go(0), 380));
+        return () => timers.forEach(clearTimeout);
+    }, [open, focus === null || focus === void 0 ? void 0 : focus.n, mode]);
     /* плоский список всех поездок */
     const all = useMemo(() => {
         const out = [];
@@ -14695,6 +14672,14 @@ function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, si
             else if (mode === "country") {
                 push(row.c.name, row);
             }
+            else if (mode === "region") {
+                // у больших стран — области поездки (их может быть несколько), у остальных — страна
+                const ks = [...tripRegionKeys(row.a3, row.t)];
+                if (ks.length)
+                    ks.forEach((k) => push(k, row));
+                else
+                    push("c|" + row.a3, row);
+            }
             else {
                 push(CONTINENTS[row.c.cont], row);
             }
@@ -14704,6 +14689,13 @@ function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, si
             list.sort((a, b) => a[0] === "Планы" ? -1 : b[0] === "Планы" ? 1 : parseInt(b[0], 10) - parseInt(a[0], 10));
         else if (mode === "country")
             list.sort((a, b) => a[0].localeCompare(b[0], "ru"));
+        else if (mode === "region")
+            list.sort((a, b) => {
+                var _c, _d;
+                const ca = ((_c = BY_A3[a[0].replace(/^c\|/, "").split("|")[0]]) === null || _c === void 0 ? void 0 : _c.name) || "";
+                const cb = ((_d = BY_A3[b[0].replace(/^c\|/, "").split("|")[0]]) === null || _d === void 0 ? void 0 : _d.name) || "";
+                return ca.localeCompare(cb, "ru") || (a[0].startsWith("c|") ? -1 : b[0].startsWith("c|") ? 1 : a[0].localeCompare(b[0], "ru"));
+            });
         else
             list.sort((a, b) => CONT_ORDER.indexOf(Object.keys(CONTINENTS).find((k) => CONTINENTS[k] === a[0])) -
                 CONT_ORDER.indexOf(Object.keys(CONTINENTS).find((k) => CONTINENTS[k] === b[0])));
@@ -14839,7 +14831,9 @@ function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, si
                     ? "По годам"
                     : mode === "country"
                         ? "По странам"
-                        : "По частям света")),
+                        : mode === "region"
+                            ? "По регионам"
+                            : "По частям света")),
                 React.createElement("button", { className: "filter-icon" + (searchOn ? " on" : ""), "aria-label": searchOn ? "Закрыть поиск" : "Поиск", onClick: () => {
                         if (searchOn)
                             setQ("");
@@ -14852,9 +14846,13 @@ function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, si
             : "Пока пусто. Нажмите «Добавить поездку».")),
         groups.map(([key, rows]) => {
             const hidden = closed[key];
-            return (React.createElement("div", { key: key, className: "grp" },
+            return (React.createElement("div", { key: key, className: "grp", "data-g": key },
                 React.createElement("button", { className: "grp-head", onClick: () => setClosed((c) => ({ ...c, [key]: !c[key] })) },
-                    React.createElement("span", { className: "grp-name" }, key.includes("–") ? `${key} · точная дата неизвестна` : key),
+                    React.createElement("span", { className: "grp-name" }, mode === "region"
+                        ? groupRegionLabel(key)
+                        : key.includes("–")
+                            ? `${key} · точная дата неизвестна`
+                            : key),
                     React.createElement("span", { className: "grp-count" }, rows.length),
                     React.createElement("span", { className: "grp-chev" }, hidden ? "▾" : "▴")),
                 !hidden &&
@@ -15799,6 +15797,8 @@ function AtlasApp() {
     }, [full]);
     const [sheet, setSheet] = useState(null);
     const [listMode, setListMode] = useState("year");
+    // куда доехать в списке поездок, если пришли с карточки региона на главном
+    const [listFocus, setListFocus] = useState(null);
     /* поездка из отчёта: страна на глобусе и её область (если есть) */
     const showTrip = (a3, id) => {
         var _c;
@@ -16644,7 +16644,7 @@ function AtlasApp() {
                 cards.set("c|" + selected, { key: "c|" + selected, name: ((_c = BY_A3[selected]) === null || _c === void 0 ? void 0 : _c.name) || selected, region: false, n: trips.length, cities: all });
         }
         return [...cards.values()]
-            .map((c) => ({ ...c, cities: c.cities.size }))
+            .map((c) => ({ ...c, names: [...c.cities], cities: c.cities.size }))
             .sort((a, b) => b.cities - a.cities || b.n - a.n || a.name.localeCompare(b.name, "ru"));
     }, [selected, visits, regInfo]);
     // выбрали место без контура — шар поворачивается к его городу или к стране
@@ -16793,16 +16793,19 @@ function AtlasApp() {
                                 } }, shownCards.map((c) => {
                                 const on = c.key === selRegion;
                                 return (React.createElement("button", { key: c.key, "data-k": c.key, className: "ww-row fc-row" + (on ? " on" : ""), onClick: () => {
-                                        if (c.region)
+                                        // область из списка страны — сначала выбираем её на глобусе;
+                                        // выбранная область (или страна без областей) — к её поездкам (42.10)
+                                        if (c.region && !on)
                                             setSelRegion(c.key);
                                         else {
-                                            setSelRegion(null);
-                                            setLookNonce((n) => n + 1);
+                                            setListMode("region");
+                                            setListFocus({ k: c.key, n: Date.now() });
+                                            setSheet("list");
                                         }
                                     } },
                                     React.createElement("span", { className: "ww-nm" },
                                         c.name,
-                                        React.createElement("em", null, c.cities ? np(c.cities, "city") : "города не указаны")),
+                                        React.createElement("em", null, c.names.length ? c.names.join(", ") : "города не указаны")),
                                     React.createElement("span", { className: "fc-n" }, np(c.n, "trip"))));
                             }))) : selRegion ? (React.createElement("p", { className: "focus-empty" },
                                 regName ? `${regName}: пока не были` : "Здесь пока не были",
@@ -16889,13 +16892,17 @@ function AtlasApp() {
                                 setSheet(sheetBack);
                             }, mode: listMode, onMode: (v) => {
                                 setListMode(v);
+                                setListFocus(null);
                                 setSheet(sheetBack);
                             } }),
-                        React.createElement(ListSheet, { visits: visits, stats: stats, open: sheet === "list", onClose: () => setSheet(null), onPick: (a3, id) => {
+                        React.createElement(ListSheet, { visits: visits, stats: stats, open: sheet === "list", onClose: () => {
+                                setSheet(null);
+                                setListFocus(null);
+                            }, onPick: (a3, id) => {
                                 // правка поездки прямо из списка; на главный экран не уходим (42.5)
                                 setEditing({ a3, id, back: "list" });
                                 setSheet("edit");
-                            }, onDone: (a3, id) => editTrip(a3, id, { plan: false }), box: box, mode: listMode, since: profile.since, wishCount: wish.length, onFilters: openFilters }),
+                            }, onDone: (a3, id) => editTrip(a3, id, { plan: false }), box: box, mode: listMode, since: profile.since, wishCount: wish.length, onFilters: openFilters, focus: listFocus }),
                         seasonWin && React.createElement(SeasonWin, { visits: visits, onClose: () => setSeasonWin(false) }),
                         yearsWin && (React.createElement(YearsWin, { visits: visits, geo: geo, home: profile.home || null, onClose: () => setYearsWin(false), onOpenTrip: (a3, id) => {
                                 setYearsWin(false);
@@ -17214,20 +17221,6 @@ body > div{max-width:100%;}
 .wrap{min-height:100%; display:flex; flex-direction:column;}
 .cols{flex:1 0 auto; display:flex; flex-direction:column;}
 .col-side{margin-top:auto;}
-.cd{display:flex; flex-direction:column; align-items:flex-end; gap:2px; padding:6px 9px; border-radius:12px;
-  border:1px solid rgba(74,127,181,.45); background:rgba(74,127,181,.12);}
-.cd-lead{font-size:11px; color:var(--dim); letter-spacing:.02em; white-space:nowrap;}
-.cd-nums{display:flex; align-items:baseline; gap:2px;}
-.cd-nums b{font-family:Georgia,serif; font-size:14px; font-weight:400; color:var(--blue); font-variant-numeric:tabular-nums;}
-.cd-nums i{font-style:normal; font-size:11px; color:var(--dim); margin-right:4px;}
-.cd.lvl1{border-color:rgba(74,127,181,.6);}
-.cd.lvl2{border-color:rgba(232,184,75,.5); background:rgba(232,184,75,.1);}
-.cd.lvl2 .cd-nums b{color:var(--gold);}
-.cd.lvl3{border-color:var(--gold); background:rgba(232,184,75,.16); animation:cd-pulse 1.8s ease-in-out infinite;}
-.cd.lvl3 .cd-nums b{color:var(--gold);}
-.cd.lvl3 .cd-lead{color:var(--gold);}
-@keyframes cd-pulse{0%,100%{box-shadow:0 0 0 0 rgba(232,184,75,0);} 50%{box-shadow:0 0 14px 0 rgba(232,184,75,.35);}}
-@media (prefers-reduced-motion: reduce){ .cd.lvl3{animation:none;} }
 .trip-nav{display:flex; align-items:center; gap:10px; margin-top:8px;}
 .trip-nav button{width:30px; height:30px; border-radius:12px; border:1px solid var(--line); background:var(--el); color:var(--gold); font-size:16px; cursor:pointer;}
 .trip-nav span{font-size:11px; color:var(--dim);}
@@ -18290,7 +18283,6 @@ body > div{max-width:100%;}
 .focus-empty{font-size:13px; color:var(--dim); line-height:1.5; margin:10px 0 0;}
 .icon-btn{flex:none; width:34px; height:34px; display:flex; align-items:center; justify-content:center; border-radius:50%; border:1px solid var(--line); background:var(--sheet); color:var(--dim); font-size:13px; cursor:pointer;}
 .icon-btn:active{background:var(--el2);}
-@keyframes cd-pulse{0%,100%{box-shadow:0 0 0 0 rgba(232,184,75,0);} 50%{box-shadow:0 0 14px 0 rgba(232,184,75,.35);}}
 .sel-cont{margin-top:3px;}
 .focus .num{font-family:Georgia,serif; font-size:34px; line-height:1; color:var(--gold);}
 .focus .trips{margin:12px 0 0;}
@@ -18385,8 +18377,6 @@ body > div{max-width:100%;}
   .sel-cont{font-size:11px;}
   .focus-acts{gap:6px; margin-top:10px;}
   .focus-acts .icon-btn{height:50px;}
-  .cd{padding:5px 8px;}
-  .cd-nums b{font-size:12px;}
 
   .due{padding:10px;}
   .due-title{font-size:12px; margin-bottom:7px;}
@@ -18738,6 +18728,11 @@ button, input, select, textarea{font-family:inherit;}
   /* глобус рядом не затемняем — он часть экрана, а не фон под окном */
   .sheet-layer.in .sheet-dim, .root.light .sheet-layer.in .sheet-dim{background:transparent;}
 }
+/* 42.10 · кнопка ▶ на главном: без золотой рамки и заливки, когда глобус крутится */
+.col-map > .map-wrap > .globe-controls .play.on{background:color-mix(in srgb, var(--el2) 70%, transparent); border-color:var(--line); color:var(--gold);}
+.col-map > .map-wrap > .globe-controls button:focus, .col-map > .map-wrap > .globe-controls button:focus-visible{outline:none; box-shadow:none;}
+/* города в карточке региона — списком, в несколько строк */
+.fc-row .ww-nm em{white-space:normal; line-height:1.3;}
 `;
 const __b = document.getElementById('boot');
 if (__b)
