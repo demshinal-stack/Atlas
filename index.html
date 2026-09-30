@@ -2956,7 +2956,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "42.8";
+const APP_VERSION = "42.9";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -18721,13 +18721,22 @@ button, input, select, textarea{font-family:inherit;}
   .col-side > .focus:has(> .fc-list){flex:1 1 auto; min-height:170px; display:flex; flex-direction:column;}
   .col-side > .focus > .fc-list{flex:1 1 auto; min-height:0; max-height:none; margin-bottom:0;}
 }
-/* 42.8 · лёжа: окно глобуса от верха до низа экрана, лента справа листается сама */
+/* 42.9 · лёжа все вкладки в одном виде: слева окно глобуса, справа панель одной ширины.
+   Панель главного экрана и шторки вкладок («Поездки», «Отчёты», «Добавить», «Профиль»)
+   одинаково широкие (--side), шар ужимается под оставшееся место и не прячется под панелью */
 @media (orientation:landscape) and (max-height:600px){
+  :root{--side:clamp(300px, 44vw, 440px);}
   .cols{align-items:stretch;}
-  .col-map{align-self:stretch; display:flex; flex-basis:clamp(50%, calc(100vh - 10px), 60%);}
+  .col-map{flex:1 1 auto; align-self:stretch; display:flex;}
   .col-map > .map-wrap{flex:1 1 auto; display:flex; align-items:center; justify-content:center;}
   .col-map > .map-wrap > .globe-stage{padding:6px 0;}
-  .col-side{align-self:stretch;}
+  .col-side{flex:0 0 var(--side); width:var(--side); align-self:stretch;}
+  /* шторка встаёт ровно на место панели: её край там же, где край карточки страны */
+  .sheet{top:calc(8px + env(safe-area-inset-top)); bottom:10px; right:12px; width:var(--side);
+    height:auto; max-height:none; border-radius:16px; border:1px solid var(--line);}
+  .sheet-head{padding-top:10px;}
+  /* глобус рядом не затемняем — он часть экрана, а не фон под окном */
+  .sheet-layer.in .sheet-dim, .root.light .sheet-layer.in .sheet-dim{background:transparent;}
 }
 `;
 const __b = document.getElementById('boot');
