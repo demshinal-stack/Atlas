@@ -2921,7 +2921,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "42.10";
+const APP_VERSION = "42.11";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -14600,24 +14600,55 @@ function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, si
     useEffect(() => {
         if (!open || !(focus === null || focus === void 0 ? void 0 : focus.k))
             return;
-        // шапка со статистикой сворачивается на ходу, поэтому доводим в несколько приёмов
-        const timers = [];
-        const go = (n) => {
+        // сначала сворачиваем шапку со статистикой, чтобы список не прыгал по дороге,
+        // затем сами ведём прокрутку кадр за кадром: плавно на любом телефоне (42.11)
+        setStatsUp(true);
+        let raf = 0;
+        const where = () => {
             const box = listRef.current;
             const g = box === null || box === void 0 ? void 0 : box.querySelector(`[data-g="${CSS.escape(focus.k)}"]`);
             if (!box || !g)
-                return;
+                return null;
             // заголовок группы встаёт сразу под закреплённой шапкой списка
             const head = box.querySelector(".list-head");
             const top = head ? head.getBoundingClientRect().bottom : box.getBoundingClientRect().top;
-            const dy = g.getBoundingClientRect().top - top - 6;
-            if (Math.abs(dy) > 3)
-                box.scrollTo({ top: box.scrollTop + dy, behavior: "smooth" });
-            if (n < 3)
-                timers.push(setTimeout(() => go(n + 1), 520));
+            const max = box.scrollHeight - box.clientHeight;
+            return { box, goal: Math.max(0, Math.min(max, box.scrollTop + g.getBoundingClientRect().top - top - 6)) };
         };
-        timers.push(setTimeout(() => go(0), 380));
-        return () => timers.forEach(clearTimeout);
+        // далёкую группу заранее подводим поближе, пока шторка выезжает (этого не видно),
+        // а последний отрезок проезжаем плавно, чтобы было видно, куда приехали
+        const LEAD = 800;
+        const pre = requestAnimationFrame(() => {
+            const w = where();
+            if (w && w.goal - w.box.scrollTop > LEAD)
+                w.box.scrollTop = w.goal - LEAD;
+        });
+        const t = setTimeout(() => {
+            const w = where();
+            if (!w)
+                return;
+            const from = w.box.scrollTop;
+            const dist = Math.abs(w.goal - from);
+            const dur = Math.min(1200, 600 + dist * 0.5);
+            const t0 = performance.now();
+            const ease = (x) => (1 - Math.cos(Math.PI * x)) / 2;
+            const step = (now) => {
+                const cur = where();
+                if (!cur)
+                    return;
+                const p = Math.min(1, (now - t0) / dur);
+                // цель пересчитываем каждый кадр: если что-то сдвинулось, догоняем без рывка
+                cur.box.scrollTop = from + (cur.goal - from) * ease(p);
+                if (p < 1)
+                    raf = requestAnimationFrame(step);
+            };
+            raf = requestAnimationFrame(step);
+        }, 420);
+        return () => {
+            clearTimeout(t);
+            cancelAnimationFrame(pre);
+            cancelAnimationFrame(raf);
+        };
     }, [open, focus === null || focus === void 0 ? void 0 : focus.n, mode]);
     /* плоский список всех поездок */
     const all = useMemo(() => {
