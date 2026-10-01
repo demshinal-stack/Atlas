@@ -2921,7 +2921,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "42.12";
+const APP_VERSION = "42.13";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -9516,6 +9516,55 @@ function airReport(visits, home) {
         alliances: [...alli.entries()].sort((a, b) => b[1] - a[1]),
     };
 }
+/* «Как добираемся» (42.13): поездки по видам транспорта, километры и рекорды.
+   Километры — как в «Авиакомпаниях»: от города вылета до самой далёкой точки и обратно */
+const MOVE_KINDS = [
+    { id: "air", name: "Самолёт", low: "самолётом", icon: "✈️", color: "#5aa9ff" },
+    { id: "rail", name: "Поезд", low: "поездом", icon: "🚆", color: "#4cc9b0" },
+    { id: "car", name: "Авто", low: "на машине", icon: "🚗", color: "#e8b84b" },
+    { id: "other", name: "Паром и прочее", short: "паром, прочее", low: "паромом и прочим", icon: "⛴", color: "#e58a9a" },
+];
+function moveReport(visits, home) {
+    const by = {};
+    ["air", "rail", "car", "other", "none"].forEach((k) => (by[k] = { n: 0, km: 0, best: null }));
+    const years = {};
+    let total = 0;
+    Object.entries(visits || {}).forEach(([a3, arr]) => (arr || []).forEach((t) => {
+        var _c;
+        if (t.plan)
+            return;
+        const k = by[t.move] ? t.move : "none";
+        const v = by[k];
+        total += 1;
+        v.n += 1;
+        if (t.y) {
+            years[t.y] = years[t.y] || {};
+            years[t.y][k] = (years[t.y][k] || 0) + 1;
+        }
+        const from = depPoint(t, home);
+        if (!from)
+            return;
+        let far = 0;
+        let to = ((_c = BY_A3[a3]) === null || _c === void 0 ? void 0 : _c.name) || a3;
+        const pts = (t.cities || []).length
+            ? (t.cities || []).map((city) => [city, distPoint(a3, city)]).filter((x) => x[1])
+            : [[null, distPoint(a3, null)]].filter((x) => x[1]);
+        pts.forEach(([city, xy]) => {
+            var _c;
+            const d = kmBetween(from, { lon: xy[0], lat: xy[1] });
+            if (d > far) {
+                far = d;
+                to = city || ((_c = BY_A3[a3]) === null || _c === void 0 ? void 0 : _c.name) || a3;
+            }
+        });
+        v.km += far * 2;
+        if (!v.best || far > v.best.km)
+            v.best = { km: Math.round(far), from: from.name || "дом", to, a3, id: t.id };
+    }));
+    Object.values(by).forEach((v) => (v.km = Math.round(v.km)));
+    const ys = Object.keys(years).map(Number).sort((a, b) => a - b);
+    return { by, total, years: ys.map((y) => [y, years[y]]) };
+}
 /* точка большой дуги со сносом вбок: совпадающие маршруты расходятся в середине */
 function bendPoint(a, b, t, side) {
     const p = d3.geoInterpolate(a, b)(t);
@@ -11994,6 +12043,8 @@ const REPORTS = [
         help: "Отели, где вы останавливались больше одного раза, и сколько раз в каждом." },
     { id: "crew", title: "Кто сколько проехал",
         help: "Полоса — доля от лидера по числу стран. Считаются только состоявшиеся поездки, где человек отмечен в составе. Значок глобуса рядом с именем показывает его маршруты на шаре." },
+    { id: "move", title: "Как добираемся",
+        help: "Сколько поездок каким транспортом: самолёт, поезд, авто, паром и прочее. Штриховка — поездки, где транспорт не указан. Километры считаются от города вылета до самой далёкой точки поездки и обратно. Касание плитки открывает эти поездки списком. В развороте — поездки по годам и самые дальние пути каждым транспортом." },
     { id: "air", title: "Авиакомпании",
         help: "Километры считаются от города вылета до самой далёкой точки поездки и обратно. Если в поездке было несколько авиакомпаний, путь делится между ними поровну. На глобусе одна пунктирная дуга — одна авиакомпания в одну часть света." },
     { id: "solo", title: "Догоняй",
@@ -12089,6 +12140,72 @@ function Reveal({ children, className = "", zoomable = true, rid, onFull, hideFu
                 React.createElement("button", { className: "zoom-x", onClick: () => setZoom(false), "aria-label": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C" }, "\u2715"),
                 React.createElement("div", { className: "zoom-body rep" },
                     React.createElement(ZoomCtx.Provider, { value: true }, children)))))));
+}
+/* карточка «Как добираемся»: полоса долей, плитки, подсказка; в развороте — годы и рекорды */
+function MoveCard({ data, onTrips, onAirlines }) {
+    const zoomed = React.useContext(ZoomCtx);
+    const { by, total, years } = data;
+    const none = by.none.n;
+    const share = (n) => `${(n / Math.max(1, total)) * 100}%`;
+    const maxY = Math.max(1, ...years.map(([, c]) => Object.values(c).reduce((a, b) => a + b, 0)));
+    const go = (k) => (e) => {
+        e.stopPropagation();
+        window.dispatchEvent(new Event("atlas:closezoom"));
+        onTrips === null || onTrips === void 0 ? void 0 : onTrips(k);
+    };
+    return (React.createElement("div", { className: "mv" },
+        React.createElement("div", { className: "mv-bar" },
+            MOVE_KINDS.filter((m) => by[m.id].n).map((m) => (React.createElement("i", { key: m.id, style: { width: share(by[m.id].n), background: m.color } }))),
+            none > 0 && React.createElement("i", { className: "mv-hatch", style: { width: share(none) } })),
+        React.createElement("div", { className: "mv-legend" },
+            MOVE_KINDS.map((m) => (React.createElement("span", { key: m.id, style: { "--c": m.color } },
+                m.name,
+                " ",
+                by[m.id].n))),
+            none > 0 && React.createElement("span", { className: "mv-lg-none" },
+                "\u043D\u0435 \u0443\u043A\u0430\u0437\u0430\u043D\u043E ",
+                none)),
+        React.createElement("div", { className: "mv-tiles" }, MOVE_KINDS.map((m) => (React.createElement("button", { key: m.id, className: "mv-tile" + (by[m.id].n ? "" : " off"), onClick: by[m.id].n ? go(m.id) : undefined },
+            React.createElement("i", { className: "mv-ico" }, m.icon),
+            React.createElement("span", null,
+                React.createElement("b", null, by[m.id].n),
+                React.createElement("em", null, m.short || m.name.toLowerCase()),
+                React.createElement("em", null, by[m.id].km ? kmText(by[m.id].km) : by[m.id].n ? "—" : "пока ни одной")))))),
+        none > 0 && (React.createElement("button", { className: "mv-ask", onClick: go("none") },
+            React.createElement("span", null,
+                "\u270E \u0423 ",
+                none,
+                " ",
+                none % 10 === 1 && none % 100 !== 11 ? "поездки" : "поездок",
+                " \u043D\u0435 \u0443\u043A\u0430\u0437\u0430\u043D\u043E, \u043D\u0430 \u0447\u0451\u043C \u0434\u043E\u0431\u0438\u0440\u0430\u043B\u0438\u0441\u044C"),
+            React.createElement("b", null, "\u0417\u0430\u043F\u043E\u043B\u043D\u0438\u0442\u044C \u203A"))),
+        by.air.n > 0 && onAirlines && !zoomed && (React.createElement("button", { className: "mv-link", onClick: (e) => { e.stopPropagation(); onAirlines(); } },
+            "\u2708\uFE0F \u0410\u0432\u0438\u0430\u043A\u043E\u043C\u043F\u0430\u043D\u0438\u0438: \u043A\u0442\u043E \u0432\u0430\u0441 \u0432\u043E\u0437\u0438\u043B ",
+            React.createElement("b", null, "\u203A"))),
+        zoomed && (React.createElement(React.Fragment, null,
+            React.createElement("p", { className: "mv-sec" }, "\u041F\u041E \u0413\u041E\u0414\u0410\u041C"),
+            React.createElement("div", { className: "mv-years" }, years.map(([y, c]) => (React.createElement("div", { key: y, className: "mv-y", title: String(y) },
+                React.createElement("div", { className: "mv-col" },
+                    MOVE_KINDS.filter((m) => c[m.id]).map((m) => (React.createElement("i", { key: m.id, style: { height: `${(c[m.id] / maxY) * 100}%`, background: m.color } }))),
+                    c.none > 0 && React.createElement("i", { className: "mv-hatch", style: { height: `${(c.none / maxY) * 100}%` } })),
+                React.createElement("span", null, String(y).slice(2)))))),
+            React.createElement("p", { className: "mv-sec" }, "\u0421\u0410\u041C\u042B\u0419 \u0414\u0410\u041B\u042C\u041D\u0418\u0419 \u041F\u0423\u0422\u042C"),
+            React.createElement("div", { className: "mv-recs" }, MOVE_KINDS.map((m) => by[m.id].best ? (React.createElement("div", { key: m.id, className: "mv-rec" },
+                React.createElement("i", null, m.icon),
+                React.createElement("span", null,
+                    by[m.id].best.from,
+                    " \u2192 ",
+                    by[m.id].best.to,
+                    React.createElement("em", null, m.low)),
+                React.createElement("b", null, kmText(by[m.id].best.km)))) : (React.createElement("div", { key: m.id, className: "mv-rec off" },
+                React.createElement("i", null, m.icon),
+                React.createElement("span", null,
+                    m.id === "car" ? "На машине пока не ездили" : `${m.name}: пока ни одной поездки`,
+                    React.createElement("em", null,
+                        "\u043E\u0442\u043C\u0435\u0442\u044C\u0442\u0435 \u00AB",
+                        m.id === "other" ? "Прочее" : m.name,
+                        "\u00BB \u0432 \u043F\u043E\u0435\u0437\u0434\u043A\u0435")),
+                React.createElement("b", null, "\u2014")))))))));
 }
 /* столбики с линией тренда; неточные периоды — полупрозрачной частью */
 function BarsChart({ data, vague, labels }) {
@@ -14205,7 +14322,7 @@ function YearsWin({ visits, geo, home, mapProps, onClose, onOpenTrip }) {
 /* Атлас · 22 · экран отчётов.
    Части собираются по номерам в один файл (tools/rebuild.sh) и видят друг друга напрямую. */
 /* шторка отчётов */
-function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], onOpenTrip, geo, home, onPerson, onFar, onAir, onSeason, onConts, onWorld, onOften, onSolo, onCalendar, onYears, meName = "", repCfg = null }) {
+function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], onOpenTrip, geo, home, onPerson, onFar, onAir, onSeason, onConts, onWorld, onOften, onSolo, onCalendar, onYears, onMoveTrips, meName = "", repCfg = null }) {
     ME_NAME = meName;
     const r = useMemo(() => reportData(visits, since, people), [visits, since, people]);
     const crew = useMemo(() => travelerStats(visits, people), [visits, people, meName]);
@@ -14240,6 +14357,7 @@ function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], o
     }, [cmp, crewR]);
     const pickCmp = (id) => setCmp(() => (pair.includes(id) ? pair : [pair[1], id]));
     const air = useMemo(() => airReport(visits, homePoint), [visits, homePoint]);
+    const mv = useMemo(() => moveReport(visits, homePoint), [visits, homePoint]);
     const [airOpen, setAirOpen] = useState(false);
     const diff = useMemo(() => (pair[0] && pair[1] ? diffPair(crewR.rows, pair[0], pair[1]) : null), [crewR, pair]);
     const years = r.allYears.length ? r.allYears : [NOW.getFullYear()];
@@ -14346,6 +14464,12 @@ function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], o
                                     })))))))),
                             !trips.length && (React.createElement("p", { className: "hint small" }, "\u041F\u043E\u0435\u0437\u0434\u043E\u043A \u043D\u0435\u0442."))))));
                 })))),
+            React.createElement(Reveal, { rid: "move", className: "rep mv-rep" },
+                React.createElement("b", null, "\u041A\u0430\u043A \u0434\u043E\u0431\u0438\u0440\u0430\u0435\u043C\u0441\u044F"),
+                React.createElement("em", null, "\u0441\u0430\u043C\u043E\u043B\u0451\u0442, \u043F\u043E\u0435\u0437\u0434, \u0430\u0432\u0442\u043E \u0438 \u043F\u0440\u043E\u0447\u0435\u0435"),
+                React.createElement(MoveCard, { data: mv, onTrips: onMoveTrips, onAirlines: air.rows.length
+                        ? () => { var _c; return (_c = document.querySelector(".sheet-layer.in .air-rep")) === null || _c === void 0 ? void 0 : _c.scrollIntoView({ behavior: "smooth", block: "start" }); }
+                        : null })),
             air.rows.length > 0 && (React.createElement(Reveal, { rid: "air", className: "rep air-rep", zoomable: false, hideFull: true },
                 React.createElement("div", { className: "air-top" },
                     React.createElement("span", null,
@@ -14632,7 +14756,7 @@ function FiltersSheet({ open, onClose, box, target, years, yearFilter, onYear, m
         years.length === 0 && (React.createElement("p", { className: "focus-empty" }, "\u0424\u0438\u043B\u044C\u0442\u0440 \u043F\u043E\u044F\u0432\u0438\u0442\u0441\u044F, \u043A\u043E\u0433\u0434\u0430 \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u0435 \u043F\u0435\u0440\u0432\u0443\u044E \u043F\u043E\u0435\u0437\u0434\u043A\u0443."))))))));
 }
 /* шторка: все поездки — свёртка групп, поиск */
-function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, since, wishCount = 0, onFilters, focus = null }) {
+function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, since, wishCount = 0, onFilters, focus = null, only = null, onClearOnly }) {
     const [q, setQ] = useState("");
     const [searchOn, setSearchOn] = useState(false);
     const [closed, setClosed] = useState({});
@@ -14726,9 +14850,13 @@ function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, si
     }, [visits]);
     const found = useMemo(() => {
         const s = q.trim().toLowerCase();
+        // пришли из «Как добираемся»: только поездки этим транспортом (или без него)
+        const pool = only
+            ? all.filter(({ t }) => !t.plan && (only === "none" ? !MOVE_ICON[t.move] : t.move === only))
+            : all;
         if (!s)
-            return all;
-        return all.filter(({ c, t }) => {
+            return pool;
+        return pool.filter(({ c, t }) => {
             const hay = [
                 c.name,
                 String(t.y),
@@ -14740,7 +14868,7 @@ function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, si
                 .toLowerCase();
             return hay.includes(s);
         });
-    }, [all, q]);
+    }, [all, q, only]);
     /* разрез: по годам, странам или континентам */
     const groups = useMemo(() => {
         const map = new Map();
@@ -14839,139 +14967,150 @@ function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, si
         }
         return parts.join(" · ");
     };
-    return (React.createElement(Sheet, { open: open, onClose: onClose, title: "\u041C\u043E\u0438 \u043F\u043E\u0435\u0437\u0434\u043A\u0438", box: box }, () => (React.createElement("div", { className: "sheet-list", ref: listRef, onScroll: onListScroll },
-        React.createElement("div", { className: "list-head" },
-            statsUp ? (React.createElement("button", { className: "stats-min", onClick: () => {
-                    var _c;
-                    setStatsUp(false);
-                    (_c = listRef.current) === null || _c === void 0 ? void 0 : _c.scrollTo({ top: 0, behavior: "smooth" });
-                } },
-                React.createElement("b", null,
-                    stats.countries,
-                    " \u0438\u0437 ",
-                    TOTAL),
-                React.createElement("span", null,
-                    pw(TOTAL, "country"),
-                    " \u00B7 ",
-                    np(tripCount(visits), "trip")),
-                React.createElement("em", null, "\u25BE"))) : (React.createElement("div", { className: "flip" + (flipped ? " on" : ""), onClick: () => setFlipped((v) => !v) },
-                React.createElement("div", { className: "flip-in" },
-                    React.createElement("div", { className: "flip-side" },
-                        React.createElement("div", { className: "flip-top" },
-                            React.createElement("b", null,
-                                stats.countries,
-                                " \u0438\u0437 ",
-                                TOTAL,
-                                " ",
-                                pw(TOTAL, "country")),
-                            React.createElement("span", null, "\u043F\u043E \u0447\u0430\u0441\u0442\u044F\u043C \u0441\u0432\u0435\u0442\u0430")),
-                        React.createElement("div", { className: "bars" }, CONT_ORDER.map((k) => (React.createElement("div", { key: k, className: "bar-row" },
-                            React.createElement("span", { className: "bar-name" }, CONTINENTS[k]),
-                            React.createElement("span", { className: "bar-track" },
-                                React.createElement("span", { className: "bar-fill", style: {
-                                        width: `${(stats.per[k] / CONT_TOTALS[k]) * 100}%`,
-                                    } })),
-                            React.createElement("span", { className: "bar-val" },
-                                stats.per[k],
-                                "/",
-                                CONT_TOTALS[k]))))),
-                        React.createElement("span", { className: "flip-hint" }, "\u041D\u0430\u0436\u043C\u0438\u0442\u0435, \u0447\u0442\u043E\u0431\u044B \u043F\u0435\u0440\u0435\u0432\u0435\u0440\u043D\u0443\u0442\u044C")),
-                    React.createElement("div", { className: "flip-side back" },
-                        React.createElement("div", { className: "flip-top" },
-                            React.createElement("b", null, np(tripCount(visits), "trip")),
-                            React.createElement("span", null, "\u0432\u0441\u0435\u0433\u043E")),
-                        React.createElement("div", { className: "cubes" },
-                            React.createElement("div", null,
-                                React.createElement("b", null, totals.cities),
-                                React.createElement("span", null, pw(totals.cities, "city"))),
-                            React.createElement("div", null,
-                                React.createElement("b", null, totals.years),
-                                React.createElement("span", null,
-                                    pw(totals.years, "year"),
-                                    " \u0432 \u043F\u0443\u0442\u0438")),
-                            React.createElement("div", null,
-                                React.createElement("b", null, totals.airs),
-                                React.createElement("span", null, pw(totals.airs, "airline"))),
-                            React.createElement("div", null,
+    return (React.createElement(Sheet, { open: open, onClose: onClose, title: "\u041C\u043E\u0438 \u043F\u043E\u0435\u0437\u0434\u043A\u0438", box: box }, () => {
+        var _c;
+        return (React.createElement("div", { className: "sheet-list", ref: listRef, onScroll: onListScroll },
+            React.createElement("div", { className: "list-head" },
+                statsUp ? (React.createElement("button", { className: "stats-min", onClick: () => {
+                        var _c;
+                        setStatsUp(false);
+                        (_c = listRef.current) === null || _c === void 0 ? void 0 : _c.scrollTo({ top: 0, behavior: "smooth" });
+                    } },
+                    React.createElement("b", null,
+                        stats.countries,
+                        " \u0438\u0437 ",
+                        TOTAL),
+                    React.createElement("span", null,
+                        pw(TOTAL, "country"),
+                        " \u00B7 ",
+                        np(tripCount(visits), "trip")),
+                    React.createElement("em", null, "\u25BE"))) : (React.createElement("div", { className: "flip" + (flipped ? " on" : ""), onClick: () => setFlipped((v) => !v) },
+                    React.createElement("div", { className: "flip-in" },
+                        React.createElement("div", { className: "flip-side" },
+                            React.createElement("div", { className: "flip-top" },
                                 React.createElement("b", null,
-                                    Math.round((stats.countries / TOTAL) * 100),
-                                    "%"),
-                                React.createElement("span", null, "\u043C\u0438\u0440\u0430")),
-                            React.createElement("div", null,
-                                React.createElement("b", null, totals.hotels),
-                                React.createElement("span", null, pw(totals.hotels, "hotel"))),
-                            React.createElement("div", null,
-                                React.createElement("b", null, stats.countries),
-                                React.createElement("span", null, pw(stats.countries, "country"))),
-                            React.createElement("div", null,
-                                React.createElement("b", null, totals.plans),
-                                React.createElement("span", null, "\u0432 \u043F\u043B\u0430\u043D\u0430\u0445")),
-                            React.createElement("div", null,
-                                React.createElement("b", null, wishCount),
-                                React.createElement("span", null, "\u0445\u043E\u0447\u0443 \u043F\u043E\u0441\u0435\u0442\u0438\u0442\u044C"))),
-                        React.createElement("div", { className: "flip-foot" },
-                            React.createElement("span", { className: "flip-hint" }, "\u041D\u0430\u0436\u043C\u0438\u0442\u0435, \u0447\u0442\u043E\u0431\u044B \u043F\u0435\u0440\u0435\u0432\u0435\u0440\u043D\u0443\u0442\u044C")))))),
-            React.createElement("div", { className: "list-tools" },
-                React.createElement("button", { className: "filter-icon", onClick: onFilters, "aria-label": "\u0424\u0438\u043B\u044C\u0442\u0440\u044B" },
-                    React.createElement("svg", { viewBox: "0 0 24 24", width: "17", height: "17" },
-                        React.createElement("path", { d: "M4 7h16M7 12h10M10 17h4", fill: "none", stroke: "currentColor", strokeWidth: "1.9", strokeLinecap: "round" }))),
-                searchOn ? (React.createElement("input", { className: "list-find", value: q, placeholder: "\u041F\u043E\u0438\u0441\u043A \u043F\u043E \u0437\u0430\u043F\u0438\u0441\u044F\u043C", autoFocus: true, onChange: (e) => setQ(e.target.value), autoComplete: "off", autoCorrect: "off", spellCheck: "false" })) : (React.createElement("span", { className: "mode-hint" }, mode === "year"
-                    ? "По годам"
-                    : mode === "country"
-                        ? "По странам"
-                        : mode === "region"
-                            ? "По регионам"
-                            : "По частям света")),
-                React.createElement("button", { className: "filter-icon" + (searchOn ? " on" : ""), "aria-label": searchOn ? "Закрыть поиск" : "Поиск", onClick: () => {
-                        if (searchOn)
-                            setQ("");
-                        setSearchOn((v) => !v);
-                    } }, searchOn ? (React.createElement("span", { className: "find-x" }, "\u2715")) : (React.createElement("svg", { viewBox: "0 0 24 24", width: "17", height: "17" },
-                    React.createElement("circle", { cx: "11", cy: "11", r: "6.4", fill: "none", stroke: "currentColor", strokeWidth: "1.9" }),
-                    React.createElement("path", { d: "M16 16l4.5 4.5", stroke: "currentColor", strokeWidth: "1.9", strokeLinecap: "round" })))))),
-        found.length === 0 && (React.createElement("p", { className: "focus-empty pad16" }, all.length
-            ? "Ничего не нашлось."
-            : "Пока пусто. Нажмите «Добавить поездку».")),
-        groups.map(([key, rows]) => {
-            const hidden = closed[key];
-            return (React.createElement("div", { key: key, className: "grp", "data-g": key },
-                React.createElement("button", { className: "grp-head", onClick: () => setClosed((c) => ({ ...c, [key]: !c[key] })) },
-                    React.createElement("span", { className: "grp-name" }, mode === "region"
-                        ? groupRegionLabel(key)
-                        : key.includes("–")
-                            ? `${key} · точная дата неизвестна`
-                            : key),
-                    React.createElement("span", { className: "grp-count" }, rows.length),
-                    React.createElement("span", { className: "grp-chev" }, hidden ? "▾" : "▴")),
-                !hidden &&
-                    rows.map((row) => (React.createElement("div", { key: key + row.a3 + row.idx, className: "trip-item" + (row.t.plan ? " is-plan" : "") },
-                        React.createElement("button", { className: "trip-main", onClick: () => onPick(row.a3, row.t.id), "aria-label": "\u0418\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u043F\u043E\u0435\u0437\u0434\u043A\u0443" },
-                            React.createElement("span", { className: "fl" },
-                                React.createElement(Flg, { a3: row.a3, a2: row.c.a2 })),
-                            React.createElement("span", { className: "trip-body" },
-                                React.createElement("span", { className: "trip-title" }, mode === "country"
-                                    ? tripLabel(row.t)
-                                    : row.c.name),
-                                React.createElement("span", { className: "trip-sub" },
-                                    row.t.move && (React.createElement("i", { className: "trip-move" },
-                                        MOVE_ICON[row.t.move] || "",
-                                        (row.t.air || []).length
-                                            ? ` ${(row.t.air || [])
-                                                .map((c) => { var _c; return (((_c = airInfo(c)) === null || _c === void 0 ? void 0 : _c.own) ? airInfo(c).name : c); })
-                                                .join(" · ")}`
-                                            : "")),
-                                    mode === "country"
-                                        ? sub(row.t).replace(MONTHS[(row.t.m || 1) - 1] + " · ", "")
-                                        : sub(row.t) || tripLabel(row.t))),
-                            mode !== "country" && (React.createElement("span", { className: "trip-year" }, row.t.y2 && row.t.y2 !== row.t.y
-                                ? `${row.t.y}–${row.t.y2}`
-                                : row.t.y)),
-                            React.createElement("span", { className: "trip-pen", "aria-hidden": "true" },
-                                React.createElement("svg", { viewBox: "0 0 24 24", width: "17", height: "17" },
-                                    React.createElement("path", { d: "M4 20h4L19 9l-4-4L4 16v4z", fill: "none", stroke: "currentColor", strokeWidth: "1.7", strokeLinejoin: "round" }),
-                                    React.createElement("path", { d: "M14 6l4 4", fill: "none", stroke: "currentColor", strokeWidth: "1.7" })))),
-                        planOverdue(row.t) && (React.createElement("button", { className: "trip-done", onClick: () => onDone(row.a3, row.t.id), "aria-label": "\u041E\u0442\u043C\u0435\u0442\u0438\u0442\u044C \u0441\u043E\u0441\u0442\u043E\u044F\u0432\u0448\u0435\u0439\u0441\u044F" }, "\u2713")))))));
-        })))));
+                                    stats.countries,
+                                    " \u0438\u0437 ",
+                                    TOTAL,
+                                    " ",
+                                    pw(TOTAL, "country")),
+                                React.createElement("span", null, "\u043F\u043E \u0447\u0430\u0441\u0442\u044F\u043C \u0441\u0432\u0435\u0442\u0430")),
+                            React.createElement("div", { className: "bars" }, CONT_ORDER.map((k) => (React.createElement("div", { key: k, className: "bar-row" },
+                                React.createElement("span", { className: "bar-name" }, CONTINENTS[k]),
+                                React.createElement("span", { className: "bar-track" },
+                                    React.createElement("span", { className: "bar-fill", style: {
+                                            width: `${(stats.per[k] / CONT_TOTALS[k]) * 100}%`,
+                                        } })),
+                                React.createElement("span", { className: "bar-val" },
+                                    stats.per[k],
+                                    "/",
+                                    CONT_TOTALS[k]))))),
+                            React.createElement("span", { className: "flip-hint" }, "\u041D\u0430\u0436\u043C\u0438\u0442\u0435, \u0447\u0442\u043E\u0431\u044B \u043F\u0435\u0440\u0435\u0432\u0435\u0440\u043D\u0443\u0442\u044C")),
+                        React.createElement("div", { className: "flip-side back" },
+                            React.createElement("div", { className: "flip-top" },
+                                React.createElement("b", null, np(tripCount(visits), "trip")),
+                                React.createElement("span", null, "\u0432\u0441\u0435\u0433\u043E")),
+                            React.createElement("div", { className: "cubes" },
+                                React.createElement("div", null,
+                                    React.createElement("b", null, totals.cities),
+                                    React.createElement("span", null, pw(totals.cities, "city"))),
+                                React.createElement("div", null,
+                                    React.createElement("b", null, totals.years),
+                                    React.createElement("span", null,
+                                        pw(totals.years, "year"),
+                                        " \u0432 \u043F\u0443\u0442\u0438")),
+                                React.createElement("div", null,
+                                    React.createElement("b", null, totals.airs),
+                                    React.createElement("span", null, pw(totals.airs, "airline"))),
+                                React.createElement("div", null,
+                                    React.createElement("b", null,
+                                        Math.round((stats.countries / TOTAL) * 100),
+                                        "%"),
+                                    React.createElement("span", null, "\u043C\u0438\u0440\u0430")),
+                                React.createElement("div", null,
+                                    React.createElement("b", null, totals.hotels),
+                                    React.createElement("span", null, pw(totals.hotels, "hotel"))),
+                                React.createElement("div", null,
+                                    React.createElement("b", null, stats.countries),
+                                    React.createElement("span", null, pw(stats.countries, "country"))),
+                                React.createElement("div", null,
+                                    React.createElement("b", null, totals.plans),
+                                    React.createElement("span", null, "\u0432 \u043F\u043B\u0430\u043D\u0430\u0445")),
+                                React.createElement("div", null,
+                                    React.createElement("b", null, wishCount),
+                                    React.createElement("span", null, "\u0445\u043E\u0447\u0443 \u043F\u043E\u0441\u0435\u0442\u0438\u0442\u044C"))),
+                            React.createElement("div", { className: "flip-foot" },
+                                React.createElement("span", { className: "flip-hint" }, "\u041D\u0430\u0436\u043C\u0438\u0442\u0435, \u0447\u0442\u043E\u0431\u044B \u043F\u0435\u0440\u0435\u0432\u0435\u0440\u043D\u0443\u0442\u044C")))))),
+                React.createElement("div", { className: "list-tools" },
+                    React.createElement("button", { className: "filter-icon", onClick: onFilters, "aria-label": "\u0424\u0438\u043B\u044C\u0442\u0440\u044B" },
+                        React.createElement("svg", { viewBox: "0 0 24 24", width: "17", height: "17" },
+                            React.createElement("path", { d: "M4 7h16M7 12h10M10 17h4", fill: "none", stroke: "currentColor", strokeWidth: "1.9", strokeLinecap: "round" }))),
+                    searchOn ? (React.createElement("input", { className: "list-find", value: q, placeholder: "\u041F\u043E\u0438\u0441\u043A \u043F\u043E \u0437\u0430\u043F\u0438\u0441\u044F\u043C", autoFocus: true, onChange: (e) => setQ(e.target.value), autoComplete: "off", autoCorrect: "off", spellCheck: "false" })) : (React.createElement("span", { className: "mode-hint" }, mode === "year"
+                        ? "По годам"
+                        : mode === "country"
+                            ? "По странам"
+                            : mode === "region"
+                                ? "По регионам"
+                                : "По частям света")),
+                    React.createElement("button", { className: "filter-icon" + (searchOn ? " on" : ""), "aria-label": searchOn ? "Закрыть поиск" : "Поиск", onClick: () => {
+                            if (searchOn)
+                                setQ("");
+                            setSearchOn((v) => !v);
+                        } }, searchOn ? (React.createElement("span", { className: "find-x" }, "\u2715")) : (React.createElement("svg", { viewBox: "0 0 24 24", width: "17", height: "17" },
+                        React.createElement("circle", { cx: "11", cy: "11", r: "6.4", fill: "none", stroke: "currentColor", strokeWidth: "1.9" }),
+                        React.createElement("path", { d: "M16 16l4.5 4.5", stroke: "currentColor", strokeWidth: "1.9", strokeLinecap: "round" })))))),
+            only && (React.createElement("div", { className: "only-bar" },
+                React.createElement("span", null,
+                    only === "none"
+                        ? "✎ Транспорт не указан"
+                        : `${MOVE_ICON[only] || ""} ${((_c = MOVE_KINDS.find((m) => m.id === only)) === null || _c === void 0 ? void 0 : _c.name) || ""}`,
+                    React.createElement("u", null, found.length),
+                    only === "none" && React.createElement("em", null, "\u041E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u043F\u043E\u0435\u0437\u0434\u043A\u0443 \u043A\u0430\u0440\u0430\u043D\u0434\u0430\u0448\u043E\u043C \u0438 \u0432\u044B\u0431\u0435\u0440\u0438\u0442\u0435, \u043D\u0430 \u0447\u0451\u043C \u0434\u043E\u0431\u0438\u0440\u0430\u043B\u0438\u0441\u044C")),
+                React.createElement("button", { className: "only-x", onClick: onClearOnly, "aria-label": "\u041F\u043E\u043A\u0430\u0437\u0430\u0442\u044C \u0432\u0441\u0435 \u043F\u043E\u0435\u0437\u0434\u043A\u0438" }, "\u2715"))),
+            found.length === 0 && (React.createElement("p", { className: "focus-empty pad16" }, all.length
+                ? "Ничего не нашлось."
+                : "Пока пусто. Нажмите «Добавить поездку».")),
+            groups.map(([key, rows]) => {
+                const hidden = closed[key];
+                return (React.createElement("div", { key: key, className: "grp", "data-g": key },
+                    React.createElement("button", { className: "grp-head", onClick: () => setClosed((c) => ({ ...c, [key]: !c[key] })) },
+                        React.createElement("span", { className: "grp-name" }, mode === "region"
+                            ? groupRegionLabel(key)
+                            : key.includes("–")
+                                ? `${key} · точная дата неизвестна`
+                                : key),
+                        React.createElement("span", { className: "grp-count" }, rows.length),
+                        React.createElement("span", { className: "grp-chev" }, hidden ? "▾" : "▴")),
+                    !hidden &&
+                        rows.map((row) => (React.createElement("div", { key: key + row.a3 + row.idx, className: "trip-item" + (row.t.plan ? " is-plan" : "") },
+                            React.createElement("button", { className: "trip-main", onClick: () => onPick(row.a3, row.t.id), "aria-label": "\u0418\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u043F\u043E\u0435\u0437\u0434\u043A\u0443" },
+                                React.createElement("span", { className: "fl" },
+                                    React.createElement(Flg, { a3: row.a3, a2: row.c.a2 })),
+                                React.createElement("span", { className: "trip-body" },
+                                    React.createElement("span", { className: "trip-title" }, mode === "country"
+                                        ? tripLabel(row.t)
+                                        : row.c.name),
+                                    React.createElement("span", { className: "trip-sub" },
+                                        row.t.move && (React.createElement("i", { className: "trip-move" },
+                                            MOVE_ICON[row.t.move] || "",
+                                            (row.t.air || []).length
+                                                ? ` ${(row.t.air || [])
+                                                    .map((c) => { var _c; return (((_c = airInfo(c)) === null || _c === void 0 ? void 0 : _c.own) ? airInfo(c).name : c); })
+                                                    .join(" · ")}`
+                                                : "")),
+                                        mode === "country"
+                                            ? sub(row.t).replace(MONTHS[(row.t.m || 1) - 1] + " · ", "")
+                                            : sub(row.t) || tripLabel(row.t))),
+                                mode !== "country" && (React.createElement("span", { className: "trip-year" }, row.t.y2 && row.t.y2 !== row.t.y
+                                    ? `${row.t.y}–${row.t.y2}`
+                                    : row.t.y)),
+                                React.createElement("span", { className: "trip-pen", "aria-hidden": "true" },
+                                    React.createElement("svg", { viewBox: "0 0 24 24", width: "17", height: "17" },
+                                        React.createElement("path", { d: "M4 20h4L19 9l-4-4L4 16v4z", fill: "none", stroke: "currentColor", strokeWidth: "1.7", strokeLinejoin: "round" }),
+                                        React.createElement("path", { d: "M14 6l4 4", fill: "none", stroke: "currentColor", strokeWidth: "1.7" })))),
+                            planOverdue(row.t) && (React.createElement("button", { className: "trip-done", onClick: () => onDone(row.a3, row.t.id), "aria-label": "\u041E\u0442\u043C\u0435\u0442\u0438\u0442\u044C \u0441\u043E\u0441\u0442\u043E\u044F\u0432\u0448\u0435\u0439\u0441\u044F" }, "\u2713")))))));
+            })));
+    }));
 }
 /* Атлас · 23a · настройки приложения: один объект, одно сохранение.
    Части собираются по номерам в один файл (tools/rebuild.sh) и видят друг друга напрямую. */
@@ -15887,6 +16026,8 @@ function AtlasApp() {
     const [listMode, setListMode] = useState("year");
     // куда доехать в списке поездок, если пришли с карточки региона на главном
     const [listFocus, setListFocus] = useState(null);
+    // отбор списка поездок по транспорту — из отчёта «Как добираемся» (42.13)
+    const [listOnly, setListOnly] = useState(null);
     /* поездка из отчёта: страна на глобусе и её область (если есть) */
     const showTrip = (a3, id) => {
         var _c;
@@ -16995,7 +17136,11 @@ function AtlasApp() {
                                 profileRef.current = next;
                                 await saveProfile(next);
                             } }),
-                        React.createElement(ReportsSheet, { open: sheet === "reports", onClose: () => setSheet(sheetBack === "profile" ? "profile" : null), box: box, visits: visits, since: profile.since, stats: stats, people: profile.people || [], home: profile.home || null, geo: geo, onPerson: setPerson, onFar: setFar, onAir: setAirWin, onSeason: () => setSeasonWin(true), onConts: () => setContsWin(true), onWorld: () => setWorldWin(true), onCalendar: () => setCalWin(true), onYears: () => setYearsWin(true), onOften: () => setOftenWin(true), onSolo: () => setSoloWin(true), repCfg: profile.reports || null, meName: profile.name || "", onOpenTrip: (a3, id) => {
+                        React.createElement(ReportsSheet, { open: sheet === "reports", onClose: () => setSheet(sheetBack === "profile" ? "profile" : null), box: box, visits: visits, since: profile.since, stats: stats, people: profile.people || [], home: profile.home || null, geo: geo, onPerson: setPerson, onFar: setFar, onAir: setAirWin, onSeason: () => setSeasonWin(true), onConts: () => setContsWin(true), onWorld: () => setWorldWin(true), onCalendar: () => setCalWin(true), onYears: () => setYearsWin(true), onMoveTrips: (k) => {
+                                setListFocus(null);
+                                setListOnly(k);
+                                setSheet("list");
+                            }, onOften: () => setOftenWin(true), onSolo: () => setSoloWin(true), repCfg: profile.reports || null, meName: profile.name || "", onOpenTrip: (a3, id) => {
                                 setSelected(a3);
                                 showTrip(a3, id);
                                 setSheet(null);
@@ -17011,11 +17156,12 @@ function AtlasApp() {
                         React.createElement(ListSheet, { visits: visits, stats: stats, open: sheet === "list", onClose: () => {
                                 setSheet(null);
                                 setListFocus(null);
+                                setListOnly(null);
                             }, onPick: (a3, id) => {
                                 // правка поездки прямо из списка; на главный экран не уходим (42.5)
                                 setEditing({ a3, id, back: "list" });
                                 setSheet("edit");
-                            }, onDone: (a3, id) => editTrip(a3, id, { plan: false }), box: box, mode: listMode, since: profile.since, wishCount: wish.length, onFilters: openFilters, focus: listFocus }),
+                            }, onDone: (a3, id) => editTrip(a3, id, { plan: false }), box: box, mode: listMode, since: profile.since, wishCount: wish.length, onFilters: openFilters, focus: listFocus, only: listOnly, onClearOnly: () => setListOnly(null) }),
                         seasonWin && React.createElement(SeasonWin, { visits: visits, onClose: () => setSeasonWin(false) }),
                         yearsWin && (React.createElement(YearsWin, { visits: visits, geo: geo, home: profile.home || null, onClose: () => setYearsWin(false), onOpenTrip: (a3, id) => {
                                 setYearsWin(false);
@@ -18862,6 +19008,46 @@ button, input, select, textarea{font-family:inherit;}
 .fc-switch{display:inline-flex; align-items:center; justify-content:center; width:26px; height:24px; margin-left:8px; vertical-align:3px;
   border-radius:8px; border:1px solid var(--line); background:var(--el2); color:var(--gold); cursor:pointer;}
 .fc-switch svg{display:block;}
+/* 42.13 · отчёт «Как добираемся» */
+.mv{margin-top:10px;}
+.mv-bar{display:flex; height:16px; border-radius:8px; overflow:hidden; background:var(--field);}
+.mv-bar i{display:block; height:100%;}
+.mv-hatch{background:repeating-linear-gradient(135deg, #2a4157 0 5px, #1c3044 5px 10px);}
+.root.light .mv-hatch{background:repeating-linear-gradient(135deg, #cdd8e2 0 5px, #e6edf3 5px 10px);}
+.mv-legend{display:flex; flex-wrap:wrap; gap:4px 12px; margin-top:7px; font-size:11.5px; color:var(--dim);}
+.mv-legend span::before{content:""; display:inline-block; width:9px; height:9px; border-radius:3px; margin-right:5px; vertical-align:-1px; background:var(--c);}
+.mv-legend .mv-lg-none::before{background:repeating-linear-gradient(135deg, #5d7891 0 2px, transparent 2px 4px); border:1px solid var(--line);}
+.mv-tiles{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:12px;}
+.mv-tile{display:flex; align-items:center; gap:10px; padding:10px 11px; border-radius:14px; border:1px solid var(--line); background:var(--field);
+  color:var(--ink); font:inherit; text-align:left; cursor:pointer; min-width:0;}
+.mv-tile.off{opacity:.45; cursor:default;}
+.mv-ico{flex:none; width:38px; height:38px; border-radius:50%; border:1px solid var(--line); display:flex; align-items:center; justify-content:center; font-style:normal; font-size:19px;}
+.mv-tile span{min-width:0; display:flex; flex-direction:column;}
+.mv-tile b{font-family:Georgia,serif; font-weight:400; font-size:19px; color:var(--gold); line-height:1.1;}
+.mv-tile em{font-style:normal; font-size:11.5px; color:var(--dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.mv-ask, .mv-link{display:flex; align-items:center; gap:8px; width:100%; margin-top:10px; padding:9px 11px; border-radius:12px; border:1px dashed var(--line);
+  background:none; color:var(--dim); font:inherit; font-size:12.5px; text-align:left; cursor:pointer;}
+.mv-link{border-style:solid;}
+.mv-ask b, .mv-link b{margin-left:auto; color:var(--gold); font-weight:400; white-space:nowrap;}
+.mv-sec{margin:16px 2px 6px; font-size:11.5px; letter-spacing:.04em; color:var(--dim);}
+.mv-years{display:flex; align-items:stretch; gap:4px; height:160px;}
+.mv-y{flex:1; min-width:0; display:flex; flex-direction:column; gap:3px;}
+.mv-col{flex:1; display:flex; flex-direction:column-reverse; border-bottom:1px solid var(--line);}
+.mv-col i{display:block; width:100%; border-radius:3px 3px 0 0;}
+.mv-y span{font-size:9px; color:var(--dim); text-align:center;}
+.mv-recs{display:flex; flex-direction:column; gap:8px;}
+.mv-rec{display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:14px; border:1px solid var(--line); background:var(--field);}
+.mv-rec > i{font-style:normal; font-size:21px; width:28px; text-align:center;}
+.mv-rec span{flex:1; min-width:0; font-size:13.5px;}
+.mv-rec span em{display:block; font-style:normal; font-size:11.5px; color:var(--dim);}
+.mv-rec > b{font-family:Georgia,serif; font-weight:400; font-size:16px; color:var(--gold); white-space:nowrap;}
+.mv-rec.off{opacity:.5;}
+.only-bar{display:flex; align-items:center; gap:10px; margin:6px 16px 4px; padding:9px 12px; border-radius:12px; border:1px solid var(--gold);
+  background:rgba(232,184,75,.08); font-size:13.5px;}
+.only-bar span{flex:1; min-width:0;}
+.only-bar u{text-decoration:none; margin-left:8px; padding:1px 8px; border-radius:999px; background:var(--el2); font-size:11.5px; color:var(--dim);}
+.only-bar em{display:block; font-style:normal; font-size:11.5px; color:var(--dim); margin-top:3px;}
+.only-x{flex:none; width:30px; height:30px; border-radius:50%; border:1px solid var(--line); background:none; color:var(--dim); cursor:pointer;}
 `;
 const __b = document.getElementById('boot');
 if (__b)
