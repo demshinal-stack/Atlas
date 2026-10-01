@@ -2921,7 +2921,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "42.13";
+const APP_VERSION = "42.14";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -12023,6 +12023,12 @@ function reportData(visits, since, people) {
 }
 /* появление при прокрутке: строим график, когда он попал на экран */
 const ZoomCtx = React.createContext(false);
+/* разворот рисуем поверх всего приложения, а не внутри шторки: у шторки есть сдвиг
+   (transform), и «во весь экран» внутри неё оказывался размером со шторку (42.14) */
+const zoomPortal = (node) => {
+    const host = typeof document !== "undefined" && document.querySelector(".root");
+    return host && ReactDOM.createPortal ? ReactDOM.createPortal(node, host) : node;
+};
 /* показывать ли ночную сторону на глобусе — общая настройка для всех шаров */
 const NightCtx = React.createContext(true);
 /* какие отчёты показывать и в каком порядке — настраивается в профиле */
@@ -12135,7 +12141,7 @@ function Reveal({ children, className = "", zoomable = true, rid, onFull, hideFu
                     React.createElement("path", { d: "M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5", fill: "none", stroke: "currentColor", strokeWidth: "1.9", strokeLinecap: "round" })))))),
         children,
         help && helpText && React.createElement("p", { className: "rep-help" }, helpText),
-        zoom && (React.createElement("div", { className: "zoom-layer", onClick: () => setZoom(false), onTouchEnd: (e) => e.stopPropagation() },
+        zoom && zoomPortal(React.createElement("div", { className: "zoom-layer", onClick: () => setZoom(false), onTouchEnd: (e) => e.stopPropagation() },
             React.createElement("div", { className: "zoom-box", onClick: (e) => e.stopPropagation() },
                 React.createElement("button", { className: "zoom-x", onClick: () => setZoom(false), "aria-label": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C" }, "\u2715"),
                 React.createElement("div", { className: "zoom-body rep" },
@@ -12153,36 +12159,39 @@ function MoveCard({ data, onTrips, onAirlines }) {
         window.dispatchEvent(new Event("atlas:closezoom"));
         onTrips === null || onTrips === void 0 ? void 0 : onTrips(k);
     };
-    return (React.createElement("div", { className: "mv" },
-        React.createElement("div", { className: "mv-bar" },
-            MOVE_KINDS.filter((m) => by[m.id].n).map((m) => (React.createElement("i", { key: m.id, style: { width: share(by[m.id].n), background: m.color } }))),
-            none > 0 && React.createElement("i", { className: "mv-hatch", style: { width: share(none) } })),
-        React.createElement("div", { className: "mv-legend" },
-            MOVE_KINDS.map((m) => (React.createElement("span", { key: m.id, style: { "--c": m.color } },
-                m.name,
-                " ",
-                by[m.id].n))),
-            none > 0 && React.createElement("span", { className: "mv-lg-none" },
-                "\u043D\u0435 \u0443\u043A\u0430\u0437\u0430\u043D\u043E ",
-                none)),
-        React.createElement("div", { className: "mv-tiles" }, MOVE_KINDS.map((m) => (React.createElement("button", { key: m.id, className: "mv-tile" + (by[m.id].n ? "" : " off"), onClick: by[m.id].n ? go(m.id) : undefined },
-            React.createElement("i", { className: "mv-ico" }, m.icon),
-            React.createElement("span", null,
-                React.createElement("b", null, by[m.id].n),
-                React.createElement("em", null, m.short || m.name.toLowerCase()),
-                React.createElement("em", null, by[m.id].km ? kmText(by[m.id].km) : by[m.id].n ? "—" : "пока ни одной")))))),
-        none > 0 && (React.createElement("button", { className: "mv-ask", onClick: go("none") },
-            React.createElement("span", null,
-                "\u270E \u0423 ",
-                none,
-                " ",
-                none % 10 === 1 && none % 100 !== 11 ? "поездки" : "поездок",
-                " \u043D\u0435 \u0443\u043A\u0430\u0437\u0430\u043D\u043E, \u043D\u0430 \u0447\u0451\u043C \u0434\u043E\u0431\u0438\u0440\u0430\u043B\u0438\u0441\u044C"),
-            React.createElement("b", null, "\u0417\u0430\u043F\u043E\u043B\u043D\u0438\u0442\u044C \u203A"))),
-        by.air.n > 0 && onAirlines && !zoomed && (React.createElement("button", { className: "mv-link", onClick: (e) => { e.stopPropagation(); onAirlines(); } },
-            "\u2708\uFE0F \u0410\u0432\u0438\u0430\u043A\u043E\u043C\u043F\u0430\u043D\u0438\u0438: \u043A\u0442\u043E \u0432\u0430\u0441 \u0432\u043E\u0437\u0438\u043B ",
-            React.createElement("b", null, "\u203A"))),
-        zoomed && (React.createElement(React.Fragment, null,
+    // касания по плиткам не должны считаться «двойным касанием» карточки (разворот)
+    const keep = (e) => e.stopPropagation();
+    return (React.createElement("div", { className: "mv", onTouchEnd: keep },
+        React.createElement("div", { className: "mv-main" },
+            React.createElement("div", { className: "mv-bar" },
+                MOVE_KINDS.filter((m) => by[m.id].n).map((m) => (React.createElement("i", { key: m.id, style: { width: share(by[m.id].n), background: m.color } }))),
+                none > 0 && React.createElement("i", { className: "mv-hatch", style: { width: share(none) } })),
+            React.createElement("div", { className: "mv-legend" },
+                MOVE_KINDS.map((m) => (React.createElement("span", { key: m.id, style: { "--c": m.color } },
+                    m.name,
+                    " ",
+                    by[m.id].n))),
+                none > 0 && React.createElement("span", { className: "mv-lg-none" },
+                    "\u043D\u0435 \u0443\u043A\u0430\u0437\u0430\u043D\u043E ",
+                    none)),
+            React.createElement("div", { className: "mv-tiles" }, MOVE_KINDS.map((m) => (React.createElement("button", { key: m.id, className: "mv-tile" + (by[m.id].n ? "" : " off"), onClick: by[m.id].n ? go(m.id) : undefined },
+                React.createElement("i", { className: "mv-ico" }, m.icon),
+                React.createElement("span", null,
+                    React.createElement("b", null, by[m.id].n),
+                    React.createElement("em", null, m.short || m.name.toLowerCase()),
+                    React.createElement("em", null, by[m.id].km ? kmText(by[m.id].km) : by[m.id].n ? "—" : "пока ни одной")))))),
+            none > 0 && (React.createElement("button", { className: "mv-ask", onClick: go("none") },
+                React.createElement("span", null,
+                    "\u270E \u0423 ",
+                    none,
+                    " ",
+                    none % 10 === 1 && none % 100 !== 11 ? "поездки" : "поездок",
+                    " \u043D\u0435 \u0443\u043A\u0430\u0437\u0430\u043D\u043E, \u043D\u0430 \u0447\u0451\u043C \u0434\u043E\u0431\u0438\u0440\u0430\u043B\u0438\u0441\u044C"),
+                React.createElement("b", null, "\u0417\u0430\u043F\u043E\u043B\u043D\u0438\u0442\u044C \u203A"))),
+            by.air.n > 0 && onAirlines && !zoomed && (React.createElement("button", { className: "mv-link", onClick: (e) => { e.stopPropagation(); onAirlines(); } },
+                "\u2708\uFE0F \u0410\u0432\u0438\u0430\u043A\u043E\u043C\u043F\u0430\u043D\u0438\u0438: \u043A\u0442\u043E \u0432\u0430\u0441 \u0432\u043E\u0437\u0438\u043B ",
+                React.createElement("b", null, "\u203A")))),
+        zoomed && (React.createElement("div", { className: "mv-more" },
             React.createElement("p", { className: "mv-sec" }, "\u041F\u041E \u0413\u041E\u0414\u0410\u041C"),
             React.createElement("div", { className: "mv-years" }, years.map(([y, c]) => (React.createElement("div", { key: y, className: "mv-y", title: String(y) },
                 React.createElement("div", { className: "mv-col" },
@@ -12993,7 +13002,9 @@ function SoloWin({ visits, people, geo, mapProps, onClose }) {
                 const x0 = rx * Math.cos(st.th);
                 const ye = r * Math.sin(st.th) * Math.cos(lean);
                 const z = r * Math.sin(st.th) * Math.sin(lean);
-                const xRoom = Math.min(cx, W - cx) - pw0 * 0.45; // не обрезаться краем окна
+                // не обрезаться краем окна: учитываем и увеличение ближней планеты (42.14)
+                const sc0 = 1 / (1 - z / (R * 4.4));
+                const xRoom = Math.min(cx, W - cx) - pw0 * 0.5 * Math.max(1, sc0) - 4;
                 const x = Math.max(-xRoom, Math.min(xRoom, x0 * Math.cos(tilt) - ye * Math.sin(tilt)));
                 // высота над экватором шара: плавная сумма медленных волн
                 const h = R *
@@ -19048,6 +19059,32 @@ button, input, select, textarea{font-family:inherit;}
 .only-bar u{text-decoration:none; margin-left:8px; padding:1px 8px; border-radius:999px; background:var(--el2); font-size:11.5px; color:var(--dim);}
 .only-bar em{display:block; font-style:normal; font-size:11.5px; color:var(--dim); margin-top:3px;}
 .only-x{flex:none; width:30px; height:30px; border-radius:50%; border:1px solid var(--line); background:none; color:var(--dim); cursor:pointer;}
+/* 42.14 · развороты карточек отчётов: на весь свободный экран, а не маленьким окном посередине.
+   Окно от верха до нижнего меню (лёжа — от боковой панели до края), длинное листается внутри */
+.zoom-layer:not(.pg-layer){align-items:stretch; bottom:var(--tabh);
+  padding:calc(env(safe-area-inset-top) + 12px) 12px 10px;}
+.zoom-layer:not(.pg-layer) .zoom-box{max-height:none; height:100%; display:flex; flex-direction:column;
+  overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; touch-action:pan-y;}
+.zoom-layer:not(.pg-layer) .zoom-body{margin:auto 0; flex:none;}
+.zoom-body .rows{gap:10px;}
+@media (orientation:landscape) and (max-height:600px){
+  .zoom-layer:not(.pg-layer){left:calc(var(--rail) + env(safe-area-inset-left)); bottom:0;
+    padding:calc(env(safe-area-inset-top) + 8px) 12px 8px;}
+  .zoom-body .radar{max-width:min(70vh, 480px);}
+  /* «Как добираемся» лёжа: слева доли и плитки, справа годы и рекорды */
+  .zoom-body .mv{display:grid; grid-template-columns:1fr 1fr; gap:16px; align-items:start;}
+  .zoom-body .mv-more .mv-sec:first-child{margin-top:0;}
+  .zoom-body .mv-years{height:120px;}
+}
+/* развёрнутые полосы и лепестки — крупнее, раз места много */
+.zoom-body .rows-chart{gap:16px;}
+.zoom-body .row-k, .zoom-body .row-v{font-size:15px;}
+.zoom-body .row-bar{height:16px;}
+.zoom-layer:not(.pg-layer) .zoom-body .radar{width:100%; max-width:min(100%, 66vh, 620px);}
+@media (orientation:landscape) and (max-height:600px){
+  .zoom-layer:not(.pg-layer) .zoom-body .radar{max-width:min(100%, 105vh);}
+  .zoom-body .rows-chart{gap:12px;}
+}
 `;
 const __b = document.getElementById('boot');
 if (__b)
