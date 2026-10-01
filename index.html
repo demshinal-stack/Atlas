@@ -2921,7 +2921,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "42.14";
+const APP_VERSION = "42.17";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -12124,7 +12124,7 @@ function Reveal({ children, className = "", zoomable = true, rid, onFull, hideFu
     };
     if (hidden)
         return null;
-    return (React.createElement("div", { ref: box, className: `reveal ${className}${seen ? " in" : ""}`, style: order ? { order } : undefined, onDoubleClick: () => zoomable && setZoom(true), onTouchEnd: zoomable ? onTap : undefined },
+    return (React.createElement("div", { ref: box, className: `reveal ${className}${seen ? " in" : ""}`, "data-rid": rid || undefined, style: order ? { order } : undefined, onDoubleClick: () => zoomable && setZoom(true), onTouchEnd: zoomable ? onTap : undefined },
         (helpText || !hideFull) && (React.createElement("div", { className: "rep-tools" },
             helpText && (React.createElement("button", { className: "rep-tool" + (help ? " on" : ""), onClick: (e) => {
                     e.stopPropagation();
@@ -12166,15 +12166,8 @@ function MoveCard({ data, onTrips, onAirlines }) {
             React.createElement("div", { className: "mv-bar" },
                 MOVE_KINDS.filter((m) => by[m.id].n).map((m) => (React.createElement("i", { key: m.id, style: { width: share(by[m.id].n), background: m.color } }))),
                 none > 0 && React.createElement("i", { className: "mv-hatch", style: { width: share(none) } })),
-            React.createElement("div", { className: "mv-legend" },
-                MOVE_KINDS.map((m) => (React.createElement("span", { key: m.id, style: { "--c": m.color } },
-                    m.name,
-                    " ",
-                    by[m.id].n))),
-                none > 0 && React.createElement("span", { className: "mv-lg-none" },
-                    "\u043D\u0435 \u0443\u043A\u0430\u0437\u0430\u043D\u043E ",
-                    none)),
             React.createElement("div", { className: "mv-tiles" }, MOVE_KINDS.map((m) => (React.createElement("button", { key: m.id, className: "mv-tile" + (by[m.id].n ? "" : " off"), onClick: by[m.id].n ? go(m.id) : undefined },
+                React.createElement("i", { className: "mv-sq", style: { background: m.color } }),
                 React.createElement("i", { className: "mv-ico" }, m.icon),
                 React.createElement("span", null,
                     React.createElement("b", null, by[m.id].n),
@@ -14333,7 +14326,7 @@ function YearsWin({ visits, geo, home, mapProps, onClose, onOpenTrip }) {
 /* Атлас · 22 · экран отчётов.
    Части собираются по номерам в один файл (tools/rebuild.sh) и видят друг друга напрямую. */
 /* шторка отчётов */
-function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], onOpenTrip, geo, home, onPerson, onFar, onAir, onSeason, onConts, onWorld, onOften, onSolo, onCalendar, onYears, onMoveTrips, meName = "", repCfg = null }) {
+function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], onOpenTrip, geo, home, onPerson, onFar, onAir, onSeason, onConts, onWorld, onOften, onSolo, onCalendar, onYears, onMoveTrips, focusRid = null, meName = "", repCfg = null }) {
     ME_NAME = meName;
     const r = useMemo(() => reportData(visits, since, people), [visits, since, people]);
     const crew = useMemo(() => travelerStats(visits, people), [visits, people, meName]);
@@ -14372,6 +14365,35 @@ function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], o
     const [airOpen, setAirOpen] = useState(false);
     const diff = useMemo(() => (pair[0] && pair[1] ? diffPair(crewR.rows, pair[0], pair[1]) : null), [crewR, pair]);
     const years = r.allYears.length ? r.allYears : [NOW.getFullYear()];
+    /* вернулись из «Поездок» по крестику — сразу стоим на том отчёте, откуда уходили:
+       без прокрутки на глазах (42.16) */
+    useEffect(() => {
+        if (!open || !focusRid)
+            return;
+        let n = 0;
+        let raf = 0;
+        const put = () => {
+            var _c;
+            const card = document.querySelector(`.sheet-layer .rep-body [data-rid="${focusRid}"]`);
+            let box = card === null || card === void 0 ? void 0 : card.parentElement;
+            while (box && !(box.scrollHeight > box.clientHeight + 1 && /auto|scroll/.test(getComputedStyle(box).overflowY)))
+                box = box.parentElement;
+            if (card && box) {
+                const head = (_c = card.closest(".sheet")) === null || _c === void 0 ? void 0 : _c.querySelector(".sheet-head");
+                const top = Math.max(box.getBoundingClientRect().top, head ? head.getBoundingClientRect().bottom : 0);
+                // карточка может ещё «всплывать» (сдвиг анимации появления) — его не считаем
+                const tf = getComputedStyle(card).transform;
+                const lift = tf && tf !== "none" ? new DOMMatrix(tf).m42 : 0;
+                box.scrollTop += card.getBoundingClientRect().top - lift - top - 10;
+                if (n++ < 6)
+                    raf = requestAnimationFrame(put); // карточки выше могли дорисоваться
+            }
+            else if (n++ < 30)
+                raf = requestAnimationFrame(put);
+        };
+        raf = requestAnimationFrame(put);
+        return () => cancelAnimationFrame(raf);
+    }, [open, focusRid]);
     return (React.createElement(Sheet, { open: open, onClose: onClose, title: "\u041E\u0442\u0447\u0451\u0442\u044B", box: box }, () => (React.createElement(ReportCfg.Provider, { value: { order: reportOrder(repCfg), off: (repCfg === null || repCfg === void 0 ? void 0 : repCfg.off) || [] } },
         React.createElement("div", { className: "sheet-body rep-body" }, r.trips.length === 0 ? (React.createElement("p", { className: "hint small" }, "\u041E\u0442\u0447\u0451\u0442\u044B \u043F\u043E\u044F\u0432\u044F\u0442\u0441\u044F, \u043A\u043E\u0433\u0434\u0430 \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u0435 \u043F\u0435\u0440\u0432\u0443\u044E \u043F\u043E\u0435\u0437\u0434\u043A\u0443.")) : (React.createElement(React.Fragment, null,
             React.createElement("p", { className: "hint small", style: { order: 0 } }, "\u0414\u0432\u043E\u0439\u043D\u043E\u0435 \u043A\u0430\u0441\u0430\u043D\u0438\u0435 \u0440\u0430\u0437\u0432\u043E\u0440\u0430\u0447\u0438\u0432\u0430\u0435\u0442 \u043B\u044E\u0431\u043E\u0439 \u0433\u0440\u0430\u0444\u0438\u043A \u043D\u0430 \u0432\u0435\u0441\u044C \u044D\u043A\u0440\u0430\u043D. \u041A\u0430\u043A\u0438\u0435 \u043E\u0442\u0447\u0451\u0442\u044B \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0442\u044C \u0438 \u0432 \u043A\u0430\u043A\u043E\u043C \u043F\u043E\u0440\u044F\u0434\u043A\u0435 \u2014 \u0432 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0430\u0445 \u043F\u0440\u043E\u0444\u0438\u043B\u044F."),
@@ -14750,6 +14772,7 @@ function FiltersSheet({ open, onClose, box, target, years, yearFilter, onYear, m
             ["country", "По странам", "Все поездки внутри каждой страны"],
             ["cont", "По частям света", "Европа, Азия, Африка и остальные"],
             ["region", "По регионам", "Области больших стран, остальные страны целиком"],
+            ["move", "По транспорту", "Самолёт, поезд, авто, паром и прочее"],
         ].map(([v, t, d]) => (React.createElement("button", { key: v, className: "switch-row" + (mode === v ? " picked" : ""), onClick: () => onMode(v) },
             React.createElement("span", { className: "switch-text" },
                 t,
@@ -14899,6 +14922,10 @@ function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, si
             else if (mode === "country") {
                 push(row.c.name, row);
             }
+            else if (mode === "move") {
+                // планы отдельно сверху, как в разрезе по годам: счёт сходится с отчётом «Как добираемся»
+                push(row.t.plan ? "Планы" : MOVE_ICON[row.t.move] ? row.t.move : "none", row);
+            }
             else if (mode === "region") {
                 // у больших стран — области поездки (их может быть несколько), у остальных — страна
                 const ks = [...tripRegionKeys(row.a3, row.t)];
@@ -14916,6 +14943,10 @@ function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, si
             list.sort((a, b) => a[0] === "Планы" ? -1 : b[0] === "Планы" ? 1 : parseInt(b[0], 10) - parseInt(a[0], 10));
         else if (mode === "country")
             list.sort((a, b) => a[0].localeCompare(b[0], "ru"));
+        else if (mode === "move") {
+            const order = ["Планы", ...MOVE_KINDS.map((m) => m.id), "none"];
+            list.sort((a, b) => order.indexOf(a[0]) - order.indexOf(b[0]));
+        }
         else if (mode === "region")
             list.sort((a, b) => {
                 var _c, _d;
@@ -15062,7 +15093,9 @@ function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, si
                             ? "По странам"
                             : mode === "region"
                                 ? "По регионам"
-                                : "По частям света")),
+                                : mode === "move"
+                                    ? "По транспорту"
+                                    : "По частям света")),
                     React.createElement("button", { className: "filter-icon" + (searchOn ? " on" : ""), "aria-label": searchOn ? "Закрыть поиск" : "Поиск", onClick: () => {
                             if (searchOn)
                                 setQ("");
@@ -15082,14 +15115,21 @@ function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, si
                 ? "Ничего не нашлось."
                 : "Пока пусто. Нажмите «Добавить поездку».")),
             groups.map(([key, rows]) => {
+                var _c;
                 const hidden = closed[key];
                 return (React.createElement("div", { key: key, className: "grp", "data-g": key },
                     React.createElement("button", { className: "grp-head", onClick: () => setClosed((c) => ({ ...c, [key]: !c[key] })) },
-                        React.createElement("span", { className: "grp-name" }, mode === "region"
-                            ? groupRegionLabel(key)
-                            : key.includes("–")
-                                ? `${key} · точная дата неизвестна`
-                                : key),
+                        React.createElement("span", { className: "grp-name" }, mode === "move"
+                            ? key === "Планы"
+                                ? "Планы"
+                                : key === "none"
+                                    ? "✎ Транспорт не указан"
+                                    : `${MOVE_ICON[key]} ${((_c = MOVE_KINDS.find((m) => m.id === key)) === null || _c === void 0 ? void 0 : _c.name) || key}`
+                            : mode === "region"
+                                ? groupRegionLabel(key)
+                                : key.includes("–")
+                                    ? `${key} · точная дата неизвестна`
+                                    : key),
                         React.createElement("span", { className: "grp-count" }, rows.length),
                         React.createElement("span", { className: "grp-chev" }, hidden ? "▾" : "▴")),
                     !hidden &&
@@ -16039,6 +16079,13 @@ function AtlasApp() {
     const [listFocus, setListFocus] = useState(null);
     // отбор списка поездок по транспорту — из отчёта «Как добираемся» (42.13)
     const [listOnly, setListOnly] = useState(null);
+    // открыли «Поездки» из отчёта — крестик возвращает к этому отчёту
+    const [listBack, setListBack] = useState(null);
+    useEffect(() => {
+        // ушли из «Поездок» куда-то ещё — возврат к отчёту больше не нужен
+        if (!["list", "edit", "filters", "reports"].includes(sheet))
+            setListBack(null);
+    }, [sheet]);
     /* поездка из отчёта: страна на глобусе и её область (если есть) */
     const showTrip = (a3, id) => {
         var _c;
@@ -17056,6 +17103,7 @@ function AtlasApp() {
                                         else {
                                             setListMode("region");
                                             setListFocus({ k: c.key, n: Date.now() });
+                                            setListBack(null);
                                             setSheet("list");
                                         }
                                     } },
@@ -17150,8 +17198,9 @@ function AtlasApp() {
                         React.createElement(ReportsSheet, { open: sheet === "reports", onClose: () => setSheet(sheetBack === "profile" ? "profile" : null), box: box, visits: visits, since: profile.since, stats: stats, people: profile.people || [], home: profile.home || null, geo: geo, onPerson: setPerson, onFar: setFar, onAir: setAirWin, onSeason: () => setSeasonWin(true), onConts: () => setContsWin(true), onWorld: () => setWorldWin(true), onCalendar: () => setCalWin(true), onYears: () => setYearsWin(true), onMoveTrips: (k) => {
                                 setListFocus(null);
                                 setListOnly(k);
+                                setListBack("move");
                                 setSheet("list");
-                            }, onOften: () => setOftenWin(true), onSolo: () => setSoloWin(true), repCfg: profile.reports || null, meName: profile.name || "", onOpenTrip: (a3, id) => {
+                            }, focusRid: sheet === "reports" ? listBack : null, onOften: () => setOftenWin(true), onSolo: () => setSoloWin(true), repCfg: profile.reports || null, meName: profile.name || "", onOpenTrip: (a3, id) => {
                                 setSelected(a3);
                                 showTrip(a3, id);
                                 setSheet(null);
@@ -17165,9 +17214,10 @@ function AtlasApp() {
                                 setSheet(sheetBack);
                             } }),
                         React.createElement(ListSheet, { visits: visits, stats: stats, open: sheet === "list", onClose: () => {
-                                setSheet(null);
+                                setSheet(listBack ? "reports" : null);
                                 setListFocus(null);
                                 setListOnly(null);
+                                setTimeout(() => setListBack(null), 1500);
                             }, onPick: (a3, id) => {
                                 // правка поездки прямо из списка; на главный экран не уходим (42.5)
                                 setEditing({ a3, id, back: "list" });
@@ -17312,7 +17362,10 @@ function AtlasApp() {
                                     React.createElement("circle", { cx: "12", cy: "12", r: "8.6", fill: "none", stroke: "currentColor", strokeWidth: "1.7" }),
                                     React.createElement("path", { d: "M3.6 12h16.8M12 3.4c2.3 2.4 3.4 5.3 3.4 8.6S14.3 18.2 12 20.6c-2.3-2.4-3.4-5.3-3.4-8.6S9.7 5.8 12 3.4z", fill: "none", stroke: "currentColor", strokeWidth: "1.5" })),
                                 React.createElement("em", null, "\u041A\u0430\u0440\u0442\u0430")),
-                            React.createElement("button", { className: "tab" + (activeTab === "list" ? " on" : ""), onClick: () => goTab("list", "list") },
+                            React.createElement("button", { className: "tab" + (activeTab === "list" ? " on" : ""), onClick: () => {
+                                    setListBack(null);
+                                    goTab("list", "list");
+                                } },
                                 React.createElement("svg", { viewBox: "0 0 24 24", width: "22", height: "22" },
                                     React.createElement("path", { d: "M4 7h16M4 12h16M4 17h10", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round" })),
                                 React.createElement("em", null, "\u041F\u043E\u0435\u0437\u0434\u043A\u0438")),
@@ -19025,11 +19078,8 @@ button, input, select, textarea{font-family:inherit;}
 .mv-bar i{display:block; height:100%;}
 .mv-hatch{background:repeating-linear-gradient(135deg, #2a4157 0 5px, #1c3044 5px 10px);}
 .root.light .mv-hatch{background:repeating-linear-gradient(135deg, #cdd8e2 0 5px, #e6edf3 5px 10px);}
-.mv-legend{display:flex; flex-wrap:wrap; gap:4px 12px; margin-top:7px; font-size:11.5px; color:var(--dim);}
-.mv-legend span::before{content:""; display:inline-block; width:9px; height:9px; border-radius:3px; margin-right:5px; vertical-align:-1px; background:var(--c);}
-.mv-legend .mv-lg-none::before{background:repeating-linear-gradient(135deg, #5d7891 0 2px, transparent 2px 4px); border:1px solid var(--line);}
 .mv-tiles{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:12px;}
-.mv-tile{display:flex; align-items:center; gap:10px; padding:10px 11px; border-radius:14px; border:1px solid var(--line); background:var(--field);
+.mv-tile{position:relative; display:flex; align-items:center; gap:10px; padding:10px 11px; border-radius:14px; border:1px solid var(--line); background:var(--field);
   color:var(--ink); font:inherit; text-align:left; cursor:pointer; min-width:0;}
 .mv-tile.off{opacity:.45; cursor:default;}
 .mv-ico{flex:none; width:38px; height:38px; border-radius:50%; border:1px solid var(--line); display:flex; align-items:center; justify-content:center; font-style:normal; font-size:19px;}
@@ -19085,6 +19135,9 @@ button, input, select, textarea{font-family:inherit;}
   .zoom-layer:not(.pg-layer) .zoom-body .radar{max-width:min(100%, 105vh);}
   .zoom-body .rows-chart{gap:12px;}
 }
+/* 42.16 · цвет вида транспорта — квадратиком в углу плитки, вместо легенды */
+.mv-sq{position:absolute; top:9px; right:9px; width:10px; height:10px; border-radius:3px;}
+.mv-bar{margin-bottom:2px;}
 `;
 const __b = document.getElementById('boot');
 if (__b)
