@@ -2921,7 +2921,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "42.11";
+const APP_VERSION = "42.12";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -14473,6 +14473,63 @@ function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], o
 }
 /* Атлас · 23 · отсчёт, полка сувениров, двойники, фильтры, список поездок.
    Части собираются по номерам в один файл (tools/rebuild.sh) и видят друг друга напрямую. */
+/* выбор страны из списка (42.12): на главном без выбранной страны и в шторке «Страны».
+   seg: "been" — где были (чаще — выше), "wish" — хочу, "all" — все страны */
+function countryList(visits, wish, q, seg) {
+    const norm = (x) => String(x || "").toLowerCase().replace(/ё/g, "е").replace(/[\s\-'’.]/g, "");
+    const t = norm(q);
+    const trips = (a3) => tripCount({ [a3]: visits[a3] || [] });
+    let pool = COUNTRIES.map((c) => ({ c, n: trips(c.a3), wish: wish.includes(c.a3) }));
+    if (seg === "been")
+        pool = pool.filter((x) => x.n > 0);
+    else if (seg === "wish")
+        pool = pool.filter((x) => x.wish);
+    if (t) {
+        const hit = (x) => {
+            const n = norm(x.c.name);
+            return n.startsWith(t) ? 0 : n.includes(t) ? 1 : 9;
+        };
+        return pool
+            .map((x) => [hit(x), x])
+            .filter(([k]) => k < 9)
+            .sort((a, b) => a[0] - b[0] || b[1].n - a[1].n || a[1].c.name.localeCompare(b[1].c.name, "ru"))
+            .map(([, x]) => x);
+    }
+    return pool.sort((a, b) => seg === "been" ? b.n - a.n || a.c.name.localeCompare(b.c.name, "ru") : a.c.name.localeCompare(b.c.name, "ru"));
+}
+/* строка страны: флаг, название, число поездок; где не были — часть света */
+function CountryRow({ x, onPick }) {
+    return (React.createElement("button", { className: "ww-row fc-row cl-row" + (x.n ? "" : " no"), onClick: () => onPick(x.c.a3) },
+        React.createElement("span", { className: "cl-fl" },
+            React.createElement(Flg, { a3: x.c.a3, a2: x.c.a2 })),
+        React.createElement("span", { className: "ww-nm" },
+            x.c.name,
+            !x.n && React.createElement("em", null, CONTINENTS[x.c.cont])),
+        React.createElement("span", { className: "fc-n" }, x.n ? np(x.n, "trip") : x.wish ? "☆" : "")));
+}
+/* шторка «Страны»: поиск, где были / хочу / все */
+function CountriesSheet({ open, onClose, box, visits, wish, onPick }) {
+    const [q, setQ] = useState("");
+    const [seg, setSeg] = useState("been");
+    useEffect(() => {
+        if (open) {
+            setQ("");
+            setSeg("been");
+        }
+    }, [open]);
+    const rows = useMemo(() => countryList(visits, wish, q, seg), [visits, wish, q, seg]);
+    const been = useMemo(() => countryList(visits, wish, "", "been").length, [visits, wish]);
+    return (React.createElement(Sheet, { open: open, onClose: onClose, title: "\u0421\u0442\u0440\u0430\u043D\u044B", box: box }, () => (React.createElement("div", { className: "sheet-body cl-sheet" },
+        React.createElement(TextField, { search: true, value: q, placeholder: "\u041D\u0430\u0439\u0442\u0438 \u0441\u0442\u0440\u0430\u043D\u0443", onChange: (e) => setQ(e.target.value) }),
+        React.createElement("div", { className: "cl-seg" }, [
+            ["been", `Где был · ${been}`],
+            ["wish", `Хочу · ${wish.length}`],
+            ["all", `Все · ${TOTAL}`],
+        ].map(([v, t]) => (React.createElement("button", { key: v, className: seg === v ? "on" : "", onClick: () => setSeg(v) }, t)))),
+        React.createElement("div", { className: "cl-list" },
+            rows.map((x) => (React.createElement(CountryRow, { key: x.c.a3, x: x, onPick: onPick }))),
+            !rows.length && (React.createElement("p", { className: "focus-empty" }, q ? "Ничего не нашлось." : seg === "wish" ? "Список «Хочу» пока пуст: отметьте ☆ у страны." : "Пока нет поездок.")))))));
+}
 /* шторка: полка сувениров — значок за каждую страну */
 function ShelfSheet({ open, onClose, box, isOn, isWish, onPick }) {
     const [only, setOnly] = useState("all");
@@ -16721,6 +16778,15 @@ function AtlasApp() {
             }));
         return { countries: activeSet.size, trips, per };
     }, [activeSet, visits, yearFilter]);
+    // список стран на главном без выбора: где были, а с поиском — все страны
+    const [homeQ, setHomeQ] = useState("");
+    const homeRows = useMemo(() => countryList(visits, wish, homeQ, homeQ.trim() ? "all" : "been"), [visits, wish, homeQ]);
+    const pickCountry = (a3) => {
+        setHomeQ("");
+        setSelected(a3);
+        setSelRegion(null);
+        setLookNonce((n) => n + 1);
+    };
     if (booting)
         return (React.createElement("div", { className: "root" + (light ? " light" : ""), style: shell },
             React.createElement("style", null, APP_CSS),
@@ -16801,7 +16867,14 @@ function AtlasApp() {
                                     } },
                                     React.createElement("span", { className: "big-fl" }, React.createElement(Flg, { a3: sel.a3 })),
                                     React.createElement("span", { className: "fc-name" },
-                                        React.createElement("b", { className: selRegion ? "dim" : "" }, sel.name),
+                                        React.createElement("b", { className: selRegion ? "dim" : "" },
+                                            sel.name,
+                                            React.createElement("span", { className: "fc-switch", role: "button", "aria-label": "\u0412\u044B\u0431\u0440\u0430\u0442\u044C \u0434\u0440\u0443\u0433\u0443\u044E \u0441\u0442\u0440\u0430\u043D\u0443", onClick: (e) => {
+                                                    e.stopPropagation();
+                                                    setSheet("countries");
+                                                } },
+                                                React.createElement("svg", { viewBox: "0 0 24 24", width: "14", height: "14" },
+                                                    React.createElement("path", { d: "M6 9l6 6 6-6", fill: "none", stroke: "currentColor", strokeWidth: "2.2", strokeLinecap: "round", strokeLinejoin: "round" })))),
                                         React.createElement("em", null, selAll.some((t) => !t.plan)
                                             ? np(tripCount({ [sel.a3]: selAll }), "trip")
                                             : `${CONTINENTS[sel.cont]} · ещё не были`))),
@@ -16849,9 +16922,18 @@ function AtlasApp() {
                                         TOTAL,
                                         " \u0441\u0442\u0440\u0430\u043D \u00B7 ",
                                         np(stats.trips, "trip")))),
-                            React.createElement("p", { className: "focus-empty" }, mapView === "map"
+                            stats.countries > 0 || homeQ ? (React.createElement(React.Fragment, null,
+                                React.createElement("div", { className: "cl-find" },
+                                    React.createElement(TextField, { search: true, value: homeQ, placeholder: "\u041D\u0430\u0439\u0442\u0438 \u0441\u0442\u0440\u0430\u043D\u0443", onChange: (e) => setHomeQ(e.target.value) })),
+                                React.createElement("div", { className: "ag-frame fc-list cl-home" },
+                                    homeRows.map((x) => (React.createElement(CountryRow, { key: x.c.a3, x: x, onPick: pickCountry }))),
+                                    !homeRows.length && React.createElement("p", { className: "focus-empty" }, "\u041D\u0438\u0447\u0435\u0433\u043E \u043D\u0435 \u043D\u0430\u0448\u043B\u043E\u0441\u044C.")))) : (React.createElement("p", { className: "focus-empty" }, mapView === "map"
                                 ? "Нажмите страну на карте, чтобы посмотреть её."
-                                : "Поверните глобус и нажмите страну, чтобы посмотреть её.")))),
+                                : "Поверните глобус и нажмите страну, чтобы посмотреть её."))))),
+                        React.createElement(CountriesSheet, { open: sheet === "countries", onClose: () => setSheet(null), box: box, visits: visits, wish: wish, onPick: (a3) => {
+                                setSheet(null);
+                                pickCountry(a3);
+                            } }),
                         React.createElement(TripSheet, { open: sheet === "add", onClose: () => setSheet(null), box: box, initial: null, visits: visits, onSave: (a3, trip) => addTrip(a3, trip), mode: "add", quality: photoQuality, since: profile.since, people: profile.people || [], home: profile.home || null, meId: profile.deviceId || ME }),
                         React.createElement(TripSheet, { open: sheet === "edit" && !!editTripObj, onClose: () => setSheet((editing === null || editing === void 0 ? void 0 : editing.back) || null), box: box, initial: editTripObj ? { a3: editing.a3, idx: editing.id, trip: editTripObj } : null, visits: visits, onSave: (a3, trip) => editTrip(a3, editing === null || editing === void 0 ? void 0 : editing.id, trip), onRemove: removeTrip, mode: "edit", quality: photoQuality, since: profile.since, people: profile.people || [], home: profile.home || null, meId: profile.deviceId || ME }),
                         React.createElement(ProfileSheet, { open: sheet === "profile", onClose: () => setSheet(null), box: box, avatar: profile.avatar, name: profile.name, onName: async (v) => {
@@ -18764,6 +18846,22 @@ button, input, select, textarea{font-family:inherit;}
 .col-map > .map-wrap > .globe-controls button:focus, .col-map > .map-wrap > .globe-controls button:focus-visible{outline:none; box-shadow:none;}
 /* города в карточке региона — списком, в несколько строк */
 .fc-row .ww-nm em{white-space:normal; line-height:1.3;}
+/* 42.12 · выбор страны из списка: на главном и в шторке «Страны» */
+.cl-find{margin-top:10px;}
+.cl-find .tf{margin:0;}
+.cl-row .cl-fl{flex:none; font-size:22px; line-height:1; display:flex; align-items:center;}
+.cl-row .cl-fl img{width:26px; height:auto; border-radius:3px; display:block;}
+.cl-row.no .ww-nm{color:var(--dim);}
+.cl-row .ww-nm{font-size:14px;}
+.cl-row .fc-n{font-size:13px;}
+.cl-sheet{display:flex; flex-direction:column; gap:10px;}
+.cl-seg{display:flex; gap:4px; padding:3px; background:var(--field); border:1px solid var(--line); border-radius:12px;}
+.cl-seg button{flex:1; min-height:34px; border:0; border-radius:9px; background:none; color:var(--dim); font:inherit; font-size:12.5px; cursor:pointer;}
+.cl-seg button.on{background:var(--el2); color:var(--ink); box-shadow:inset 0 0 0 1px var(--gold);}
+.cl-list{display:flex; flex-direction:column; gap:7px;}
+.fc-switch{display:inline-flex; align-items:center; justify-content:center; width:26px; height:24px; margin-left:8px; vertical-align:3px;
+  border-radius:8px; border:1px solid var(--line); background:var(--el2); color:var(--gold); cursor:pointer;}
+.fc-switch svg{display:block;}
 `;
 const __b = document.getElementById('boot');
 if (__b)
