@@ -2703,11 +2703,11 @@ function familyUnpack(packet, profile, decide = null) {
     const senderId = ((_d = packet === null || packet === void 0 ? void 0 : packet.from) === null || _d === void 0 ? void 0 : _d.id) || "";
     const dir = (packet === null || packet === void 0 ? void 0 : packet.dir) || {};
     const nameOfMember = (pid) => {
-        var _d, _e, _f, _g, _h;
+        var _d, _e, _f, _h, _j;
         return ((_d = famMember(profile, pid)) === null || _d === void 0 ? void 0 : _d.name) ||
             (pid === senderId ? (_e = packet === null || packet === void 0 ? void 0 : packet.from) === null || _e === void 0 ? void 0 : _e.name : "") ||
-            ((_g = (((_f = packet === null || packet === void 0 ? void 0 : packet.family) === null || _f === void 0 ? void 0 : _f.members) || []).find((m) => m.id === pid)) === null || _g === void 0 ? void 0 : _g.name) ||
-            ((_h = dir[pid]) === null || _h === void 0 ? void 0 : _h.n) ||
+            ((_h = (((_f = packet === null || packet === void 0 ? void 0 : packet.family) === null || _f === void 0 ? void 0 : _f.members) || []).find((m) => m.id === pid)) === null || _h === void 0 ? void 0 : _h.name) ||
+            ((_j = dir[pid]) === null || _j === void 0 ? void 0 : _j.n) ||
             "";
     };
     let touched = false;
@@ -2942,7 +2942,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "42.35";
+const APP_VERSION = "42.36";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -6468,7 +6468,7 @@ function Loading({ done, total, label }) {
                 total))));
 }
 /* блок фотографий внутри поездки */
-function PhotoBlock({ country, trip, onChange, quality, totalPhotos, box }) {
+function PhotoBlock({ country, trip, onChange, quality, totalPhotos, box, more = [] }) {
     const [busy, setBusy] = useState(null);
     const [rev, setRev] = useState({});
     const [warn, setWarn] = useState("");
@@ -6476,10 +6476,12 @@ function PhotoBlock({ country, trip, onChange, quality, totalPhotos, box }) {
     const photos = trip.photos || [];
     const targets = useMemo(() => {
         const list = [{ type: "country", name: country.name }];
+        // поездка из нескольких стран: снимок можно отметить любой из них (42.36)
+        more.forEach((n) => n !== country.name && list.push({ type: "country", name: n }));
         (trip.cities || []).forEach((c) => list.push({ type: "city", name: c }));
         (trip.hotels || []).forEach((h) => list.push({ type: "hotel", name: h.name }));
         return list;
-    }, [country, trip.cities, trip.hotels]);
+    }, [country, trip.cities, trip.hotels, more.join("|")]);
     const limit = TOTAL_MAX[quality] || TOTAL_MAX.light;
     const left = Math.max(0, limit - totalPhotos);
     const add = async (files) => {
@@ -6963,507 +6965,6 @@ function AirPicker({ exclude = [], onAdd, onClose }) {
                         ? "если нужной нет в списке выше"
                         : "такой пока нет в справочнике — сохраним как вашу")))))));
 }
-function TripSheet({ open, onClose, box, initial, visits, onSave, onRemove, onRoute, onMergeWith, mode, quality, since, people = [], meId = ME, home = null }) {
-    var _d;
-    const totalPhotos = useMemo(() => {
-        let k = 0;
-        Object.values(visits).forEach((arr) => arr.forEach((t) => (k += (t.photos || []).length)));
-        return k;
-    }, [visits]);
-    const [draft, setDraft] = useState(null);
-    const [q, setQ] = useState("");
-    const [editWhen, setEditWhen] = useState(false);
-    const [addCity, setAddCity] = useState(false);
-    const [addHotel, setAddHotel] = useState(false);
-    const [addWho, setAddWho] = useState(false);
-    const [addAir, setAddAir] = useState(false);
-    const [addDep, setAddDep] = useState(false);
-    const [airShown, setAirShown] = useState(null);
-    const whoBox = useRef(null);
-    useEffect(() => {
-        if (!addWho)
-            return;
-        const outside = (e) => {
-            if (whoBox.current && !whoBox.current.contains(e.target))
-                setAddWho(false);
-        };
-        // ждём кадр, иначе закроется от того же касания, что и открыло
-        const id = setTimeout(() => document.addEventListener("pointerdown", outside), 0);
-        return () => {
-            clearTimeout(id);
-            document.removeEventListener("pointerdown", outside);
-        };
-    }, [addWho]);
-    const [ask, setAsk] = useState(null);
-    const planTouched = useRef(false);
-    const editKeep = useRef(null); // черновик правки, пока выбираем другую страну
-    const buildDraft = (src) => src
-        ? {
-            a3: src.a3,
-            y: src.trip.y,
-            m: src.trip.m || null,
-            noMonth: !src.trip.m,
-            y2: src.trip.y2 || null,
-            approx: !!src.trip.approx,
-            from: src.trip.from || "",
-            to: src.trip.to || "",
-            who: src.trip.who || [],
-            regions: src.trip.regions || [],
-            plan: !!src.trip.plan,
-            id: src.trip.id,
-            by: src.trip.by || "",
-            left: src.trip.left || [],
-            cities: src.trip.cities || [],
-            hotels: src.trip.hotels || [],
-            photos: src.trip.photos || [],
-            move: src.trip.move || null,
-            air: src.trip.air || [],
-            dep: src.trip.dep || null,
-            also: src.trip.also || [],
-            route: src.trip.route ? routeAdopt(src.trip.route, visits) : null,
-        }
-        : null;
-    const srcKey = initial ? `${initial.a3}:${initial.idx}` : "";
-    useEffect(() => {
-        if (!open) {
-            setDraft(null);
-            return;
-        }
-        setQ("");
-        setEditWhen(false);
-        setAddCity(false);
-        setAddHotel(false);
-        setAddWho(false);
-        planTouched.current = !!initial;
-        editKeep.current = null;
-        setDraft(buildDraft(initial));
-        // строим один раз: иначе правки затираются при каждой перерисовке
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [open, srcKey]);
-    /* страховка: карточка открыта, данные есть, а черновика нет */
-    useEffect(() => {
-        if (open && initial && !draft && !editKeep.current)
-            setDraft(buildDraft(initial));
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [open, srcKey, draft]);
-    const knownHotels = useMemo(() => {
-        const out = [];
-        const seen = new Set();
-        const push = (n, cat) => {
-            if (n && !seen.has(n)) {
-                seen.add(n);
-                out.push(n);
-                if (cat)
-                    HOTEL_CAT[n] = cat;
-            }
-        };
-        // отели городов этой поездки — первыми
-        ((draft === null || draft === void 0 ? void 0 : draft.cities) || []).forEach((c) => (HOTELS_BY_CITY[c] || []).forEach((h) => push(h.name, h.cat)));
-        // затем по остальным городам страны
-        if (draft === null || draft === void 0 ? void 0 : draft.a3)
-            CITIES.filter((x) => x.a3 === draft.a3).forEach((x) => (HOTELS_BY_CITY[x.city] || []).forEach((h) => push(h.name, h.cat)));
-        // и то, что вы уже отмечали раньше
-        Object.values(visits).forEach((arr) => arr.forEach((t) => (t.hotels || []).forEach((h) => push(h.name))));
-        return out;
-    }, [visits, draft === null || draft === void 0 ? void 0 : draft.cities, draft === null || draft === void 0 ? void 0 : draft.a3]);
-    const results = useMemo(() => {
-        const s = q.trim().toLowerCase();
-        if (!s)
-            return COUNTRIES.slice()
-                .sort((a, b) => a.name.localeCompare(b.name, "ru"))
-                .map((c) => ({ c, via: null }));
-        const byCountry = COUNTRIES.filter((c) => c.name.toLowerCase().includes(s) ||
-            c.a2.toLowerCase() === s ||
-            c.a3.toLowerCase() === s).map((c) => ({ c, via: null }));
-        const seen = new Set(byCountry.map((r) => r.c.a3));
-        const byCity = [];
-        CITIES.forEach(({ a3, city }) => {
-            if (!city.toLowerCase().includes(s))
-                return;
-            if (seen.has(a3)) {
-                const hit = byCountry.find((r) => r.c.a3 === a3);
-                if (hit && !hit.via)
-                    hit.via = city;
-                return;
-            }
-            seen.add(a3);
-            if (BY_A3[a3])
-                byCity.push({ c: BY_A3[a3], via: city });
-        });
-        // город с тем же именем, что и страна (Макао, Сингапур), не подписываем
-        byCountry.forEach((r) => {
-            if (r.via && r.via.toLowerCase() === r.c.name.toLowerCase())
-                r.via = null;
-        });
-        // сначала страны, чьё название начинается с запроса, потом прочие
-        // совпадения по стране, потом города — от начала слова к середине
-        const rank = (r) => {
-            const n = r.c.name.toLowerCase();
-            if (!r.via || byCountry.includes(r)) {
-                if (n.startsWith(s))
-                    return 0;
-                if (n.includes(s))
-                    return 1;
-            }
-            const v = (r.via || "").toLowerCase();
-            return v.startsWith(s) ? 2 : 3;
-        };
-        return [...byCountry, ...byCity].sort((a, b) => rank(a) - rank(b) || a.c.name.localeCompare(b.c.name, "ru"));
-    }, [q]);
-    const country = draft ? BY_A3[draft.a3] : null;
-    const patch = (p) => setDraft((d) => {
-        const next = { ...d, ...p };
-        // дату сменили, а статус вручную не трогали — определим сами
-        if (!planTouched.current && ("y" in p || "m" in p || "from" in p)) {
-            const y = next.y || 0;
-            const m = next.m || 12;
-            const a = dParts(next.from);
-            const future = a
-                ? new Date(a.y, a.m - 1, a.d) > NOW
-                : y > NOW.getFullYear() ||
-                    (y === NOW.getFullYear() && m > NOW.getMonth() + 1);
-            next.plan = future;
-        }
-        return next;
-    });
-    /* города и регионы (42.28): регионы — только по городам; у части маршрута города точек
-       берутся из маршрута, свои — только «Также были» */
-    const rtCities = (draft === null || draft === void 0 ? void 0 : draft.route) ? ((_d = routeMembers(draft.route).get(draft.a3)) === null || _d === void 0 ? void 0 : _d.cities) || [] : null;
-    const regFromCities = new Set(((draft === null || draft === void 0 ? void 0 : draft.cities) || []).map((c) => regionOf(draft.a3, c)).filter(Boolean));
-    const setCities = (main, also) => {
-        const cities = [...new Set([...main, ...(also || [])])];
-        const had = new Set((draft.cities || []).map((c) => regionOf(draft.a3, c)).filter(Boolean));
-        const now = new Set(cities.map((c) => regionOf(draft.a3, c)).filter(Boolean));
-        // регион, пришедший от убранного города, уходит; добавленный ручками раньше — остаётся
-        const regions = [...new Set([...(draft.regions || []).filter((r) => !had.has(r) || now.has(r)), ...now])];
-        patch(also ? { cities, also, regions } : { cities, regions });
-    };
-    /* точки маршрута этой страны — для отелей по точкам */
-    const rtStops = (draft === null || draft === void 0 ? void 0 : draft.route)
-        ? (draft.route.stops || []).map((s, i) => ({ s, i })).filter(({ s }) => s.a3 === draft.a3 && s.tr !== 2)
-        : null;
-    /* карточка отеля: звёзды, заметка, ✕; у обычной поездки с несколькими городами — выбор города */
-    const hotelCard = (h, key, upd, del, cities) => (React.createElement("div", { key: key, className: "hotel-card" },
-        React.createElement("div", { className: "hotel-row" },
-            React.createElement("span", { className: "hotel-name" },
-                h.name,
-                HOTEL_CAT[h.name] ? React.createElement("em", { className: "hotel-cat" },
-                    HOTEL_CAT[h.name],
-                    "\u2605 \u0437\u0430\u044F\u0432\u043B\u0435\u043D\u043E") : null),
-            React.createElement(Stars, { value: h.stars || 0, onPick: (stars) => upd({ stars }) }),
-            React.createElement("button", { className: "icon-btn small", onClick: () => setAsk({
-                    title: "Убрать отель?",
-                    text: h.note ? `${h.name}. Заметка тоже удалится.` : h.name,
-                    yes: "Убрать",
-                    onYes: del,
-                }), "aria-label": "\u0423\u0431\u0440\u0430\u0442\u044C" }, "\u2715")),
-        cities && cities.length > 1 && (React.createElement("div", { className: "hotel-city" },
-            React.createElement("span", null, "\u0413\u043E\u0440\u043E\u0434:"),
-            cities.map((c) => (React.createElement("button", { key: c, className: h.city === c ? "on" : "", onClick: () => upd({ city: h.city === c ? "" : c }) }, c))))),
-        React.createElement("input", { className: "hotel-note", value: h.note || "", placeholder: "\u0417\u0430\u043C\u0435\u0442\u043A\u0430: \u0447\u0442\u043E \u043F\u043E\u043D\u0440\u0430\u0432\u0438\u043B\u043E\u0441\u044C, \u043D\u043E\u043C\u0435\u0440, \u0432\u0438\u0434", onChange: (e) => upd({ note: e.target.value }), autoComplete: "off", autoCorrect: "off", "data-lpignore": "true" })));
-    const cityPool = useMemo(() => (country ? CITIES.filter((c) => c.a3 === country.a3).map((c) => c.city) : []), [country]);
-    const whenReady = !!(draft && draft.y && (!draft.approx || draft.y2));
-    const whenText = (draft === null || draft === void 0 ? void 0 : draft.y) ? tripLabel(draft) : "";
-    return (React.createElement(Sheet, { open: open, onClose: onClose, box: box, title: country ? country.name : mode === "edit" ? "Поездка" : "Новая поездка" }, (close) => {
-        var _d, _e, _f, _g, _h, _j;
-        return (React.createElement("div", { className: "sheet-body" },
-            !country ? (React.createElement(React.Fragment, null,
-                mode === "add" && onRoute && (React.createElement("button", { className: "rt-start", onClick: () => onRoute() },
-                    React.createElement("span", null, "\uD83E\uDDED"),
-                    React.createElement("span", null,
-                        "\u041C\u0430\u0440\u0448\u0440\u0443\u0442 \u0438\u0437 \u043D\u0435\u0441\u043A\u043E\u043B\u044C\u043A\u0438\u0445 \u0442\u043E\u0447\u0435\u043A",
-                        React.createElement("em", null, "\u041F\u0435\u0440\u0435\u0441\u0430\u0434\u043A\u0438, \u043D\u0435\u0441\u043A\u043E\u043B\u044C\u043A\u043E \u0441\u0442\u0440\u0430\u043D, \u0440\u0430\u0437\u043D\u044B\u0439 \u0442\u0440\u0430\u043D\u0441\u043F\u043E\u0440\u0442 \u2014 \u043F\u043E \u043F\u043E\u0440\u044F\u0434\u043A\u0443")),
-                    React.createElement("i", null, "\u203A"))),
-                React.createElement(TextField, { search: true, value: q, placeholder: "\u041D\u0430\u0447\u043D\u0438\u0442\u0435 \u0432\u0432\u043E\u0434\u0438\u0442\u044C \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u0435", onChange: (e) => setQ(e.target.value) }),
-                React.createElement("p", { className: "tf-hint" }, "\u041D\u0430\u043F\u0440\u0438\u043C\u0435\u0440: \u042F\u043F\u043E\u043D\u0438\u044F, \u041F\u0445\u0443\u043A\u0435\u0442, \u041F\u0440\u0430\u0433\u0430"),
-                React.createElement("div", { className: "sheet-list inline-list" }, results.map(({ c, via }) => {
-                    var _d;
-                    return (React.createElement("button", { key: c.a3, className: "opt" + (((_d = visits[c.a3]) === null || _d === void 0 ? void 0 : _d.length) ? " opt-on" : ""), onClick: () => 
-                        // правим сохранённую поездку: меняется страна, остальное остаётся (42.23)
-                        editKeep.current
-                            ? (setDraft({ ...editKeep.current, a3: c.a3, cities: via ? [via] : [], regions: [] }),
-                                (editKeep.current = null))
-                            : setDraft({
-                                a3: c.a3,
-                                y: NOW.getFullYear(),
-                                m: null,
-                                noMonth: true,
-                                y2: null,
-                                approx: false,
-                                from: "",
-                                to: "",
-                                plan: false,
-                                who: [ME, ...people.filter((p) => p.always).map((p) => p.id)],
-                                regions: [],
-                                cities: via ? [via] : [],
-                                hotels: [],
-                                photos: [],
-                                move: null,
-                                air: [],
-                                dep: home || null,
-                            }) },
-                        React.createElement("span", { className: "fl" },
-                            React.createElement(Flg, { a3: c.a3, a2: c.a2 })),
-                        React.createElement("span", { className: "nm" },
-                            c.name,
-                            via && React.createElement("em", { className: "via" },
-                                " \u00B7 ",
-                                via)),
-                        React.createElement("span", { className: "ct" }, CONTINENTS[c.cont])));
-                })))) : (React.createElement(React.Fragment, null,
-                React.createElement(Done, { label: "\u0421\u0442\u0440\u0430\u043D\u0430", value: `${flagText(country.a3)} ${country.name}`.trim(), onEdit: () => {
-                        if (mode === "edit")
-                            editKeep.current = draft;
-                        setDraft(null);
-                    } }),
-                mode === "edit" && !((_d = initial === null || initial === void 0 ? void 0 : initial.trip) === null || _d === void 0 ? void 0 : _d.route) && onRoute && (draft === null || draft === void 0 ? void 0 : draft.id) && (React.createElement("button", { className: "rt-start in", onClick: () => {
-                        const t = (visits[draft.a3] || []).find((x) => x.id === draft.id);
-                        if (t) {
-                            close();
-                            onRoute(null, { a3: draft.a3, t });
-                        }
-                    } },
-                    React.createElement("span", null, "\uD83E\uDDED"),
-                    React.createElement("span", null,
-                        "\u0421\u0434\u0435\u043B\u0430\u0442\u044C \u043C\u0430\u0440\u0448\u0440\u0443\u0442\u043E\u043C",
-                        React.createElement("em", null, "\u041F\u0435\u0440\u0435\u0441\u0430\u0434\u043A\u0438, \u043D\u0435\u0441\u043A\u043E\u043B\u044C\u043A\u043E \u0442\u043E\u0447\u0435\u043A \u0438 \u0441\u0442\u0440\u0430\u043D, \u0440\u0430\u0437\u043D\u044B\u0439 \u0442\u0440\u0430\u043D\u0441\u043F\u043E\u0440\u0442")),
-                    React.createElement("i", null, "\u203A"))),
-                ((_e = initial === null || initial === void 0 ? void 0 : initial.trip) === null || _e === void 0 ? void 0 : _e.route) && onRoute && (React.createElement("button", { className: "rt-start in rt-metro", onClick: () => onRoute(initial.trip.route), "aria-label": routeText(initial.trip.route) },
-                    React.createElement("span", { className: "rt-metro-h" },
-                        React.createElement("span", null, "\uD83E\uDDED \u041C\u0430\u0440\u0448\u0440\u0443\u0442"),
-                        React.createElement("em", null, "\u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u203A")),
-                    (initial.trip.route.stops || []).length > 0 && (React.createElement(MoveSnake, { j: routeJourney(initial.trip.route, ((_f = initial.trip.route.start) === null || _f === void 0 ? void 0 : _f.name) || "Дом"), delay: 0.4, anim: true, tight: true, hl: initial.a3 })))))),
-            country &&
-                (editWhen ? (React.createElement("div", { className: "step" },
-                    React.createElement("p", { className: "step-title" }, "\u041A\u043E\u0433\u0434\u0430 \u044D\u0442\u043E \u0431\u044B\u043B\u043E"),
-                    React.createElement(WhenPicker, { y: draft.y, m: draft.m, y2: draft.y2, approx: draft.approx, from: draft.from, to: draft.to, since: since, onChange: (p) => patch(p) }),
-                    React.createElement("button", { className: "cta slim", onClick: () => draft.y && setEditWhen(false) }, "\u0413\u043E\u0442\u043E\u0432\u043E"))) : (React.createElement(Done, { label: "\u041A\u043E\u0433\u0434\u0430", value: whenText, onEdit: () => setEditWhen(true) }))),
-            country && whenReady && !editWhen && (React.createElement("button", { className: "approx-row plan-row", onClick: () => {
-                    planTouched.current = true;
-                    patch({ plan: !draft.plan });
-                } },
-                React.createElement("span", null,
-                    "\u042D\u0442\u043E \u043F\u043B\u0430\u043D\u044B",
-                    React.createElement("em", null, draft.plan
-                        ? "Поездка впереди — в статистику не попадёт"
-                        : "Включится само, если выбрать будущую дату")),
-                React.createElement("span", { className: "switch" + (draft.plan ? " on" : "") },
-                    React.createElement("i", null)))),
-            country && whenReady && !editWhen && !rtCities && (React.createElement("div", { className: "step" },
-                React.createElement(React.Fragment, null,
-                    React.createElement("p", { className: "step-title" }, "\u0413\u043E\u0440\u043E\u0434\u0430"),
-                    draft.cities.length > 0 && (React.createElement("div", { className: "city-chips" }, draft.cities.map((c) => (React.createElement("span", { key: c, className: "city-chip" },
-                        c,
-                        React.createElement("button", { onClick: () => setCities(draft.cities.filter((x) => x !== c)) }, "\u2715")))))),
-                    draft.cities.length === 0 || addCity ? (React.createElement(Suggest, { placeholder: "\u041D\u0430\u0447\u043D\u0438\u0442\u0435 \u0432\u0432\u043E\u0434\u0438\u0442\u044C \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u0435", pool: cityPool, exclude: draft.cities, onAdd: (c) => {
-                            setCities([...draft.cities, c]);
-                            setAddCity(false);
-                        } })) : (React.createElement("button", { className: "link-btn", onClick: () => setAddCity(true) }, "\uFF0B \u0435\u0449\u0451 \u0433\u043E\u0440\u043E\u0434"))),
-                (draft.regions || []).length > 0 && (React.createElement("p", { className: "reg-line" },
-                    "\u0420\u0435\u0433\u0438\u043E\u043D\u044B:",
-                    " ",
-                    draft.regions.filter((r) => regFromCities.has(r)).join(" · "),
-                    draft.regions
-                        .filter((r) => !regFromCities.has(r))
-                        .map((r) => (React.createElement("span", { key: r, className: "city-chip small" },
-                        r,
-                        React.createElement("button", { onClick: () => patch({ regions: draft.regions.filter((x) => x !== r) }), "aria-label": "\u0423\u0431\u0440\u0430\u0442\u044C \u0440\u0435\u0433\u0438\u043E\u043D" }, "\u2715")))))))),
-            country && whenReady && !editWhen && !((_g = initial === null || initial === void 0 ? void 0 : initial.trip) === null || _g === void 0 ? void 0 : _g.route) && (React.createElement("div", { className: "step" },
-                React.createElement("p", { className: "step-title" }, "\u041A\u0430\u043A \u0434\u043E\u0431\u0438\u0440\u0430\u043B\u0438\u0441\u044C"),
-                React.createElement("div", { className: "dep-row" },
-                    React.createElement("span", { className: "dep-label" }, "\u041E\u0442\u043A\u0443\u0434\u0430"),
-                    draft.dep ? (React.createElement("span", { className: "dep-chip" },
-                        React.createElement(Flg, { a3: draft.dep.a3 }),
-                        " ",
-                        draft.dep.name,
-                        React.createElement("button", { onClick: () => patch({ dep: null }), "aria-label": "\u0423\u0431\u0440\u0430\u0442\u044C" }, "\u2715"))) : (React.createElement("em", { className: "dep-none" }, "\u043D\u0435 \u0443\u043A\u0430\u0437\u0430\u043D")),
-                    React.createElement("button", { className: "link-btn dep-edit", onClick: () => setAddDep(!addDep) }, draft.dep ? "изменить" : "＋ город вылета")),
-                addDep && (React.createElement(CityPointPicker, { placeholder: "\u0413\u043E\u0440\u043E\u0434 \u0432\u044B\u043B\u0435\u0442\u0430", onClose: () => setAddDep(false), onPick: (c) => {
-                        patch({
-                            dep: { a3: c.a3, name: c.name, lat: c.lat, lon: c.lon },
-                        });
-                        setAddDep(false);
-                    } })),
-                React.createElement("div", { className: "move-row" }, MOVES.map((m) => (React.createElement("button", { key: m.id, className: "move-chip" + (draft.move === m.id ? " on" : ""), onClick: () => {
-                        var _d, _e;
-                        const next = draft.move === m.id ? null : m.id;
-                        const apply = () => patch({
-                            move: next,
-                            air: next === "air" ? draft.air || [] : [],
-                        });
-                        // у сохранённой поездки транспорт меняем только с вопросом
-                        const lose = (draft.air || []).length && next !== "air";
-                        if (mode === "edit" && draft.move && draft.move !== next) {
-                            setAsk({
-                                title: next ? "Поменять транспорт?" : "Убрать транспорт?",
-                                text: next
-                                    ? `Сейчас указано «${(_d = MOVES.find((x) => x.id === draft.move)) === null || _d === void 0 ? void 0 : _d.name}», станет «${m.name}».${lose ? " Список авиакомпаний очистится." : ""}`
-                                    : `«${(_e = MOVES.find((x) => x.id === draft.move)) === null || _e === void 0 ? void 0 : _e.name}» больше не будет отмечен.${lose ? " Список авиакомпаний очистится." : ""}`,
-                                yes: next ? "Поменять" : "Убрать",
-                                onYes: apply,
-                            });
-                            return;
-                        }
-                        apply();
-                    } },
-                    React.createElement("i", null, m.icon),
-                    m.name)))),
-                draft.move === "air" && (React.createElement("div", { className: "air-box" },
-                    (draft.air || []).length > 0 && (React.createElement("div", { className: "air-chips" }, (draft.air || []).map((code) => {
-                        const a = airInfo(code);
-                        return (React.createElement("span", { key: code, className: "air-chip" },
-                            React.createElement("button", { className: "air-open", onClick: () => setAirShown(airShown === code ? null : code) },
-                                React.createElement(AirMark, { code: code }),
-                                (a === null || a === void 0 ? void 0 : a.name) || code),
-                            React.createElement("button", { onClick: () => patch({
-                                    air: (draft.air || []).filter((x) => x !== code),
-                                }), "aria-label": "\u0423\u0431\u0440\u0430\u0442\u044C" }, "\u2715")));
-                    }))),
-                    airShown && airInfo(airShown) && (React.createElement("div", { className: "air-info" },
-                        React.createElement("b", null,
-                            React.createElement(Flg, { a3: airInfo(airShown).a3 }),
-                            " ",
-                            airInfo(airShown).name),
-                        React.createElement("em", null,
-                            ((_h = BY_A3[airInfo(airShown).a3]) === null || _h === void 0 ? void 0 : _h.name) || "",
-                            airInfo(airShown).year
-                                ? ` · основана в ${airInfo(airShown).year}`
-                                : "",
-                            airInfo(airShown).alliance
-                                ? ` · ${airInfo(airShown).alliance}`
-                                : ""),
-                        React.createElement("em", { className: "air-codes" },
-                            "IATA ",
-                            airInfo(airShown).code,
-                            airInfo(airShown).icao ? ` · ICAO ${airInfo(airShown).icao}` : ""),
-                        React.createElement("span", null, airInfo(airShown).routes))),
-                    addAir ? (React.createElement(AirPicker, { exclude: draft.air || [], onAdd: (code) => {
-                            patch({ air: [...(draft.air || []), code] });
-                            setAddAir(false);
-                        }, onClose: () => setAddAir(false) })) : (React.createElement("button", { className: "link-btn", onClick: () => setAddAir(true) }, "\uFF0B \u0430\u0432\u0438\u0430\u043A\u043E\u043C\u043F\u0430\u043D\u0438\u044F")))))),
-            country && whenReady && !editWhen && (React.createElement("div", { className: "step" },
-                React.createElement("p", { className: "step-title" }, "\u041A\u0442\u043E \u0435\u0437\u0434\u0438\u043B"),
-                React.createElement("div", { className: "city-chips" },
-                    React.createElement("span", { className: "city-chip me-chip" +
-                            ((draft.who || []).includes(ME) ? " who-on" : " who-off") },
-                        "\u042F",
-                        React.createElement("button", { onClick: () => patch((draft.who || []).includes(ME)
-                                ? {
-                                    who: (draft.who || []).filter((x) => x !== ME),
-                                    left: [
-                                        ...new Set([...(draft.left || []), meId]),
-                                    ],
-                                }
-                                : {
-                                    who: [ME, ...(draft.who || [])],
-                                    left: (draft.left || []).filter((x) => x !== meId),
-                                }) }, (draft.who || []).includes(ME) ? "✕" : "＋"))),
-                othersOf(draft).length > 0 && (React.createElement("div", { className: "city-chips" }, othersOf(draft).map((n) => {
-                    const p = people.find((x) => x.id === n || x.name === n);
-                    return (React.createElement("span", { key: n, className: "city-chip who-on" },
-                        p ? p.name : n,
-                        p && React.createElement("i", null, p.role),
-                        React.createElement("button", { onClick: () => patch({
-                                who: (draft.who || []).filter((x) => x !== n),
-                            }) }, "\u2715")));
-                }))),
-                people.length === 0 && !(draft.who || []).length && !addWho && (React.createElement("p", { className: "hint small" }, "\u041F\u043E\u043A\u0430 \u043D\u0438\u043A\u043E\u0433\u043E \u043D\u0435\u0442. \u0414\u043E\u0431\u0430\u0432\u044C\u0442\u0435 \u0443\u0447\u0430\u0441\u0442\u043D\u0438\u043A\u0430 \u2014 \u043E\u043D \u0441\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u0441\u044F \u0432 \u043F\u0440\u043E\u0444\u0438\u043B\u0435 \u0438 \u0432 \u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0438\u0439 \u0440\u0430\u0437 \u0431\u0443\u0434\u0435\u0442 \u0432\u044B\u0431\u0438\u0440\u0430\u0442\u044C\u0441\u044F \u043D\u0430\u0436\u0430\u0442\u0438\u0435\u043C.")),
-                addWho ? (React.createElement("div", { ref: whoBox },
-                    React.createElement(Suggest, { placeholder: "\u041D\u0430\u0447\u043D\u0438\u0442\u0435 \u0432\u0432\u043E\u0434\u0438\u0442\u044C \u0438\u043C\u044F", pool: people
-                            .filter((p) => !(draft.who || []).includes(p.id))
-                            .map((p) => p.name), exclude: [], allowCustom: false, onAdd: (name) => {
-                            const p = people.find((x) => x.name === name);
-                            patch({
-                                who: [...(draft.who || []), p ? p.id : name],
-                            });
-                            setAddWho(false);
-                        } }))) : (React.createElement("button", { className: "link-btn", onClick: () => setAddWho(true) }, "\uFF0B \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0443\u0447\u0430\u0441\u0442\u043D\u0438\u043A\u0430")))),
-            country && whenReady && !editWhen && !rtStops && (React.createElement("div", { className: "step" },
-                React.createElement(React.Fragment, null,
-                    React.createElement("p", { className: "step-title" }, "\u0413\u0434\u0435 \u0436\u0438\u043B\u0438"),
-                    draft.hotels.length > 0 && (React.createElement("div", { className: "hotel-rows" }, draft.hotels.map((h, i) => hotelCard(h, i, (p) => patch({ hotels: draft.hotels.map((x, n) => (n === i ? { ...x, ...p } : x)) }), () => patch({ hotels: draft.hotels.filter((_, n) => n !== i) }), draft.cities)))),
-                    addHotel === true ? (React.createElement(Suggest, { placeholder: "\u041D\u0430\u0447\u043D\u0438\u0442\u0435 \u0432\u0432\u043E\u0434\u0438\u0442\u044C \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u0435", pool: knownHotels, exclude: draft.hotels.map((h) => h.name), onAdd: (name) => {
-                            const city = draft.cities.length === 1 ? draft.cities[0] : "";
-                            patch({ hotels: [...draft.hotels, { name, stars: 0, note: "", ...(city ? { city } : {}) }] });
-                            setAddHotel(false);
-                        } })) : (React.createElement("button", { className: "link-btn", onClick: () => setAddHotel(true) }, draft.hotels.length ? "＋ ещё отель" : "＋ отель"))))),
-            country && whenReady && !editWhen && (React.createElement(PhotoBlock, { box: box, country: country, trip: draft, onChange: (p) => patch(p), quality: quality, totalPhotos: totalPhotos })),
-            country && whenReady && !editWhen && rtStops && rtStops.some(({ s: st }) => (st.hotels || []).length) && (React.createElement("div", { className: "step" },
-                React.createElement("p", { className: "step-title" }, "\u0413\u0434\u0435 \u0436\u0438\u043B\u0438"),
-                React.createElement("div", { className: "htl-list" }, rtStops.flatMap(({ s: st, i }) => (st.hotels || []).map((h, j) => (React.createElement("div", { key: i + ":" + j, className: "htl-li" },
-                    React.createElement("span", { className: "htl-ic" }, "\uD83C\uDFE8"),
-                    React.createElement("span", { className: "htl-t" },
-                        React.createElement("b", null, h.name),
-                        React.createElement("em", null,
-                            st.name,
-                            h.note ? ` · ${h.note}` : "")),
-                    h.stars ? React.createElement("span", { className: "htl-st" }, "★".repeat(h.stars)) : null))))))),
-            React.createElement(Ask, { ask: ask, onClose: () => setAsk(null), box: box }),
-            mode === "edit" && (draft === null || draft === void 0 ? void 0 : draft.by) && draft.by !== ME && draft.by !== meId && (React.createElement("p", { className: "hint small trip-author" },
-                "\u0410\u0432\u0442\u043E\u0440 \u0437\u0430\u043F\u0438\u0441\u0438:",
-                " ",
-                ((_j = (people || []).find((c) => c.link === (draft === null || draft === void 0 ? void 0 : draft.by))) === null || _j === void 0 ? void 0 : _j.name) || "член семьи",
-                ". \u0423\u0434\u0430\u043B\u0438\u0442\u044C \u0435\u0451 \u0434\u043B\u044F \u0432\u0441\u0435\u0445 \u043C\u043E\u0436\u0435\u0442 \u0442\u043E\u043B\u044C\u043A\u043E \u0430\u0432\u0442\u043E\u0440, \u0432\u044B \u043C\u043E\u0436\u0435\u0442\u0435 \u0441\u043A\u0440\u044B\u0442\u044C \u0435\u0451 \u0443 \u0441\u0435\u0431\u044F.")),
-            country && whenReady && !editWhen && (React.createElement("div", { className: "edit-actions" },
-                mode === "edit" && onMergeWith && draft.id && (React.createElement("button", { className: "act merge", "aria-label": "\u041E\u0431\u044A\u0435\u0434\u0438\u043D\u0438\u0442\u044C \u0441 \u0434\u0440\u0443\u0433\u043E\u0439 \u043F\u043E\u0435\u0437\u0434\u043A\u043E\u0439", onClick: () => {
-                        const t = (visits[draft.a3] || []).find((x) => x.id === draft.id);
-                        if (t) {
-                            close();
-                            onMergeWith(draft.a3, t);
-                        }
-                    } },
-                    React.createElement("svg", { viewBox: "0 0 24 24", width: "22", height: "22" },
-                        React.createElement("path", { d: "M6 4v5a6 6 0 0 0 6 6h0a6 6 0 0 1 6 6v0M18 4v5a6 6 0 0 1-3 5.2", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round" }),
-                        React.createElement("path", { d: "M3 7l3-3 3 3M15 7l3-3 3 3", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round" })))),
-                mode === "edit" && onRemove && draft.id && (React.createElement("button", { className: "act del", "aria-label": "\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u043F\u043E\u0435\u0437\u0434\u043A\u0443", onClick: () => {
-                        const foreign = draft.by && draft.by !== ME && draft.by !== meId;
-                        setAsk({
-                            title: foreign ? "Скрыть поездку у себя?" : "Удалить поездку?",
-                            text: `${country.name}, ${tripLabel(draft)}${(draft.photos || []).length
-                                ? ` · снимков: ${draft.photos.length}`
-                                : ""}. ${foreign
-                                ? "Поездку добавил другой член семьи: у вас она исчезнет, у остальных останется."
-                                : "Отменить будет нельзя; у семьи поездка тоже удалится при следующем обмене."}`,
-                            yes: foreign ? "Скрыть" : "Удалить",
-                            onYes: () => {
-                                onRemove(draft.a3, draft.id);
-                                close();
-                            },
-                        });
-                    } },
-                    React.createElement("svg", { viewBox: "0 0 24 24", width: "22", height: "22" },
-                        React.createElement("path", { d: "M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round" })))),
-                React.createElement("button", { className: "act ok", onClick: () => {
-                        onSave(draft.a3, {
-                            move: draft.move || null,
-                            air: draft.move === "air" ? draft.air || [] : [],
-                            dep: draft.dep || null,
-                            y: draft.y,
-                            m: draft.m || null,
-                            y2: draft.approx ? draft.y2 || draft.y : null,
-                            approx: !!draft.approx,
-                            from: draft.from || "",
-                            to: draft.to || "",
-                            who: draft.who || [],
-                            regions: draft.regions || [],
-                            plan: !!draft.plan,
-                            id: draft.id || uid(),
-                            at: Date.now(),
-                            by: draft.by || meId,
-                            cities: draft.cities,
-                            hotels: draft.cities.length === 1
-                                ? draft.hotels.map((h) => (h.city ? h : { ...h, city: draft.cities[0] }))
-                                : draft.hotels,
-                            ...(draft.route ? { route: draft.route, also: draft.also || [] } : {}),
-                            photos: draft.photos || [],
-                        });
-                        close();
-                    }, "aria-label": "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C" },
-                    React.createElement("svg", { viewBox: "0 0 24 24", width: "24", height: "24" },
-                        React.createElement("path", { d: "M5 12.5l4.5 4.5L19 7.5", fill: "none", stroke: "currentColor", strokeWidth: "2.2", strokeLinecap: "round", strokeLinejoin: "round" })),
-                    React.createElement("span", null, "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C"))))));
-    }));
-}
 /* шторка: профиль — вы и ваши данные */
 /* дом: город из справочника или точка по геолокации */
 function HomePicker({ home, onHome }) {
@@ -7610,14 +7111,14 @@ function routeMembers(route) {
         if (!m) {
             out.set(s.a3, {
                 a3: s.a3,
-                cities: [s.name],
+                cities: s.country ? [] : [s.name], // точка «страна целиком» — без города (42.36)
                 move: leg.k || null,
                 air: [...(leg.air || [])],
                 dep: prev && prev.name ? { a3: prev.a3 || "", name: prev.name, lat: prev.lat, lon: prev.lon } : null,
             });
         }
         else {
-            if (!m.cities.includes(s.name))
+            if (!s.country && !m.cities.includes(s.name))
                 m.cities.push(s.name);
             (leg.air || []).forEach((c) => !m.air.includes(c) && m.air.push(c));
             if (!m.move && leg.k)
@@ -7675,7 +7176,7 @@ function routeStopHotels(route, a3) {
             if (seen.has(k))
                 return;
             seen.add(k);
-            out.push({ ...h, city: s.name });
+            out.push({ ...h, city: s.country ? "" : s.name });
         });
     });
     return out;
@@ -7729,9 +7230,10 @@ function routeFromTrips(chain, homePt) {
     r.legs = [];
     chain.forEach(({ a3, t }) => {
         var _d;
-        const names = (t.cities || []).length ? t.cities : [((_d = BY_A3[a3]) === null || _d === void 0 ? void 0 : _d.name) || a3];
+        const whole = !(t.cities || []).length;
+        const names = whole ? [((_d = BY_A3[a3]) === null || _d === void 0 ? void 0 : _d.name) || a3] : t.cities;
         names.forEach((n, j) => {
-            r.stops.push({ ...routePoint(a3, n), tr: 0 });
+            r.stops.push({ ...routePoint(a3, whole ? null : n), name: n, tr: 0, ...(whole ? { country: true } : {}) });
             r.legs.push(j === 0 ? { k: t.move || null, air: [...(t.air || [])] } : { k: null, air: [] });
         });
     });
@@ -7841,257 +7343,6 @@ const routeTextShort = (r) => {
         .filter(Boolean)
         .join(" → ");
 };
-/* шторка «Маршрут»: откуда → точки по порядку → обратно */
-function RouteSheet({ open, onClose, box, initial, homePt, since, onSave, onUnpack, visits = {}, onOpenMember }) {
-    const [r, setR] = useState(null);
-    const [editWhen, setEditWhen] = useState(false);
-    const [adding, setAdding] = useState(false);
-    const [airFor, setAirFor] = useState(null);
-    const [hotFor, setHotFor] = useState(null); // точка, для которой открыт выбор отеля
-    const [hotEdit, setHotEdit] = useState(null); // "точка:отель" — звёзды и «убрать»
-    const [pickStart, setPickStart] = useState(false);
-    const [ask, setAsk] = useState(null);
-    const [pickTrip, setPickTrip] = useState(false);
-    const [extra, setExtra] = useState([]); // уже записанные поездки, влитые в маршрут
-    const planTouched = useRef(false);
-    useEffect(() => {
-        if (!open)
-            return;
-        setPickTrip(false);
-        setExtra([]);
-        const base = initial ? JSON.parse(JSON.stringify(initial)) : blankRoute(homePt);
-        if (!base.start)
-            base.start = homePt || null;
-        setR(base);
-        setEditWhen(!base.y);
-        setAdding(!base.stops.length);
-        setAirFor(null);
-        setHotFor(null);
-        setHotEdit(null);
-        setPickStart(false);
-        planTouched.current = !!initial;
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [open]);
-    const patch = (p) => setR((d) => {
-        const next = { ...d, ...p };
-        if (!planTouched.current && ("y" in p || "m" in p || "from" in p)) {
-            const a = dParts(next.from);
-            const y = next.y || 0;
-            const m = next.m || 12;
-            next.plan = a ? new Date(a.y, a.m - 1, a.d) > NOW : y > NOW.getFullYear() || (y === NOW.getFullYear() && m > NOW.getMonth() + 1);
-        }
-        return next;
-    });
-    const setLeg = (i, p) => setR((d) => ({ ...d, legs: d.legs.map((L, n) => (n === i ? { ...L, ...p } : L)) }));
-    const setHotel = (i, j, p) => setR((d) => ({
-        ...d,
-        stops: d.stops.map((s, n) => (n === i ? { ...s, hotels: (s.hotels || []).map((h, m) => (m === j ? { ...h, ...p } : h)) } : s)),
-    }));
-    const setStop = (i, p) => setR((d) => ({ ...d, stops: d.stops.map((s, n) => (n === i ? { ...s, ...p } : s)) }));
-    const move = (i, dir) => setR((d) => {
-        const st = d.stops.slice();
-        const j = i + dir;
-        if (j < 0 || j >= st.length)
-            return d;
-        [st[i], st[j]] = [st[j], st[i]];
-        return { ...d, stops: st };
-    });
-    const drop = (i) => setR((d) => ({ ...d, stops: d.stops.filter((_, n) => n !== i), legs: d.legs.filter((_, n) => n !== i) }));
-    const add = (c) => setR((d) => {
-        var _d, _e;
-        const legs = d.legs.slice();
-        // новый перегон встаёт перед обратным; по умолчанию — как предыдущий
-        const prevK = ((_d = legs[legs.length - 2]) === null || _d === void 0 ? void 0 : _d.k) || ((_e = legs[legs.length - 1]) === null || _e === void 0 ? void 0 : _e.k) || null;
-        legs.splice(legs.length - 1, 0, { k: d.stops.length ? null : prevK, air: [] });
-        return { ...d, stops: [...d.stops, { name: c.name, a3: c.a3, lat: c.lat, lon: c.lon, tr: 0 }], legs };
-    });
-    /* уже записанная поездка: её города встают точками, сама она вливается в маршрут */
-    const addTrip = ({ a3, t }) => {
-        setR((d) => {
-            var _d;
-            const names = (t.cities || []).length ? t.cities : [((_d = BY_A3[a3]) === null || _d === void 0 ? void 0 : _d.name) || a3];
-            const legs = d.legs.slice();
-            const stops = d.stops.slice();
-            names.forEach((n, j) => {
-                stops.push({ ...routePoint(a3, n), tr: 0 });
-                legs.splice(legs.length - 1, 0, j === 0 ? { k: t.move || null, air: [...(t.air || [])] } : { k: null, air: [] });
-            });
-            let out = { ...d, stops, legs };
-            if (!d.stops.length && t.y)
-                Object.assign(out, { y: t.y, m: t.m || null, from: t.from || "", to: t.to || "" });
-            out = routeAttachHotels(out, a3, t.hotels || []);
-            return out;
-        });
-        setExtra((e) => [...e, { a3, id: t.id }]);
-        setPickTrip(false);
-    };
-    if (!open)
-        return null;
-    const ready = r && r.start && r.stops.length > 0 && r.y && (!r.approx || r.y2);
-    const members = r ? routeMembers(r) : new Map();
-    const saved = !!r && Object.values(visits).some((arr) => (arr || []).some((t) => { var _d; return ((_d = t.route) === null || _d === void 0 ? void 0 : _d.id) === r.id; }));
-    const count = {};
-    ((r === null || r === void 0 ? void 0 : r.legs) || []).forEach((L) => (count[L.k || "none"] = (count[L.k || "none"] || 0) + 1));
-    const legRow = (i, last) => {
-        var _d, _e;
-        const L = r.legs[i] || {};
-        const st = last ? null : r.stops[i];
-        const hs = (st && st.hotels) || [];
-        const col = ((_d = MOVE_KINDS.find((m) => m.id === L.k)) === null || _d === void 0 ? void 0 : _d.color) || "#5d7891";
-        return (React.createElement("div", { className: "rt-leg" + (L.k ? "" : " none"), style: { "--c": col }, key: "l" + i },
-            React.createElement("div", { className: "rt-moves" },
-                MOVES.map((m) => (React.createElement("button", { key: m.id, className: "rt-mv" + (L.k === m.id ? " on" : ""), onClick: () => setLeg(i, { k: L.k === m.id ? null : m.id, air: m.id === "air" ? L.air || [] : [] }), "aria-label": m.name }, m.icon))),
-                L.k === "air" &&
-                    ((L.air || []).length ? (React.createElement("button", { className: "rt-air", onClick: () => setAirFor(airFor === i ? null : i) },
-                        React.createElement(AirMark, { code: L.air[0] }),
-                        ((_e = airInfo(L.air[0])) === null || _e === void 0 ? void 0 : _e.name) || L.air[0])) : (React.createElement("button", { className: "link-btn rt-air-add", onClick: () => setAirFor(airFor === i ? null : i) }, "\uFF0B \u0430\u0432\u0438\u0430\u043A\u043E\u043C\u043F\u0430\u043D\u0438\u044F"))),
-                !last &&
-                    st &&
-                    st.tr !== 2 &&
-                    (hs.length ? (hs.map((h, j) => (React.createElement("button", { key: j, className: "rt-hotel" + (hotEdit === i + ":" + j ? " on" : ""), onClick: () => setHotEdit(hotEdit === i + ":" + j ? null : i + ":" + j) },
-                        React.createElement("span", null, "\uD83C\uDFE8"),
-                        h.name,
-                        h.stars ? React.createElement("b", null,
-                            "\u2605",
-                            h.stars) : null)))) : (React.createElement("button", { className: "rt-mv rt-htl" + (hotFor === i ? " on" : ""), onClick: () => {
-                            setHotFor(hotFor === i ? null : i);
-                            setAirFor(null);
-                        }, "aria-label": "\u041E\u0442\u0435\u043B\u044C" }, "\uD83C\uDFE8"))),
-                last && React.createElement("em", { className: "rt-back" }, "\u043E\u0431\u0440\u0430\u0442\u043D\u043E")),
-            airFor === i && (React.createElement(AirPicker, { exclude: [], onAdd: (code) => {
-                    setLeg(i, { air: [code] });
-                    setAirFor(null);
-                }, onClose: () => setAirFor(null) })),
-            hs.map((h, j) => hotEdit === i + ":" + j ? (React.createElement("div", { className: "rt-hedit", key: "e" + j },
-                React.createElement("span", { className: "rt-hedit-n" }, h.name),
-                React.createElement(Stars, { value: h.stars || 0, onPick: (stars) => setHotel(i, j, { stars }) }),
-                React.createElement("input", { className: "hotel-note", value: h.note || "", placeholder: "\u0417\u0430\u043C\u0435\u0442\u043A\u0430: \u0447\u0442\u043E \u043F\u043E\u043D\u0440\u0430\u0432\u0438\u043B\u043E\u0441\u044C, \u043D\u043E\u043C\u0435\u0440, \u0432\u0438\u0434", onChange: (e) => setHotel(i, j, { note: e.target.value }), autoComplete: "off", autoCorrect: "off", "data-lpignore": "true" }),
-                React.createElement("button", { className: "link-btn rt-hdel", onClick: () => {
-                        setStop(i, { hotels: hs.filter((_, n) => n !== j) });
-                        setHotEdit(null);
-                    } }, "\u0443\u0431\u0440\u0430\u0442\u044C"))) : null),
-            hotFor === i ? (React.createElement("div", { className: "rt-hpick" },
-                React.createElement("p", { className: "rt-hpick-t" },
-                    "\u041E\u0442\u0435\u043B\u044C \u00B7 ",
-                    st.name),
-                React.createElement(Suggest, { placeholder: "\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u043E\u0442\u0435\u043B\u044F", pool: hotelPool(visits, st.name), exclude: hs.map((h) => h.name), onAdd: (name) => {
-                        setStop(i, { hotels: [...hs, { name, stars: HOTEL_CAT[name] || 0, note: "" }] });
-                        setHotFor(null);
-                    } }),
-                React.createElement("button", { className: "link-btn", onClick: () => setHotFor(null) }, "\u043E\u0442\u043C\u0435\u043D\u0430"))) : (!last &&
-                hs.length > 0 && (React.createElement("button", { className: "link-btn rt-hadd", onClick: () => {
-                    setHotFor(i);
-                    setHotEdit(null);
-                } }, "\uFF0B \u043E\u0442\u0435\u043B\u044C")))));
-    };
-    return (React.createElement(Sheet, { open: open, onClose: onClose, box: box, title: "\u041C\u0430\u0440\u0448\u0440\u0443\u0442" }, (close) => {
-        var _d, _e, _f, _g;
-        return r && (React.createElement("div", { className: "sheet-body rt-body" },
-            editWhen ? (React.createElement("div", { className: "step" },
-                React.createElement("p", { className: "step-title" }, "\u041A\u043E\u0433\u0434\u0430 \u044D\u0442\u043E \u0431\u044B\u043B\u043E"),
-                React.createElement(WhenPicker, { y: r.y, m: r.m, y2: r.y2, approx: r.approx, from: r.from, to: r.to, since: since, onChange: (p) => patch(p) }),
-                React.createElement("button", { className: "cta slim", onClick: () => r.y && setEditWhen(false) }, "\u0413\u043E\u0442\u043E\u0432\u043E"))) : (React.createElement(Done, { label: "\u041A\u043E\u0433\u0434\u0430", value: r.y ? tripLabel(r) : "", onEdit: () => setEditWhen(true) })),
-            React.createElement("p", { className: "step-title rt-title" }, "\u041E\u0442\u043A\u0443\u0434\u0430"),
-            React.createElement("div", { className: "rt-stop home" },
-                React.createElement("i", { className: "rt-dot home" }),
-                React.createElement("b", null,
-                    ((_d = r.start) === null || _d === void 0 ? void 0 : _d.name) || "не указано",
-                    React.createElement("em", null, ((_e = r.start) === null || _e === void 0 ? void 0 : _e.a3) ? ((_f = BY_A3[r.start.a3]) === null || _f === void 0 ? void 0 : _f.name) || "" : "дом")),
-                React.createElement("button", { className: "link-btn", onClick: () => setPickStart(!pickStart) }, "\u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C")),
-            pickStart && (React.createElement(CityPointPicker, { placeholder: "\u041E\u0442\u043A\u0443\u0434\u0430 \u0432\u044B\u0435\u0437\u0436\u0430\u043B\u0438", onClose: () => setPickStart(false), onPick: (c) => {
-                    patch({ start: { name: c.name, a3: c.a3, lat: c.lat, lon: c.lon } });
-                    setPickStart(false);
-                } })),
-            React.createElement("p", { className: "step-title rt-title" }, "\u0422\u043E\u0447\u043A\u0438 \u043F\u043E \u043F\u043E\u0440\u044F\u0434\u043A\u0443"),
-            !r.stops.length && (React.createElement("p", { className: "hint small" }, "\u0414\u043E\u0431\u0430\u0432\u044C\u0442\u0435 \u0433\u043E\u0440\u043E\u0434\u0430 \u0432 \u0442\u043E\u043C \u043F\u043E\u0440\u044F\u0434\u043A\u0435, \u043A\u0430\u043A \u0435\u0445\u0430\u043B\u0438. \u0414\u0430\u0442\u044B \u043D\u0435 \u043E\u0431\u044F\u0437\u0430\u0442\u0435\u043B\u044C\u043D\u044B \u2014 \u043F\u043E\u0440\u044F\u0434\u043E\u043A \u0437\u0430\u0434\u0430\u0451\u0442\u0435 \u0432\u044B. \u041C\u0435\u0436\u0434\u0443 \u0442\u043E\u0447\u043A\u0430\u043C\u0438 \u0432\u044B\u0431\u0435\u0440\u0438\u0442\u0435, \u043D\u0430 \u0447\u0451\u043C \u0434\u043E\u0431\u0438\u0440\u0430\u043B\u0438\u0441\u044C.")),
-            r.stops.map((s, i) => {
-                var _d;
-                return (React.createElement(React.Fragment, { key: "s" + i },
-                    legRow(i),
-                    React.createElement("div", { className: "rt-stop" + (s.tr ? " tr" : "") },
-                        React.createElement("i", { className: "rt-dot" + (s.tr === 2 ? " air" : s.tr === 1 ? " out" : "") }),
-                        React.createElement("b", null,
-                            s.name,
-                            React.createElement("em", null,
-                                ((_d = BY_A3[s.a3]) === null || _d === void 0 ? void 0 : _d.name) || s.a3,
-                                s.tr === 2 ? " · страна не засчитается" : "")),
-                        React.createElement("span", { className: "rt-tools" },
-                            React.createElement("button", { onClick: () => move(i, -1), disabled: !i, "aria-label": "\u0412\u044B\u0448\u0435" }, "\u2191"),
-                            React.createElement("button", { onClick: () => move(i, 1), disabled: i === r.stops.length - 1, "aria-label": "\u041D\u0438\u0436\u0435" }, "\u2193"),
-                            React.createElement("button", { onClick: () => drop(i), "aria-label": "\u0423\u0431\u0440\u0430\u0442\u044C \u0442\u043E\u0447\u043A\u0443" }, "\u2715"))),
-                    React.createElement("div", { className: "rt-trrow" },
-                        React.createElement("button", { className: "rt-tr", onClick: () => setStop(i, { tr: s.tr ? 0 : 1 }) },
-                            React.createElement("span", { className: "switch" + (s.tr ? " on" : "") },
-                                React.createElement("i", null)),
-                            "\u043F\u0435\u0440\u0435\u0441\u0430\u0434\u043A\u0430"),
-                        s.tr > 0 && (React.createElement("span", { className: "rt-out" },
-                            React.createElement("button", { className: s.tr === 1 ? "on" : "", onClick: () => setStop(i, { tr: 1 }) }, "\u0432\u044B\u0445\u043E\u0434\u0438\u043B\u0438 \u0432 \u0433\u043E\u0440\u043E\u0434"),
-                            React.createElement("button", { className: s.tr === 2 ? "on" : "", onClick: () => setStop(i, { tr: 2 }) }, "\u0442\u043E\u043B\u044C\u043A\u043E \u0430\u044D\u0440\u043E\u043F\u043E\u0440\u0442"))))));
-            }),
-            r.stops.length > 0 && (React.createElement(React.Fragment, null,
-                legRow(r.legs.length - 1, true),
-                React.createElement("div", { className: "rt-stop home" },
-                    React.createElement("i", { className: "rt-dot home" }),
-                    React.createElement("b", null, (_g = r.start) === null || _g === void 0 ? void 0 :
-                        _g.name,
-                        React.createElement("em", null, "\u0432\u0435\u0440\u043D\u0443\u043B\u0438\u0441\u044C \u0434\u043E\u043C\u043E\u0439"))))),
-            adding ? (React.createElement(CityPointPicker, { placeholder: "\u0413\u043E\u0440\u043E\u0434 \u0438\u043B\u0438 \u0441\u0442\u0440\u0430\u043D\u0430", onClose: () => setAdding(false), onPick: (c) => {
-                    add(c);
-                    setAdding(false);
-                } })) : (React.createElement("button", { className: "link-btn rt-add", onClick: () => setAdding(true) }, "\uFF0B \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0442\u043E\u0447\u043A\u0443")),
-            pickTrip ? (React.createElement(TripInlinePick, { visits: visits, at: r.from || r.y ? tripAt(r) : Date.now(), exclude: [
-                    ...extra.map((x) => x.id),
-                    ...Object.values(visits).flatMap((arr) => (arr || []).filter((t) => { var _d; return ((_d = t.route) === null || _d === void 0 ? void 0 : _d.id) === r.id; }).map((t) => t.id)),
-                ], onPick: addTrip, onClose: () => setPickTrip(false) })) : (React.createElement("button", { className: "link-btn rt-add rt-add-trip", onClick: () => setPickTrip(true) }, "\uFF0B \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0443\u0436\u0435 \u0437\u0430\u043F\u0438\u0441\u0430\u043D\u043D\u0443\u044E \u043F\u043E\u0435\u0437\u0434\u043A\u0443")),
-            r.stops.length > 0 && !saved && (React.createElement(React.Fragment, null,
-                React.createElement("div", { className: "rt-sum" },
-                    "\u0421\u0442\u0440\u0430\u043D\u044B:",
-                    " ",
-                    [...members.keys()].map((a3) => { var _d; return `${flagText(a3) ? flagText(a3) + " " : ""}${((_d = BY_A3[a3]) === null || _d === void 0 ? void 0 : _d.name) || a3}`; }).join(", ") ||
-                        "—",
-                    React.createElement("em", null,
-                        np(r.legs.length, "leg"),
-                        ":",
-                        " ",
-                        [...MOVE_KINDS.map((m) => m.id), "none"]
-                            .filter((k) => count[k])
-                            .map((k) => (k === "none" ? `не указано ${count[k]}` : `${MOVE_ICON[k]} ${count[k]}`))
-                            .join(" · "))))),
-            initial && onOpenMember && (React.createElement(React.Fragment, null,
-                React.createElement("p", { className: "step-title rt-title" }, "\u041F\u043E\u0434\u0440\u043E\u0431\u043D\u043E\u0441\u0442\u0438 \u043F\u043E \u0441\u0442\u0440\u0430\u043D\u0430\u043C"),
-                Object.entries(visits)
-                    .flatMap(([a3, arr]) => (arr || []).filter((t) => { var _d; return ((_d = t.route) === null || _d === void 0 ? void 0 : _d.id) === r.id; }).map((t) => ({ a3, t })))
-                    .map(({ a3, t }) => {
-                    var _d;
-                    return (React.createElement("button", { key: t.id, className: "mg-cand", onClick: () => { close(); onOpenMember(a3, t.id); } },
-                        React.createElement("span", { className: "fl" },
-                            React.createElement(Flg, { a3: a3 })),
-                        React.createElement("span", { className: "mg-cand-t" },
-                            ((_d = BY_A3[a3]) === null || _d === void 0 ? void 0 : _d.name) || a3,
-                            React.createElement("em", null,
-                                (t.cities || []).join(", "),
-                                (t.hotels || []).length ? ` · отелей ${t.hotels.length}` : "",
-                                (t.photos || []).length ? ` · снимков ${t.photos.length}` : "")),
-                        React.createElement("span", { className: "mg-tag" }, "\u0441\u043D\u0438\u043C\u043A\u0438, \u043A\u0442\u043E \u0435\u0437\u0434\u0438\u043B \u203A")));
-                }))),
-            onUnpack && saved && (React.createElement("button", { className: "link-btn rt-unpack", onClick: () => setAsk({
-                    title: "Разобрать маршрут?",
-                    text: "Маршрут станет отдельными поездками по странам. Отели и фото сохранятся.",
-                    yes: "Разобрать",
-                    onYes: () => {
-                        onUnpack(r);
-                        close();
-                    },
-                }) }, "\u2702 \u0420\u0430\u0437\u043E\u0431\u0440\u0430\u0442\u044C \u043C\u0430\u0440\u0448\u0440\u0443\u0442 \u043D\u0430 \u043E\u0442\u0434\u0435\u043B\u044C\u043D\u044B\u0435 \u043F\u043E\u0435\u0437\u0434\u043A\u0438")),
-            React.createElement(Ask, { ask: ask, onClose: () => setAsk(null), box: box }),
-            React.createElement("div", { className: "edit-actions" },
-                React.createElement("button", { className: "act ok", disabled: !ready, onClick: () => {
-                        onSave({ ...r, at: Date.now() }, extra);
-                        close();
-                    } },
-                    React.createElement("span", null, "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C \u043C\u0430\u0440\u0448\u0440\u0443\u0442")))));
-    }));
-}
 /* шторка «Собрать маршруты»: поездки, похожие на одно путешествие */
 function RoutesFindSheet({ open, onClose, box, list, onCollect, onDismiss }) {
     return (React.createElement(Sheet, { open: open, onClose: onClose, box: box, title: "\u0421\u043E\u0431\u0440\u0430\u0442\u044C \u043C\u0430\u0440\u0448\u0440\u0443\u0442\u044B" }, () => (React.createElement("div", { className: "sheet-body" },
@@ -8192,7 +7443,7 @@ function MergeSheet({ open, onClose, box, a3, list, onMerge }) {
     const chips = (key, opts, label, def) => opts.length > 1 && (React.createElement("div", { className: "mg-pick" }, opts.map((t) => (React.createElement("button", { key: t.id, className: (opt[key] || def) === t.id ? "on" : "", onClick: () => setOpt((o) => ({ ...o, [key]: t.id })) }, label(t))))));
     const c = BY_A3[a3];
     return (React.createElement(Sheet, { open: open, onClose: onClose, box: box, title: "\u041E\u0431\u044A\u0435\u0434\u0438\u043D\u0438\u0442\u044C \u043F\u043E\u0435\u0437\u0434\u043A\u0438" }, (close) => {
-        var _d, _e, _f, _g;
+        var _d, _e, _f, _h;
         return (React.createElement("div", { className: "sheet-body mg-body" },
             React.createElement("div", { className: "mg-head" },
                 flagText(a3),
@@ -8223,7 +7474,7 @@ function MergeSheet({ open, onClose, box, a3, list, onMerge }) {
                     React.createElement("i", null, "\u041E\u0442\u043A\u0443\u0434\u0430"),
                     React.createElement("div", null,
                         ((_f = res.dep) === null || _f === void 0 ? void 0 : _f.name) || "—",
-                        chips("dep", depOpts, (t) => { var _d; return ((_d = t.dep) === null || _d === void 0 ? void 0 : _d.name) || ""; }, (_g = ts.find((t) => t.dep)) === null || _g === void 0 ? void 0 : _g.id))),
+                        chips("dep", depOpts, (t) => { var _d; return ((_d = t.dep) === null || _d === void 0 ? void 0 : _d.name) || ""; }, (_h = ts.find((t) => t.dep)) === null || _h === void 0 ? void 0 : _h.id))),
                 React.createElement("div", { className: "mg-f" },
                     React.createElement("i", null, "\u041E\u0442\u0435\u043B\u0438"),
                     React.createElement("div", null,
@@ -8319,6 +7570,552 @@ function TripInlinePick({ visits, at, exclude = [], onPick, onClose }) {
                     (x.t.cities || [])[0] ? `${x.t.cities[0]} · ` : "",
                     tripLabel(x.t))));
         }))));
+}
+/* Атлас · 14c · единая карточка поездки (42.36).
+   Любая поездка — путь: откуда → точки по порядку → обратно. Простая поездка — путь из
+   одной точки, сложная — из нескольких (в том числе разных стран). Одна карточка на всё
+   путешествие: путь, даты, кто ездил, фото, отели. Хранение прежнее: по поездке на страну
+   (глобус, статистика, отчёты); путь из одной точки сохраняется обычной поездкой, путь из
+   нескольких — маршрутом (поле route в каждой поездке-стране). Старые поездки не
+   переделываются: показываются как путь, а в данных меняются только при правке. */
+/* перегоны одинаковые: тот же транспорт и перевозчик */
+const legSame = (a, b) => ((a === null || a === void 0 ? void 0 : a.k) || null) === ((b === null || b === void 0 ? void 0 : b.k) || null) && ((a === null || a === void 0 ? void 0 : a.air) || []).join(",") === ((b === null || b === void 0 ? void 0 : b.air) || []).join(",");
+/* город-государство: Гонконг, Макао, Сингапур — страна и город одно */
+const cityState = (a3) => (CITIES || []).some((c) => { var _d; return c.a3 === a3 && c.city === ((_d = BY_A3[a3]) === null || _d === void 0 ? void 0 : _d.name); });
+/* точка «страна целиком» */
+function countryPoint(a3) {
+    const c = BY_A3[a3];
+    const xy = distPoint(a3, null);
+    return { name: (c === null || c === void 0 ? void 0 : c.name) || a3, a3, lat: xy ? xy[1] : null, lon: xy ? xy[0] : null, tr: 0, country: true };
+}
+/* то, что меняет путь (для «правили ли путь») */
+const pathKey = (r) => {
+    var _d;
+    return JSON.stringify({
+        s: ((_d = r === null || r === void 0 ? void 0 : r.start) === null || _d === void 0 ? void 0 : _d.name) || "",
+        p: ((r === null || r === void 0 ? void 0 : r.stops) || []).map((s) => [s.name, s.a3, s.tr || 0, !!s.country, (s.hotels || []).map((h) => [h.name, h.stars || 0, h.note || ""])]),
+        l: ((r === null || r === void 0 ? void 0 : r.legs) || []).map((L) => [(L === null || L === void 0 ? void 0 : L.k) || null, ((L === null || L === void 0 ? void 0 : L.air) || []).join(",")]),
+    });
+};
+/* путь из одной точки, обратно тем же транспортом (или не указано) — это обычная поездка */
+const pathSimple = (r) => {
+    var _d;
+    return ((r === null || r === void 0 ? void 0 : r.stops) || []).length === 1 &&
+        !r.stops[0].tr &&
+        (r.legs || []).length === 2 &&
+        (legSame(r.legs[0], r.legs[1]) || !((_d = r.legs[1]) === null || _d === void 0 ? void 0 : _d.k));
+};
+/* открыть сохранённую поездку как путь: маршрут — целиком, обычную — из её городов */
+function journeyOf(visits, a3, id, homePt) {
+    var _d, _e;
+    const t = (visits[a3] || []).find((x) => x.id === id);
+    if (!t)
+        return null;
+    const owner = {};
+    if ((_e = (_d = t.route) === null || _d === void 0 ? void 0 : _d.stops) === null || _e === void 0 ? void 0 : _e.length) {
+        const r = routeAdopt(t.route, visits);
+        const members = {};
+        const photos = [];
+        Object.entries(visits).forEach(([b3, arr]) => (arr || []).forEach((x) => {
+            var _d;
+            if (((_d = x.route) === null || _d === void 0 ? void 0 : _d.id) !== r.id)
+                return;
+            members[b3] = x.id;
+            (x.photos || []).forEach((p) => {
+                if (owner[p.id])
+                    return;
+                owner[p.id] = b3;
+                photos.push(p);
+            });
+        }));
+        return { r, members, photos, owner, who: t.who || [], left: t.left || [], by: t.by || "", orig: { a3, id }, plain: false };
+    }
+    // обычная поездка → путь: откуда (город вылета или дом) → её города → обратно
+    const cities = t.cities || [];
+    const byCity = {};
+    const loose = [];
+    (t.hotels || []).forEach((h) => {
+        const c = h.city && cities.includes(h.city) ? h.city : null;
+        const { city: _c, ...rest } = h;
+        if (c)
+            (byCity[c] = byCity[c] || []).push(rest);
+        else
+            loose.push(rest);
+    });
+    const stops = cities.length
+        ? cities.map((c, i) => ({ ...routePoint(a3, c), name: c, tr: 0, hotels: [...(byCity[c] || []), ...(i === 0 ? loose : [])] }))
+        : [{ ...countryPoint(a3), hotels: loose }];
+    const go = { k: t.move || null, air: [...(t.air || [])] };
+    const legs = [go, ...stops.slice(1).map(() => ({ k: null, air: [] })), { ...go, air: [...go.air] }];
+    const dep = t.dep && t.dep.name ? { name: t.dep.name, a3: t.dep.a3 || "", lat: t.dep.lat, lon: t.dep.lon } : homePt || null;
+    const r = {
+        id: "r" + uid(),
+        hv: 1,
+        start: dep,
+        stops,
+        legs,
+        y: t.y,
+        m: t.m || null,
+        y2: t.y2 || null,
+        approx: !!t.approx,
+        from: t.from || "",
+        to: t.to || "",
+        plan: !!t.plan,
+    };
+    (t.photos || []).forEach((p) => (owner[p.id] = a3));
+    return { r, members: { [a3]: id }, photos: [...(t.photos || [])], owner, who: t.who || [], left: t.left || [], by: t.by || "", orig: { a3, id }, plain: true };
+}
+/* поиск «Куда»: города и страны */
+function PlacePick({ visits = {}, onPick, onClose, all = false, placeholder = "Город или страна" }) {
+    const [q, setQ] = useState("");
+    const s = q.trim().toLowerCase();
+    const found = useMemo(() => {
+        if (!s) {
+            if (!all)
+                return [];
+            return COUNTRIES.slice()
+                .sort((a, b) => a.name.localeCompare(b.name, "ru"))
+                .map((c) => ({ kind: "country", a3: c.a3, name: c.name }));
+        }
+        const out = [];
+        const seen = new Set();
+        Object.entries(CITY_PT).forEach(([a3, m]) => Object.keys(m).forEach((name) => {
+            if (name.toLowerCase().startsWith(s) && !seen.has(a3 + "|" + name)) {
+                seen.add(a3 + "|" + name);
+                out.push({ kind: "city", a3, name, r: 0 });
+            }
+        }));
+        (CITIES || []).forEach(({ a3, city }) => {
+            const n = city.toLowerCase();
+            if (!n.includes(s) || seen.has(a3 + "|" + city))
+                return;
+            seen.add(a3 + "|" + city);
+            out.push({ kind: "city", a3, name: city, r: n.startsWith(s) ? 1 : 2 });
+        });
+        const cities = out
+            .filter((x) => BY_A3[x.a3] && x.name.toLowerCase() !== (BY_A3[x.a3].name || "").toLowerCase())
+            .sort((a, b) => a.r - b.r || a.name.length - b.name.length || a.name.localeCompare(b.name, "ru"))
+            .slice(0, 8);
+        const countries = COUNTRIES.filter((c) => c.name.toLowerCase().includes(s) || c.a3.toLowerCase() === s)
+            .sort((a, b) => (a.name.toLowerCase().startsWith(s) ? 0 : 1) - (b.name.toLowerCase().startsWith(s) ? 0 : 1) || a.name.localeCompare(b.name, "ru"))
+            .map((c) => ({ kind: "country", a3: c.a3, name: c.name }));
+        return [...countries.slice(0, 4), ...cities, ...countries.slice(4)];
+    }, [s, all]);
+    const been = (x) => x.kind === "country" ? (visits[x.a3] || []).length > 0 : (visits[x.a3] || []).some((t) => (t.cities || []).includes(x.name));
+    return (React.createElement("div", { className: "pl-pick" },
+        React.createElement(TextField, { search: true, value: q, placeholder: placeholder, onChange: (e) => setQ(e.target.value), autoFocus: !all }),
+        all && !s && React.createElement("p", { className: "tf-hint" }, "\u041D\u0430\u043F\u0440\u0438\u043C\u0435\u0440: \u041F\u0445\u0443\u043A\u0435\u0442, \u042F\u043F\u043E\u043D\u0438\u044F, \u041F\u0440\u0430\u0433\u0430. \u0421\u0442\u0440\u0430\u043D\u0443 \u043C\u043E\u0436\u043D\u043E \u0432\u044B\u0431\u0440\u0430\u0442\u044C \u0446\u0435\u043B\u0438\u043A\u043E\u043C"),
+        onClose && (React.createElement("button", { className: "link-btn pl-cancel", onClick: onClose }, "\u043E\u0442\u043C\u0435\u043D\u0430")),
+        found.length > 0 && (React.createElement("div", { className: "sheet-list inline-list" }, found.map((x) => {
+            var _d, _e;
+            return (React.createElement("button", { key: x.kind + x.a3 + x.name, className: "opt" + (been(x) ? " opt-on" : ""), onClick: () => onPick(x) },
+                React.createElement("span", { className: "fl" },
+                    React.createElement(Flg, { a3: x.a3 })),
+                React.createElement("span", { className: "nm" },
+                    x.name,
+                    x.kind === "city" && React.createElement("em", { className: "via" },
+                        " \u00B7 ",
+                        ((_d = BY_A3[x.a3]) === null || _d === void 0 ? void 0 : _d.name) || x.a3)),
+                React.createElement("span", { className: "ct" }, x.kind === "city" ? "город" : CONTINENTS[(_e = BY_A3[x.a3]) === null || _e === void 0 ? void 0 : _e.cont] || "страна")));
+        })))));
+}
+/* единая карточка поездки */
+function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onRemove, onMergeWith, mode, quality, since, people = [], meId = ME }) {
+    const totalPhotos = useMemo(() => {
+        let k = 0;
+        Object.values(visits).forEach((arr) => arr.forEach((t) => (k += (t.photos || []).length)));
+        return k;
+    }, [visits]);
+    const [r, setR] = useState(null);
+    const [jr, setJr] = useState(null); // who, left, by, photos, owner, members, orig, plain
+    const [editWhen, setEditWhen] = useState(false);
+    const [pathOpen, setPathOpen] = useState(true);
+    const [adding, setAdding] = useState(false);
+    const [airFor, setAirFor] = useState(null);
+    const [hotFor, setHotFor] = useState(null);
+    const [hotEdit, setHotEdit] = useState(null);
+    const [pickStart, setPickStart] = useState(false);
+    const [pickTrip, setPickTrip] = useState(false);
+    const [addWho, setAddWho] = useState(false);
+    const [extra, setExtra] = useState([]); // уже записанные поездки, влитые в путь
+    const [ask, setAsk] = useState(null);
+    const planTouched = useRef(false);
+    const origKey = useRef("");
+    const whoBox = useRef(null);
+    useEffect(() => {
+        if (!addWho)
+            return;
+        const outside = (e) => {
+            if (whoBox.current && !whoBox.current.contains(e.target))
+                setAddWho(false);
+        };
+        const id = setTimeout(() => document.addEventListener("pointerdown", outside), 0);
+        return () => {
+            clearTimeout(id);
+            document.removeEventListener("pointerdown", outside);
+        };
+    }, [addWho]);
+    const srcKey = initial ? initial.key || `${initial.a3}:${initial.id}` : "new";
+    useEffect(() => {
+        if (!open) {
+            setR(null);
+            setJr(null);
+            return;
+        }
+        setEditWhen(false);
+        setAdding(false);
+        setAirFor(null);
+        setHotFor(null);
+        setHotEdit(null);
+        setPickStart(false);
+        setPickTrip(false);
+        setAddWho(false);
+        setExtra([]);
+        let j = null;
+        if (initial === null || initial === void 0 ? void 0 : initial.route) {
+            // собрать поездки в один путь («Собрать маршруты», выбор нескольких стран)
+            const r0 = routeAdopt(JSON.parse(JSON.stringify(initial.route)), visits, initial.src || []);
+            const photos = [];
+            const owner = {};
+            const members = {};
+            (initial.src || []).forEach(({ a3, id }) => {
+                const t = (visits[a3] || []).find((x) => x.id === id);
+                if (!t)
+                    return;
+                if (!members[a3])
+                    members[a3] = id;
+                (t.photos || []).forEach((p) => {
+                    if (owner[p.id])
+                        return;
+                    owner[p.id] = a3;
+                    photos.push(p);
+                });
+            });
+            const t0 = (initial.src || []).map(({ a3, id }) => (visits[a3] || []).find((x) => x.id === id)).find(Boolean);
+            j = { r: r0, members, photos, owner, who: (t0 === null || t0 === void 0 ? void 0 : t0.who) || [], left: (t0 === null || t0 === void 0 ? void 0 : t0.left) || [], by: (t0 === null || t0 === void 0 ? void 0 : t0.by) || "", orig: null, plain: false, src: initial.src || [] };
+        }
+        else if (initial === null || initial === void 0 ? void 0 : initial.a3)
+            j = journeyOf(visits, initial.a3, initial.id, homePt);
+        if (j) {
+            setR(j.r);
+            setJr(j);
+            origKey.current = pathKey(j.r);
+            planTouched.current = true;
+            setPathOpen(!!(initial === null || initial === void 0 ? void 0 : initial.route) || !(j.r.stops || []).length);
+        }
+        else {
+            // новая поездка: сначала «Куда»
+            const b = blankRoute(homePt);
+            b.legs = [{ k: null, air: [] }];
+            setR(b);
+            setJr({
+                members: {},
+                photos: [],
+                owner: {},
+                who: [ME, ...people.filter((p) => p.always).map((p) => p.id)],
+                left: [],
+                by: "",
+                orig: null,
+                plain: false,
+            });
+            origKey.current = "";
+            planTouched.current = false;
+            setPathOpen(true);
+        }
+        // строим один раз: иначе правки затираются при каждой перерисовке
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open, srcKey]);
+    const patch = (p) => setR((d) => {
+        const next = { ...d, ...p };
+        if (!planTouched.current && ("y" in p || "m" in p || "from" in p)) {
+            const a = dParts(next.from);
+            const y = next.y || 0;
+            const m = next.m || 12;
+            next.plan = a ? new Date(a.y, a.m - 1, a.d) > NOW : y > NOW.getFullYear() || (y === NOW.getFullYear() && m > NOW.getMonth() + 1);
+        }
+        return next;
+    });
+    // туда сменили — обратно так же, пока обратный перегон не задан отдельно
+    const setLeg = (i, p) => setR((d) => {
+        const last = d.legs.length - 1;
+        const same = i === 0 && last > 0 && legSame(d.legs[0], d.legs[last]);
+        return { ...d, legs: d.legs.map((L, n) => (n === i || (same && n === last) ? { ...L, ...p } : L)) };
+    });
+    const setStop = (i, p) => setR((d) => ({ ...d, stops: d.stops.map((s, n) => (n === i ? { ...s, ...p } : s)) }));
+    const setHotel = (i, j, p) => setR((d) => ({
+        ...d,
+        stops: d.stops.map((s, n) => (n === i ? { ...s, hotels: (s.hotels || []).map((h, m) => (m === j ? { ...h, ...p } : h)) } : s)),
+    }));
+    const move = (i, dir) => setR((d) => {
+        const st = d.stops.slice();
+        const j = i + dir;
+        if (j < 0 || j >= st.length)
+            return d;
+        [st[i], st[j]] = [st[j], st[i]];
+        return { ...d, stops: st };
+    });
+    const drop = (i) => setR((d) => ({ ...d, stops: d.stops.filter((_, n) => n !== i), legs: d.legs.filter((_, n) => n !== i) }));
+    const addPlace = (x) => setR((d) => {
+        const pt = x.kind === "country" ? countryPoint(x.a3) : { ...routePoint(x.a3, x.name), name: x.name, tr: 0 };
+        const legs = d.legs.slice();
+        if (!d.stops.length) {
+            // первая точка (или замена единственной): транспорт, если был, сохраняется
+            const L = d.legs[0] && d.legs[0].k ? d.legs[0] : d.legs[d.legs.length - 1] || {};
+            const keep = { k: L.k || null, air: [...(L.air || [])] };
+            return { ...d, stops: [pt], legs: [keep, { ...keep, air: [...keep.air] }] };
+        }
+        legs.splice(legs.length - 1, 0, { k: null, air: [] });
+        return { ...d, stops: [...d.stops, pt], legs };
+    });
+    /* уже записанная поездка: её города встают точками, сама она вливается в путь */
+    const addTrip = ({ a3, t }) => {
+        setR((d) => {
+            var _d;
+            const whole = !(t.cities || []).length;
+            const names = whole ? [((_d = BY_A3[a3]) === null || _d === void 0 ? void 0 : _d.name) || a3] : t.cities;
+            const legs = d.legs.length ? d.legs.slice() : [{ k: null, air: [] }];
+            const stops = d.stops.slice();
+            names.forEach((n, j) => {
+                stops.push(whole ? countryPoint(a3) : { ...routePoint(a3, n), name: n, tr: 0 });
+                legs.splice(legs.length - 1, 0, j === 0 ? { k: t.move || null, air: [...(t.air || [])] } : { k: null, air: [] });
+            });
+            let out = { ...d, stops, legs };
+            if (!d.stops.length && t.y)
+                Object.assign(out, { y: t.y, m: t.m || null, from: t.from || "", to: t.to || "" });
+            out = routeAttachHotels(out, a3, t.hotels || []);
+            return out;
+        });
+        setJr((j) => {
+            const owner = { ...j.owner };
+            const photos = j.photos.slice();
+            (t.photos || []).forEach((p) => {
+                if (owner[p.id])
+                    return;
+                owner[p.id] = a3;
+                photos.push(p);
+            });
+            return { ...j, owner, photos };
+        });
+        setExtra((e) => [...e, { a3, id: t.id }]);
+        setPickTrip(false);
+    };
+    if (!open)
+        return null;
+    if (!r || !jr)
+        return (React.createElement(Sheet, { open: open, onClose: onClose, box: box, title: mode === "add" ? "Новая поездка" : "Поездка" }, () => React.createElement("div", { className: "sheet-body" })));
+    const stops = r.stops || [];
+    const countries = [...new Set(stops.filter((s) => s.tr !== 2 && s.a3).map((s) => s.a3))];
+    const title = countries.length ? countries.map((a3) => { var _d; return ((_d = BY_A3[a3]) === null || _d === void 0 ? void 0 : _d.name) || a3; }).join(" · ") : mode === "edit" ? "Поездка" : "Новая поездка";
+    const ready = stops.length > 0 && countries.length > 0 && r.y && (!r.approx || r.y2);
+    const allCities = [...new Set(stops.filter((s) => s.tr !== 2 && !s.country).map((s) => s.name))];
+    const allHotels = stops.flatMap((s) => (s.tr === 2 ? [] : (s.hotels || []).map((h) => ({ ...h, city: s.name }))));
+    const foreign = jr.by && jr.by !== ME && jr.by !== meId;
+    const whoD = { who: jr.who };
+    const legRow = (i, last) => {
+        var _d, _e;
+        const L = r.legs[i] || {};
+        const st = last ? null : stops[i];
+        const hs = (st && st.hotels) || [];
+        const col = ((_d = MOVE_KINDS.find((m) => m.id === L.k)) === null || _d === void 0 ? void 0 : _d.color) || "#5d7891";
+        return (React.createElement("div", { className: "rt-leg" + (L.k ? "" : " none"), style: { "--c": col }, key: "l" + i },
+            React.createElement("div", { className: "rt-moves" },
+                MOVES.map((m) => (React.createElement("button", { key: m.id, className: "rt-mv" + (L.k === m.id ? " on" : ""), onClick: () => setLeg(i, { k: L.k === m.id ? null : m.id, air: m.id === "air" ? L.air || [] : [] }), "aria-label": m.name }, m.icon))),
+                L.k === "air" &&
+                    ((L.air || []).length ? (React.createElement("button", { className: "rt-air", onClick: () => setAirFor(airFor === i ? null : i) },
+                        React.createElement(AirMark, { code: L.air[0] }),
+                        ((_e = airInfo(L.air[0])) === null || _e === void 0 ? void 0 : _e.name) || L.air[0])) : (React.createElement("button", { className: "link-btn rt-air-add", onClick: () => setAirFor(airFor === i ? null : i) }, "\uFF0B \u0430\u0432\u0438\u0430\u043A\u043E\u043C\u043F\u0430\u043D\u0438\u044F"))),
+                !last &&
+                    st &&
+                    st.tr !== 2 &&
+                    (hs.length ? (hs.map((h, j) => (React.createElement("button", { key: j, className: "rt-hotel" + (hotEdit === i + ":" + j ? " on" : ""), onClick: () => setHotEdit(hotEdit === i + ":" + j ? null : i + ":" + j) },
+                        React.createElement("span", null, "\uD83C\uDFE8"),
+                        h.name,
+                        h.stars ? React.createElement("b", null,
+                            "\u2605",
+                            h.stars) : null)))) : (React.createElement("button", { className: "rt-mv rt-htl" + (hotFor === i ? " on" : ""), onClick: () => {
+                            setHotFor(hotFor === i ? null : i);
+                            setAirFor(null);
+                        }, "aria-label": "\u041E\u0442\u0435\u043B\u044C" }, "\uD83C\uDFE8"))),
+                last && React.createElement("em", { className: "rt-back" }, "\u043E\u0431\u0440\u0430\u0442\u043D\u043E")),
+            airFor === i && (React.createElement(AirPicker, { exclude: [], onAdd: (code) => {
+                    setLeg(i, { air: [code] });
+                    setAirFor(null);
+                }, onClose: () => setAirFor(null) })),
+            hs.map((h, j) => hotEdit === i + ":" + j ? (React.createElement("div", { className: "rt-hedit", key: "e" + j },
+                React.createElement("span", { className: "rt-hedit-n" }, h.name),
+                React.createElement(Stars, { value: h.stars || 0, onPick: (stars) => setHotel(i, j, { stars }) }),
+                React.createElement("input", { className: "hotel-note", value: h.note || "", placeholder: "\u0417\u0430\u043C\u0435\u0442\u043A\u0430: \u0447\u0442\u043E \u043F\u043E\u043D\u0440\u0430\u0432\u0438\u043B\u043E\u0441\u044C, \u043D\u043E\u043C\u0435\u0440, \u0432\u0438\u0434", onChange: (e) => setHotel(i, j, { note: e.target.value }), autoComplete: "off", autoCorrect: "off", "data-lpignore": "true" }),
+                React.createElement("button", { className: "link-btn rt-hdel", onClick: () => {
+                        setStop(i, { hotels: hs.filter((_, n) => n !== j) });
+                        setHotEdit(null);
+                    } }, "\u0443\u0431\u0440\u0430\u0442\u044C"))) : null),
+            hotFor === i ? (React.createElement("div", { className: "rt-hpick" },
+                React.createElement("p", { className: "rt-hpick-t" },
+                    "\u041E\u0442\u0435\u043B\u044C \u00B7 ",
+                    st.name),
+                React.createElement(Suggest, { placeholder: "\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u043E\u0442\u0435\u043B\u044F", pool: hotelPool(visits, st.name), exclude: hs.map((h) => h.name), onAdd: (name) => {
+                        setStop(i, { hotels: [...hs, { name, stars: HOTEL_CAT[name] || 0, note: "" }] });
+                        setHotFor(null);
+                    } }),
+                React.createElement("button", { className: "link-btn", onClick: () => setHotFor(null) }, "\u043E\u0442\u043C\u0435\u043D\u0430"))) : (!last &&
+                hs.length > 0 && (React.createElement("button", { className: "link-btn rt-hadd", onClick: () => {
+                    setHotFor(i);
+                    setHotEdit(null);
+                } }, "\uFF0B \u043E\u0442\u0435\u043B\u044C")))));
+    };
+    const save = (close) => {
+        const touched = pathKey(r) !== origKey.current || extra.length > 0;
+        onSave({
+            r: { ...r, at: Date.now() },
+            simple: pathSimple(r),
+            touched,
+            members: jr.members,
+            orig: jr.orig,
+            plain: jr.plain,
+            src: [...(jr.src || []), ...extra],
+            who: jr.who,
+            left: jr.left,
+            by: jr.by,
+            photos: jr.photos,
+            owner: jr.owner,
+        });
+        close();
+    };
+    return (React.createElement(Sheet, { open: open, onClose: onClose, box: box, title: title }, (close) => {
+        var _d, _e, _f, _h, _j, _k;
+        return (React.createElement("div", { className: "sheet-body rt-body jr-body" }, !stops.length ? (React.createElement(PlacePick, { visits: visits, all: true, onPick: (x) => addPlace(x) })) : (React.createElement(React.Fragment, null,
+            !pathOpen ? (React.createElement("button", { className: "rt-start in rt-metro", onClick: () => setPathOpen(true), "aria-label": routeText(r) },
+                React.createElement("span", { className: "rt-metro-h" },
+                    React.createElement("span", null, "\uD83E\uDDED \u041F\u0443\u0442\u044C"),
+                    React.createElement("em", null, "\u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u203A")),
+                React.createElement(MoveSnake, { j: routeJourney(r, ((_d = r.start) === null || _d === void 0 ? void 0 : _d.name) || "Дом"), delay: 0.4, anim: true, tight: true }))) : (React.createElement("div", { className: "jr-path" },
+                React.createElement("p", { className: "step-title rt-title" }, "\u041F\u0443\u0442\u044C"),
+                React.createElement("div", { className: "rt-stop home" },
+                    React.createElement("i", { className: "rt-dot home" }),
+                    React.createElement("b", null,
+                        ((_e = r.start) === null || _e === void 0 ? void 0 : _e.name) || "не указано",
+                        React.createElement("em", null, ((_f = r.start) === null || _f === void 0 ? void 0 : _f.a3) ? ((_h = BY_A3[r.start.a3]) === null || _h === void 0 ? void 0 : _h.name) || "" : "дом")),
+                    React.createElement("button", { className: "link-btn", onClick: () => setPickStart(!pickStart) }, "\u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C")),
+                pickStart && (React.createElement(CityPointPicker, { placeholder: "\u041E\u0442\u043A\u0443\u0434\u0430 \u0432\u044B\u0435\u0437\u0436\u0430\u043B\u0438", onClose: () => setPickStart(false), onPick: (c) => {
+                        patch({ start: { name: c.name, a3: c.a3, lat: c.lat, lon: c.lon } });
+                        setPickStart(false);
+                    } })),
+                stops.map((s, i) => {
+                    var _d, _e;
+                    return (React.createElement(React.Fragment, { key: "s" + i },
+                        legRow(i),
+                        React.createElement("div", { className: "rt-stop" + (s.tr ? " tr" : "") },
+                            React.createElement("i", { className: "rt-dot" + (s.tr === 2 ? " air" : s.tr === 1 ? " out" : "") }),
+                            React.createElement("b", null,
+                                s.name,
+                                React.createElement("em", null,
+                                    s.country ? (cityState(s.a3) ? (_d = BY_A3[s.a3]) === null || _d === void 0 ? void 0 : _d.name : "вся страна") : ((_e = BY_A3[s.a3]) === null || _e === void 0 ? void 0 : _e.name) || s.a3,
+                                    s.tr === 2 ? " · страна не засчитается" : "")),
+                            React.createElement("span", { className: "rt-tools" },
+                                stops.length > 1 && (React.createElement(React.Fragment, null,
+                                    React.createElement("button", { onClick: () => move(i, -1), disabled: !i, "aria-label": "\u0412\u044B\u0448\u0435" }, "\u2191"),
+                                    React.createElement("button", { onClick: () => move(i, 1), disabled: i === stops.length - 1, "aria-label": "\u041D\u0438\u0436\u0435" }, "\u2193"))),
+                                React.createElement("button", { onClick: () => drop(i), "aria-label": "\u0423\u0431\u0440\u0430\u0442\u044C \u0442\u043E\u0447\u043A\u0443" }, "\u2715"))),
+                        stops.length > 1 && (React.createElement("div", { className: "rt-trrow" },
+                            React.createElement("button", { className: "rt-tr", onClick: () => setStop(i, { tr: s.tr ? 0 : 1 }) },
+                                React.createElement("span", { className: "switch" + (s.tr ? " on" : "") },
+                                    React.createElement("i", null)),
+                                "\u043F\u0435\u0440\u0435\u0441\u0430\u0434\u043A\u0430"),
+                            s.tr > 0 && (React.createElement("span", { className: "rt-out" },
+                                React.createElement("button", { className: s.tr === 1 ? "on" : "", onClick: () => setStop(i, { tr: 1 }) }, "\u0432\u044B\u0445\u043E\u0434\u0438\u043B\u0438 \u0432 \u0433\u043E\u0440\u043E\u0434"),
+                                React.createElement("button", { className: s.tr === 2 ? "on" : "", onClick: () => setStop(i, { tr: 2 }) }, "\u0442\u043E\u043B\u044C\u043A\u043E \u0430\u044D\u0440\u043E\u043F\u043E\u0440\u0442")))))));
+                }),
+                legRow(r.legs.length - 1, true),
+                React.createElement("div", { className: "rt-stop home" },
+                    React.createElement("i", { className: "rt-dot home" }),
+                    React.createElement("b", null,
+                        ((_j = r.start) === null || _j === void 0 ? void 0 : _j.name) || "дом",
+                        React.createElement("em", null, "\u0432\u0435\u0440\u043D\u0443\u043B\u0438\u0441\u044C \u0434\u043E\u043C\u043E\u0439"))),
+                adding ? (React.createElement(PlacePick, { visits: visits, placeholder: "\u0415\u0449\u0451 \u0442\u043E\u0447\u043A\u0430: \u0433\u043E\u0440\u043E\u0434 \u0438\u043B\u0438 \u0441\u0442\u0440\u0430\u043D\u0430", onClose: () => setAdding(false), onPick: (x) => {
+                        addPlace(x);
+                        setAdding(false);
+                    } })) : (React.createElement("button", { className: "link-btn rt-add", onClick: () => setAdding(true) }, "\uFF0B \u0435\u0449\u0451 \u0442\u043E\u0447\u043A\u0430 \u2014 \u0433\u043E\u0440\u043E\u0434 \u0438\u043B\u0438 \u0441\u0442\u0440\u0430\u043D\u0430")),
+                pickTrip ? (React.createElement(TripInlinePick, { visits: visits, at: r.from || r.y ? tripAt(r) : Date.now(), exclude: [...extra.map((x) => x.id), ...Object.values(jr.members), ...(jr.src || []).map((x) => x.id)], onPick: addTrip, onClose: () => setPickTrip(false) })) : (React.createElement("button", { className: "link-btn rt-add rt-add-trip", onClick: () => setPickTrip(true) }, "\uFF0B \u0443\u0436\u0435 \u0437\u0430\u043F\u0438\u0441\u0430\u043D\u043D\u0430\u044F \u043F\u043E\u0435\u0437\u0434\u043A\u0430")))),
+            editWhen ? (React.createElement("div", { className: "step" },
+                React.createElement("p", { className: "step-title" }, "\u041A\u043E\u0433\u0434\u0430 \u044D\u0442\u043E \u0431\u044B\u043B\u043E"),
+                React.createElement(WhenPicker, { y: r.y, m: r.m, y2: r.y2, approx: r.approx, from: r.from, to: r.to, since: since, onChange: (p) => patch(p) }),
+                React.createElement("button", { className: "cta slim", onClick: () => r.y && setEditWhen(false) }, "\u0413\u043E\u0442\u043E\u0432\u043E"))) : (React.createElement(Done, { label: "\u041A\u043E\u0433\u0434\u0430", value: r.y ? tripLabel(r) : "", onEdit: () => setEditWhen(true) })),
+            r.y && !editWhen && (React.createElement("button", { className: "approx-row plan-row", onClick: () => {
+                    planTouched.current = true;
+                    patch({ plan: !r.plan });
+                } },
+                React.createElement("span", null,
+                    "\u042D\u0442\u043E \u043F\u043B\u0430\u043D\u044B",
+                    React.createElement("em", null, r.plan ? "Поездка впереди — в статистику не попадёт" : "Включится само, если выбрать будущую дату")),
+                React.createElement("span", { className: "switch" + (r.plan ? " on" : "") },
+                    React.createElement("i", null)))),
+            !editWhen && (React.createElement("div", { className: "step" },
+                React.createElement("p", { className: "step-title" }, "\u041A\u0442\u043E \u0435\u0437\u0434\u0438\u043B"),
+                React.createElement("div", { className: "city-chips" },
+                    React.createElement("span", { className: "city-chip me-chip" + (jr.who.includes(ME) ? " who-on" : " who-off") },
+                        "\u042F",
+                        React.createElement("button", { onClick: () => setJr((j) => j.who.includes(ME)
+                                ? { ...j, who: j.who.filter((x) => x !== ME), left: [...new Set([...(j.left || []), meId])] }
+                                : { ...j, who: [ME, ...j.who], left: (j.left || []).filter((x) => x !== meId) }) }, jr.who.includes(ME) ? "✕" : "＋"))),
+                othersOf(whoD).length > 0 && (React.createElement("div", { className: "city-chips" }, othersOf(whoD).map((n) => {
+                    const p = people.find((x) => x.id === n || x.name === n);
+                    return (React.createElement("span", { key: n, className: "city-chip who-on" },
+                        p ? p.name : n,
+                        p && React.createElement("i", null, p.role),
+                        React.createElement("button", { onClick: () => setJr((j) => ({ ...j, who: j.who.filter((x) => x !== n) })) }, "\u2715")));
+                }))),
+                people.length === 0 && !jr.who.length && !addWho && (React.createElement("p", { className: "hint small" }, "\u041F\u043E\u043A\u0430 \u043D\u0438\u043A\u043E\u0433\u043E \u043D\u0435\u0442. \u0414\u043E\u0431\u0430\u0432\u044C\u0442\u0435 \u0443\u0447\u0430\u0441\u0442\u043D\u0438\u043A\u0430 \u2014 \u043E\u043D \u0441\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u0441\u044F \u0432 \u043F\u0440\u043E\u0444\u0438\u043B\u0435 \u0438 \u0432 \u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0438\u0439 \u0440\u0430\u0437 \u0431\u0443\u0434\u0435\u0442 \u0432\u044B\u0431\u0438\u0440\u0430\u0442\u044C\u0441\u044F \u043D\u0430\u0436\u0430\u0442\u0438\u0435\u043C.")),
+                addWho ? (React.createElement("div", { ref: whoBox },
+                    React.createElement(Suggest, { placeholder: "\u041D\u0430\u0447\u043D\u0438\u0442\u0435 \u0432\u0432\u043E\u0434\u0438\u0442\u044C \u0438\u043C\u044F", pool: people.filter((p) => !jr.who.includes(p.id)).map((p) => p.name), exclude: [], allowCustom: false, onAdd: (name) => {
+                            const p = people.find((x) => x.name === name);
+                            setJr((j) => ({ ...j, who: [...j.who, p ? p.id : name] }));
+                            setAddWho(false);
+                        } }))) : (React.createElement("button", { className: "link-btn", onClick: () => setAddWho(true) }, "\uFF0B \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0443\u0447\u0430\u0441\u0442\u043D\u0438\u043A\u0430")))),
+            !editWhen && countries.length > 0 && (React.createElement(PhotoBlock, { box: box, country: BY_A3[countries[0]], more: countries.map((a3) => { var _d; return ((_d = BY_A3[a3]) === null || _d === void 0 ? void 0 : _d.name) || a3; }), trip: { photos: jr.photos, cities: allCities, hotels: allHotels }, onChange: (p) => p.photos && setJr((j) => ({ ...j, photos: p.photos })), quality: quality, totalPhotos: totalPhotos })),
+            !editWhen && !pathOpen && allHotels.length > 0 && (React.createElement("div", { className: "step" },
+                React.createElement("p", { className: "step-title" }, "\u0413\u0434\u0435 \u0436\u0438\u043B\u0438"),
+                React.createElement("div", { className: "htl-list" }, allHotels.map((h, k) => (React.createElement("div", { key: k, className: "htl-li" },
+                    React.createElement("span", { className: "htl-ic" }, "\uD83C\uDFE8"),
+                    React.createElement("span", { className: "htl-t" },
+                        React.createElement("b", null, h.name),
+                        React.createElement("em", null,
+                            h.city || title,
+                            h.note ? ` · ${h.note}` : "")),
+                    h.stars ? React.createElement("span", { className: "htl-st" }, "★".repeat(h.stars)) : null)))))),
+            React.createElement(Ask, { ask: ask, onClose: () => setAsk(null), box: box }),
+            mode === "edit" && foreign && (React.createElement("p", { className: "hint small trip-author" },
+                "\u0410\u0432\u0442\u043E\u0440 \u0437\u0430\u043F\u0438\u0441\u0438: ",
+                ((_k = (people || []).find((c) => c.link === jr.by)) === null || _k === void 0 ? void 0 : _k.name) || "член семьи",
+                ". \u0423\u0434\u0430\u043B\u0438\u0442\u044C \u0435\u0451 \u0434\u043B\u044F \u0432\u0441\u0435\u0445 \u043C\u043E\u0436\u0435\u0442 \u0442\u043E\u043B\u044C\u043A\u043E \u0430\u0432\u0442\u043E\u0440, \u0432\u044B \u043C\u043E\u0436\u0435\u0442\u0435 \u0441\u043A\u0440\u044B\u0442\u044C \u0435\u0451 \u0443 \u0441\u0435\u0431\u044F.")),
+            !editWhen && (React.createElement("div", { className: "edit-actions" },
+                mode === "edit" && onMergeWith && jr.plain && jr.orig && (React.createElement("button", { className: "act merge", "aria-label": "\u041E\u0431\u044A\u0435\u0434\u0438\u043D\u0438\u0442\u044C \u0441 \u0434\u0440\u0443\u0433\u043E\u0439 \u043F\u043E\u0435\u0437\u0434\u043A\u043E\u0439", onClick: () => {
+                        const t = (visits[jr.orig.a3] || []).find((x) => x.id === jr.orig.id);
+                        if (t) {
+                            close();
+                            onMergeWith(jr.orig.a3, t);
+                        }
+                    } },
+                    React.createElement("svg", { viewBox: "0 0 24 24", width: "22", height: "22" },
+                        React.createElement("path", { d: "M6 4v5a6 6 0 0 0 6 6h0a6 6 0 0 1 6 6v0M18 4v5a6 6 0 0 1-3 5.2", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round" }),
+                        React.createElement("path", { d: "M3 7l3-3 3 3M15 7l3-3 3 3", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round" })))),
+                mode === "edit" && onRemove && Object.keys(jr.members).length > 0 && (React.createElement("button", { className: "act del", "aria-label": "\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u043F\u043E\u0435\u0437\u0434\u043A\u0443", onClick: () => setAsk({
+                        title: foreign ? "Скрыть поездку у себя?" : "Удалить поездку?",
+                        text: `${title}, ${tripLabel(r)}${jr.photos.length ? ` · снимков: ${jr.photos.length}` : ""}. ${foreign
+                            ? "Поездку добавил другой член семьи: у вас она исчезнет, у остальных останется."
+                            : "Отменить будет нельзя; у семьи поездка тоже удалится при следующем обмене."}`,
+                        yes: foreign ? "Скрыть" : "Удалить",
+                        onYes: () => {
+                            onRemove(Object.entries(jr.members).map(([a3, id]) => ({ a3, id })));
+                            close();
+                        },
+                    }) },
+                    React.createElement("svg", { viewBox: "0 0 24 24", width: "22", height: "22" },
+                        React.createElement("path", { d: "M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round" })))),
+                React.createElement("button", { className: "act ok", disabled: !ready, onClick: () => save(close), "aria-label": "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C" },
+                    React.createElement("svg", { viewBox: "0 0 24 24", width: "24", height: "24" },
+                        React.createElement("path", { d: "M5 12.5l4.5 4.5L19 7.5", fill: "none", stroke: "currentColor", strokeWidth: "2.2", strokeLinecap: "round", strokeLinejoin: "round" })),
+                    React.createElement("span", null, "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C"))))))));
+    }));
 }
 /* Атлас · 15 · профиль, настройки, курсы валют, страна, режим снимков.
    Части собираются по номерам в один файл (tools/rebuild.sh) и видят друг друга напрямую. */
@@ -10356,7 +10153,7 @@ function moveReport(visits, home) {
     const plans = { n: 0, by: {} }; // планы — отдельно, в итоги не входят (42.23)
     const once = routeOnce();
     Object.entries(visits || {}).forEach(([a3, arr]) => (arr || []).forEach((t) => {
-        var _d, _e, _f, _g, _h;
+        var _d, _e, _f, _h, _j;
         // маршрут — одна поездка: вторую страну маршрута не считаем (километры — по перегонам ниже)
         if (((_e = (_d = t.route) === null || _d === void 0 ? void 0 : _d.stops) === null || _e === void 0 ? void 0 : _e.length) && !once(t))
             return;
@@ -10379,7 +10176,7 @@ function moveReport(visits, home) {
             years[t.y][k] = (years[t.y][k] || 0) + 1;
         }
         // поездка из маршрута: километры считаем по перегонам маршрута один раз (ниже)
-        if ((_g = (_f = t.route) === null || _f === void 0 ? void 0 : _f.stops) === null || _g === void 0 ? void 0 : _g.length) {
+        if ((_h = (_f = t.route) === null || _f === void 0 ? void 0 : _f.stops) === null || _h === void 0 ? void 0 : _h.length) {
             const r0 = routesSeen.get(t.route.id);
             if (!r0 || (t.route.at || 0) > (r0.at || 0))
                 routesSeen.set(t.route.id, t.route);
@@ -10389,7 +10186,7 @@ function moveReport(visits, home) {
         if (!from)
             return;
         let far = 0;
-        let to = ((_h = BY_A3[a3]) === null || _h === void 0 ? void 0 : _h.name) || a3;
+        let to = ((_j = BY_A3[a3]) === null || _j === void 0 ? void 0 : _j.name) || a3;
         const pts = (t.cities || []).length
             ? (t.cities || []).map((city) => [city, distPoint(a3, city)]).filter((x) => x[1])
             : [[null, distPoint(a3, null)]].filter((x) => x[1]);
@@ -10516,7 +10313,7 @@ const ARC_SPARE = [
 ];
 /* авиакомпании во весь экран: логика окна путешественника */
 function AirGlobe({ visits, home, air, geo, mapProps, onClose }) {
-    var _d, _e, _f, _g;
+    var _d, _e, _f, _h;
     const arcs = useMemo(() => airArcs(visits, home), [visits, home]);
     // при открытии сразу выбран самый длинный перелёт, дальше — как решит пользователь
     const [sel, setSel] = useState(() => arcs.length ? arcs.reduce((a, b) => (b.km > a.km ? b : a)).key : null);
@@ -10621,7 +10418,7 @@ function AirGlobe({ visits, home, air, geo, mapProps, onClose }) {
                 np(arcs
                     .filter((g) => g.code === selCode)
                     .reduce((t, g) => t + g.trips, 0), "trip"),
-                ((_g = airInfo(selCode)) === null || _g === void 0 ? void 0 : _g.icao)
+                ((_h = airInfo(selCode)) === null || _h === void 0 ? void 0 : _h.icao)
                     ? ` · IATA ${selCode} · ICAO ${airInfo(selCode).icao}`
                     : "")),
         React.createElement("div", { className: "ag-list" }, arcs
@@ -11291,7 +11088,7 @@ function QrCamera({ onCode, onClose, facing = "environment", hidden = false, onS
         let reads = 0;
         const cv = document.createElement("canvas");
         (async () => {
-            var _d, _e, _f, _g, _h, _j, _k;
+            var _d, _e, _f, _h, _j, _k, _l;
             try {
                 // Нужен самый широкий обзор. Кадр 16:9 на iPhone — это обрезка датчика,
                 // поэтому просим 4:3 (весь датчик) в хорошем разрешении, потом попроще.
@@ -11358,7 +11155,7 @@ function QrCamera({ onCode, onClose, facing = "environment", hidden = false, onS
                 (_f = cbStat.current) === null || _f === void 0 ? void 0 : _f.call(cbStat, {
                     lens: [
                         st.width ? `кадр ${st.width}×${st.height}` : "",
-                        ((_g = caps.width) === null || _g === void 0 ? void 0 : _g.max) ? `наибольший ${caps.width.max}×${(_h = caps.height) === null || _h === void 0 ? void 0 : _h.max}` : "",
+                        ((_h = caps.width) === null || _h === void 0 ? void 0 : _h.max) ? `наибольший ${caps.width.max}×${(_j = caps.height) === null || _j === void 0 ? void 0 : _j.max}` : "",
                         st.zoom != null ? `увеличение ${st.zoom}${caps.zoom ? ` (от ${caps.zoom.min})` : ""}` : "увеличение не меняется",
                         fm.length ? `фокус: ${st.focusMode || "—"}` : "фокус не настраивается",
                     ]
@@ -11388,9 +11185,9 @@ function QrCamera({ onCode, onClose, facing = "environment", hidden = false, onS
                 catch {
                     detector = null;
                 }
-                (_j = cbStat.current) === null || _j === void 0 ? void 0 : _j.call(cbStat, { cam: "работает", sys: !!detector });
+                (_k = cbStat.current) === null || _k === void 0 ? void 0 : _k.call(cbStat, { cam: "работает", sys: !!detector });
                 const tick = async () => {
-                    var _d, _e, _f, _g, _h, _j;
+                    var _d, _e, _f, _h, _j, _k;
                     if (stop)
                         return;
                     const w = v.videoWidth;
@@ -11448,7 +11245,7 @@ function QrCamera({ onCode, onClose, facing = "environment", hidden = false, onS
                             fc.width = fw;
                             fc.height = fh;
                             fc.getContext("2d").drawImage(v, 0, 0, fw, fh);
-                            (_g = cbStat.current) === null || _g === void 0 ? void 0 : _g.call(cbStat, { full: fc.toDataURL("image/jpeg", 0.5) });
+                            (_h = cbStat.current) === null || _h === void 0 ? void 0 : _h.call(cbStat, { full: fc.toDataURL("image/jpeg", 0.5) });
                         }
                         if (text) {
                             // камеру не выключаем: первый прочитанный код может оказаться
@@ -11458,8 +11255,8 @@ function QrCamera({ onCode, onClose, facing = "environment", hidden = false, onS
                                 lastText = text;
                                 lastAt = now;
                                 reads += 1;
-                                (_h = cbStat.current) === null || _h === void 0 ? void 0 : _h.call(cbStat, { cam: "код распознан", read: text.slice(0, 5), reads });
-                                (_j = cbCode.current) === null || _j === void 0 ? void 0 : _j.call(cbCode, text);
+                                (_j = cbStat.current) === null || _j === void 0 ? void 0 : _j.call(cbStat, { cam: "код распознан", read: text.slice(0, 5), reads });
+                                (_k = cbCode.current) === null || _k === void 0 ? void 0 : _k.call(cbCode, text);
                             }
                         }
                     }
@@ -11469,7 +11266,7 @@ function QrCamera({ onCode, onClose, facing = "environment", hidden = false, onS
             }
             catch (e) {
                 setErr("Камера недоступна");
-                (_k = cbStat.current) === null || _k === void 0 ? void 0 : _k.call(cbStat, { cam: "нет доступа: " + String((e === null || e === void 0 ? void 0 : e.name) || e) });
+                (_l = cbStat.current) === null || _l === void 0 ? void 0 : _l.call(cbStat, { cam: "нет доступа: " + String((e === null || e === void 0 ? void 0 : e.name) || e) });
             }
         })();
         return () => {
@@ -11760,7 +11557,7 @@ function FamilySheet({ open, onClose, box, profile, ops, onNear, onImport, onNam
         setMsg(r === "copied" ? "Скопировано — вставьте в мессенджер" : r === "fail" ? "Не получилось — скопируйте код вручную" : "");
     };
     const readPasted = () => {
-        var _d, _e, _f, _g, _h, _j, _k;
+        var _d, _e, _f, _h, _j, _k, _l;
         setErr("");
         const c = readCode(paste);
         if (!c)
@@ -11769,7 +11566,7 @@ function FamilySheet({ open, onClose, box, profile, ops, onNear, onImport, onNam
             return setErr("Это ваш собственный код — его нужно отправить другому человеку.");
         if (c.kind === "I") {
             setGot(c);
-            setLink(guessCard(people, (_g = (_f = c.data) === null || _f === void 0 ? void 0 : _f.p) === null || _g === void 0 ? void 0 : _g.name));
+            setLink(guessCard(people, (_h = (_f = c.data) === null || _f === void 0 ? void 0 : _f.p) === null || _h === void 0 ? void 0 : _h.name));
             setMode("incoming");
             return;
         }
@@ -11778,12 +11575,12 @@ function FamilySheet({ open, onClose, box, profile, ops, onNear, onImport, onNam
             return setErr(e);
         setGot(c);
         // приглашали конкретного человека — его карточку и предлагаем
-        const planned = ops.inviteCard((_h = c.data) === null || _h === void 0 ? void 0 : _h.k);
-        setLink(planned && people.some((x) => x.id === planned && !x.link) ? planned : guessCard(people, (_k = (_j = c.data) === null || _j === void 0 ? void 0 : _j.p) === null || _k === void 0 ? void 0 : _k.name));
+        const planned = ops.inviteCard((_j = c.data) === null || _j === void 0 ? void 0 : _j.k);
+        setLink(planned && people.some((x) => x.id === planned && !x.link) ? planned : guessCard(people, (_l = (_k = c.data) === null || _k === void 0 ? void 0 : _k.p) === null || _l === void 0 ? void 0 : _l.name));
         setMode("joinreq");
     };
     return (React.createElement(Sheet, { open: open, onClose: onClose, title: "\u0421\u0435\u043C\u044C\u044F", box: box }, () => {
-        var _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _t, _u, _v;
+        var _d, _e, _f, _h, _j, _k, _l, _o, _p, _q, _t, _u, _v, _w, _x, _y;
         return (React.createElement("div", { className: "sheet-body fam" },
             !fam ? (React.createElement("p", { className: "hint small" }, "\u0421\u0435\u043C\u044C\u044F \u2014 \u044D\u0442\u043E \u043E\u0431\u0449\u0438\u0439 \u0430\u0442\u043B\u0430\u0441: \u0432\u0441\u0435 \u0432\u0438\u0434\u044F\u0442 \u043F\u043E\u0435\u0437\u0434\u043A\u0438 \u0434\u0440\u0443\u0433 \u0434\u0440\u0443\u0433\u0430, \u0443 \u043A\u0430\u0436\u0434\u043E\u0439 \u043F\u043E\u0435\u0437\u0434\u043A\u0438 \u043F\u043E\u0434\u043F\u0438\u0441\u0430\u043D \u0430\u0432\u0442\u043E\u0440. \u0418\u043C\u044F, \u0444\u043E\u0442\u043E, \u0441\u043F\u0443\u0442\u043D\u0438\u043A\u0438 \u0438 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438 \u0443 \u043A\u0430\u0436\u0434\u043E\u0433\u043E \u0441\u0432\u043E\u0438 \u0438 \u043F\u0440\u0438 \u043E\u0431\u043C\u0435\u043D\u0435 \u043D\u0435 \u043C\u0435\u043D\u044F\u044E\u0442\u0441\u044F. \u0427\u0442\u043E\u0431\u044B \u0441\u043E\u0437\u0434\u0430\u0442\u044C \u0441\u0435\u043C\u044C\u044E, \u043E\u0431\u043C\u0435\u043D\u044F\u0439\u0442\u0435\u0441\u044C \u0440\u044F\u0434\u043E\u043C \u0441 \u0440\u043E\u0434\u043D\u044B\u043C \u0447\u0435\u043B\u043E\u0432\u0435\u043A\u043E\u043C \u0438\u043B\u0438 \u043E\u0442\u043F\u0440\u0430\u0432\u044C\u0442\u0435 \u0435\u043C\u0443 \u043F\u0440\u0438\u0433\u043B\u0430\u0448\u0435\u043D\u0438\u0435.")) : (React.createElement("label", { className: "tf fam-name" },
                 React.createElement("span", null, "\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u0441\u0435\u043C\u044C\u0438"),
@@ -11947,13 +11744,13 @@ function FamilySheet({ open, onClose, box, profile, ops, onNear, onImport, onNam
                     React.createElement("button", { className: "btn-main", onClick: readPasted, disabled: !paste.trim() }, "\u041F\u0440\u043E\u0434\u043E\u043B\u0436\u0438\u0442\u044C")))),
             (mode === "incoming" || mode === "joinreq") && got && (React.createElement("div", { className: "fam-ask" },
                 React.createElement(Ava, { name: (_e = (_d = got.data) === null || _d === void 0 ? void 0 : _d.p) === null || _e === void 0 ? void 0 : _e.name, size: 56 }),
-                React.createElement("b", null, ((_g = (_f = got.data) === null || _f === void 0 ? void 0 : _f.p) === null || _g === void 0 ? void 0 : _g.name) || "Без имени"),
+                React.createElement("b", null, ((_h = (_f = got.data) === null || _f === void 0 ? void 0 : _f.p) === null || _h === void 0 ? void 0 : _h.name) || "Без имени"),
                 React.createElement("p", null, mode === "incoming"
-                    ? fam && !famIds(fam).includes((_j = (_h = got.data) === null || _h === void 0 ? void 0 : _h.f) === null || _j === void 0 ? void 0 : _j.id)
-                        ? `Приглашает вас в семью «${(_l = (_k = got.data) === null || _k === void 0 ? void 0 : _k.f) === null || _l === void 0 ? void 0 : _l.name}». Сейчас вы в семье «${fam.name}» — они станут одной.`
-                        : `Приглашает вас в семью «${((_o = (_m = got.data) === null || _m === void 0 ? void 0 : _m.f) === null || _o === void 0 ? void 0 : _o.name) || "Наша семья"}». Вы будете видеть поездки друг друга. Имя, фото и настройки у каждого останутся своими.`
+                    ? fam && !famIds(fam).includes((_k = (_j = got.data) === null || _j === void 0 ? void 0 : _j.f) === null || _k === void 0 ? void 0 : _k.id)
+                        ? `Приглашает вас в семью «${(_o = (_l = got.data) === null || _l === void 0 ? void 0 : _l.f) === null || _o === void 0 ? void 0 : _o.name}». Сейчас вы в семье «${fam.name}» — они станут одной.`
+                        : `Приглашает вас в семью «${((_q = (_p = got.data) === null || _p === void 0 ? void 0 : _p.f) === null || _q === void 0 ? void 0 : _q.name) || "Наша семья"}». Вы будете видеть поездки друг друга. Имя, фото и настройки у каждого останутся своими.`
                     : `Хочет вступить в семью «${(fam === null || fam === void 0 ? void 0 : fam.name) || "Наша семья"}» по вашему приглашению.`),
-                React.createElement(LinkPick, { people: people, value: link, onChange: setLink, name: (_q = (_p = got.data) === null || _p === void 0 ? void 0 : _p.p) === null || _q === void 0 ? void 0 : _q.name, memberId: (_t = (_r = got.data) === null || _r === void 0 ? void 0 : _r.p) === null || _t === void 0 ? void 0 : _t.id, members: (fam === null || fam === void 0 ? void 0 : fam.members) || [] }),
+                React.createElement(LinkPick, { people: people, value: link, onChange: setLink, name: (_u = (_t = got.data) === null || _t === void 0 ? void 0 : _t.p) === null || _u === void 0 ? void 0 : _u.name, memberId: (_w = (_v = got.data) === null || _v === void 0 ? void 0 : _v.p) === null || _w === void 0 ? void 0 : _w.id, members: (fam === null || fam === void 0 ? void 0 : fam.members) || [] }),
                 React.createElement("div", { className: "fam-ask-btns" },
                     React.createElement("button", { className: "btn-ghost", onClick: () => setMode("") }, "\u041D\u0435 \u0441\u0435\u0439\u0447\u0430\u0441"),
                     React.createElement("button", { className: "btn-main", disabled: busy, onClick: async () => {
@@ -11977,7 +11774,7 @@ function FamilySheet({ open, onClose, box, profile, ops, onNear, onImport, onNam
             mode === "reply" && got && (React.createElement("div", { className: "fam-box" },
                 React.createElement("p", null,
                     "\u0412\u044B \u0432 \u0441\u0435\u043C\u044C\u0435. \u041E\u0442\u043F\u0440\u0430\u0432\u044C\u0442\u0435 \u044D\u0442\u043E\u0442 \u043E\u0442\u0432\u0435\u0442 \u043F\u0440\u0438\u0433\u043B\u0430\u0441\u0438\u0432\u0448\u0435\u043C\u0443",
-                    ((_v = (_u = got.data) === null || _u === void 0 ? void 0 : _u.p) === null || _v === void 0 ? void 0 : _v.name) ? ` (${got.data.p.name})` : "",
+                    ((_y = (_x = got.data) === null || _x === void 0 ? void 0 : _x.p) === null || _y === void 0 ? void 0 : _y.name) ? ` (${got.data.p.name})` : "",
                     ". \u041A\u0430\u043A \u0442\u043E\u043B\u044C\u043A\u043E \u043E\u0442\u0432\u0435\u0442 \u0432\u0441\u0442\u0430\u0432\u044F\u0442 \u0443 \u0441\u0435\u0431\u044F, \u0432\u044B \u0441\u043C\u043E\u0436\u0435\u0442\u0435 \u043E\u0431\u043C\u0435\u043D\u0438\u0432\u0430\u0442\u044C\u0441\u044F \u043F\u043E\u0435\u0437\u0434\u043A\u0430\u043C\u0438."),
                 React.createElement("textarea", { className: "fam-code", readOnly: true, value: code, onFocus: (e) => e.target.select() }),
                 React.createElement("div", { className: "fam-ask-btns" },
@@ -12198,7 +11995,7 @@ function NearSync({ makePayload, onData, onClose, box, profile, meAva = "", onJo
                 send();
         };
         ctlRef.current = (m) => {
-            var _d, _e, _f, _g, _h, _j;
+            var _d, _e, _f, _h, _j, _k;
             if (m.ctl === "hello") {
                 // знакомство могут прислать повторно — второй раз ничего не сбрасываем
                 if (helloFrom.current && helloFrom.current === ((_d = m.me) === null || _d === void 0 ? void 0 : _d.id))
@@ -12208,18 +12005,18 @@ function NearSync({ makePayload, onData, onClose, box, profile, meAva = "", onJo
                 const who = { me: m.me || {}, fam: m.fam || null };
                 setThem(who);
                 const prof = profileRef0.current || {};
-                const trusted = !!((_g = m.me) === null || _g === void 0 ? void 0 : _g.id) && famHas(prof, m.me.id) && famSame(prof.family, m.fam);
+                const trusted = !!((_h = m.me) === null || _h === void 0 ? void 0 : _h.id) && famHas(prof, m.me.id) && famSame(prof.family, m.fam);
                 if (m.ok)
                     theirOk.current = true;
                 if (trusted) {
                     myOk.current = true;
                     say({ ctl: "ok" });
                     setStep("wait");
-                    setState(theirOk.current ? "Соединяемся" : `Ждём подтверждения на телефоне: ${((_h = m.me) === null || _h === void 0 ? void 0 : _h.name) || "второй телефон"}`);
+                    setState(theirOk.current ? "Соединяемся" : `Ждём подтверждения на телефоне: ${((_j = m.me) === null || _j === void 0 ? void 0 : _j.name) || "второй телефон"}`);
                     both();
                 }
                 else {
-                    setLinkCard(guessCard(prof.people, (_j = m.me) === null || _j === void 0 ? void 0 : _j.name));
+                    setLinkCard(guessCard(prof.people, (_k = m.me) === null || _k === void 0 ? void 0 : _k.name));
                     setStep("ask");
                     setState("");
                 }
@@ -12397,7 +12194,7 @@ function NearSync({ makePayload, onData, onClose, box, profile, meAva = "", onJo
     return (React.createElement(Sheet, { open: true, onClose: onClose, title: React.createElement(React.Fragment, null,
             "\u041E\u0431\u043C\u0435\u043D ",
             React.createElement("span", { className: "t-gold" }, "\u0440\u044F\u0434\u043E\u043C")), box: box }, () => {
-        var _d, _e, _f, _g, _h, _j, _k, _l;
+        var _d, _e, _f, _h, _j, _k, _l, _o;
         return (React.createElement("div", { className: "sheet-body near" },
             step === "idle" && (React.createElement("p", { className: "hint small near-sub" }, "\u041F\u043E\u0435\u0437\u0434\u043A\u0438, \u043C\u0430\u0440\u0448\u0440\u0443\u0442\u044B \u0438 \u043F\u043B\u0430\u043D\u044B \u2014 \u043F\u0440\u044F\u043C\u043E \u043D\u0430 \u0441\u043E\u0441\u0435\u0434\u043D\u0438\u0439 \u0442\u0435\u043B\u0435\u0444\u043E\u043D")),
             React.createElement("div", { className: "near-stage" + (step === "ask" ? " ask" : "") + (step === "pair" ? " code" : "") }, step === "ask" && them ? (React.createElement("div", { className: "fam-ask" },
@@ -12415,10 +12212,10 @@ function NearSync({ makePayload, onData, onClose, box, profile, meAva = "", onJo
                         return `Приглашение в семью «${theirs.name}».` + tail;
                     return "Создать общую семью?" + tail;
                 })()),
-                React.createElement(LinkPick, { people: (profile === null || profile === void 0 ? void 0 : profile.people) || [], value: linkCard, onChange: setLinkCard, name: (_g = them.me) === null || _g === void 0 ? void 0 : _g.name, memberId: (_h = them.me) === null || _h === void 0 ? void 0 : _h.id, members: ((_j = profile === null || profile === void 0 ? void 0 : profile.family) === null || _j === void 0 ? void 0 : _j.members) || [] }),
+                React.createElement(LinkPick, { people: (profile === null || profile === void 0 ? void 0 : profile.people) || [], value: linkCard, onChange: setLinkCard, name: (_h = them.me) === null || _h === void 0 ? void 0 : _h.name, memberId: (_j = them.me) === null || _j === void 0 ? void 0 : _j.id, members: ((_k = profile === null || profile === void 0 ? void 0 : profile.family) === null || _k === void 0 ? void 0 : _k.members) || [] }),
                 React.createElement("div", { className: "fam-ask-btns" },
                     React.createElement("button", { className: "btn-ghost", onClick: refuse }, "\u041D\u0435 \u0441\u0435\u0439\u0447\u0430\u0441"),
-                    React.createElement("button", { className: "btn-main", onClick: agree }, "\u041F\u0440\u0438\u043D\u044F\u0442\u044C \u0432 \u0441\u0435\u043C\u044C\u044E")))) : step === "done" ? (React.createElement(NearDone, { info: doneInfo })) : step === "idle" || step === "refused" ? (React.createElement(NearHero, null)) : step === "wait" || step === "live" ? (React.createElement(NearOrbits, { sent: sent, got: got, mine: mine, theirs: theirs, name: ((_k = them === null || them === void 0 ? void 0 : them.me) === null || _k === void 0 ? void 0 : _k.name) || "" })) : (React.createElement("div", { className: "near-card" + (flip ? " flip" : ""), onClick: () => setFlip((v) => !v) },
+                    React.createElement("button", { className: "btn-main", onClick: agree }, "\u041F\u0440\u0438\u043D\u044F\u0442\u044C \u0432 \u0441\u0435\u043C\u044C\u044E")))) : step === "done" ? (React.createElement(NearDone, { info: doneInfo })) : step === "idle" || step === "refused" ? (React.createElement(NearHero, null)) : step === "wait" || step === "live" ? (React.createElement(NearOrbits, { sent: sent, got: got, mine: mine, theirs: theirs, name: ((_l = them === null || them === void 0 ? void 0 : them.me) === null || _l === void 0 ? void 0 : _l.name) || "" })) : (React.createElement("div", { className: "near-card" + (flip ? " flip" : ""), onClick: () => setFlip((v) => !v) },
                 React.createElement("div", { className: "near-face near-front" },
                     myCode ? (React.createElement(QrBox, { text: myCode, hole: step === "pair", onHole: setHolePx, size: Math.min(320, Math.round((typeof window !== "undefined" ? Math.min(window.innerWidth * 0.84, window.innerHeight * 0.4) : 320))) })) : (React.createElement("p", { className: "near-state" }, "\u0413\u043E\u0442\u043E\u0432\u0438\u043C \u043A\u043E\u0434\u2026")),
                     step === "pair" && (React.createElement("div", { className: "qr-hole", style: { width: holePx, height: holePx } },
@@ -12481,7 +12278,7 @@ function NearSync({ makePayload, onData, onClose, box, profile, meAva = "", onJo
                             "\u0420\u0430\u0437\u0431\u043E\u0440\u043E\u0432: ",
                             stat.tries || 0,
                             " \u00B7 \u044F\u0440\u043A\u043E\u0441\u0442\u044C \u043A\u0430\u0434\u0440\u0430:",
-                            " ", (_l = stat.bright) !== null && _l !== void 0 ? _l : "—",
+                            " ", (_o = stat.bright) !== null && _o !== void 0 ? _o : "—",
                             " \u00B7 \u0440\u0435\u0436\u0438\u043C: ",
                             stat.zoom || "—"),
                         (stat.full || stat.shot) && (React.createElement("div", { className: "near-shot" },
@@ -16636,7 +16433,7 @@ function useExchange(x) {
        людей, которых раньше не было. opt.trusted — пользователь сам подтвердил
        источник (например, чужую резервную копию). */
     const receiveFamily = useCallback((data, opt = {}) => {
-        var _d, _e, _f, _g;
+        var _d, _e, _f, _h;
         const prof = profileRef.current || {};
         if (!(data === null || data === void 0 ? void 0 : data.visits))
             return { error: "empty" };
@@ -16683,7 +16480,7 @@ function useExchange(x) {
             next = {
                 ...next,
                 family: famMerge(next.family, data.family, [prof.deviceId, ...(prof.selfAka || [])], [
-                    { id: sid, name: fromName, ava: ((_g = data.from) === null || _g === void 0 ? void 0 : _g.ava) || "" },
+                    { id: sid, name: fromName, ava: ((_h = data.from) === null || _h === void 0 ? void 0 : _h.ava) || "" },
                 ]),
             };
         if (next !== prof) {
@@ -17105,7 +16902,7 @@ function Atlas() {
 }
 /* само приложение */
 function AtlasApp() {
-    var _d, _e, _f;
+    var _d, _e, _f, _h;
     const [booting, setBooting] = useState(true);
     const [profile, setProfile] = useState(null);
     const loaded = useRef(false);
@@ -17472,8 +17269,8 @@ function AtlasApp() {
                 type: "FeatureCollection",
                 features: j.features
                     .map((f) => {
-                    var _d, _e, _f, _g, _h;
-                    const raw = String((_h = (_f = (_d = f.id) !== null && _d !== void 0 ? _d : (_e = f.properties) === null || _e === void 0 ? void 0 : _e.iso_a3) !== null && _f !== void 0 ? _f : (_g = f.properties) === null || _g === void 0 ? void 0 : _g.ISO_A3) !== null && _h !== void 0 ? _h : "");
+                    var _d, _e, _f, _h, _j;
+                    const raw = String((_j = (_f = (_d = f.id) !== null && _d !== void 0 ? _d : (_e = f.properties) === null || _e === void 0 ? void 0 : _e.iso_a3) !== null && _f !== void 0 ? _f : (_h = f.properties) === null || _h === void 0 ? void 0 : _h.ISO_A3) !== null && _j !== void 0 ? _j : "");
                     const id = raw.length === 3 && /^\d+$/.test(raw)
                         ? NUM_TO_A3[raw]
                         : raw.toUpperCase();
@@ -17933,7 +17730,7 @@ function AtlasApp() {
     const [routesFind, setRoutesFind] = useState(false);
     /* сохранить маршрут: по стране — одна поездка; лишние поездки той же страны
        сливаются в неё (отели и снимки сохраняются), страны вне маршрута отвязываются */
-    const applyRoute = (route0, src = [], vis = visits) => {
+    const applyRoute = (route0, src = [], vis = visits, common = null) => {
         var _d, _e;
         const visits = vis;
         const meId = ((_d = profileRef.current) === null || _d === void 0 ? void 0 : _d.deviceId) || ME;
@@ -17963,7 +17760,8 @@ function AtlasApp() {
                 ...(base || {}),
                 id: (base === null || base === void 0 ? void 0 : base.id) || uid(),
                 by: (base === null || base === void 0 ? void 0 : base.by) || meId,
-                who: (base === null || base === void 0 ? void 0 : base.who) || whoDefault,
+                who: common ? common.who : (base === null || base === void 0 ? void 0 : base.who) || whoDefault,
+                ...(common ? { left: common.left || [] } : {}),
                 y: route.y,
                 m: route.m || null,
                 y2: route.approx ? route.y2 || route.y : null,
@@ -17982,7 +17780,7 @@ function AtlasApp() {
                     ...[...mb.cities, ...((base === null || base === void 0 ? void 0 : base.also) || [])].map((c) => regionOf(a3, c)),
                 ]),
                 hotels: routeStopHotels(route, a3),
-                photos: [...((base === null || base === void 0 ? void 0 : base.photos) || []), ...rest.flatMap((t) => t.photos || [])],
+                photos: common ? common.photosBy[a3] || [] : [...((base === null || base === void 0 ? void 0 : base.photos) || []), ...rest.flatMap((t) => t.photos || [])],
                 route,
                 at: now,
             };
@@ -17998,22 +17796,141 @@ function AtlasApp() {
                 if (!list.includes(t))
                     return t;
                 const { route: _gone, ...plain } = t;
+                // снимки, перенесённые в другие страны пути, у отвязанной поездки не остаются
+                if (common === null || common === void 0 ? void 0 : common.taken)
+                    plain.photos = (plain.photos || []).filter((ph) => !common.taken.has(ph.id));
                 return { ...plain, at: now };
             });
         });
         save(next);
     };
-    const unpackRoute = (route) => {
+    /* сохранить единую карточку поездки (42.36): путь из одной точки — обычная поездка,
+       из нескольких — маршрут по поездке на страну */
+    const saveJourney = (res) => {
+        var _d;
+        const { r, touched, members, orig, plain, src = [], who, left, photos = [], owner = {} } = res;
+        const meId = ((_d = profileRef.current) === null || _d === void 0 ? void 0 : _d.deviceId) || ME;
         const now = Date.now();
-        const next = {};
-        Object.entries(visits).forEach(([a3, arr]) => {
-            next[a3] = (arr || []).map((t) => {
-                var _d;
-                if (((_d = t.route) === null || _d === void 0 ? void 0 : _d.id) !== route.id)
-                    return t;
-                const { route: _gone, ...plain } = t;
-                return { ...plain, at: now };
+        const uniq = (a) => [...new Set(a.filter(Boolean))];
+        const dates = {
+            y: r.y,
+            m: r.m || null,
+            y2: r.approx ? r.y2 || r.y : null,
+            approx: !!r.approx,
+            from: r.from || "",
+            to: r.to || "",
+            plan: !!r.plan,
+        };
+        // старая обычная поездка, путь не трогали — остаётся как была, меняются даты, люди, фото
+        if (plain && orig && !touched && !src.length) {
+            const next = { ...visits };
+            next[orig.a3] = (next[orig.a3] || []).map((t) => t.id === orig.id ? { ...t, ...dates, who, left, photos, at: now } : t);
+            save(next);
+            return;
+        }
+        if (res.simple && !src.length) {
+            const st = r.stops[0];
+            const a3 = st.a3;
+            const L = r.legs[0] || {};
+            const baseRef = members[a3] ? { a3, id: members[a3] } : orig;
+            const base = baseRef ? (visits[baseRef.a3] || []).find((t) => t.id === baseRef.id) : null;
+            const cities = st.country ? [] : [st.name];
+            const own = base && baseRef.a3 === a3 ? (base.regions || []).filter((x) => !(base.cities || []).some((c) => regionOf(a3, c) === x)) : [];
+            const path = !touched && plain && base
+                ? {}
+                : {
+                    cities,
+                    move: L.k || null,
+                    air: L.k === "air" ? [...(L.air || [])] : [],
+                    dep: r.start && r.start.name ? { name: r.start.name, a3: r.start.a3 || "", lat: r.start.lat, lon: r.start.lon } : null,
+                    hotels: (st.hotels || []).map((h) => (st.country ? h : { ...h, city: st.name })),
+                    regions: uniq([...cities.map((c) => regionOf(a3, c)), ...own]),
+                };
+            // остальные страны бывшего маршрута отвязываются и остаются отдельными поездками
+            const gone = Object.entries(members).filter(([b3]) => b3 !== a3);
+            const goneA3 = new Set(gone.map(([b3]) => b3));
+            const { route: _r, also: _a, ...rest } = base || {};
+            const trip = {
+                ...rest,
+                ...path,
+                ...dates,
+                id: (base === null || base === void 0 ? void 0 : base.id) || uid(),
+                by: (base === null || base === void 0 ? void 0 : base.by) || meId,
+                who,
+                left,
+                photos: photos.filter((p) => !goneA3.has(owner[p.id])),
+                at: now,
+            };
+            if (!base)
+                return addTripAsk(a3, trip);
+            const next = { ...visits };
+            next[baseRef.a3] = (next[baseRef.a3] || []).filter((t) => t.id !== baseRef.id);
+            if (!next[baseRef.a3].length)
+                delete next[baseRef.a3];
+            gone.forEach(([b3, id]) => {
+                next[b3] = (next[b3] || []).map((t) => {
+                    if (t.id !== id)
+                        return t;
+                    const { route: _g, ...p } = t;
+                    return { ...p, at: now };
+                });
             });
+            next[a3] = [...(next[a3] || []), trip].sort((x, y) => y.y - x.y || (y.m || 0) - (x.m || 0));
+            save(next);
+            return;
+        }
+        // путь из нескольких точек: снимки — по отметке (страна, город, отель), иначе туда, где были
+        const route = { ...r, ...dates, hv: 1 };
+        const mb = routeMembers(route);
+        const byName = {};
+        mb.forEach((_m, a3) => { var _d; return (byName[((_d = BY_A3[a3]) === null || _d === void 0 ? void 0 : _d.name) || a3] = a3); });
+        const stopA3 = (pred) => (route.stops.find((s) => s.tr !== 2 && mb.has(s.a3) && pred(s)) || {}).a3;
+        const first = [...mb.keys()][0];
+        const photosBy = {};
+        const taken = new Set();
+        photos.forEach((ph) => {
+            let to = ph.type === "country"
+                ? byName[ph.name]
+                : ph.type === "city"
+                    ? stopA3((s) => s.name === ph.name)
+                    : ph.type === "hotel"
+                        ? stopA3((s) => (s.hotels || []).some((h) => h.name === ph.name))
+                        : null;
+            if (!to && owner[ph.id] && !mb.has(owner[ph.id]))
+                return; // остаётся у отвязанной поездки
+            if (!to)
+                to = mb.has(owner[ph.id]) ? owner[ph.id] : first;
+            (photosBy[to] = photosBy[to] || []).push(ph);
+            taken.add(ph.id);
+        });
+        const src2 = plain && orig ? [...src, orig] : src;
+        const run = () => applyRoute(route, src2, visits, { who, left, photosBy, taken });
+        if (src.length)
+            withUndo(src.length === 1 ? "Поездка вошла в путь" : `Собрано в одну поездку: ${np(src.length, "trip")}`, run);
+        else
+            run();
+    };
+    /* удалить поездку целиком: все её страны (чужие — скрыть у себя) */
+    const removeMany = (list) => {
+        var _d;
+        const myId = (_d = profileRef.current) === null || _d === void 0 ? void 0 : _d.deviceId;
+        const next = { ...visits };
+        list.forEach(({ a3, id }) => {
+            const arr = next[a3] || [];
+            const gone = arr.find((t) => t.id === id);
+            if (!gone)
+                return;
+            (gone.photos || []).forEach((p) => store.set(photoKey(p.id), { full: "", thumb: "" }));
+            const foreign = gone.by && gone.by !== ME && gone.by !== myId;
+            if (foreign)
+                hiddenRef.current = { ...hiddenRef.current, [gone.id]: Date.now() };
+            else
+                tombsRef.current = addTomb(tombsRef.current, gone.id);
+            const cur = arr.filter((t) => t.id !== id);
+            if (cur.length)
+                next[a3] = cur;
+            else
+                delete next[a3];
         });
         save(next);
     };
@@ -18508,36 +18425,8 @@ function AtlasApp() {
                                 setSheet(null);
                                 pickCountry(a3);
                             } }),
-                        React.createElement(TripSheet, { open: sheet === "add", onClose: () => setSheet(null), box: box, initial: null, visits: visits, onSave: (a3, trip) => addTripAsk(a3, trip), onRoute: () => {
-                                setSheet(null);
-                                setRouteEdit({ route: null, src: [] });
-                            }, mode: "add", quality: photoQuality, since: profile.since, people: profile.people || [], home: profile.home || null, meId: profile.deviceId || ME }),
-                        React.createElement(TripSheet, { open: sheet === "edit" && !!editTripObj, onClose: () => setSheet((editing === null || editing === void 0 ? void 0 : editing.back) || null), box: box, initial: editTripObj ? { a3: editing.a3, idx: editing.id, trip: editTripObj } : null, visits: visits, onSave: (a3, trip) => {
-                                // сменили страну — переносим поездку в другую страну с тем же id
-                                if (editing && a3 !== editing.a3) {
-                                    const old = (visits[editing.a3] || []).find((t) => t.id === editing.id);
-                                    const rest = (visits[editing.a3] || []).filter((t) => t.id !== editing.id);
-                                    const next = { ...visits };
-                                    if (rest.length)
-                                        next[editing.a3] = rest;
-                                    else
-                                        delete next[editing.a3];
-                                    next[a3] = [...(visits[a3] || []), { ...(old || {}), ...trip, at: Date.now() }].sort((x, y) => y.y - x.y || (y.m || 0) - (x.m || 0));
-                                    save(next);
-                                    setEditing({ ...editing, a3 });
-                                    setSelected(a3);
-                                }
-                                else if (trip.route) {
-                                    // часть маршрута: общий маршрут (даты, отели точек) — во все страны маршрута
-                                    const cur = (visits[a3] || []).map((t) => (t.id === (editing === null || editing === void 0 ? void 0 : editing.id) ? { ...t, ...trip } : t));
-                                    const r = { ...trip.route, y: trip.y, m: trip.m, y2: trip.y2, approx: trip.approx, from: trip.from, to: trip.to, plan: trip.plan, at: Date.now() };
-                                    applyRoute(r, [], { ...visits, [a3]: cur });
-                                }
-                                else
-                                    editTrip(a3, editing === null || editing === void 0 ? void 0 : editing.id, trip);
-                            }, onRemove: removeTrip, onRoute: (r, one) => one
-                                ? setRouteEdit({ route: routeFromTrips([one], homePt), src: [{ a3: one.a3, id: one.t.id }] })
-                                : setRouteEdit({ route: r, src: [] }), onMergeWith: (a3, t) => setPickFor({ a3, t }), mode: "edit", quality: photoQuality, since: profile.since, people: profile.people || [], home: profile.home || null, meId: profile.deviceId || ME }),
+                        React.createElement(JourneySheet, { open: sheet === "add", onClose: () => setSheet(null), box: box, initial: null, visits: visits, homePt: homePt, onSave: saveJourney, mode: "add", quality: photoQuality, since: profile.since, people: profile.people || [], meId: profile.deviceId || ME }),
+                        React.createElement(JourneySheet, { open: sheet === "edit" && !!editTripObj, onClose: () => setSheet((editing === null || editing === void 0 ? void 0 : editing.back) || null), box: box, initial: editTripObj ? { a3: editing.a3, id: editing.id, key: editing.a3 + ":" + editing.id } : null, visits: visits, homePt: homePt, onSave: saveJourney, onRemove: removeMany, onMergeWith: (a3, t) => setPickFor({ a3, t }), mode: "edit", quality: photoQuality, since: profile.since, people: profile.people || [], meId: profile.deviceId || ME }),
                         React.createElement(ProfileSheet, { open: sheet === "profile", onClose: () => setSheet(null), box: box, avatar: profile.avatar, name: profile.name, onName: async (v) => {
                                 const prof = { ...profile, name: v };
                                 await saveProfile(prof);
@@ -18641,16 +18530,7 @@ function AtlasApp() {
                                 setRoutesFind(false);
                                 collectRoute(c);
                             }, onDismiss: (c) => dismissRoute(c.key) }),
-                        React.createElement(RouteSheet, { open: !!routeEdit, onClose: () => setRouteEdit(null), box: box, initial: (routeEdit === null || routeEdit === void 0 ? void 0 : routeEdit.route) ? routeAdopt(routeEdit.route, visits, routeEdit.src || []) : null, homePt: homePt, since: profile.since, visits: visits, onOpenMember: (a3, id) => {
-                                setEditing({ a3, id, back: sheet === "list" ? "list" : null });
-                                setSheet("edit");
-                            }, onSave: (r, extra = []) => {
-                                const src = [...((routeEdit === null || routeEdit === void 0 ? void 0 : routeEdit.src) || []), ...extra];
-                                if (src.length)
-                                    withUndo(src.length === 1 ? "Поездка стала маршрутом" : `Собрано в маршрут: ${np(src.length, "trip")}`, () => applyRoute(r, src));
-                                else
-                                    applyRoute(r, src);
-                            }, onUnpack: (routeEdit === null || routeEdit === void 0 ? void 0 : routeEdit.route) && !((routeEdit === null || routeEdit === void 0 ? void 0 : routeEdit.src) || []).length ? unpackRoute : null }),
+                        React.createElement(JourneySheet, { open: !!routeEdit, onClose: () => setRouteEdit(null), box: box, initial: routeEdit ? { route: routeEdit.route, src: routeEdit.src || [], key: "r:" + (((_f = routeEdit.route) === null || _f === void 0 ? void 0 : _f.id) || "") } : null, visits: visits, homePt: homePt, onSave: saveJourney, mode: "collect", quality: photoQuality, since: profile.since, people: profile.people || [], meId: profile.deviceId || ME }),
                         undo && (React.createElement("div", { className: "undo-toast", style: box ? { left: box.left + 14, width: box.width - 28 } : undefined },
                             React.createElement("span", { className: "undo-ring" }),
                             React.createElement("b", null, undo.text),
@@ -18787,7 +18667,7 @@ function AtlasApp() {
                                 applySync(sync.data, picks);
                                 setSync(null);
                             } })),
-                        who && !sync && !near && (React.createElement(WhoSheet, { key: ((_f = who.data) === null || _f === void 0 ? void 0 : _f.at) || who.from || "who", ask: who, people: (profile === null || profile === void 0 ? void 0 : profile.people) || [], myName: ((profile === null || profile === void 0 ? void 0 : profile.name) || "").trim(), box: box, onDone: whoDone, onCancel: whoCancel })),
+                        who && !sync && !near && (React.createElement(WhoSheet, { key: ((_h = who.data) === null || _h === void 0 ? void 0 : _h.at) || who.from || "who", ask: who, people: (profile === null || profile === void 0 ? void 0 : profile.people) || [], myName: ((profile === null || profile === void 0 ? void 0 : profile.name) || "").trim(), box: box, onDone: whoDone, onCancel: whoCancel })),
                         React.createElement(Ask, { ask: ask, onClose: () => setAsk(null), box: box }),
                         React.createElement("nav", { className: "tabbar" },
                             React.createElement("button", { className: "tab" + (activeTab === "map" ? " on" : ""), onClick: () => goTab("map", null) },
