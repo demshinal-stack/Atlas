@@ -16,9 +16,9 @@
 <meta name="copyright" content="© Demshin_lab. Все права защищены." />
 <title>Атлас</title>
 <style>
-  html, body { margin:0; padding:0; height:100%; background:#0d1b2a; }
+  html, body { margin:0; padding:0; width:100%; height:100%; height:100vh; height:100dvh; min-height:100%; background:#0d1b2a; }
   @supports (padding: env(safe-area-inset-top)) { body { padding:0; } }
-  #root { height:100%; }
+  #root { width:100%; height:100%; height:100vh; height:100dvh; min-height:100%; }
   #boot { position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
           color:#8fa4b8; font:16px -apple-system, system-ui, sans-serif; }
 </style>
@@ -2942,7 +2942,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "42.39";
+const APP_VERSION = "42.40";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -4354,22 +4354,6 @@ function launchFlights(st, routes, rot, spin) {
 function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home, marks, light, playing, setPlaying, view, page: pageProp, setPage, isWish, arcs, noFull, fitBox, onArcPick, spinStep, glow, lookAt, pins, dashSel, flights, flying, fitK = 1, regions, selRegion }) {
     const fitKRef = useRef(fitK);
     fitKRef.current = fitK;
-    /* во весь экран фон страницы — цвета низа неба: если на iPhone слой окажется короче
-       экрана, снизу не будет видно полосы другого цвета (42.39) */
-    useEffect(() => {
-        if (!full)
-            return undefined;
-        const h = document.documentElement;
-        const b = document.body;
-        const was = [h.style.background, b.style.background];
-        const c = light ? "#fbeee6" : "#02060e";
-        h.style.background = c;
-        b.style.background = c;
-        return () => {
-            h.style.background = was[0];
-            b.style.background = was[1];
-        };
-    }, [full, light]);
     const wrapRef = useRef(null);
     const canvasRef = useRef(null);
     const [size, setSize] = useState(320);
@@ -18744,7 +18728,7 @@ function AtlasApp() {
 }
 /* ================================================================== */
 const APP_CSS = `/* Атлас · оформление. При сборке становится строкой APP_CSS внутри приложения. */
-html,body{margin:0; padding:0; width:100%; height:100%; max-width:100vw; overflow:hidden; position:fixed; top:0; left:0; -webkit-text-size-adjust:100%; text-size-adjust:100%; overscroll-behavior:none;}
+html,body{margin:0; padding:0; width:100%; height:100%; height:100vh; height:100dvh; min-height:100%; max-width:100vw; overflow:hidden; position:fixed; top:0; left:0; -webkit-text-size-adjust:100%; text-size-adjust:100%; overscroll-behavior:none;}
 body > div{max-width:100%;}
 .root{
   --ink:#eaf0f6; --dim:#8fa4b8; --deep:#0d1b2a; --panel:#132436;
@@ -18759,7 +18743,8 @@ body > div{max-width:100%;}
           calc(92px + env(safe-area-inset-bottom));
   box-sizing:border-box; -webkit-tap-highlight-color:transparent;
   width:100%; max-width:100vw;
-  position:fixed; top:0; bottom:0; left:0; margin-left:0;
+  position:fixed; top:0; left:0; margin-left:0;
+  height:100vh; height:100dvh; /* вся высота экрана iPhone, включая область под полоской «Домой» (42.40) */
   overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch; overscroll-behavior:contain;
 }
 .root.light{
@@ -20623,9 +20608,11 @@ button, input, select, textarea{font-family:inherit;}
 /* 42.38: и нижняя панель вкладок — тоже убрать совсем: на iPhone её размытый фон
    (backdrop-filter) оставался серой полосой поверх неба */
 .cols.is-full .tabbar{display:none;}
-/* 42.39: на iPhone (приложение с экрана «Домой») «100%» у закреплённого слоя бывает короче
-   экрана — снизу проступала полоса фона. Полноэкранный глобус — по высоте экрана (vh/lvh) */
-.globe-full{bottom:auto; min-height:100%; height:100vh; height:100lvh;}
+/* 42.39–42.40: на iPhone (приложение с экрана «Домой») «100%» бывает короче экрана — снизу
+   проступала полоса фона. Высота — по экрану: 100dvh (запасной вариант 100vh) */
+.globe-full{bottom:auto; min-height:100%; height:100vh; height:100dvh;}
+/* кнопки полного экрана — выше полоски «Домой»; фон (небо) при этом идёт до самого низа */
+.globe-full{padding-bottom:calc(12px + env(safe-area-inset-bottom));}
 `;
 const __b = document.getElementById('boot');
 if (__b)
