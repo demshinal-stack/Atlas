@@ -661,6 +661,7 @@ const WORD = {
     way: ["направление", "направления", "направлений"],
     airline: ["авиакомпания", "авиакомпании", "авиакомпаний"],
     region: ["регион", "региона", "регионов"],
+    leg: ["перегон", "перегона", "перегонов"],
 };
 const pw = (n, key) => plural(n, ...WORD[key]);
 const np = (n, key) => `${n} ${pw(n, key)}`;
@@ -2357,6 +2358,7 @@ const TRIP_FIELDS = [
     ["air", "авиакомпании"],
     ["dep", "город вылета"],
     ["plan", "план"],
+    ["route", "маршрут"],
 ];
 /* сравниваем по смыслу, а не по записи (41.9): порядок людей и городов,
    порядок ключей в объектах, пустое поле и пустой список — одно и то же.
@@ -2386,7 +2388,9 @@ const canon = (v, asSet) => {
         return v.trim() || null;
     return v;
 };
-const sameVal = (a, b, k) => JSON.stringify(canon(a, SET_FIELDS.has(k))) === JSON.stringify(canon(b, SET_FIELDS.has(k)));
+// у маршрута время правки — служебное: при сравнении его не учитываем
+const noAt = (v, k) => (k === "route" && v && typeof v === "object" ? { ...v, at: null } : v);
+const sameVal = (a, b, k) => JSON.stringify(canon(noAt(a, k), SET_FIELDS.has(k))) === JSON.stringify(canon(noAt(b, k), SET_FIELDS.has(k)));
 const tripDiff = (a, b) => TRIP_FIELDS.filter(([k]) => !sameVal(a === null || a === void 0 ? void 0 : a[k], b === null || b === void 0 ? void 0 : b[k], k)).map(([, t]) => t);
 /* что изменится при обмене: новые, удалённые и спорные поездки */
 function syncPlan(mine, theirs, tombsMine, tombsTheirs, sender = "", myId = "") {
@@ -2921,7 +2925,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "42.20";
+const APP_VERSION = "42.21";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -6942,7 +6946,7 @@ function AirPicker({ exclude = [], onAdd, onClose }) {
                         ? "если нужной нет в списке выше"
                         : "такой пока нет в справочнике — сохраним как вашу")))))));
 }
-function TripSheet({ open, onClose, box, initial, visits, onSave, onRemove, mode, quality, since, people = [], meId = ME, home = null }) {
+function TripSheet({ open, onClose, box, initial, visits, onSave, onRemove, onRoute, mode, quality, since, people = [], meId = ME, home = null }) {
     const totalPhotos = useMemo(() => {
         let k = 0;
         Object.values(visits).forEach((arr) => arr.forEach((t) => (k += (t.photos || []).length)));
@@ -7106,9 +7110,15 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, onRemove, mode
     const whenReady = !!(draft && draft.y && (!draft.approx || draft.y2));
     const whenText = (draft === null || draft === void 0 ? void 0 : draft.y) ? tripLabel(draft) : "";
     return (React.createElement(Sheet, { open: open, onClose: onClose, box: box, title: country ? country.name : mode === "edit" ? "Поездка" : "Новая поездка" }, (close) => {
-        var _c, _d;
+        var _c, _d, _e;
         return (React.createElement("div", { className: "sheet-body" },
             !country ? (React.createElement(React.Fragment, null,
+                mode === "add" && onRoute && (React.createElement("button", { className: "rt-start", onClick: () => onRoute() },
+                    React.createElement("span", null, "\uD83E\uDDED"),
+                    React.createElement("span", null,
+                        "\u041C\u0430\u0440\u0448\u0440\u0443\u0442 \u0438\u0437 \u043D\u0435\u0441\u043A\u043E\u043B\u044C\u043A\u0438\u0445 \u0442\u043E\u0447\u0435\u043A",
+                        React.createElement("em", null, "\u041F\u0435\u0440\u0435\u0441\u0430\u0434\u043A\u0438, \u043D\u0435\u0441\u043A\u043E\u043B\u044C\u043A\u043E \u0441\u0442\u0440\u0430\u043D, \u0440\u0430\u0437\u043D\u044B\u0439 \u0442\u0440\u0430\u043D\u0441\u043F\u043E\u0440\u0442 \u2014 \u043F\u043E \u043F\u043E\u0440\u044F\u0434\u043A\u0443")),
+                    React.createElement("i", null, "\u203A"))),
                 React.createElement(TextField, { search: true, value: q, placeholder: "\u041D\u0430\u0447\u043D\u0438\u0442\u0435 \u0432\u0432\u043E\u0434\u0438\u0442\u044C \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u0435", onChange: (e) => setQ(e.target.value) }),
                 React.createElement("p", { className: "tf-hint" }, "\u041D\u0430\u043F\u0440\u0438\u043C\u0435\u0440: \u042F\u043F\u043E\u043D\u0438\u044F, \u041F\u0445\u0443\u043A\u0435\u0442, \u041F\u0440\u0430\u0433\u0430"),
                 React.createElement("div", { className: "sheet-list inline-list" }, results.map(({ c, via }) => {
@@ -7140,7 +7150,14 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, onRemove, mode
                                 " \u00B7 ",
                                 via)),
                         React.createElement("span", { className: "ct" }, CONTINENTS[c.cont])));
-                })))) : (React.createElement(Done, { label: "\u0421\u0442\u0440\u0430\u043D\u0430", value: `${flagText(country.a3)} ${country.name}`.trim(), onEdit: () => setDraft(null) })),
+                })))) : (React.createElement(React.Fragment, null,
+                React.createElement(Done, { label: "\u0421\u0442\u0440\u0430\u043D\u0430", value: `${flagText(country.a3)} ${country.name}`.trim(), onEdit: () => setDraft(null) }),
+                ((_c = initial === null || initial === void 0 ? void 0 : initial.trip) === null || _c === void 0 ? void 0 : _c.route) && onRoute && (React.createElement("button", { className: "rt-start in", onClick: () => onRoute(initial.trip.route) },
+                    React.createElement("span", null, "\uD83E\uDDED"),
+                    React.createElement("span", null,
+                        routeText(initial.trip.route),
+                        React.createElement("em", null, "\u0427\u0430\u0441\u0442\u044C \u043C\u0430\u0440\u0448\u0440\u0443\u0442\u0430 \u00B7 \u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u0442\u043E\u0447\u043A\u0438 \u0438 \u0442\u0440\u0430\u043D\u0441\u043F\u043E\u0440\u0442")),
+                    React.createElement("i", null, "\u203A"))))),
             country &&
                 (editWhen ? (React.createElement("div", { className: "step" },
                     React.createElement("p", { className: "step-title" }, "\u041A\u043E\u0433\u0434\u0430 \u044D\u0442\u043E \u0431\u044B\u043B\u043E"),
@@ -7256,7 +7273,7 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, onRemove, mode
                             " ",
                             airInfo(airShown).name),
                         React.createElement("em", null,
-                            ((_c = BY_A3[airInfo(airShown).a3]) === null || _c === void 0 ? void 0 : _c.name) || "",
+                            ((_d = BY_A3[airInfo(airShown).a3]) === null || _d === void 0 ? void 0 : _d.name) || "",
                             airInfo(airShown).year
                                 ? ` · основана в ${airInfo(airShown).year}`
                                 : "",
@@ -7345,7 +7362,7 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, onRemove, mode
             mode === "edit" && (draft === null || draft === void 0 ? void 0 : draft.by) && draft.by !== ME && draft.by !== meId && (React.createElement("p", { className: "hint small trip-author" },
                 "\u0410\u0432\u0442\u043E\u0440 \u0437\u0430\u043F\u0438\u0441\u0438:",
                 " ",
-                ((_d = (people || []).find((c) => c.link === (draft === null || draft === void 0 ? void 0 : draft.by))) === null || _d === void 0 ? void 0 : _d.name) || "член семьи",
+                ((_e = (people || []).find((c) => c.link === (draft === null || draft === void 0 ? void 0 : draft.by))) === null || _e === void 0 ? void 0 : _e.name) || "член семьи",
                 ". \u0423\u0434\u0430\u043B\u0438\u0442\u044C \u0435\u0451 \u0434\u043B\u044F \u0432\u0441\u0435\u0445 \u043C\u043E\u0436\u0435\u0442 \u0442\u043E\u043B\u044C\u043A\u043E \u0430\u0432\u0442\u043E\u0440, \u0432\u044B \u043C\u043E\u0436\u0435\u0442\u0435 \u0441\u043A\u0440\u044B\u0442\u044C \u0435\u0451 \u0443 \u0441\u0435\u0431\u044F.")),
             country && whenReady && !editWhen && (React.createElement("div", { className: "edit-actions" },
                 mode === "edit" && onRemove && draft.id && (React.createElement("button", { className: "act del", "aria-label": "\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u043F\u043E\u0435\u0437\u0434\u043A\u0443", onClick: () => {
@@ -7496,6 +7513,374 @@ function HomePicker({ home, onHome }) {
                     React.createElement("em", null, ((_c = BY_A3[c.a3]) === null || _c === void 0 ? void 0 : _c.name) || c.a3)));
             }))),
             React.createElement("button", { className: "link-btn add-line", onClick: () => { setOpen(false); setQ(""); } }, "\u041E\u0442\u043C\u0435\u043D\u0430")))));
+}
+/* Атлас · 14b · маршруты из нескольких точек (42.21).
+   Сложное путешествие (пересадки, несколько стран, разный транспорт) хранится как
+   маршрут: откуда → точки по порядку → обратно домой. Порядок задаёт человек, даты не
+   обязательны. Маршрут лежит в каждой поездке-стране этого путешествия (поле route):
+   страны и прежние отчёты считаются как раньше, а «Как добираемся» рисует путь по маршруту.
+   Точка-пересадка: tr = 1 — выходили в город (страна засчитывается), tr = 2 — только
+   аэропорт (страна не засчитывается). Части собираются по номерам (tools/rebuild.sh). */
+const routeKey = (s) => String(s || "").toLowerCase().replace(/ё/g, "е").trim();
+/* дом для маршрутов: из профиля, иначе город, откуда вылетали чаще всего */
+function routeHome(visits, home) {
+    if (home && isFinite(home.lat) && isFinite(home.lon) && home.name)
+        return { name: home.name, a3: home.a3 || "", lat: +home.lat, lon: +home.lon };
+    const cnt = {};
+    Object.values(visits || {}).forEach((arr) => (arr || []).forEach((t) => {
+        const d = t.dep;
+        if (d && d.name && isFinite(d.lat)) {
+            const k = d.name;
+            cnt[k] = cnt[k] || { n: 0, d };
+            cnt[k].n += 1;
+        }
+    }));
+    const top = Object.values(cnt).sort((a, b) => b.n - a.n)[0];
+    return top ? { name: top.d.name, a3: top.d.a3 || "", lat: +top.d.lat, lon: +top.d.lon } : null;
+}
+/* точка на карте для города (или страны) */
+function routePoint(a3, name) {
+    var _c;
+    const xy = distPoint(a3, name);
+    return { name: name || ((_c = BY_A3[a3]) === null || _c === void 0 ? void 0 : _c.name) || a3, a3, lat: xy ? xy[1] : null, lon: xy ? xy[0] : null };
+}
+/* что маршрут даёт каждой стране: города, транспорт и перевозчики, город вылета */
+function routeMembers(route) {
+    const out = new Map();
+    ((route === null || route === void 0 ? void 0 : route.stops) || []).forEach((s, i) => {
+        var _c;
+        if (!s.a3 || s.tr === 2)
+            return; // только аэропорт — страна не засчитывается
+        const leg = ((_c = route.legs) === null || _c === void 0 ? void 0 : _c[i]) || {};
+        const prev = i ? route.stops[i - 1] : route.start;
+        const m = out.get(s.a3);
+        if (!m) {
+            out.set(s.a3, {
+                a3: s.a3,
+                cities: [s.name],
+                move: leg.k || null,
+                air: [...(leg.air || [])],
+                dep: prev && prev.name ? { a3: prev.a3 || "", name: prev.name, lat: prev.lat, lon: prev.lon } : null,
+            });
+        }
+        else {
+            if (!m.cities.includes(s.name))
+                m.cities.push(s.name);
+            (leg.air || []).forEach((c) => !m.air.includes(c) && m.air.push(c));
+            if (!m.move && leg.k)
+                m.move = leg.k;
+        }
+    });
+    return out;
+}
+/* перегоны маршрута с концами: откуда, куда, транспорт, перевозчик */
+function routeLegs(route) {
+    const pts = [route === null || route === void 0 ? void 0 : route.start, ...((route === null || route === void 0 ? void 0 : route.stops) || []), route === null || route === void 0 ? void 0 : route.start];
+    return ((route === null || route === void 0 ? void 0 : route.legs) || []).map((L, i) => ({ from: pts[i], to: pts[i + 1], k: (L === null || L === void 0 ? void 0 : L.k) || null, air: (L === null || L === void 0 ? void 0 : L.air) || [] }));
+}
+/* пустой маршрут: из дома */
+function blankRoute(homePt) {
+    return {
+        id: "r" + uid(),
+        start: homePt || null,
+        stops: [],
+        legs: [{ k: null, air: [] }],
+        y: NOW.getFullYear(),
+        m: null,
+        y2: null,
+        approx: false,
+        from: "",
+        to: "",
+        plan: false,
+    };
+}
+/* маршрут из нескольких поездок цепочкой (для «Собрать маршруты») */
+function routeFromTrips(chain, homePt) {
+    var _c, _d, _e;
+    const first = ((_c = chain[0]) === null || _c === void 0 ? void 0 : _c.t) || {};
+    const d0 = first.dep && isFinite(first.dep.lat) ? first.dep : null;
+    const r = blankRoute(d0 && routeKey(d0.name) !== routeKey(homePt === null || homePt === void 0 ? void 0 : homePt.name) ? homePt : d0 || homePt);
+    r.legs = [];
+    chain.forEach(({ a3, t }) => {
+        var _c;
+        const names = (t.cities || []).length ? t.cities : [((_c = BY_A3[a3]) === null || _c === void 0 ? void 0 : _c.name) || a3];
+        names.forEach((n, j) => {
+            r.stops.push({ ...routePoint(a3, n), tr: 0 });
+            r.legs.push(j === 0 ? { k: t.move || null, air: [...(t.air || [])] } : { k: null, air: [] });
+        });
+    });
+    // если первая поездка вылетала не из дома — сначала дорога до её города вылета
+    if (d0 && homePt && routeKey(d0.name) !== routeKey(homePt.name)) {
+        r.stops.unshift({ name: d0.name, a3: d0.a3 || "", lat: d0.lat, lon: d0.lon, tr: 0 });
+        r.legs.unshift({ k: null, air: [] });
+    }
+    // обратно — тем же транспортом, что и уехали
+    r.legs.push({ ...(r.legs[0] || { k: null, air: [] }), air: [...(((_d = r.legs[0]) === null || _d === void 0 ? void 0 : _d.air) || [])] });
+    const last = ((_e = chain[chain.length - 1]) === null || _e === void 0 ? void 0 : _e.t) || {};
+    Object.assign(r, {
+        y: first.y || NOW.getFullYear(),
+        m: first.m || null,
+        y2: first.y2 || null,
+        approx: !!first.approx,
+        from: first.from || "",
+        to: last.to || first.to || "",
+        plan: !!first.plan,
+    });
+    return r;
+}
+/* поездки, похожие на одно путешествие: тот же месяц, вылет не из дома, а оттуда,
+   где была другая поездка. Отвечает цепочками поездок по порядку */
+function findRouteCandidates(visits, homePt, dismissed = []) {
+    const homeName = routeKey(homePt === null || homePt === void 0 ? void 0 : homePt.name);
+    const skip = new Set(dismissed || []);
+    const groups = new Map();
+    Object.entries(visits || {}).forEach(([a3, arr]) => (arr || []).forEach((t) => {
+        if (t.route || !t.y || t.approx)
+            return;
+        const a = dParts(t.from);
+        const y = a ? a.y : t.y;
+        const m = a ? a.m : t.m || 0;
+        const at = a ? new Date(a.y, a.m - 1, a.d).getTime() : new Date(y, Math.max(0, m - 1), 1).getTime();
+        const k = `${y}-${m}`;
+        if (!groups.has(k))
+            groups.set(k, []);
+        groups.get(k).push({ a3, t, at });
+    }));
+    const out = [];
+    groups.forEach((list) => {
+        if (list.length < 2)
+            return;
+        list.sort((x, y) => x.at - y.at);
+        const prev = new Map();
+        list.forEach((it) => {
+            const d = it.t.dep;
+            if (!d || !d.name || routeKey(d.name) === homeName)
+                return;
+            // откуда вылетали — там была другая поездка этого месяца (самая поздняя до этой)
+            const hits = list.filter((o) => {
+                var _c;
+                return o !== it &&
+                    o.at <= it.at &&
+                    ((o.t.cities || []).some((c) => routeKey(c) === routeKey(d.name)) ||
+                        routeKey((_c = BY_A3[o.a3]) === null || _c === void 0 ? void 0 : _c.name) === routeKey(d.name));
+            });
+            const p = hits[hits.length - 1] || list.find((o) => o !== it && (o.t.cities || []).some((c) => routeKey(c) === routeKey(d.name)));
+            if (p)
+                prev.set(it, p);
+        });
+        if (!prev.size)
+            return;
+        const used = new Set();
+        // цепочки: от поездок, к которым никто не пристёгнут сверху
+        const hasNext = new Map();
+        prev.forEach((p, it) => {
+            if (!hasNext.has(p))
+                hasNext.set(p, []);
+            hasNext.get(p).push(it);
+        });
+        list.forEach((root) => {
+            if (prev.has(root) || used.has(root) || !hasNext.has(root))
+                return;
+            const chain = [];
+            const walk = (n) => {
+                if (used.has(n))
+                    return;
+                used.add(n);
+                chain.push(n);
+                (hasNext.get(n) || []).sort((x, y) => x.at - y.at).forEach(walk);
+            };
+            walk(root);
+            if (chain.length < 2)
+                return;
+            const key = chain.map((x) => x.t.id).sort().join("|");
+            if (!skip.has(key))
+                out.push({ key, chain: chain.map(({ a3, t }) => ({ a3, t })) });
+        });
+    });
+    return out.sort((a, b) => (b.chain[0].t.y || 0) - (a.chain[0].t.y || 0));
+}
+/* подпись цепочки: «Пекин → Гонконг → Макао» */
+const chainText = (chain) => chain
+    .map(({ a3, t }) => { var _c; return `${flagText(a3) ? flagText(a3) + " " : ""}${(t.cities || [])[0] || ((_c = BY_A3[a3]) === null || _c === void 0 ? void 0 : _c.name) || a3}`; })
+    .join(" → ");
+const routeText = (r) => { var _c, _d; return [(_c = r === null || r === void 0 ? void 0 : r.start) === null || _c === void 0 ? void 0 : _c.name, ...((r === null || r === void 0 ? void 0 : r.stops) || []).map((s) => s.name), (_d = r === null || r === void 0 ? void 0 : r.start) === null || _d === void 0 ? void 0 : _d.name].filter(Boolean).join(" → "); };
+/* шторка «Маршрут»: откуда → точки по порядку → обратно */
+function RouteSheet({ open, onClose, box, initial, homePt, since, onSave, onUnpack }) {
+    const [r, setR] = useState(null);
+    const [editWhen, setEditWhen] = useState(false);
+    const [adding, setAdding] = useState(false);
+    const [airFor, setAirFor] = useState(null);
+    const [pickStart, setPickStart] = useState(false);
+    const [ask, setAsk] = useState(null);
+    const planTouched = useRef(false);
+    useEffect(() => {
+        if (!open)
+            return;
+        const base = initial ? JSON.parse(JSON.stringify(initial)) : blankRoute(homePt);
+        if (!base.start)
+            base.start = homePt || null;
+        setR(base);
+        setEditWhen(!base.y);
+        setAdding(!base.stops.length);
+        setAirFor(null);
+        setPickStart(false);
+        planTouched.current = !!initial;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open]);
+    const patch = (p) => setR((d) => {
+        const next = { ...d, ...p };
+        if (!planTouched.current && ("y" in p || "m" in p || "from" in p)) {
+            const a = dParts(next.from);
+            const y = next.y || 0;
+            const m = next.m || 12;
+            next.plan = a ? new Date(a.y, a.m - 1, a.d) > NOW : y > NOW.getFullYear() || (y === NOW.getFullYear() && m > NOW.getMonth() + 1);
+        }
+        return next;
+    });
+    const setLeg = (i, p) => setR((d) => ({ ...d, legs: d.legs.map((L, n) => (n === i ? { ...L, ...p } : L)) }));
+    const setStop = (i, p) => setR((d) => ({ ...d, stops: d.stops.map((s, n) => (n === i ? { ...s, ...p } : s)) }));
+    const move = (i, dir) => setR((d) => {
+        const st = d.stops.slice();
+        const j = i + dir;
+        if (j < 0 || j >= st.length)
+            return d;
+        [st[i], st[j]] = [st[j], st[i]];
+        return { ...d, stops: st };
+    });
+    const drop = (i) => setR((d) => ({ ...d, stops: d.stops.filter((_, n) => n !== i), legs: d.legs.filter((_, n) => n !== i) }));
+    const add = (c) => setR((d) => {
+        var _c, _d;
+        const legs = d.legs.slice();
+        // новый перегон встаёт перед обратным; по умолчанию — как предыдущий
+        const prevK = ((_c = legs[legs.length - 2]) === null || _c === void 0 ? void 0 : _c.k) || ((_d = legs[legs.length - 1]) === null || _d === void 0 ? void 0 : _d.k) || null;
+        legs.splice(legs.length - 1, 0, { k: d.stops.length ? null : prevK, air: [] });
+        return { ...d, stops: [...d.stops, { name: c.name, a3: c.a3, lat: c.lat, lon: c.lon, tr: 0 }], legs };
+    });
+    if (!open)
+        return null;
+    const ready = r && r.start && r.stops.length > 0 && r.y && (!r.approx || r.y2);
+    const members = r ? routeMembers(r) : new Map();
+    const count = {};
+    ((r === null || r === void 0 ? void 0 : r.legs) || []).forEach((L) => (count[L.k || "none"] = (count[L.k || "none"] || 0) + 1));
+    const legRow = (i, last) => {
+        var _c, _d;
+        const L = r.legs[i] || {};
+        const col = ((_c = MOVE_KINDS.find((m) => m.id === L.k)) === null || _c === void 0 ? void 0 : _c.color) || "#5d7891";
+        return (React.createElement("div", { className: "rt-leg" + (L.k ? "" : " none"), style: { "--c": col }, key: "l" + i },
+            React.createElement("div", { className: "rt-moves" },
+                MOVES.map((m) => (React.createElement("button", { key: m.id, className: "rt-mv" + (L.k === m.id ? " on" : ""), onClick: () => setLeg(i, { k: L.k === m.id ? null : m.id, air: m.id === "air" ? L.air || [] : [] }), "aria-label": m.name }, m.icon))),
+                L.k === "air" &&
+                    ((L.air || []).length ? (React.createElement("button", { className: "rt-air", onClick: () => setAirFor(airFor === i ? null : i) },
+                        React.createElement(AirMark, { code: L.air[0] }),
+                        ((_d = airInfo(L.air[0])) === null || _d === void 0 ? void 0 : _d.name) || L.air[0])) : (React.createElement("button", { className: "link-btn rt-air-add", onClick: () => setAirFor(airFor === i ? null : i) }, "\uFF0B \u0430\u0432\u0438\u0430\u043A\u043E\u043C\u043F\u0430\u043D\u0438\u044F"))),
+                last && React.createElement("em", { className: "rt-back" }, "\u043E\u0431\u0440\u0430\u0442\u043D\u043E")),
+            airFor === i && (React.createElement(AirPicker, { exclude: [], onAdd: (code) => {
+                    setLeg(i, { air: [code] });
+                    setAirFor(null);
+                }, onClose: () => setAirFor(null) }))));
+    };
+    return (React.createElement(Sheet, { open: open, onClose: onClose, box: box, title: "\u041C\u0430\u0440\u0448\u0440\u0443\u0442" }, (close) => {
+        var _c, _d, _e, _f;
+        return r && (React.createElement("div", { className: "sheet-body rt-body" },
+            editWhen ? (React.createElement("div", { className: "step" },
+                React.createElement("p", { className: "step-title" }, "\u041A\u043E\u0433\u0434\u0430 \u044D\u0442\u043E \u0431\u044B\u043B\u043E"),
+                React.createElement(WhenPicker, { y: r.y, m: r.m, y2: r.y2, approx: r.approx, from: r.from, to: r.to, since: since, onChange: (p) => patch(p) }),
+                React.createElement("button", { className: "cta slim", onClick: () => r.y && setEditWhen(false) }, "\u0413\u043E\u0442\u043E\u0432\u043E"))) : (React.createElement(Done, { label: "\u041A\u043E\u0433\u0434\u0430", value: r.y ? tripLabel(r) : "", onEdit: () => setEditWhen(true) })),
+            React.createElement("p", { className: "step-title rt-title" }, "\u041E\u0442\u043A\u0443\u0434\u0430"),
+            React.createElement("div", { className: "rt-stop home" },
+                React.createElement("i", { className: "rt-dot home" }),
+                React.createElement("b", null,
+                    ((_c = r.start) === null || _c === void 0 ? void 0 : _c.name) || "не указано",
+                    React.createElement("em", null, ((_d = r.start) === null || _d === void 0 ? void 0 : _d.a3) ? ((_e = BY_A3[r.start.a3]) === null || _e === void 0 ? void 0 : _e.name) || "" : "дом")),
+                React.createElement("button", { className: "link-btn", onClick: () => setPickStart(!pickStart) }, "\u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C")),
+            pickStart && (React.createElement(CityPointPicker, { placeholder: "\u041E\u0442\u043A\u0443\u0434\u0430 \u0432\u044B\u0435\u0437\u0436\u0430\u043B\u0438", onClose: () => setPickStart(false), onPick: (c) => {
+                    patch({ start: { name: c.name, a3: c.a3, lat: c.lat, lon: c.lon } });
+                    setPickStart(false);
+                } })),
+            React.createElement("p", { className: "step-title rt-title" }, "\u0422\u043E\u0447\u043A\u0438 \u043F\u043E \u043F\u043E\u0440\u044F\u0434\u043A\u0443"),
+            !r.stops.length && (React.createElement("p", { className: "hint small" }, "\u0414\u043E\u0431\u0430\u0432\u044C\u0442\u0435 \u0433\u043E\u0440\u043E\u0434\u0430 \u0432 \u0442\u043E\u043C \u043F\u043E\u0440\u044F\u0434\u043A\u0435, \u043A\u0430\u043A \u0435\u0445\u0430\u043B\u0438. \u0414\u0430\u0442\u044B \u043D\u0435 \u043E\u0431\u044F\u0437\u0430\u0442\u0435\u043B\u044C\u043D\u044B \u2014 \u043F\u043E\u0440\u044F\u0434\u043E\u043A \u0437\u0430\u0434\u0430\u0451\u0442\u0435 \u0432\u044B. \u041C\u0435\u0436\u0434\u0443 \u0442\u043E\u0447\u043A\u0430\u043C\u0438 \u0432\u044B\u0431\u0435\u0440\u0438\u0442\u0435, \u043D\u0430 \u0447\u0451\u043C \u0434\u043E\u0431\u0438\u0440\u0430\u043B\u0438\u0441\u044C.")),
+            r.stops.map((s, i) => {
+                var _c;
+                return (React.createElement(React.Fragment, { key: "s" + i },
+                    legRow(i),
+                    React.createElement("div", { className: "rt-stop" + (s.tr ? " tr" : "") },
+                        React.createElement("i", { className: "rt-dot" + (s.tr === 2 ? " air" : s.tr === 1 ? " out" : "") }),
+                        React.createElement("b", null,
+                            s.name,
+                            React.createElement("em", null,
+                                ((_c = BY_A3[s.a3]) === null || _c === void 0 ? void 0 : _c.name) || s.a3,
+                                s.tr === 2 ? " · страна не засчитается" : "")),
+                        React.createElement("span", { className: "rt-tools" },
+                            React.createElement("button", { onClick: () => move(i, -1), disabled: !i, "aria-label": "\u0412\u044B\u0448\u0435" }, "\u2191"),
+                            React.createElement("button", { onClick: () => move(i, 1), disabled: i === r.stops.length - 1, "aria-label": "\u041D\u0438\u0436\u0435" }, "\u2193"),
+                            React.createElement("button", { onClick: () => drop(i), "aria-label": "\u0423\u0431\u0440\u0430\u0442\u044C \u0442\u043E\u0447\u043A\u0443" }, "\u2715"))),
+                    React.createElement("div", { className: "rt-trrow" },
+                        React.createElement("button", { className: "rt-tr", onClick: () => setStop(i, { tr: s.tr ? 0 : 1 }) },
+                            React.createElement("span", { className: "switch" + (s.tr ? " on" : "") },
+                                React.createElement("i", null)),
+                            "\u043F\u0435\u0440\u0435\u0441\u0430\u0434\u043A\u0430"),
+                        s.tr > 0 && (React.createElement("span", { className: "rt-out" },
+                            React.createElement("button", { className: s.tr === 1 ? "on" : "", onClick: () => setStop(i, { tr: 1 }) }, "\u0432\u044B\u0445\u043E\u0434\u0438\u043B\u0438 \u0432 \u0433\u043E\u0440\u043E\u0434"),
+                            React.createElement("button", { className: s.tr === 2 ? "on" : "", onClick: () => setStop(i, { tr: 2 }) }, "\u0442\u043E\u043B\u044C\u043A\u043E \u0430\u044D\u0440\u043E\u043F\u043E\u0440\u0442"))))));
+            }),
+            adding ? (React.createElement(CityPointPicker, { placeholder: "\u0413\u043E\u0440\u043E\u0434 \u0438\u043B\u0438 \u0441\u0442\u0440\u0430\u043D\u0430", onClose: () => setAdding(false), onPick: (c) => {
+                    add(c);
+                    setAdding(false);
+                } })) : (React.createElement("button", { className: "rt-add", onClick: () => setAdding(true) }, "\uFF0B \u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0442\u043E\u0447\u043A\u0443")),
+            r.stops.length > 0 && (React.createElement(React.Fragment, null,
+                legRow(r.legs.length - 1, true),
+                React.createElement("div", { className: "rt-stop home" },
+                    React.createElement("i", { className: "rt-dot home" }),
+                    React.createElement("b", null, (_f = r.start) === null || _f === void 0 ? void 0 :
+                        _f.name,
+                        React.createElement("em", null, "\u0432\u0435\u0440\u043D\u0443\u043B\u0438\u0441\u044C \u0434\u043E\u043C\u043E\u0439"))),
+                React.createElement("div", { className: "rt-sum" },
+                    "\u0421\u0442\u0440\u0430\u043D\u044B:",
+                    " ",
+                    [...members.keys()].map((a3) => { var _c; return `${flagText(a3) ? flagText(a3) + " " : ""}${((_c = BY_A3[a3]) === null || _c === void 0 ? void 0 : _c.name) || a3}`; }).join(", ") ||
+                        "—",
+                    React.createElement("em", null,
+                        np(r.legs.length, "leg"),
+                        ":",
+                        " ",
+                        [...MOVE_KINDS.map((m) => m.id), "none"]
+                            .filter((k) => count[k])
+                            .map((k) => (k === "none" ? `не указано ${count[k]}` : `${MOVE_ICON[k]} ${count[k]}`))
+                            .join(" · "))))),
+            React.createElement(Ask, { ask: ask, onClose: () => setAsk(null), box: box }),
+            React.createElement("div", { className: "edit-actions" },
+                onUnpack && initial && (React.createElement("button", { className: "act del", "aria-label": "\u0420\u0430\u0437\u043E\u0431\u0440\u0430\u0442\u044C \u043C\u0430\u0440\u0448\u0440\u0443\u0442", onClick: () => setAsk({
+                        title: "Разобрать маршрут?",
+                        text: "Поездки по странам останутся, исчезнет только порядок точек и пересадки.",
+                        yes: "Разобрать",
+                        onYes: () => {
+                            onUnpack(r);
+                            close();
+                        },
+                    }) }, "\u2702")),
+                React.createElement("button", { className: "act ok", disabled: !ready, onClick: () => {
+                        onSave({ ...r, at: Date.now() });
+                        close();
+                    } },
+                    React.createElement("span", null, "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C \u043C\u0430\u0440\u0448\u0440\u0443\u0442")))));
+    }));
+}
+/* шторка «Собрать маршруты»: поездки, похожие на одно путешествие */
+function RoutesFindSheet({ open, onClose, box, list, onCollect, onDismiss }) {
+    return (React.createElement(Sheet, { open: open, onClose: onClose, box: box, title: "\u0421\u043E\u0431\u0440\u0430\u0442\u044C \u043C\u0430\u0440\u0448\u0440\u0443\u0442\u044B" }, () => (React.createElement("div", { className: "sheet-body" },
+        React.createElement("p", { className: "hint small" }, "\u041F\u043E\u0435\u0437\u0434\u043A\u0438 \u043E\u0434\u043D\u043E\u0433\u043E \u043C\u0435\u0441\u044F\u0446\u0430, \u0433\u0434\u0435 \u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0430\u044F \u043D\u0430\u0447\u0438\u043D\u0430\u0435\u0442\u0441\u044F \u0442\u0430\u043C, \u0433\u0434\u0435 \u0437\u0430\u043A\u043E\u043D\u0447\u0438\u043B\u0430\u0441\u044C \u043F\u0440\u043E\u0448\u043B\u0430\u044F. \u0421\u043E\u0431\u0435\u0440\u0438\u0442\u0435 \u0438\u0445 \u0432 \u043E\u0434\u0438\u043D \u043C\u0430\u0440\u0448\u0440\u0443\u0442 \u2014 \u043F\u043E\u0440\u044F\u0434\u043E\u043A \u0438 \u043E\u0431\u0440\u0430\u0442\u043D\u044B\u0439 \u043F\u0443\u0442\u044C \u043C\u043E\u0436\u043D\u043E \u0431\u0443\u0434\u0435\u0442 \u043F\u043E\u043F\u0440\u0430\u0432\u0438\u0442\u044C."),
+        !list.length && React.createElement("p", { className: "focus-empty" }, "\u041F\u043E\u0445\u043E\u0436\u0438\u0445 \u043F\u043E\u0435\u0437\u0434\u043E\u043A \u043D\u0435 \u043D\u0430\u0448\u043B\u043E\u0441\u044C."),
+        list.map((c) => {
+            const t0 = c.chain[0].t;
+            return (React.createElement("div", { key: c.key, className: "rt-cand" },
+                React.createElement("b", null,
+                    t0.m ? `${MONTHS[t0.m - 1]} ` : "",
+                    t0.y),
+                React.createElement("p", null, chainText(c.chain)),
+                React.createElement("div", { className: "rt-cand-btns" },
+                    React.createElement("button", { className: "btn-ghost", onClick: () => onDismiss(c) }, "\u042D\u0442\u043E \u0440\u0430\u0437\u043D\u044B\u0435 \u043F\u043E\u0435\u0437\u0434\u043A\u0438"),
+                    React.createElement("button", { className: "btn-main", onClick: () => onCollect(c) }, "\u0421\u043E\u0431\u0440\u0430\u0442\u044C \u0432 \u043C\u0430\u0440\u0448\u0440\u0443\u0442"))));
+        })))));
 }
 /* Атлас · 15 · профиль, настройки, курсы валют, страна, режим снимков.
    Части собираются по номерам в один файл (tools/rebuild.sh) и видят друг друга напрямую. */
@@ -9528,9 +9913,10 @@ function moveReport(visits, home) {
     const by = {};
     ["air", "rail", "car", "other", "none"].forEach((k) => (by[k] = { n: 0, km: 0, best: null }));
     const years = {};
+    const routesSeen = new Map();
     let total = 0;
     Object.entries(visits || {}).forEach(([a3, arr]) => (arr || []).forEach((t) => {
-        var _c;
+        var _c, _d, _e;
         if (t.plan)
             return;
         const k = by[t.move] ? t.move : "none";
@@ -9541,11 +9927,18 @@ function moveReport(visits, home) {
             years[t.y] = years[t.y] || {};
             years[t.y][k] = (years[t.y][k] || 0) + 1;
         }
+        // поездка из маршрута: километры считаем по перегонам маршрута один раз (ниже)
+        if ((_d = (_c = t.route) === null || _c === void 0 ? void 0 : _c.stops) === null || _d === void 0 ? void 0 : _d.length) {
+            const r0 = routesSeen.get(t.route.id);
+            if (!r0 || (t.route.at || 0) > (r0.at || 0))
+                routesSeen.set(t.route.id, t.route);
+            return;
+        }
         const from = depPoint(t, home);
         if (!from)
             return;
         let far = 0;
-        let to = ((_c = BY_A3[a3]) === null || _c === void 0 ? void 0 : _c.name) || a3;
+        let to = ((_e = BY_A3[a3]) === null || _e === void 0 ? void 0 : _e.name) || a3;
         const pts = (t.cities || []).length
             ? (t.cities || []).map((city) => [city, distPoint(a3, city)]).filter((x) => x[1])
             : [[null, distPoint(a3, null)]].filter((x) => x[1]);
@@ -9560,6 +9953,15 @@ function moveReport(visits, home) {
         v.km += far * 2;
         if (!v.best || far > v.best.km)
             v.best = { km: Math.round(far), from: from.name || "дом", to, a3, id: t.id };
+    }));
+    routesSeen.forEach((r) => routeLegs(r).forEach((L) => {
+        if (!L.from || !L.to || !isFinite(L.from.lat) || !isFinite(L.to.lat))
+            return;
+        const v = by[L.k && by[L.k] ? L.k : "none"];
+        const d = kmBetween(L.from, L.to);
+        v.km += d;
+        if (!v.best || d > v.best.km)
+            v.best = { km: Math.round(d), from: L.from.name, to: L.to.name };
     }));
     Object.values(by).forEach((v) => (v.km = Math.round(v.km)));
     const ys = Object.keys(years).map(Number).sort((a, b) => a - b);
@@ -14316,18 +14718,25 @@ function moveJourneys(visits, home, year) {
         homeName = ((_c = Object.entries(cnt).sort((a, b) => b[1] - a[1])[0]) === null || _c === void 0 ? void 0 : _c[0]) || "Дом";
     }
     const trips = [];
+    const routes = new Map(); // маршруты года: путь берём из них как записан
     Object.entries(visits || {}).forEach(([a3, arr]) => (arr || []).forEach((t) => {
-        var _c;
+        var _c, _d, _e;
         if (t.plan)
             return;
         const a = dParts(t.from);
         const y = a ? a.y : t.y;
         if (y !== year)
             return;
+        if ((_d = (_c = t.route) === null || _c === void 0 ? void 0 : _c.stops) === null || _d === void 0 ? void 0 : _d.length) {
+            const r0 = routes.get(t.route.id);
+            if (!r0 || (t.route.at || 0) > (r0.r.at || 0))
+                routes.set(t.route.id, { r: t.route, m: a ? a.m : t.m || 0, at: a ? new Date(a.y, a.m - 1, a.d).getTime() : new Date(y, Math.max(0, (t.m || 1) - 1), 1).getTime() });
+            return;
+        }
         const m = a ? a.m : t.m || 0;
         const b = dParts(t.to);
         const dep = t.dep && t.dep.name ? t.dep.name : homeName;
-        const to = (t.cities || [])[0] || (t.regions || [])[0] || ((_c = BY_A3[a3]) === null || _c === void 0 ? void 0 : _c.name) || a3;
+        const to = (t.cities || [])[0] || (t.regions || [])[0] || ((_e = BY_A3[a3]) === null || _e === void 0 ? void 0 : _e.name) || a3;
         trips.push({
             a3, t, m,
             at: a ? new Date(a.y, a.m - 1, a.d).getTime() : new Date(y, Math.max(0, m - 1), 1).getTime(),
@@ -14366,6 +14775,8 @@ function moveJourneys(visits, home, year) {
     });
     // домой: тем же транспортом, что и уехали
     out.forEach((j) => {
+        if (j.fixed)
+            return;
         const last = j.st[j.st.length - 1];
         if (mvName(last.n) !== mvName(homeName)) {
             j.st.push({ n: homeName, d: j.end || "", home: true });
@@ -14374,6 +14785,27 @@ function moveJourneys(visits, home, year) {
         else
             last.home = true;
     });
+    // маршруты — ровно в записанном порядке, с пересадками и обратной дорогой
+    routes.forEach(({ r, m, at }) => {
+        var _c, _d;
+        const ab = (x) => (x ? `${x.d} ${MV_MN[x.m - 1]}` : "");
+        const a = dParts(r.from);
+        const b = dParts(r.to);
+        out.push({
+            fixed: true,
+            m,
+            at,
+            st: [
+                { n: ((_c = r.start) === null || _c === void 0 ? void 0 : _c.name) || homeName, d: ab(a) || (m ? MV_MN[m - 1] : ""), home: true },
+                ...r.stops.map((s) => ({ n: s.name, d: s.tr === 2 ? "пересадка" : s.tr === 1 ? "пересадка, город" : "", tr: s.tr || 0 })),
+                { n: ((_d = r.start) === null || _d === void 0 ? void 0 : _d.name) || homeName, d: ab(b), home: true },
+            ],
+            legs: (r.legs || []).map((L) => ({ k: (L === null || L === void 0 ? void 0 : L.k) && MOVE_ICON[L.k] ? L.k : "none", code: ((L === null || L === void 0 ? void 0 : L.air) || [])[0] || "" })),
+            trips: [],
+        });
+    });
+    out.forEach((j) => { var _c, _d, _e; return (j.at = (_e = (_c = j.at) !== null && _c !== void 0 ? _c : (_d = j.trips[0]) === null || _d === void 0 ? void 0 : _d.at) !== null && _e !== void 0 ? _e : 0); });
+    out.sort((x, y) => x.at - y.at);
     return out;
 }
 /* одна змейка: по два перегона в ряду, на краю — поворот вниз и обратно */
@@ -14422,7 +14854,7 @@ function MoveSnake({ j, delay = 0, run = 0 }) {
             const anchor = x < W / 4 ? "start" : x > (W * 3) / 4 ? "end" : "middle";
             const lx = anchor === "start" ? x - 10 : anchor === "end" ? x + 10 : x;
             return (React.createElement("g", { key: "s" + i },
-                React.createElement("circle", { cx: x, cy: y, r: s.home ? 6.5 : 5.5, className: "mvs-st" + (s.home ? " home" : "") }),
+                React.createElement("circle", { cx: x, cy: y, r: s.home ? 6.5 : s.tr ? 4.5 : 5.5, className: "mvs-st" + (s.home ? " home" : "") + (s.tr === 2 ? " air" : s.tr === 1 ? " out" : "") }),
                 React.createElement("text", { x: lx, y: y + 21, textAnchor: anchor, className: "mvs-n" }, s.n),
                 s.d && (React.createElement("text", { x: lx, y: y + 34, textAnchor: anchor, className: "mvs-d" }, s.d))));
         })));
@@ -14936,6 +15368,20 @@ function DoublesSheet({ open, onClose, box, pairs, people, onJoin, onKeep }) {
                     React.createElement("button", { className: "btn-main", onClick: () => onJoin(pr) }, "\u041E\u0431\u044A\u0435\u0434\u0438\u043D\u0438\u0442\u044C"))));
         })))))));
 }
+/* подряд идущие поездки одного маршрута — вместе, под общей шапкой */
+function routeRuns(rows) {
+    const out = [];
+    rows.forEach((row) => {
+        var _c, _d;
+        const id = (_c = row.t.route) === null || _c === void 0 ? void 0 : _c.id;
+        const last = out[out.length - 1];
+        if (id && last && ((_d = last.route) === null || _d === void 0 ? void 0 : _d.id) === id)
+            last.rows.push(row);
+        else
+            out.push({ route: id ? row.t.route : null, rows: [row] });
+    });
+    return out;
+}
 /* подпись группы в разрезе «по регионам»: «Удмуртия · Россия» или просто страна */
 function groupRegionLabel(key) {
     var _c, _d;
@@ -14945,7 +15391,7 @@ function groupRegionLabel(key) {
     return `${rest.join("|")} · ${((_d = BY_A3[a3]) === null || _d === void 0 ? void 0 : _d.name) || a3}`;
 }
 /* шторка: фильтры — для глобуса и для списка поездок */
-function FiltersSheet({ open, onClose, box, target, years, yearFilter, onYear, mode, onMode, }) {
+function FiltersSheet({ open, onClose, box, target, years, yearFilter, onYear, mode, onMode, routeCount = 0, onRoutes, }) {
     return (React.createElement(Sheet, { open: open, onClose: onClose, title: "\u0424\u0438\u043B\u044C\u0442\u0440\u044B", box: box }, () => (React.createElement("div", { className: "sheet-body" }, target === "list" ? (React.createElement(React.Fragment, null,
         React.createElement("p", { className: "step-title" }, "\u041A\u0430\u043A \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0442\u044C \u0441\u043F\u0438\u0441\u043E\u043A"),
         [
@@ -14958,7 +15404,15 @@ function FiltersSheet({ open, onClose, box, target, years, yearFilter, onYear, m
             React.createElement("span", { className: "switch-text" },
                 t,
                 React.createElement("em", null, d)),
-            React.createElement("span", { className: "step-pen" }, mode === v ? "✓" : "")))))) : (React.createElement(React.Fragment, null,
+            React.createElement("span", { className: "step-pen" }, mode === v ? "✓" : "")))),
+        React.createElement("p", { className: "step-title" }, "\u041C\u0430\u0440\u0448\u0440\u0443\u0442\u044B"),
+        React.createElement("button", { className: "switch-row rt-find", onClick: () => onRoutes === null || onRoutes === void 0 ? void 0 : onRoutes() },
+            React.createElement("span", { className: "switch-text" },
+                "\uD83E\uDDED \u0421\u043E\u0431\u0440\u0430\u0442\u044C \u043C\u0430\u0440\u0448\u0440\u0443\u0442\u044B",
+                React.createElement("em", null, routeCount
+                    ? `Похоже на одно путешествие: ${routeCount}`
+                    : "Найти поездки, похожие на одно путешествие")),
+            React.createElement("span", { className: "step-pen" }, routeCount || "›")))) : (React.createElement(React.Fragment, null,
         React.createElement("p", { className: "step-title" }, "\u041F\u043E\u043A\u0430\u0437\u0430\u0442\u044C \u043D\u0430 \u0433\u043B\u043E\u0431\u0443\u0441\u0435"),
         React.createElement("button", { className: "switch-row" + (yearFilter === "all" ? " picked" : ""), onClick: () => onYear("all") },
             React.createElement("span", { className: "switch-text" },
@@ -14971,7 +15425,7 @@ function FiltersSheet({ open, onClose, box, target, years, yearFilter, onYear, m
         years.length === 0 && (React.createElement("p", { className: "focus-empty" }, "\u0424\u0438\u043B\u044C\u0442\u0440 \u043F\u043E\u044F\u0432\u0438\u0442\u0441\u044F, \u043A\u043E\u0433\u0434\u0430 \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u0435 \u043F\u0435\u0440\u0432\u0443\u044E \u043F\u043E\u0435\u0437\u0434\u043A\u0443."))))))));
 }
 /* шторка: все поездки — свёртка групп, поиск */
-function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, since, wishCount = 0, onFilters, focus = null }) {
+function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, since, wishCount = 0, onFilters, focus = null, onRouteEdit }) {
     const [q, setQ] = useState("");
     const [searchOn, setSearchOn] = useState(false);
     const [closed, setClosed] = useState({});
@@ -15300,33 +15754,51 @@ function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, si
                     React.createElement("span", { className: "grp-count" }, rows.length),
                     React.createElement("span", { className: "grp-chev" }, hidden ? "▾" : "▴")),
                 !hidden &&
-                    rows.map((row) => (React.createElement("div", { key: key + row.a3 + row.idx, className: "trip-item" + (row.t.plan ? " is-plan" : "") },
-                        React.createElement("button", { className: "trip-main", onClick: () => onPick(row.a3, row.t.id), "aria-label": "\u0418\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u043F\u043E\u0435\u0437\u0434\u043A\u0443" },
-                            React.createElement("span", { className: "fl" },
-                                React.createElement(Flg, { a3: row.a3, a2: row.c.a2 })),
-                            React.createElement("span", { className: "trip-body" },
-                                React.createElement("span", { className: "trip-title" }, mode === "country"
-                                    ? tripLabel(row.t)
-                                    : row.c.name),
-                                React.createElement("span", { className: "trip-sub" },
-                                    row.t.move && (React.createElement("i", { className: "trip-move" },
-                                        MOVE_ICON[row.t.move] || "",
-                                        (row.t.air || []).length
-                                            ? ` ${(row.t.air || [])
-                                                .map((c) => { var _c; return (((_c = airInfo(c)) === null || _c === void 0 ? void 0 : _c.own) ? airInfo(c).name : c); })
-                                                .join(" · ")}`
-                                            : "")),
-                                    mode === "country"
-                                        ? sub(row.t).replace(MONTHS[(row.t.m || 1) - 1] + " · ", "")
-                                        : sub(row.t) || tripLabel(row.t))),
-                            mode !== "country" && (React.createElement("span", { className: "trip-year" }, row.t.y2 && row.t.y2 !== row.t.y
-                                ? `${row.t.y}–${row.t.y2}`
-                                : row.t.y)),
-                            React.createElement("span", { className: "trip-pen", "aria-hidden": "true" },
-                                React.createElement("svg", { viewBox: "0 0 24 24", width: "17", height: "17" },
-                                    React.createElement("path", { d: "M4 20h4L19 9l-4-4L4 16v4z", fill: "none", stroke: "currentColor", strokeWidth: "1.7", strokeLinejoin: "round" }),
-                                    React.createElement("path", { d: "M14 6l4 4", fill: "none", stroke: "currentColor", strokeWidth: "1.7" })))),
-                        planOverdue(row.t) && (React.createElement("button", { className: "trip-done", onClick: () => onDone(row.a3, row.t.id), "aria-label": "\u041E\u0442\u043C\u0435\u0442\u0438\u0442\u044C \u0441\u043E\u0441\u0442\u043E\u044F\u0432\u0448\u0435\u0439\u0441\u044F" }, "\u2713")))))));
+                    routeRuns(rows).map((run) => {
+                        const one = (row) => (React.createElement("div", { key: key + row.a3 + row.idx, className: "trip-item" + (row.t.plan ? " is-plan" : "") },
+                            React.createElement("button", { className: "trip-main", onClick: () => onPick(row.a3, row.t.id), "aria-label": "\u0418\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u043F\u043E\u0435\u0437\u0434\u043A\u0443" },
+                                React.createElement("span", { className: "fl" },
+                                    React.createElement(Flg, { a3: row.a3, a2: row.c.a2 })),
+                                React.createElement("span", { className: "trip-body" },
+                                    React.createElement("span", { className: "trip-title" }, mode === "country"
+                                        ? tripLabel(row.t)
+                                        : row.c.name),
+                                    React.createElement("span", { className: "trip-sub" },
+                                        row.t.move && (React.createElement("i", { className: "trip-move" },
+                                            MOVE_ICON[row.t.move] || "",
+                                            (row.t.air || []).length
+                                                ? ` ${(row.t.air || [])
+                                                    .map((c) => { var _c; return (((_c = airInfo(c)) === null || _c === void 0 ? void 0 : _c.own) ? airInfo(c).name : c); })
+                                                    .join(" · ")}`
+                                                : "")),
+                                        mode === "country"
+                                            ? sub(row.t).replace(MONTHS[(row.t.m || 1) - 1] + " · ", "")
+                                            : sub(row.t) || tripLabel(row.t))),
+                                mode !== "country" && (React.createElement("span", { className: "trip-year" }, row.t.y2 && row.t.y2 !== row.t.y
+                                    ? `${row.t.y}–${row.t.y2}`
+                                    : row.t.y)),
+                                React.createElement("span", { className: "trip-pen", "aria-hidden": "true" },
+                                    React.createElement("svg", { viewBox: "0 0 24 24", width: "17", height: "17" },
+                                        React.createElement("path", { d: "M4 20h4L19 9l-4-4L4 16v4z", fill: "none", stroke: "currentColor", strokeWidth: "1.7", strokeLinejoin: "round" }),
+                                        React.createElement("path", { d: "M14 6l4 4", fill: "none", stroke: "currentColor", strokeWidth: "1.7" })))),
+                            planOverdue(row.t) && (React.createElement("button", { className: "trip-done", onClick: () => onDone(row.a3, row.t.id), "aria-label": "\u041E\u0442\u043C\u0435\u0442\u0438\u0442\u044C \u0441\u043E\u0441\u0442\u043E\u044F\u0432\u0448\u0435\u0439\u0441\u044F" }, "\u2713"))));
+                        if (!run.route)
+                            return one(run.rows[0]);
+                        // путешествие по маршруту — одна шапка со схемой, под ней страны маршрута
+                        return (React.createElement("div", { key: key + "r" + run.route.id + run.rows[0].idx, className: "rt-box" },
+                            React.createElement("button", { className: "rt-box-head", onClick: () => onRouteEdit === null || onRouteEdit === void 0 ? void 0 : onRouteEdit(run.route) },
+                                React.createElement("span", { className: "rt-box-ico" }, "\uD83E\uDDED"),
+                                React.createElement("span", { className: "rt-box-txt" },
+                                    React.createElement("b", null, routeText(run.route)),
+                                    React.createElement("em", null,
+                                        "\u043C\u0430\u0440\u0448\u0440\u0443\u0442 \u00B7 ",
+                                        np((run.route.legs || []).length, "leg"))),
+                                React.createElement("span", { className: "trip-pen", "aria-hidden": "true" },
+                                    React.createElement("svg", { viewBox: "0 0 24 24", width: "17", height: "17" },
+                                        React.createElement("path", { d: "M4 20h4L19 9l-4-4L4 16v4z", fill: "none", stroke: "currentColor", strokeWidth: "1.7", strokeLinejoin: "round" }),
+                                        React.createElement("path", { d: "M14 6l4 4", fill: "none", stroke: "currentColor", strokeWidth: "1.7" })))),
+                            run.rows.map(one)));
+                    })));
         })))));
 }
 /* Атлас · 23a · настройки приложения: один объект, одно сохранение.
@@ -16884,6 +17356,119 @@ function AtlasApp() {
             delete next[a3];
         save(next);
     };
+    /* ── маршруты из нескольких точек (42.21) ───────────────────────── */
+    const homePt = useMemo(() => routeHome(visits, profile === null || profile === void 0 ? void 0 : profile.home), [visits, profile === null || profile === void 0 ? void 0 : profile.home]);
+    const routeCands = useMemo(() => findRouteCandidates(visits, homePt, (profile === null || profile === void 0 ? void 0 : profile.notRoutes) || []), [visits, homePt, profile === null || profile === void 0 ? void 0 : profile.notRoutes]);
+    const [routeEdit, setRouteEdit] = useState(null); // { route, src: [{a3, id}] }
+    const [routesFind, setRoutesFind] = useState(false);
+    /* сохранить маршрут: по стране — одна поездка; лишние поездки той же страны
+       сливаются в неё (отели и снимки сохраняются), страны вне маршрута отвязываются */
+    const applyRoute = (route, src = []) => {
+        var _c, _d;
+        const meId = ((_c = profileRef.current) === null || _c === void 0 ? void 0 : _c.deviceId) || ME;
+        const members = routeMembers(route);
+        const inSrc = (a3, t) => src.some((x) => x.a3 === a3 && x.id === t.id);
+        const involved = new Map();
+        Object.entries(visits).forEach(([a3, arr]) => (arr || []).forEach((t) => {
+            var _c;
+            if (((_c = t.route) === null || _c === void 0 ? void 0 : _c.id) === route.id || inSrc(a3, t)) {
+                if (!involved.has(a3))
+                    involved.set(a3, []);
+                involved.get(a3).push(t);
+            }
+        }));
+        const firstWho = (_d = [...involved.values()].flat()[0]) === null || _d === void 0 ? void 0 : _d.who;
+        const whoDefault = firstWho || [ME, ...((profile === null || profile === void 0 ? void 0 : profile.people) || []).filter((p) => p.always).map((p) => p.id)];
+        const now = Date.now();
+        const next = { ...visits };
+        const uniq = (a) => [...new Set(a.filter(Boolean))];
+        members.forEach((mb, a3) => {
+            const list = involved.get(a3) || [];
+            const base = list[0];
+            const rest = list.slice(1);
+            const merged = {
+                ...(base || {}),
+                id: (base === null || base === void 0 ? void 0 : base.id) || uid(),
+                by: (base === null || base === void 0 ? void 0 : base.by) || meId,
+                who: (base === null || base === void 0 ? void 0 : base.who) || whoDefault,
+                y: route.y,
+                m: route.m || null,
+                y2: route.approx ? route.y2 || route.y : null,
+                approx: !!route.approx,
+                from: route.from || "",
+                to: route.to || "",
+                plan: !!route.plan,
+                cities: mb.cities,
+                move: mb.move || null,
+                air: mb.move === "air" ? mb.air : mb.air.length ? mb.air : [],
+                dep: mb.dep,
+                regions: uniq([...((base === null || base === void 0 ? void 0 : base.regions) || []), ...rest.flatMap((t) => t.regions || []), ...mb.cities.map((c) => regionOf(a3, c))]),
+                hotels: [...((base === null || base === void 0 ? void 0 : base.hotels) || []), ...rest.flatMap((t) => t.hotels || [])],
+                photos: [...((base === null || base === void 0 ? void 0 : base.photos) || []), ...rest.flatMap((t) => t.photos || [])],
+                route,
+                at: now,
+            };
+            rest.forEach((t) => t.id && (tombsRef.current = addTomb(tombsRef.current, t.id)));
+            const arr = (next[a3] || []).filter((t) => !list.includes(t));
+            next[a3] = [...arr, merged].sort((a, b) => b.y - a.y || (b.m || 0) - (a.m || 0));
+        });
+        // страны, которых в маршруте больше нет: поездка остаётся, только без маршрута
+        involved.forEach((list, a3) => {
+            if (members.has(a3))
+                return;
+            next[a3] = (next[a3] || []).map((t) => {
+                if (!list.includes(t))
+                    return t;
+                const { route: _gone, ...plain } = t;
+                return { ...plain, at: now };
+            });
+        });
+        save(next);
+    };
+    const unpackRoute = (route) => {
+        const now = Date.now();
+        const next = {};
+        Object.entries(visits).forEach(([a3, arr]) => {
+            next[a3] = (arr || []).map((t) => {
+                var _c;
+                if (((_c = t.route) === null || _c === void 0 ? void 0 : _c.id) !== route.id)
+                    return t;
+                const { route: _gone, ...plain } = t;
+                return { ...plain, at: now };
+            });
+        });
+        save(next);
+    };
+    const dismissRoute = async (key) => {
+        const prof = profileRef.current || profile || {};
+        const next = { ...prof, notRoutes: [...new Set([...(prof.notRoutes || []), key])] };
+        profileRef.current = next;
+        await saveProfile(next);
+    };
+    const collectRoute = (c) => setRouteEdit({ route: routeFromTrips(c.chain, homePt), src: c.chain.map(({ a3, t }) => ({ a3, id: t.id })) });
+    /* новая поездка начинается не из дома — может, это продолжение прошлой? */
+    const addTripAsk = (a3, trip) => {
+        var _c;
+        addTrip(a3, trip);
+        const d = trip === null || trip === void 0 ? void 0 : trip.dep;
+        if (!d || !d.name || routeKey(d.name) === routeKey(homePt === null || homePt === void 0 ? void 0 : homePt.name))
+            return;
+        const tmp = { ...visits, [a3]: [...(visits[a3] || []), trip] };
+        const c = findRouteCandidates(tmp, homePt, (profile === null || profile === void 0 ? void 0 : profile.notRoutes) || []).find((x) => x.chain.some((it) => it.t.id === trip.id));
+        if (!c)
+            return;
+        const prev = c.chain[c.chain.findIndex((it) => it.t.id === trip.id) - 1] || c.chain[0];
+        const where = (prev.t.cities || [])[0] || ((_c = BY_A3[prev.a3]) === null || _c === void 0 ? void 0 : _c.name) || "";
+        setAsk({
+            title: `Это продолжение поездки в ${where}?`,
+            text: `${chainText(c.chain)}. Собрать в один маршрут — и отметить, как вернулись?`,
+            only: true,
+            alt: "Нет, отдельная",
+            onAlt: () => dismissRoute(c.key),
+            yes: "Да, в маршрут",
+            onYes: () => collectRoute(c),
+        });
+    };
     const allYears = useMemo(() => {
         const s = new Set();
         Object.values(visits).forEach((arr) => arr.forEach((t) => {
@@ -17300,8 +17885,11 @@ function AtlasApp() {
                                 setSheet(null);
                                 pickCountry(a3);
                             } }),
-                        React.createElement(TripSheet, { open: sheet === "add", onClose: () => setSheet(null), box: box, initial: null, visits: visits, onSave: (a3, trip) => addTrip(a3, trip), mode: "add", quality: photoQuality, since: profile.since, people: profile.people || [], home: profile.home || null, meId: profile.deviceId || ME }),
-                        React.createElement(TripSheet, { open: sheet === "edit" && !!editTripObj, onClose: () => setSheet((editing === null || editing === void 0 ? void 0 : editing.back) || null), box: box, initial: editTripObj ? { a3: editing.a3, idx: editing.id, trip: editTripObj } : null, visits: visits, onSave: (a3, trip) => editTrip(a3, editing === null || editing === void 0 ? void 0 : editing.id, trip), onRemove: removeTrip, mode: "edit", quality: photoQuality, since: profile.since, people: profile.people || [], home: profile.home || null, meId: profile.deviceId || ME }),
+                        React.createElement(TripSheet, { open: sheet === "add", onClose: () => setSheet(null), box: box, initial: null, visits: visits, onSave: (a3, trip) => addTripAsk(a3, trip), onRoute: () => {
+                                setSheet(null);
+                                setRouteEdit({ route: null, src: [] });
+                            }, mode: "add", quality: photoQuality, since: profile.since, people: profile.people || [], home: profile.home || null, meId: profile.deviceId || ME }),
+                        React.createElement(TripSheet, { open: sheet === "edit" && !!editTripObj, onClose: () => setSheet((editing === null || editing === void 0 ? void 0 : editing.back) || null), box: box, initial: editTripObj ? { a3: editing.a3, idx: editing.id, trip: editTripObj } : null, visits: visits, onSave: (a3, trip) => editTrip(a3, editing === null || editing === void 0 ? void 0 : editing.id, trip), onRemove: removeTrip, onRoute: (r) => setRouteEdit({ route: r, src: [] }), mode: "edit", quality: photoQuality, since: profile.since, people: profile.people || [], home: profile.home || null, meId: profile.deviceId || ME }),
                         React.createElement(ProfileSheet, { open: sheet === "profile", onClose: () => setSheet(null), box: box, avatar: profile.avatar, name: profile.name, onName: async (v) => {
                                 const prof = { ...profile, name: v };
                                 await saveProfile(prof);
@@ -17379,6 +17967,9 @@ function AtlasApp() {
                                 setListMode(v);
                                 setListFocus(null);
                                 setSheet(sheetBack);
+                            }, routeCount: routeCands.length, onRoutes: () => {
+                                setSheet(sheetBack);
+                                setRoutesFind(true);
                             } }),
                         React.createElement(ListSheet, { visits: visits, stats: stats, open: sheet === "list", onClose: () => {
                                 setSheet(listBack ? "reports" : null);
@@ -17388,7 +17979,12 @@ function AtlasApp() {
                                 // правка поездки прямо из списка; на главный экран не уходим (42.5)
                                 setEditing({ a3, id, back: "list" });
                                 setSheet("edit");
-                            }, onDone: (a3, id) => editTrip(a3, id, { plan: false }), box: box, mode: listMode, since: profile.since, wishCount: wish.length, onFilters: openFilters, focus: listFocus }),
+                            }, onDone: (a3, id) => editTrip(a3, id, { plan: false }), box: box, mode: listMode, since: profile.since, wishCount: wish.length, onFilters: openFilters, focus: listFocus, onRouteEdit: (r) => setRouteEdit({ route: r, src: [] }) }),
+                        React.createElement(RoutesFindSheet, { open: routesFind, onClose: () => setRoutesFind(false), box: box, list: routeCands, onCollect: (c) => {
+                                setRoutesFind(false);
+                                collectRoute(c);
+                            }, onDismiss: (c) => dismissRoute(c.key) }),
+                        React.createElement(RouteSheet, { open: !!routeEdit, onClose: () => setRouteEdit(null), box: box, initial: (routeEdit === null || routeEdit === void 0 ? void 0 : routeEdit.route) || null, homePt: homePt, since: profile.since, onSave: (r) => applyRoute(r, (routeEdit === null || routeEdit === void 0 ? void 0 : routeEdit.src) || []), onUnpack: (routeEdit === null || routeEdit === void 0 ? void 0 : routeEdit.route) && !((routeEdit === null || routeEdit === void 0 ? void 0 : routeEdit.src) || []).length ? unpackRoute : null }),
                         seasonWin && React.createElement(SeasonWin, { visits: visits, onClose: () => setSeasonWin(false) }),
                         yearsWin && (React.createElement(YearsWin, { visits: visits, geo: geo, home: profile.home || null, onClose: () => setYearsWin(false), onOpenTrip: (a3, id) => {
                                 setYearsWin(false);
@@ -19305,6 +19901,58 @@ button, input, select, textarea{font-family:inherit;}
 .mvs-n{font-size:12px; fill:var(--ink);}
 .mvs-d{font-size:9.5px; fill:var(--dim);}
 .cw-legend i.mv-hatch{background:repeating-linear-gradient(135deg, #5d7891 0 2px, transparent 2px 4px); border:1px solid var(--line);}
+/* 42.21 · маршруты из нескольких точек */
+.rt-start{display:flex; align-items:center; gap:12px; width:100%; margin:0 0 12px; padding:12px 14px; border-radius:14px;
+  border:1px solid rgba(232,184,75,.45); background:rgba(232,184,75,.07); color:var(--ink); font:inherit; font-size:14.5px; text-align:left; cursor:pointer;}
+.rt-start > span:first-child{font-size:20px;}
+.rt-start > span:nth-child(2){flex:1; min-width:0;}
+.rt-start em{display:block; font-style:normal; font-size:11.5px; color:var(--dim); margin-top:2px;}
+.rt-start > i{font-style:normal; color:var(--gold); font-size:18px;}
+.rt-start.in{margin-top:8px; font-size:13px;}
+.rt-body .rt-title{margin-top:14px;}
+.rt-stop{display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:14px; background:var(--field); border:1px solid var(--line);}
+.rt-stop b{flex:1; min-width:0; font-weight:400; font-size:14.5px;}
+.rt-stop b em{display:block; font-style:normal; font-size:11px; color:var(--dim);}
+.rt-dot{flex:none; width:14px; height:14px; border-radius:50%; border:3px solid var(--ink);}
+.rt-dot.home{border-color:var(--gold);}
+.rt-dot.out{width:11px; height:11px; border-width:2px; background:var(--ink);}
+.rt-dot.air{width:11px; height:11px; border-width:2px; border-style:dashed;}
+.rt-tools{display:flex; gap:4px;}
+.rt-tools button{width:30px; height:30px; border-radius:9px; border:1px solid var(--line); background:none; color:var(--dim); font:inherit; cursor:pointer;}
+.rt-tools button:disabled{opacity:.3;}
+.rt-trrow{display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin:6px 0 2px 26px;}
+.rt-tr{display:flex; align-items:center; gap:8px; background:none; border:0; color:var(--dim); font:inherit; font-size:12px; cursor:pointer; padding:0;}
+.rt-tr .switch{transform:scale(.8);}
+.rt-out{display:flex; gap:6px;}
+.rt-out button{padding:5px 9px; border-radius:10px; border:1px solid var(--line); background:none; color:var(--dim); font:inherit; font-size:12px; cursor:pointer;}
+.rt-out button.on{border-color:var(--gold); color:var(--gold); background:rgba(232,184,75,.08);}
+.rt-leg{margin:0 0 0 16px; padding:6px 0 6px 16px; border-left:3px solid var(--c);}
+.rt-leg.none{border-left-style:dashed;}
+.rt-moves{display:flex; align-items:center; flex-wrap:wrap; gap:5px;}
+.rt-mv{width:36px; height:32px; border-radius:10px; border:1px solid var(--line); background:none; font-size:15px; opacity:.45; cursor:pointer;}
+.rt-mv.on{opacity:1; border-color:var(--c); background:rgba(255,255,255,.04);}
+.rt-air{display:flex; align-items:center; gap:6px; padding:4px 9px; border-radius:10px; border:1px solid var(--line); background:none; color:var(--ink); font:inherit; font-size:12px; cursor:pointer;}
+.rt-air .air-mark{width:18px; height:18px;}
+.rt-air-add{font-size:12px;}
+.rt-back{font-style:normal; font-size:11px; color:var(--dim); margin-left:auto;}
+.rt-add{display:block; width:100%; margin:10px 0 0; padding:11px; border-radius:14px; border:1px dashed var(--line); background:none; color:var(--gold); font:inherit; font-size:14px; cursor:pointer;}
+.rt-sum{margin-top:12px; padding:10px 12px; border-radius:12px; background:rgba(232,184,75,.08); border:1px solid rgba(232,184,75,.4); font-size:13px; line-height:1.5;}
+.rt-sum em{display:block; font-style:normal; color:var(--dim); font-size:12px;}
+.rt-body .act.ok:disabled{opacity:.4;}
+.rt-cand{margin:10px 0; padding:12px; border-radius:16px; border:1px solid rgba(232,184,75,.5); background:rgba(232,184,75,.06);}
+.rt-cand b{font-size:14px;}
+.rt-cand p{margin:6px 0 10px; font-size:13px; color:var(--dim); line-height:1.4;}
+.rt-cand-btns{display:flex; gap:8px;}
+.rt-cand-btns button{flex:1;}
+.rt-box{margin:4px 10px 8px; border:1px solid var(--line); border-radius:16px; background:var(--panel); overflow:hidden;}
+.rt-box-head{display:flex; align-items:center; gap:10px; width:100%; padding:10px 12px; border:0; border-bottom:1px solid var(--line); background:rgba(232,184,75,.06); color:var(--ink); font:inherit; text-align:left; cursor:pointer;}
+.rt-box-ico{font-size:18px;}
+.rt-box-txt{flex:1; min-width:0;}
+.rt-box-txt b{display:block; font-weight:500; font-size:13.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.rt-box-txt em{display:block; font-style:normal; font-size:11.5px; color:var(--dim);}
+.rt-box .trip-item:last-child{border-bottom:0;}
+.mvs-st.out{fill:var(--ink); stroke-width:2;}
+.mvs-st.air{stroke-width:2; stroke-dasharray:2 2;}
 `;
 const __b = document.getElementById('boot');
 if (__b)
