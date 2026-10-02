@@ -2942,7 +2942,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "42.29";
+const APP_VERSION = "42.30";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -7166,7 +7166,7 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, onRemove, onRo
     const whenReady = !!(draft && draft.y && (!draft.approx || draft.y2));
     const whenText = (draft === null || draft === void 0 ? void 0 : draft.y) ? tripLabel(draft) : "";
     return (React.createElement(Sheet, { open: open, onClose: onClose, box: box, title: country ? country.name : mode === "edit" ? "Поездка" : "Новая поездка" }, (close) => {
-        var _d, _e, _f, _g, _h;
+        var _d, _e, _f, _g, _h, _j;
         return (React.createElement("div", { className: "sheet-body" },
             !country ? (React.createElement(React.Fragment, null,
                 mode === "add" && onRoute && (React.createElement("button", { className: "rt-start", onClick: () => onRoute() },
@@ -7229,12 +7229,11 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, onRemove, onRo
                         "\u0421\u0434\u0435\u043B\u0430\u0442\u044C \u043C\u0430\u0440\u0448\u0440\u0443\u0442\u043E\u043C",
                         React.createElement("em", null, "\u041F\u0435\u0440\u0435\u0441\u0430\u0434\u043A\u0438, \u043D\u0435\u0441\u043A\u043E\u043B\u044C\u043A\u043E \u0442\u043E\u0447\u0435\u043A \u0438 \u0441\u0442\u0440\u0430\u043D, \u0440\u0430\u0437\u043D\u044B\u0439 \u0442\u0440\u0430\u043D\u0441\u043F\u043E\u0440\u0442")),
                     React.createElement("i", null, "\u203A"))),
-                ((_e = initial === null || initial === void 0 ? void 0 : initial.trip) === null || _e === void 0 ? void 0 : _e.route) && onRoute && (React.createElement("button", { className: "rt-start in", onClick: () => onRoute(initial.trip.route) },
-                    React.createElement("span", null, "\uD83E\uDDED"),
-                    React.createElement("span", null,
-                        routeText(initial.trip.route),
-                        React.createElement("em", null, "\u0427\u0430\u0441\u0442\u044C \u043C\u0430\u0440\u0448\u0440\u0443\u0442\u0430 \u00B7 \u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u0442\u043E\u0447\u043A\u0438 \u0438 \u0442\u0440\u0430\u043D\u0441\u043F\u043E\u0440\u0442")),
-                    React.createElement("i", null, "\u203A"))))),
+                ((_e = initial === null || initial === void 0 ? void 0 : initial.trip) === null || _e === void 0 ? void 0 : _e.route) && onRoute && (React.createElement("button", { className: "rt-start in rt-metro", onClick: () => onRoute(initial.trip.route), "aria-label": routeText(initial.trip.route) },
+                    React.createElement("span", { className: "rt-metro-h" },
+                        React.createElement("span", null, "\uD83E\uDDED \u041C\u0430\u0440\u0448\u0440\u0443\u0442"),
+                        React.createElement("em", null, "\u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u203A")),
+                    (initial.trip.route.stops || []).length > 0 && (React.createElement(MoveSnake, { j: routeJourney(initial.trip.route, ((_f = initial.trip.route.start) === null || _f === void 0 ? void 0 : _f.name) || "Дом"), delay: 0.4, anim: true, tight: true, hl: initial.a3 })))))),
             country &&
                 (editWhen ? (React.createElement("div", { className: "step" },
                     React.createElement("p", { className: "step-title" }, "\u041A\u043E\u0433\u0434\u0430 \u044D\u0442\u043E \u0431\u044B\u043B\u043E"),
@@ -7287,7 +7286,7 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, onRemove, onRo
                         .map((r) => (React.createElement("span", { key: r, className: "city-chip small" },
                         r,
                         React.createElement("button", { onClick: () => patch({ regions: draft.regions.filter((x) => x !== r) }), "aria-label": "\u0423\u0431\u0440\u0430\u0442\u044C \u0440\u0435\u0433\u0438\u043E\u043D" }, "\u2715")))))))),
-            country && whenReady && !editWhen && !((_f = initial === null || initial === void 0 ? void 0 : initial.trip) === null || _f === void 0 ? void 0 : _f.route) && (React.createElement("div", { className: "step" },
+            country && whenReady && !editWhen && !((_g = initial === null || initial === void 0 ? void 0 : initial.trip) === null || _g === void 0 ? void 0 : _g.route) && (React.createElement("div", { className: "step" },
                 React.createElement("p", { className: "step-title" }, "\u041A\u0430\u043A \u0434\u043E\u0431\u0438\u0440\u0430\u043B\u0438\u0441\u044C"),
                 React.createElement("div", { className: "dep-row" },
                     React.createElement("span", { className: "dep-label" }, "\u041E\u0442\u043A\u0443\u0434\u0430"),
@@ -7344,7 +7343,7 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, onRemove, onRo
                             " ",
                             airInfo(airShown).name),
                         React.createElement("em", null,
-                            ((_g = BY_A3[airInfo(airShown).a3]) === null || _g === void 0 ? void 0 : _g.name) || "",
+                            ((_h = BY_A3[airInfo(airShown).a3]) === null || _h === void 0 ? void 0 : _h.name) || "",
                             airInfo(airShown).year
                                 ? ` · основана в ${airInfo(airShown).year}`
                                 : "",
@@ -7420,7 +7419,7 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, onRemove, onRo
             mode === "edit" && (draft === null || draft === void 0 ? void 0 : draft.by) && draft.by !== ME && draft.by !== meId && (React.createElement("p", { className: "hint small trip-author" },
                 "\u0410\u0432\u0442\u043E\u0440 \u0437\u0430\u043F\u0438\u0441\u0438:",
                 " ",
-                ((_h = (people || []).find((c) => c.link === (draft === null || draft === void 0 ? void 0 : draft.by))) === null || _h === void 0 ? void 0 : _h.name) || "член семьи",
+                ((_j = (people || []).find((c) => c.link === (draft === null || draft === void 0 ? void 0 : draft.by))) === null || _j === void 0 ? void 0 : _j.name) || "член семьи",
                 ". \u0423\u0434\u0430\u043B\u0438\u0442\u044C \u0435\u0451 \u0434\u043B\u044F \u0432\u0441\u0435\u0445 \u043C\u043E\u0436\u0435\u0442 \u0442\u043E\u043B\u044C\u043A\u043E \u0430\u0432\u0442\u043E\u0440, \u0432\u044B \u043C\u043E\u0436\u0435\u0442\u0435 \u0441\u043A\u0440\u044B\u0442\u044C \u0435\u0451 \u0443 \u0441\u0435\u0431\u044F.")),
             country && whenReady && !editWhen && (React.createElement("div", { className: "edit-actions" },
                 mode === "edit" && onMergeWith && draft.id && (React.createElement("button", { className: "act merge", "aria-label": "\u041E\u0431\u044A\u0435\u0434\u0438\u043D\u0438\u0442\u044C \u0441 \u0434\u0440\u0443\u0433\u043E\u0439 \u043F\u043E\u0435\u0437\u0434\u043A\u043E\u0439", onClick: () => {
@@ -15199,6 +15198,26 @@ const MV_MN = ["янв", "фев", "мар", "апр", "май", "июн", "ию
 const mvName = (s) => String(s || "").toLowerCase().replace(/ё/g, "е").trim();
 /* путешествия года: поездки, которые начинаются там, где закончилась прошлая
    (вылет не из дома), сшиваются в одну цепочку; в конце — возвращение домой */
+/* путь маршрута для схемы метро: дом → точки по порядку → дом */
+function routeJourney(r, homeName, m = 0) {
+    var _d, _e;
+    const ab = (x) => (x ? `${x.d} ${MV_MN[x.m - 1]}` : "");
+    const a = dParts(r.from);
+    const b = dParts(r.to);
+    m = m || (a ? a.m : r.m || 0);
+    return {
+        fixed: true,
+        plan: !!r.plan,
+        m,
+        st: [
+            { n: ((_d = r.start) === null || _d === void 0 ? void 0 : _d.name) || homeName, d: ab(a) || (m ? MV_MN[m - 1] : ""), home: true },
+            ...(r.stops || []).map((s) => ({ n: s.name, a3: s.a3, d: s.tr === 2 ? "пересадка" : s.tr === 1 ? "пересадка, город" : "", tr: s.tr || 0 })),
+            { n: ((_e = r.start) === null || _e === void 0 ? void 0 : _e.name) || homeName, d: ab(b), home: true },
+        ],
+        legs: (r.legs || []).map((L) => ({ k: (L === null || L === void 0 ? void 0 : L.k) && MOVE_ICON[L.k] ? L.k : "none", code: ((L === null || L === void 0 ? void 0 : L.air) || [])[0] || "" })),
+        trips: [],
+    };
+}
 function moveJourneys(visits, home, year) {
     var _d;
     // дом: из профиля, а если не задан — город, откуда вылетали чаще всего
@@ -15278,32 +15297,15 @@ function moveJourneys(visits, home, year) {
             last.home = true;
     });
     // маршруты — ровно в записанном порядке, с пересадками и обратной дорогой
-    routes.forEach(({ r, m, at }) => {
-        var _d, _e;
-        const ab = (x) => (x ? `${x.d} ${MV_MN[x.m - 1]}` : "");
-        const a = dParts(r.from);
-        const b = dParts(r.to);
-        out.push({
-            fixed: true,
-            plan: !!r.plan,
-            m,
-            at,
-            st: [
-                { n: ((_d = r.start) === null || _d === void 0 ? void 0 : _d.name) || homeName, d: ab(a) || (m ? MV_MN[m - 1] : ""), home: true },
-                ...r.stops.map((s) => ({ n: s.name, d: s.tr === 2 ? "пересадка" : s.tr === 1 ? "пересадка, город" : "", tr: s.tr || 0 })),
-                { n: ((_e = r.start) === null || _e === void 0 ? void 0 : _e.name) || homeName, d: ab(b), home: true },
-            ],
-            legs: (r.legs || []).map((L) => ({ k: (L === null || L === void 0 ? void 0 : L.k) && MOVE_ICON[L.k] ? L.k : "none", code: ((L === null || L === void 0 ? void 0 : L.air) || [])[0] || "" })),
-            trips: [],
-        });
-    });
+    routes.forEach(({ r, m, at }) => out.push({ ...routeJourney(r, homeName, m), at }));
     out.forEach((j) => { var _d, _e, _f; return (j.at = (_f = (_d = j.at) !== null && _d !== void 0 ? _d : (_e = j.trips[0]) === null || _e === void 0 ? void 0 : _e.at) !== null && _f !== void 0 ? _f : 0); });
     out.sort((x, y) => x.at - y.at);
     return out;
 }
 /* одна змейка: по два перегона в ряду, на краю — поворот вниз и обратно */
-function MoveSnake({ j, delay = 0, run = 0 }) {
+function MoveSnake({ j, delay = 0, run = 0, anim = false, hl = null, tight = false }) {
     const plan = !!j.plan;
+    const go = anim || !plan; // в карточке поездки едем и по планам
     const W = 330;
     const cols = 3;
     const rowH = 70;
@@ -15317,7 +15319,7 @@ function MoveSnake({ j, delay = 0, run = 0 }) {
             c = cols - 1 - c;
         return [xs[c], top + r * rowH, r];
     });
-    const H = top + (pos[pos.length - 1][2] + 1) * rowH - 10;
+    const H = top + pos[pos.length - 1][2] * rowH + (tight ? 40 : rowH - 10);
     const kind = (k) => MOVE_KINDS.find((m) => m.id === k);
     return (React.createElement("svg", { className: "mvs" + (plan ? " plan" : ""), viewBox: `0 0 ${W} ${H}`, key: run },
         j.legs.map((L, i) => {
@@ -15337,7 +15339,7 @@ function MoveSnake({ j, delay = 0, run = 0 }) {
                     React.createElement("rect", { x: turn || !L.code ? -12 : -24, y: "-11", width: turn || !L.code ? 24 : 48, height: "22", rx: "11", className: "mvs-pill", stroke: col }),
                     React.createElement("text", { x: turn || !L.code ? 0 : -11, y: "4.5", textAnchor: "middle", fontSize: "12" }, MOVE_ICON[L.k]),
                     !turn && L.code && (React.createElement("text", { x: "11", y: "4", textAnchor: "middle", fontSize: "10", fill: col }, L.code.replace(/^~/, "").slice(0, 3))))),
-                !none && !plan && (React.createElement("g", { opacity: "0" },
+                !none && go && (React.createElement("g", { opacity: "0" },
                     React.createElement("circle", { r: "11", fill: col }),
                     React.createElement("text", { y: "4.5", textAnchor: "middle", fontSize: "12" }, MOVE_ICON[L.k]),
                     React.createElement("animateMotion", { path: d, dur: "1s", begin: `${delay + i * 0.55}s`, fill: "freeze" }),
@@ -15349,7 +15351,7 @@ function MoveSnake({ j, delay = 0, run = 0 }) {
             const lx = anchor === "start" ? x - 10 : anchor === "end" ? x + 10 : x;
             return (React.createElement("g", { key: "s" + i },
                 React.createElement("circle", { cx: x, cy: y, r: s.home ? 6.5 : s.tr ? 4.5 : 5.5, className: "mvs-st" + (s.home ? " home" : "") + (s.tr === 2 ? " air" : s.tr === 1 ? " out" : "") }),
-                React.createElement("text", { x: lx, y: y + 21, textAnchor: anchor, className: "mvs-n" }, s.n),
+                React.createElement("text", { x: lx, y: y + 21, textAnchor: anchor, className: "mvs-n" + (hl && s.a3 === hl ? " hl" : "") }, s.n),
                 s.d && (React.createElement("text", { x: lx, y: y + 34, textAnchor: anchor, className: "mvs-d" }, s.d))));
         })));
 }
@@ -20708,6 +20710,14 @@ button, input, select, textarea{font-family:inherit;}
 .hotel-city button{padding:3px 9px; border-radius:999px; border:1px solid var(--line); background:none; color:var(--dim); font:inherit; font-size:11.5px; cursor:pointer;}
 .hotel-city button.on{border-color:var(--gold); color:var(--gold);}
 .sheet .city-chips + .step-title{margin-top:16px;}
+/* 42.30: маршрут в карточке поездки — схемой метро */
+.rt-start.rt-metro{display:block; text-align:left; padding:10px 12px 6px;}
+.rt-metro-h{display:flex; justify-content:space-between; align-items:baseline; font-size:13px; color:var(--ink); margin-bottom:2px;}
+.rt-metro-h em{font-style:normal; font-size:12px; color:var(--gold);}
+.rt-metro .mvs{margin:0 auto; max-width:360px;}
+.mvs-n.hl{fill:var(--gold); font-weight:600;}
+.rt-start.rt-metro > span.rt-metro-h{font-size:13px; display:flex; flex:none;}
+.rt-start.rt-metro .rt-metro-h em{display:inline; margin:0; color:var(--gold); font-size:12px;}
 `;
 const __b = document.getElementById('boot');
 if (__b)
