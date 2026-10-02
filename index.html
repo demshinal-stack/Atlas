@@ -2942,7 +2942,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "42.42";
+const APP_VERSION = "42.43";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -18736,7 +18736,7 @@ body > div{max-width:100%;}
   --ink:#eaf0f6; --dim:#8fa4b8; --deep:#0d1b2a; --panel:#132436;
   --line:#22384d; --gold:#e8b84b; --el:#0f2030; --el2:#16293c;
   --blue:#8fc0f0; --silver:#9fb2c4;
-  --tabh:calc(62px + env(safe-area-inset-bottom));
+  --tabh:calc(62px + max(0px, env(safe-area-inset-bottom) - 14px)); /* 42.43: меню ближе к низу */
   --field:#0a1622; --sheet:#0f1f2f; --track:#26415a; --shadow:rgba(0,0,0,.5);
   font: -apple-system-body; font-size:16px;
   background:var(--deep); color:var(--ink); min-height:100%;
@@ -19926,7 +19926,7 @@ body > div{max-width:100%;}
 .focus .trips{margin:12px 0 0;}
 .focus .cta{margin-top:12px;}
 .tabbar{position:fixed; left:0; bottom:0; width:100%; z-index:120; display:flex;
-  padding:6px 4px calc(6px + env(safe-area-inset-bottom));
+  padding:6px 4px max(6px, calc(env(safe-area-inset-bottom) - 8px));
   background:var(--panel); border-top:1px solid var(--line);
   -webkit-backdrop-filter:saturate(140%) blur(18px); backdrop-filter:saturate(140%) blur(18px);}
 .tab{flex:1 1 0; min-width:0; display:flex; flex-direction:column; align-items:center; gap:3px;
