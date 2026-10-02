@@ -2941,7 +2941,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "42.26";
+const APP_VERSION = "42.27";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -7128,7 +7128,7 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, onRemove, onRo
     const whenReady = !!(draft && draft.y && (!draft.approx || draft.y2));
     const whenText = (draft === null || draft === void 0 ? void 0 : draft.y) ? tripLabel(draft) : "";
     return (React.createElement(Sheet, { open: open, onClose: onClose, box: box, title: country ? country.name : mode === "edit" ? "Поездка" : "Новая поездка" }, (close) => {
-        var _c, _d, _e, _f;
+        var _c, _d, _e, _f, _g;
         return (React.createElement("div", { className: "sheet-body" },
             !country ? (React.createElement(React.Fragment, null,
                 mode === "add" && onRoute && (React.createElement("button", { className: "rt-start", onClick: () => onRoute() },
@@ -7255,7 +7255,7 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, onRemove, onRo
                         }
                         setAddCity(false);
                     } })) : (React.createElement("button", { className: "link-btn", onClick: () => setAddCity(true) }, "\uFF0B \u0435\u0449\u0451 \u0433\u043E\u0440\u043E\u0434")))),
-            country && whenReady && !editWhen && (React.createElement("div", { className: "step" },
+            country && whenReady && !editWhen && !((_e = initial === null || initial === void 0 ? void 0 : initial.trip) === null || _e === void 0 ? void 0 : _e.route) && (React.createElement("div", { className: "step" },
                 React.createElement("p", { className: "step-title" }, "\u041A\u0430\u043A \u0434\u043E\u0431\u0438\u0440\u0430\u043B\u0438\u0441\u044C"),
                 React.createElement("div", { className: "dep-row" },
                     React.createElement("span", { className: "dep-label" }, "\u041E\u0442\u043A\u0443\u0434\u0430"),
@@ -7312,7 +7312,7 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, onRemove, onRo
                             " ",
                             airInfo(airShown).name),
                         React.createElement("em", null,
-                            ((_e = BY_A3[airInfo(airShown).a3]) === null || _e === void 0 ? void 0 : _e.name) || "",
+                            ((_f = BY_A3[airInfo(airShown).a3]) === null || _f === void 0 ? void 0 : _f.name) || "",
                             airInfo(airShown).year
                                 ? ` · основана в ${airInfo(airShown).year}`
                                 : "",
@@ -7401,7 +7401,7 @@ function TripSheet({ open, onClose, box, initial, visits, onSave, onRemove, onRo
             mode === "edit" && (draft === null || draft === void 0 ? void 0 : draft.by) && draft.by !== ME && draft.by !== meId && (React.createElement("p", { className: "hint small trip-author" },
                 "\u0410\u0432\u0442\u043E\u0440 \u0437\u0430\u043F\u0438\u0441\u0438:",
                 " ",
-                ((_f = (people || []).find((c) => c.link === (draft === null || draft === void 0 ? void 0 : draft.by))) === null || _f === void 0 ? void 0 : _f.name) || "член семьи",
+                ((_g = (people || []).find((c) => c.link === (draft === null || draft === void 0 ? void 0 : draft.by))) === null || _g === void 0 ? void 0 : _g.name) || "член семьи",
                 ". \u0423\u0434\u0430\u043B\u0438\u0442\u044C \u0435\u0451 \u0434\u043B\u044F \u0432\u0441\u0435\u0445 \u043C\u043E\u0436\u0435\u0442 \u0442\u043E\u043B\u044C\u043A\u043E \u0430\u0432\u0442\u043E\u0440, \u0432\u044B \u043C\u043E\u0436\u0435\u0442\u0435 \u0441\u043A\u0440\u044B\u0442\u044C \u0435\u0451 \u0443 \u0441\u0435\u0431\u044F.")),
             country && whenReady && !editWhen && (React.createElement("div", { className: "edit-actions" },
                 mode === "edit" && onMergeWith && draft.id && (React.createElement("button", { className: "act merge", "aria-label": "\u041E\u0431\u044A\u0435\u0434\u0438\u043D\u0438\u0442\u044C \u0441 \u0434\u0440\u0443\u0433\u043E\u0439 \u043F\u043E\u0435\u0437\u0434\u043A\u043E\u0439", onClick: () => {
