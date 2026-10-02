@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-title" content="Атлас" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -25,6 +25,26 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script>
+/* 42.41: iPhone, приложение с экрана «Домой»: бывает, что высота окна меньше экрана
+   (снизу полоса). Меряем недостачу и отдаём её стилям как --gap */
+(function(){
+  function fix(){
+    var sa = navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches);
+    var gap = 0;
+    if (sa && screen && screen.height) {
+      var portrait = innerHeight >= innerWidth;
+      var full = portrait ? Math.max(screen.height, screen.width) : Math.min(screen.height, screen.width);
+      gap = Math.round(full - innerHeight);
+      if (!(gap > 2 && gap < 120)) gap = 0;
+    }
+    document.documentElement.style.setProperty('--gap', gap + 'px');
+  }
+  fix();
+  addEventListener('resize', fix);
+  addEventListener('orientationchange', function(){ setTimeout(fix, 300); });
+})();
+</script>
 </head>
 <body>
 <div id="root"></div>
@@ -2942,7 +2962,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "42.40";
+const APP_VERSION = "42.41";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -17237,8 +17257,10 @@ function AtlasApp() {
             document.head.appendChild(meta);
         }
         const prev = meta.content;
-        meta.content =
-            "width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover";
+        // меняем, только если отличается: правка viewport на ходу сбивает высоту окна на iPhone (42.41)
+        const want = "width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover";
+        if (meta.content !== want)
+            meta.content = want;
         const stop = (e) => e.preventDefault();
         const stopMulti = (e) => {
             if (e.touches && e.touches.length > 1)
@@ -20613,6 +20635,13 @@ button, input, select, textarea{font-family:inherit;}
 .globe-full{bottom:auto; min-height:100%; height:100vh; height:100dvh;}
 /* кнопки полного экрана — выше полоски «Домой»; фон (небо) при этом идёт до самого низа */
 .globe-full{padding-bottom:calc(12px + env(safe-area-inset-bottom));}
+/* 42.41: недостача высоты окна на iPhone (--gap, меряется в index.html) — слои на весь экран
+   дотягиваются до нижнего края; на компьютере и при правильной высоте --gap = 0 */
+.root{height:calc(100% + var(--gap, 0px));}
+.globe-full{height:calc(100% + var(--gap, 0px));}
+.tabbar{bottom:calc(0px - var(--gap, 0px));}
+.sheet-layer, .loading-layer, .ask-layer{height:calc(100% + var(--gap, 0px));}
+.modal, .photo-view{bottom:calc(0px - var(--gap, 0px));}
 `;
 const __b = document.getElementById('boot');
 if (__b)
