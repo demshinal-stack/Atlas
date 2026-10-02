@@ -2942,7 +2942,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "42.38";
+const APP_VERSION = "42.39";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -4354,6 +4354,22 @@ function launchFlights(st, routes, rot, spin) {
 function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home, marks, light, playing, setPlaying, view, page: pageProp, setPage, isWish, arcs, noFull, fitBox, onArcPick, spinStep, glow, lookAt, pins, dashSel, flights, flying, fitK = 1, regions, selRegion }) {
     const fitKRef = useRef(fitK);
     fitKRef.current = fitK;
+    /* во весь экран фон страницы — цвета низа неба: если на iPhone слой окажется короче
+       экрана, снизу не будет видно полосы другого цвета (42.39) */
+    useEffect(() => {
+        if (!full)
+            return undefined;
+        const h = document.documentElement;
+        const b = document.body;
+        const was = [h.style.background, b.style.background];
+        const c = light ? "#fbeee6" : "#02060e";
+        h.style.background = c;
+        b.style.background = c;
+        return () => {
+            h.style.background = was[0];
+            b.style.background = was[1];
+        };
+    }, [full, light]);
     const wrapRef = useRef(null);
     const canvasRef = useRef(null);
     const [size, setSize] = useState(320);
@@ -20607,6 +20623,9 @@ button, input, select, textarea{font-family:inherit;}
 /* 42.38: и нижняя панель вкладок — тоже убрать совсем: на iPhone её размытый фон
    (backdrop-filter) оставался серой полосой поверх неба */
 .cols.is-full .tabbar{display:none;}
+/* 42.39: на iPhone (приложение с экрана «Домой») «100%» у закреплённого слоя бывает короче
+   экрана — снизу проступала полоса фона. Полноэкранный глобус — по высоте экрана (vh/lvh) */
+.globe-full{bottom:auto; min-height:100%; height:100vh; height:100lvh;}
 `;
 const __b = document.getElementById('boot');
 if (__b)
