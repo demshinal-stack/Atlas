@@ -2942,7 +2942,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "42.37";
+const APP_VERSION = "42.38";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -20604,6 +20604,9 @@ button, input, select, textarea{font-family:inherit;}
    (fc-list) рисуются отдельным слоем и игнорировали visibility:hidden родителя */
 .cols.is-full .col-side{opacity:0; pointer-events:none;}
 .cols.is-full .col-side .fc-list, .cols.is-full .col-side .ag-frame{display:none;}
+/* 42.38: и нижняя панель вкладок — тоже убрать совсем: на iPhone её размытый фон
+   (backdrop-filter) оставался серой полосой поверх неба */
+.cols.is-full .tabbar{display:none;}
 `;
 const __b = document.getElementById('boot');
 if (__b)
