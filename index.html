@@ -2942,7 +2942,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "42.36";
+const APP_VERSION = "42.37";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -18296,7 +18296,7 @@ function AtlasApp() {
         React.createElement("div", { className: "root" + (light ? " light" : ""), style: shell, ref: rootRef },
             React.createElement("style", null, APP_CSS),
             React.createElement("div", { className: "wrap" },
-                React.createElement("div", { className: "cols" },
+                React.createElement("div", { className: "cols" + (full ? " is-full" : "") },
                     React.createElement("div", { className: "col-map" },
                         React.createElement(Globe, { geo: geo, isOn: isOn, onPick: (a3, x) => {
                                 setSelected(BY_A3[a3] ? a3 : null);
@@ -20597,6 +20597,13 @@ button, input, select, textarea{font-family:inherit;}
 .htl-t em{font-style:normal; font-size:12px; color:var(--dim); margin-top:2px;}
 .htl-st{flex:none; color:var(--gold); font-size:11px; letter-spacing:1px;}
 .rt-hedit .hotel-note{flex:1 1 100%; margin-top:2px;}
+/* 42.37: глобус во весь экран — поверх правой панели (col-map липкий и сам себе слой) */
+.cols.is-full .col-map{z-index:90;}
+.cols.is-full .col-side{visibility:hidden;}
+/* 42.37: во весь экран правая колонка не видна совсем — на iPhone прокручиваемые списки
+   (fc-list) рисуются отдельным слоем и игнорировали visibility:hidden родителя */
+.cols.is-full .col-side{opacity:0; pointer-events:none;}
+.cols.is-full .col-side .fc-list, .cols.is-full .col-side .ag-frame{display:none;}
 `;
 const __b = document.getElementById('boot');
 if (__b)
