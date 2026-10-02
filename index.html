@@ -2941,7 +2941,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "42.24";
+const APP_VERSION = "42.26";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -7757,6 +7757,13 @@ const routeCountries = (r) => [...new Set(((r === null || r === void 0 ? void 0 
     .map((a3) => { var _c; return ((_c = BY_A3[a3]) === null || _c === void 0 ? void 0 : _c.name) || a3; })
     .join(" · ");
 const routeText = (r) => { var _c, _d; return [(_c = r === null || r === void 0 ? void 0 : r.start) === null || _c === void 0 ? void 0 : _c.name, ...((r === null || r === void 0 ? void 0 : r.stops) || []).map((s) => s.name), (_d = r === null || r === void 0 ? void 0 : r.start) === null || _d === void 0 ? void 0 : _d.name].filter(Boolean).join(" → "); };
+/* для плитки в ленте: без пересадок «только аэропорт» */
+const routeTextShort = (r) => {
+    var _c, _d;
+    return [(_c = r === null || r === void 0 ? void 0 : r.start) === null || _c === void 0 ? void 0 : _c.name, ...((r === null || r === void 0 ? void 0 : r.stops) || []).filter((s) => s.tr !== 2).map((s) => s.name), (_d = r === null || r === void 0 ? void 0 : r.start) === null || _d === void 0 ? void 0 : _d.name]
+        .filter(Boolean)
+        .join(" → ");
+};
 /* шторка «Маршрут»: откуда → точки по порядку → обратно */
 function RouteSheet({ open, onClose, box, initial, homePt, since, onSave, onUnpack, visits = {}, onOpenMember }) {
     const [r, setR] = useState(null);
@@ -7902,11 +7909,11 @@ function RouteSheet({ open, onClose, box, initial, homePt, since, onSave, onUnpa
             adding ? (React.createElement(CityPointPicker, { placeholder: "\u0413\u043E\u0440\u043E\u0434 \u0438\u043B\u0438 \u0441\u0442\u0440\u0430\u043D\u0430", onClose: () => setAdding(false), onPick: (c) => {
                     add(c);
                     setAdding(false);
-                } })) : (React.createElement("button", { className: "rt-add", onClick: () => setAdding(true) }, "\uFF0B \u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0442\u043E\u0447\u043A\u0443")),
+                } })) : (React.createElement("button", { className: "link-btn rt-add", onClick: () => setAdding(true) }, "\uFF0B \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0442\u043E\u0447\u043A\u0443")),
             pickTrip ? (React.createElement(TripInlinePick, { visits: visits, at: r.from || r.y ? tripAt(r) : Date.now(), exclude: [
                     ...extra.map((x) => x.id),
                     ...Object.values(visits).flatMap((arr) => (arr || []).filter((t) => { var _c; return ((_c = t.route) === null || _c === void 0 ? void 0 : _c.id) === r.id; }).map((t) => t.id)),
-                ], onPick: addTrip, onClose: () => setPickTrip(false) })) : (React.createElement("button", { className: "rt-add rt-add-trip", onClick: () => setPickTrip(true) }, "\uFF0B \u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0443\u0436\u0435 \u0437\u0430\u043F\u0438\u0441\u0430\u043D\u043D\u0443\u044E \u043F\u043E\u0435\u0437\u0434\u043A\u0443")),
+                ], onPick: addTrip, onClose: () => setPickTrip(false) })) : (React.createElement("button", { className: "link-btn rt-add rt-add-trip", onClick: () => setPickTrip(true) }, "\uFF0B \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0443\u0436\u0435 \u0437\u0430\u043F\u0438\u0441\u0430\u043D\u043D\u0443\u044E \u043F\u043E\u0435\u0437\u0434\u043A\u0443")),
             r.stops.length > 0 && (React.createElement(React.Fragment, null,
                 legRow(r.legs.length - 1, true),
                 React.createElement("div", { className: "rt-stop home" },
@@ -16209,7 +16216,7 @@ function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, si
                                                         .join(" · ")}`
                                                     : "")),
                                             asRoute(row)
-                                                ? `🧭 ${routeText(row.t.route)} · ${tripLabel(row.t)}`
+                                                ? `🧭 ${routeTextShort(row.t.route)} · ${tripLabel(row.t)}`
                                                 : row.t.route
                                                     ? `🧭 часть маршрута · ${sub(row.t) || tripLabel(row.t)}`
                                                     : mode === "country"
@@ -20448,7 +20455,7 @@ button, input, select, textarea{font-family:inherit;}
 .rt-air .air-mark{width:18px; height:18px;}
 .rt-air-add{font-size:12px;}
 .rt-back{font-style:normal; font-size:11px; color:var(--dim); margin-left:auto;}
-.rt-add{display:block; width:100%; margin:10px 0 0; padding:11px; border-radius:14px; border:1px dashed var(--line); background:none; color:var(--gold); font:inherit; font-size:14px; cursor:pointer;}
+.sheet .link-btn.rt-add{display:block; margin:4px 0 0; text-align:left;}
 .rt-sum{margin-top:12px; padding:10px 12px; border-radius:12px; background:rgba(232,184,75,.08); border:1px solid rgba(232,184,75,.4); font-size:13px; line-height:1.5;}
 .rt-sum em{display:block; font-style:normal; color:var(--dim); font-size:12px;}
 .rt-body .act.ok:disabled{opacity:.4;}
@@ -20493,7 +20500,6 @@ button, input, select, textarea{font-family:inherit;}
 .mg-cand-t{flex:1; min-width:0;}
 .mg-cand-t em{display:block; font-style:normal; font-size:11.5px; color:var(--dim);}
 .mg-tag{flex:none; font-size:10.5px; color:var(--gold); border:1px solid rgba(232,184,75,.5); border-radius:8px; padding:2px 6px;}
-.rt-add-trip{border-color:rgba(232,184,75,.5); background:rgba(232,184,75,.05);}
 .act.merge{color:var(--gold);}
 .undo-toast{position:fixed; left:14px; right:14px; bottom:calc(var(--tabh) + 18px); z-index:300; display:flex; align-items:center; gap:10px; padding:12px 14px; border-radius:14px;
   background:#24394f; color:#eaf0f6; box-shadow:0 8px 24px rgba(0,0,0,.45); font-size:13.5px; animation:undoIn .25s ease;}
