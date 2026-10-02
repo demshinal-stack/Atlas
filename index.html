@@ -2921,7 +2921,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "42.19";
+const APP_VERSION = "42.20";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -10930,7 +10930,7 @@ function FamilySheet({ open, onClose, box, profile, ops, onNear, onImport, onNam
         setMode("joinreq");
     };
     return (React.createElement(Sheet, { open: open, onClose: onClose, title: "\u0421\u0435\u043C\u044C\u044F", box: box }, () => {
-        var _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _s, _t;
+        var _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q, _r, _t, _u;
         return (React.createElement("div", { className: "sheet-body fam" },
             !fam ? (React.createElement("p", { className: "hint small" }, "\u0421\u0435\u043C\u044C\u044F \u2014 \u044D\u0442\u043E \u043E\u0431\u0449\u0438\u0439 \u0430\u0442\u043B\u0430\u0441: \u0432\u0441\u0435 \u0432\u0438\u0434\u044F\u0442 \u043F\u043E\u0435\u0437\u0434\u043A\u0438 \u0434\u0440\u0443\u0433 \u0434\u0440\u0443\u0433\u0430, \u0443 \u043A\u0430\u0436\u0434\u043E\u0439 \u043F\u043E\u0435\u0437\u0434\u043A\u0438 \u043F\u043E\u0434\u043F\u0438\u0441\u0430\u043D \u0430\u0432\u0442\u043E\u0440. \u0418\u043C\u044F, \u0444\u043E\u0442\u043E, \u0441\u043F\u0443\u0442\u043D\u0438\u043A\u0438 \u0438 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438 \u0443 \u043A\u0430\u0436\u0434\u043E\u0433\u043E \u0441\u0432\u043E\u0438 \u0438 \u043F\u0440\u0438 \u043E\u0431\u043C\u0435\u043D\u0435 \u043D\u0435 \u043C\u0435\u043D\u044F\u044E\u0442\u0441\u044F. \u0427\u0442\u043E\u0431\u044B \u0441\u043E\u0437\u0434\u0430\u0442\u044C \u0441\u0435\u043C\u044C\u044E, \u043E\u0431\u043C\u0435\u043D\u044F\u0439\u0442\u0435\u0441\u044C \u0440\u044F\u0434\u043E\u043C \u0441 \u0440\u043E\u0434\u043D\u044B\u043C \u0447\u0435\u043B\u043E\u0432\u0435\u043A\u043E\u043C \u0438\u043B\u0438 \u043E\u0442\u043F\u0440\u0430\u0432\u044C\u0442\u0435 \u0435\u043C\u0443 \u043F\u0440\u0438\u0433\u043B\u0430\u0448\u0435\u043D\u0438\u0435.")) : (React.createElement("label", { className: "tf fam-name" },
                 React.createElement("span", null, "\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u0441\u0435\u043C\u044C\u0438"),
@@ -11124,7 +11124,7 @@ function FamilySheet({ open, onClose, box, profile, ops, onNear, onImport, onNam
             mode === "reply" && got && (React.createElement("div", { className: "fam-box" },
                 React.createElement("p", null,
                     "\u0412\u044B \u0432 \u0441\u0435\u043C\u044C\u0435. \u041E\u0442\u043F\u0440\u0430\u0432\u044C\u0442\u0435 \u044D\u0442\u043E\u0442 \u043E\u0442\u0432\u0435\u0442 \u043F\u0440\u0438\u0433\u043B\u0430\u0441\u0438\u0432\u0448\u0435\u043C\u0443",
-                    ((_t = (_s = got.data) === null || _s === void 0 ? void 0 : _s.p) === null || _t === void 0 ? void 0 : _t.name) ? ` (${got.data.p.name})` : "",
+                    ((_u = (_t = got.data) === null || _t === void 0 ? void 0 : _t.p) === null || _u === void 0 ? void 0 : _u.name) ? ` (${got.data.p.name})` : "",
                     ". \u041A\u0430\u043A \u0442\u043E\u043B\u044C\u043A\u043E \u043E\u0442\u0432\u0435\u0442 \u0432\u0441\u0442\u0430\u0432\u044F\u0442 \u0443 \u0441\u0435\u0431\u044F, \u0432\u044B \u0441\u043C\u043E\u0436\u0435\u0442\u0435 \u043E\u0431\u043C\u0435\u043D\u0438\u0432\u0430\u0442\u044C\u0441\u044F \u043F\u043E\u0435\u0437\u0434\u043A\u0430\u043C\u0438."),
                 React.createElement("textarea", { className: "fam-code", readOnly: true, value: code, onFocus: (e) => e.target.select() }),
                 React.createElement("div", { className: "fam-ask-btns" },
@@ -12050,7 +12050,7 @@ const REPORTS = [
     { id: "crew", title: "Кто сколько проехал",
         help: "Полоса — доля от лидера по числу стран. Считаются только состоявшиеся поездки, где человек отмечен в составе. Значок глобуса рядом с именем показывает его маршруты на шаре." },
     { id: "move", title: "Как добираемся",
-        help: "Сколько поездок каким транспортом: самолёт, поезд, авто, паром и прочее. Штриховка — поездки, где транспорт не указан. Километры считаются от города вылета до самой далёкой точки поездки и обратно. Касание плитки открывает эти поездки списком. В развороте — поездки по годам и самые дальние пути каждым транспортом." },
+        help: "Сколько поездок каким транспортом: самолёт, поезд, авто, паром и прочее. Штриховка — поездки, где транспорт не указан. Километры считаются от города вылета до самой далёкой точки поездки и обратно. Касание плитки открывает эти поездки списком. В развороте сверху годы — нажмите год, и ниже по месяцам появятся его путешествия схемой метро; значки транспорта проедут их по порядку." },
     { id: "air", title: "Авиакомпании",
         help: "Километры считаются от города вылета до самой далёкой точки поездки и обратно. Если в поездке было несколько авиакомпаний, путь делится между ними поровну. На глобусе одна пунктирная дуга — одна авиакомпания в одну часть света." },
     { id: "solo", title: "Догоняй",
@@ -12149,11 +12149,9 @@ function Reveal({ children, className = "", zoomable = true, rid, onFull, hideFu
 }
 /* карточка «Как добираемся»: полоса долей, плитки, подсказка; в развороте — годы и рекорды */
 function MoveCard({ data, onTrips, onAirlines }) {
-    const zoomed = React.useContext(ZoomCtx);
-    const { by, total, years } = data;
+    const { by, total } = data;
     const none = by.none.n;
     const share = (n) => `${(n / Math.max(1, total)) * 100}%`;
-    const maxY = Math.max(1, ...years.map(([, c]) => Object.values(c).reduce((a, b) => a + b, 0)));
     const go = (k) => (e) => {
         e.stopPropagation();
         window.dispatchEvent(new Event("atlas:closezoom"));
@@ -12181,33 +12179,9 @@ function MoveCard({ data, onTrips, onAirlines }) {
                     none % 10 === 1 && none % 100 !== 11 ? "поездки" : "поездок",
                     " \u043D\u0435 \u0443\u043A\u0430\u0437\u0430\u043D\u043E, \u043D\u0430 \u0447\u0451\u043C \u0434\u043E\u0431\u0438\u0440\u0430\u043B\u0438\u0441\u044C"),
                 React.createElement("b", null, "\u0417\u0430\u043F\u043E\u043B\u043D\u0438\u0442\u044C \u203A"))),
-            by.air.n > 0 && onAirlines && !zoomed && (React.createElement("button", { className: "mv-link", onClick: (e) => { e.stopPropagation(); onAirlines(); } },
+            by.air.n > 0 && onAirlines && (React.createElement("button", { className: "mv-link", onClick: (e) => { e.stopPropagation(); onAirlines(); } },
                 "\u2708\uFE0F \u0410\u0432\u0438\u0430\u043A\u043E\u043C\u043F\u0430\u043D\u0438\u0438: \u043A\u0442\u043E \u0432\u0430\u0441 \u0432\u043E\u0437\u0438\u043B ",
-                React.createElement("b", null, "\u203A")))),
-        zoomed && (React.createElement("div", { className: "mv-more" },
-            React.createElement("p", { className: "mv-sec" }, "\u041F\u041E \u0413\u041E\u0414\u0410\u041C"),
-            React.createElement("div", { className: "mv-years" }, years.map(([y, c]) => (React.createElement("div", { key: y, className: "mv-y", title: String(y) },
-                React.createElement("div", { className: "mv-col" },
-                    MOVE_KINDS.filter((m) => c[m.id]).map((m) => (React.createElement("i", { key: m.id, style: { height: `${(c[m.id] / maxY) * 100}%`, background: m.color } }))),
-                    c.none > 0 && React.createElement("i", { className: "mv-hatch", style: { height: `${(c.none / maxY) * 100}%` } })),
-                React.createElement("span", null, String(y).slice(2)))))),
-            React.createElement("p", { className: "mv-sec" }, "\u0421\u0410\u041C\u042B\u0419 \u0414\u0410\u041B\u042C\u041D\u0418\u0419 \u041F\u0423\u0422\u042C"),
-            React.createElement("div", { className: "mv-recs" }, MOVE_KINDS.map((m) => by[m.id].best ? (React.createElement("div", { key: m.id, className: "mv-rec" },
-                React.createElement("i", null, m.icon),
-                React.createElement("span", null,
-                    by[m.id].best.from,
-                    " \u2192 ",
-                    by[m.id].best.to,
-                    React.createElement("em", null, m.low)),
-                React.createElement("b", null, kmText(by[m.id].best.km)))) : (React.createElement("div", { key: m.id, className: "mv-rec off" },
-                React.createElement("i", null, m.icon),
-                React.createElement("span", null,
-                    m.id === "car" ? "На машине пока не ездили" : `${m.name}: пока ни одной поездки`,
-                    React.createElement("em", null,
-                        "\u043E\u0442\u043C\u0435\u0442\u044C\u0442\u0435 \u00AB",
-                        m.id === "other" ? "Прочее" : m.name,
-                        "\u00BB \u0432 \u043F\u043E\u0435\u0437\u0434\u043A\u0435")),
-                React.createElement("b", null, "\u2014")))))))));
+                React.createElement("b", null, "\u203A"))))));
 }
 /* столбики с линией тренда; неточные периоды — полупрозрачной частью */
 function BarsChart({ data, vague, labels }) {
@@ -14323,10 +14297,217 @@ function YearsWin({ visits, geo, home, mapProps, onClose, onOpenTrip }) {
                 React.createElement("div", { className: "pg-map far-map ww-map yw-globe" }, globe),
                 panel))));
 }
+/* ------------------------------------------------------------------ */
+/* «Как добираемся» во весь экран (42.20): сверху столбики по годам — это и выбор года
+   (как в «Календаре поездок»), ниже — путь выбранного года: слева месяцы сверху вниз,
+   вправо каждое путешествие схемой метро; длинное путешествие идёт змейкой.
+   Значки транспорта по очереди «едут» по своим перегонам */
+const MV_MN = ["янв", "фев", "мар", "апр", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
+const mvName = (s) => String(s || "").toLowerCase().replace(/ё/g, "е").trim();
+/* путешествия года: поездки, которые начинаются там, где закончилась прошлая
+   (вылет не из дома), сшиваются в одну цепочку; в конце — возвращение домой */
+function moveJourneys(visits, home, year) {
+    var _c;
+    // дом: из профиля, а если не задан — город, откуда вылетали чаще всего
+    let homeName = home && !home.guess && home.name ? home.name : "";
+    if (!homeName) {
+        const cnt = {};
+        Object.values(visits || {}).forEach((arr) => (arr || []).forEach((t) => { var _c; return ((_c = t.dep) === null || _c === void 0 ? void 0 : _c.name) && (cnt[t.dep.name] = (cnt[t.dep.name] || 0) + 1); }));
+        homeName = ((_c = Object.entries(cnt).sort((a, b) => b[1] - a[1])[0]) === null || _c === void 0 ? void 0 : _c[0]) || "Дом";
+    }
+    const trips = [];
+    Object.entries(visits || {}).forEach(([a3, arr]) => (arr || []).forEach((t) => {
+        var _c;
+        if (t.plan)
+            return;
+        const a = dParts(t.from);
+        const y = a ? a.y : t.y;
+        if (y !== year)
+            return;
+        const m = a ? a.m : t.m || 0;
+        const b = dParts(t.to);
+        const dep = t.dep && t.dep.name ? t.dep.name : homeName;
+        const to = (t.cities || [])[0] || (t.regions || [])[0] || ((_c = BY_A3[a3]) === null || _c === void 0 ? void 0 : _c.name) || a3;
+        trips.push({
+            a3, t, m,
+            at: a ? new Date(a.y, a.m - 1, a.d).getTime() : new Date(y, Math.max(0, m - 1), 1).getTime(),
+            dep, to,
+            move: MOVE_ICON[t.move] ? t.move : "none",
+            code: (t.air || [])[0] || "",
+            dFrom: a ? `${a.d} ${MV_MN[a.m - 1]}` : m ? MV_MN[m - 1] : "",
+            dTo: b ? `${b.d} ${MV_MN[b.m - 1]}` : "",
+            stay: a && b ? (a.m === b.m ? `${a.d}–${b.d} ${MV_MN[a.m - 1]}` : `${a.d} ${MV_MN[a.m - 1]} – ${b.d} ${MV_MN[b.m - 1]}`) : "",
+        });
+    }));
+    // в один день (или месяц без дат) сначала поездки из дома: к ним пристёгиваются продолжения
+    const isHome = (tr) => mvName(tr.dep) === mvName(homeName);
+    trips.sort((x, y) => x.at - y.at || isHome(y) - isHome(x));
+    const open = [];
+    const out = [];
+    trips.forEach((tr) => {
+        const fromHome = mvName(tr.dep) === mvName(homeName);
+        const j = !fromHome && [...open].reverse().find((o) => mvName(o.st[o.st.length - 1].n) === mvName(tr.dep));
+        if (j) {
+            j.st.push({ n: tr.to, d: tr.stay });
+            j.end = tr.dTo;
+            j.legs.push({ k: tr.move, code: tr.code });
+            j.trips.push(tr);
+            return;
+        }
+        const nj = {
+            m: tr.m,
+            st: [{ n: tr.dep, d: tr.dFrom, home: fromHome }, { n: tr.to, d: tr.stay }],
+            end: tr.dTo,
+            legs: [{ k: tr.move, code: tr.code }],
+            trips: [tr],
+        };
+        open.push(nj);
+        out.push(nj);
+    });
+    // домой: тем же транспортом, что и уехали
+    out.forEach((j) => {
+        const last = j.st[j.st.length - 1];
+        if (mvName(last.n) !== mvName(homeName)) {
+            j.st.push({ n: homeName, d: j.end || "", home: true });
+            j.legs.push({ ...j.legs[0] });
+        }
+        else
+            last.home = true;
+    });
+    return out;
+}
+/* одна змейка: по два перегона в ряду, на краю — поворот вниз и обратно */
+function MoveSnake({ j, delay = 0, run = 0 }) {
+    const W = 330;
+    const cols = 3;
+    const rowH = 70;
+    const R = rowH / 2;
+    const xs = [R + 14, W / 2, W - R - 14];
+    const top = 14;
+    const pos = j.st.map((_s, i) => {
+        const r = Math.floor(i / cols);
+        let c = i % cols;
+        if (r % 2)
+            c = cols - 1 - c;
+        return [xs[c], top + r * rowH, r];
+    });
+    const H = top + (pos[pos.length - 1][2] + 1) * rowH - 10;
+    const kind = (k) => MOVE_KINDS.find((m) => m.id === k);
+    return (React.createElement("svg", { className: "mvs", viewBox: `0 0 ${W} ${H}`, key: run },
+        j.legs.map((L, i) => {
+            var _c;
+            const [x1, y1, r1] = pos[i];
+            const [x2, y2, r2] = pos[i + 1];
+            const col = ((_c = kind(L.k)) === null || _c === void 0 ? void 0 : _c.color) || "#5d7891";
+            const turn = r1 !== r2;
+            const side = x1 > W / 2 ? 1 : 0;
+            const d = turn ? `M${x1} ${y1} A ${R} ${R} 0 0 ${side} ${x2} ${y2}` : `M${x1} ${y1} L${x2} ${y2}`;
+            const mx = turn ? x1 + (side ? R : -R) : (x1 + x2) / 2;
+            const my = turn ? (y1 + y2) / 2 : y1;
+            const none = L.k === "none";
+            return (React.createElement("g", { key: i },
+                React.createElement("path", { d: d, fill: "none", stroke: col, strokeWidth: "5", strokeLinecap: "round", strokeDasharray: none ? "4 6" : undefined, opacity: none ? 0.8 : 1 }),
+                !none && (React.createElement("g", { transform: `translate(${mx},${my})` },
+                    React.createElement("rect", { x: turn || !L.code ? -12 : -24, y: "-11", width: turn || !L.code ? 24 : 48, height: "22", rx: "11", className: "mvs-pill", stroke: col }),
+                    React.createElement("text", { x: turn || !L.code ? 0 : -11, y: "4.5", textAnchor: "middle", fontSize: "12" }, MOVE_ICON[L.k]),
+                    !turn && L.code && (React.createElement("text", { x: "11", y: "4", textAnchor: "middle", fontSize: "10", fill: col }, L.code.replace(/^~/, "").slice(0, 3))))),
+                !none && (React.createElement("g", { opacity: "0" },
+                    React.createElement("circle", { r: "11", fill: col }),
+                    React.createElement("text", { y: "4.5", textAnchor: "middle", fontSize: "12" }, MOVE_ICON[L.k]),
+                    React.createElement("animateMotion", { path: d, dur: "1s", begin: `${delay + i * 0.55}s`, fill: "freeze" }),
+                    React.createElement("animate", { attributeName: "opacity", values: "0;1;1;0", keyTimes: "0;0.12;0.85;1", dur: "1s", begin: `${delay + i * 0.55}s`, fill: "freeze" })))));
+        }),
+        j.st.map((s, i) => {
+            const [x, y] = pos[i];
+            const anchor = x < W / 4 ? "start" : x > (W * 3) / 4 ? "end" : "middle";
+            const lx = anchor === "start" ? x - 10 : anchor === "end" ? x + 10 : x;
+            return (React.createElement("g", { key: "s" + i },
+                React.createElement("circle", { cx: x, cy: y, r: s.home ? 6.5 : 5.5, className: "mvs-st" + (s.home ? " home" : "") }),
+                React.createElement("text", { x: lx, y: y + 21, textAnchor: anchor, className: "mvs-n" }, s.n),
+                s.d && (React.createElement("text", { x: lx, y: y + 34, textAnchor: anchor, className: "mvs-d" }, s.d))));
+        })));
+}
+function MoveWin({ visits, home, onClose }) {
+    const rep = useMemo(() => moveReport(visits, home), [visits, home]);
+    const years = rep.years.map(([y]) => y);
+    const [year, setYear] = useState(years[years.length - 1] || NOW.getFullYear());
+    const [run, setRun] = useState(0);
+    const wide = useWide();
+    const js = useMemo(() => moveJourneys(visits, home, year), [visits, home, year]);
+    const max = Math.max(1, ...rep.years.map(([, c]) => Object.values(c).reduce((a, b) => a + b, 0)));
+    const yc = (rep.years.find(([y]) => y === year) || [0, {}])[1];
+    const total = Object.values(yc).reduce((a, b) => a + b, 0);
+    const chartRef = useRef(null);
+    // выбранный год виден в ленте годов: справа последние годы
+    useEffect(() => {
+        const el = chartRef.current;
+        if (el)
+            el.scrollLeft = el.scrollWidth;
+    }, []);
+    const chart = (React.createElement("div", { className: "cw-stage" },
+        React.createElement("div", { className: "cw-chart mvw-chart", ref: chartRef, style: { gridTemplateColumns: `repeat(${years.length}, minmax(${years.length > 22 ? 16 : 0}px,1fr))` } }, rep.years.map(([y, c]) => {
+            const on = y === year;
+            const n = Object.values(c).reduce((a, b) => a + b, 0);
+            return (React.createElement("div", { key: y, className: "cw-col" + (on ? " on" : " dim"), onClick: () => { setYear(y); setRun((r) => r + 1); } },
+                React.createElement("div", { className: "cw-area" },
+                    React.createElement("em", { className: "cw-n" }, n || ""),
+                    React.createElement("div", { className: "cw-bar", style: { height: `${(n / max) * 100}%` } },
+                        MOVE_KINDS.filter((m) => c[m.id]).map((m) => (React.createElement("i", { key: m.id, style: { flexGrow: c[m.id], background: m.color } }))),
+                        c.none > 0 && React.createElement("i", { className: "mv-hatch", style: { flexGrow: c.none } }))),
+                React.createElement("b", { className: "cw-m" }, String(y).slice(2))));
+        })),
+        React.createElement("div", { className: "cw-legend" },
+            MOVE_KINDS.filter((m) => rep.by[m.id].n).map((m) => (React.createElement("span", { key: m.id },
+                React.createElement("i", { style: { background: m.color } }),
+                m.name))),
+            rep.by.none.n > 0 && (React.createElement("span", null,
+                React.createElement("i", { className: "mv-hatch" }),
+                "\u043D\u0435 \u0443\u043A\u0430\u0437\u0430\u043D\u043E")))));
+    let lastM = -1;
+    const path = (React.createElement(React.Fragment, null,
+        React.createElement("p", { className: "cw-head mvw-head" },
+            year,
+            " \u00B7 ",
+            np(total, "trip"),
+            React.createElement("button", { className: "mvw-play", onClick: () => setRun((r) => r + 1), "aria-label": "\u041F\u0440\u043E\u0438\u0433\u0440\u0430\u0442\u044C \u0433\u043E\u0434" }, "\u25B6")),
+        React.createElement("div", { className: "mvw-line", ref: (el) => {
+                // другой год — путь снова с начала
+                const fr = el === null || el === void 0 ? void 0 : el.closest(".ag-frame");
+                if (fr && fr.dataset.y !== String(year)) {
+                    fr.dataset.y = String(year);
+                    fr.scrollTop = 0;
+                }
+            } },
+            js.map((j, i) => {
+                const show = j.m !== lastM;
+                lastM = j.m;
+                const before = js.slice(0, i).reduce((a, x) => a + x.legs.filter((l) => l.k !== "none").length, 0);
+                return (React.createElement("div", { key: i, className: "mvw-j" },
+                    React.createElement("span", { className: "mvw-m" + (show ? "" : " same") }, show ? (j.m ? MV_MN[j.m - 1] : "—") : ""),
+                    React.createElement(MoveSnake, { j: j, delay: 0.3 + Math.min(before, 24) * 0.55, run: `${year}-${run}` })));
+            }),
+            !js.length && React.createElement("p", { className: "hint small" }, "\u0412 \u044D\u0442\u043E\u043C \u0433\u043E\u0434\u0443 \u043F\u043E\u0435\u0437\u0434\u043E\u043A \u0441 \u0434\u0430\u0442\u0430\u043C\u0438 \u043D\u0435\u0442."))));
+    if (wide)
+        return (React.createElement("div", { className: "pg-wide", onClick: onClose },
+            React.createElement("div", { className: "pg-panel", onClick: (e) => e.stopPropagation() },
+                React.createElement("div", { className: "pg-map cw-map" }, chart),
+                React.createElement("div", { className: "pg-side ag-side" },
+                    React.createElement("div", { className: "pg-side-head" },
+                        React.createElement("b", null, "\u041A\u0430\u043A \u0434\u043E\u0431\u0438\u0440\u0430\u0435\u043C\u0441\u044F"),
+                        React.createElement("button", { className: "zoom-x", onClick: onClose, "aria-label": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C" }, "\u2715")),
+                    React.createElement("div", { className: "ag-frame sd-frame" }, path)))));
+    return (React.createElement("div", { className: "zoom-layer pg-layer", onClick: onClose },
+        React.createElement("div", { className: "zoom-box", onClick: (e) => e.stopPropagation() },
+            React.createElement("button", { className: "zoom-x", onClick: onClose, "aria-label": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C" }, "\u2715"),
+            React.createElement("div", { className: "zoom-body rep mvw" },
+                React.createElement("b", null, "\u041A\u0430\u043A \u0434\u043E\u0431\u0438\u0440\u0430\u0435\u043C\u0441\u044F"),
+                React.createElement("div", { className: "pg-map far-map cw-map" }, chart),
+                React.createElement("div", { className: "ag-frame sd-frame" }, path)))));
+}
 /* Атлас · 22 · экран отчётов.
    Части собираются по номерам в один файл (tools/rebuild.sh) и видят друг друга напрямую. */
 /* шторка отчётов */
-function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], onOpenTrip, geo, home, onPerson, onFar, onAir, onSeason, onConts, onWorld, onOften, onSolo, onCalendar, onYears, onMoveTrips, focusRid = null, meName = "", repCfg = null }) {
+function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], onOpenTrip, geo, home, onPerson, onFar, onAir, onSeason, onConts, onWorld, onOften, onSolo, onCalendar, onYears, onMoveTrips, onMoveWin, focusRid = null, meName = "", repCfg = null }) {
     ME_NAME = meName;
     const r = useMemo(() => reportData(visits, since, people), [visits, since, people]);
     const crew = useMemo(() => travelerStats(visits, people), [visits, people, meName]);
@@ -14497,7 +14678,7 @@ function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], o
                                     })))))))),
                             !trips.length && (React.createElement("p", { className: "hint small" }, "\u041F\u043E\u0435\u0437\u0434\u043E\u043A \u043D\u0435\u0442."))))));
                 })))),
-            React.createElement(Reveal, { rid: "move", className: "rep mv-rep" },
+            React.createElement(Reveal, { rid: "move", className: "rep mv-rep", zoomable: false, onFull: () => onMoveWin === null || onMoveWin === void 0 ? void 0 : onMoveWin() },
                 React.createElement("b", null, "\u041A\u0430\u043A \u0434\u043E\u0431\u0438\u0440\u0430\u0435\u043C\u0441\u044F"),
                 React.createElement("em", null, "\u0441\u0430\u043C\u043E\u043B\u0451\u0442, \u043F\u043E\u0435\u0437\u0434, \u0430\u0432\u0442\u043E \u0438 \u043F\u0440\u043E\u0447\u0435\u0435"),
                 React.createElement(MoveCard, { data: mv, onTrips: onMoveTrips, onAirlines: air.rows.length
@@ -15951,6 +16132,7 @@ function AtlasApp() {
     const [contsWin, setContsWin] = useState(false);
     const [worldWin, setWorldWin] = useState(false);
     const [calWin, setCalWin] = useState(false);
+    const [moveWin, setMoveWin] = useState(false);
     const [yearsWin, setYearsWin] = useState(false);
     const [oftenWin, setOftenWin] = useState(false);
     const [soloWin, setSoloWin] = useState(false);
@@ -16113,6 +16295,7 @@ function AtlasApp() {
         setContsWin(false);
         setWorldWin(false);
         setCalWin(false);
+        setMoveWin(false);
         setYearsWin(false);
         setOftenWin(false);
         setSoloWin(false);
@@ -17178,7 +17361,7 @@ function AtlasApp() {
                                 profileRef.current = next;
                                 await saveProfile(next);
                             } }),
-                        React.createElement(ReportsSheet, { open: sheet === "reports", onClose: () => setSheet(sheetBack === "profile" ? "profile" : null), box: box, visits: visits, since: profile.since, stats: stats, people: profile.people || [], home: profile.home || null, geo: geo, onPerson: setPerson, onFar: setFar, onAir: setAirWin, onSeason: () => setSeasonWin(true), onConts: () => setContsWin(true), onWorld: () => setWorldWin(true), onCalendar: () => setCalWin(true), onYears: () => setYearsWin(true), onMoveTrips: (k) => {
+                        React.createElement(ReportsSheet, { open: sheet === "reports", onClose: () => setSheet(sheetBack === "profile" ? "profile" : null), box: box, visits: visits, since: profile.since, stats: stats, people: profile.people || [], home: profile.home || null, geo: geo, onPerson: setPerson, onFar: setFar, onAir: setAirWin, onSeason: () => setSeasonWin(true), onConts: () => setContsWin(true), onWorld: () => setWorldWin(true), onCalendar: () => setCalWin(true), onMoveWin: () => setMoveWin(true), onYears: () => setYearsWin(true), onMoveTrips: (k) => {
                                 // как с региона на главном: разрез «По транспорту» и доезд до нужной группы (42.18)
                                 setListMode("move");
                                 setListFocus({ k, n: Date.now() });
@@ -17227,6 +17410,7 @@ function AtlasApp() {
                                 showTrip(a3, id);
                                 setSheet(null);
                             } })),
+                        moveWin && React.createElement(MoveWin, { visits: visits, home: profile.home || null, onClose: () => setMoveWin(false) }),
                         contsWin && React.createElement(ContsWin, { visits: visits, geo: geo, onClose: () => setContsWin(false) }),
                         soloWin && (React.createElement(SoloWin, { visits: visits, people: profile.people || [], geo: geo, onClose: () => setSoloWin(false), mapProps: {
                                 isOn,
@@ -19073,19 +19257,6 @@ button, input, select, textarea{font-family:inherit;}
   background:none; color:var(--dim); font:inherit; font-size:12.5px; text-align:left; cursor:pointer;}
 .mv-link{border-style:solid;}
 .mv-ask b, .mv-link b{margin-left:auto; color:var(--gold); font-weight:400; white-space:nowrap;}
-.mv-sec{margin:16px 2px 6px; font-size:11.5px; letter-spacing:.04em; color:var(--dim);}
-.mv-years{display:flex; align-items:stretch; gap:4px; height:160px;}
-.mv-y{flex:1; min-width:0; display:flex; flex-direction:column; gap:3px;}
-.mv-col{flex:1; display:flex; flex-direction:column-reverse; border-bottom:1px solid var(--line);}
-.mv-col i{display:block; width:100%; border-radius:3px 3px 0 0;}
-.mv-y span{font-size:9px; color:var(--dim); text-align:center;}
-.mv-recs{display:flex; flex-direction:column; gap:8px;}
-.mv-rec{display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:14px; border:1px solid var(--line); background:var(--field);}
-.mv-rec > i{font-style:normal; font-size:21px; width:28px; text-align:center;}
-.mv-rec span{flex:1; min-width:0; font-size:13.5px;}
-.mv-rec span em{display:block; font-style:normal; font-size:11.5px; color:var(--dim);}
-.mv-rec > b{font-family:Georgia,serif; font-weight:400; font-size:16px; color:var(--gold); white-space:nowrap;}
-.mv-rec.off{opacity:.5;}
 /* 42.14 · развороты карточек отчётов: на весь свободный экран, а не маленьким окном посередине.
    Окно от верха до нижнего меню (лёжа — от боковой панели до края), длинное листается внутри */
 .zoom-layer:not(.pg-layer){align-items:stretch; bottom:var(--tabh);
@@ -19099,9 +19270,6 @@ button, input, select, textarea{font-family:inherit;}
     padding:calc(env(safe-area-inset-top) + 8px) 12px 8px;}
   .zoom-body .radar{max-width:min(70vh, 480px);}
   /* «Как добираемся» лёжа: слева доли и плитки, справа годы и рекорды */
-  .zoom-body .mv{display:grid; grid-template-columns:1fr 1fr; gap:16px; align-items:start;}
-  .zoom-body .mv-more .mv-sec:first-child{margin-top:0;}
-  .zoom-body .mv-years{height:120px;}
 }
 /* развёрнутые полосы и лепестки — крупнее, раз места много */
 .zoom-body .rows-chart{gap:16px;}
@@ -19115,6 +19283,28 @@ button, input, select, textarea{font-family:inherit;}
 /* 42.16 · цвет вида транспорта — квадратиком в углу плитки, вместо легенды */
 .mv-sq{position:absolute; top:9px; right:9px; width:10px; height:10px; border-radius:3px;}
 .mv-bar{margin-bottom:2px;}
+/* 42.20 · «Как добираемся» во весь экран: годы сверху, путь года ниже */
+.mvw .pg-map{flex:none; height:min(27vh, 230px);}
+.mvw-chart{gap:2px;}
+.mvw-chart .cw-m{font-size:10.5px;}
+.mvw-chart .cw-n{font-size:10px;}
+.mvw .ag-frame{flex:1 1 auto; height:auto; min-height:0;}
+.mvw-chart{overflow-x:auto; scrollbar-width:none;}
+.mvw-chart::-webkit-scrollbar{display:none;}
+.mvw-head{display:flex; align-items:center; justify-content:space-between;}
+.mvw-play{width:30px; height:30px; border-radius:50%; border:0; background:var(--gold); color:#1a1206; font-size:12px; cursor:pointer;}
+.mvw-line{position:relative; display:flex; flex-direction:column; gap:4px;}
+.mvw-line::before{content:""; position:absolute; left:15px; top:6px; bottom:6px; width:2px; background:var(--line);}
+.mvw-j{display:flex; align-items:flex-start; gap:6px;}
+.mvw-m{flex:none; width:32px; position:relative; padding-top:8px; font-size:11px; color:var(--ink); text-align:left; background:var(--el); z-index:1; line-height:1.1;}
+.mvw-m.same{background:none;}
+.mvs{flex:1 1 auto; min-width:0; width:100%; height:auto; display:block; overflow:visible;}
+.mvs-pill{fill:var(--el);}
+.mvs-st{fill:var(--el); stroke:var(--ink); stroke-width:3;}
+.mvs-st.home{stroke:var(--gold);}
+.mvs-n{font-size:12px; fill:var(--ink);}
+.mvs-d{font-size:9.5px; fill:var(--dim);}
+.cw-legend i.mv-hatch{background:repeating-linear-gradient(135deg, #5d7891 0 2px, transparent 2px 4px); border:1px solid var(--line);}
 `;
 const __b = document.getElementById('boot');
 if (__b)
