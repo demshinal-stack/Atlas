@@ -1,0 +1,58 @@
+<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="sat-ball" cx="34%" cy="30%" r="78%">
+      <stop offset="0%" stop-color="#fff0c4"/>
+      <stop offset="55%" stop-color="#e8b84b"/>
+      <stop offset="100%" stop-color="#a9741d"/>
+    </radialGradient>
+    <linearGradient id="sat-ring" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#c08a28"/>
+      <stop offset="34%" stop-color="#ffdd9a"/>
+      <stop offset="66%" stop-color="#ffdd9a"/>
+      <stop offset="100%" stop-color="#c08a28"/>
+    </linearGradient>
+    <radialGradient id="sat-glow-grad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#fff" stop-opacity=".28"/>
+      <stop offset="65%" stop-color="#fff" stop-opacity=".09"/>
+      <stop offset="100%" stop-color="#fff" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="sat-soft-glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="5"/>
+    </filter>
+    <path id="sat-name-path" fill="none" d="M 20 126 C 61 145, 139 145, 180 126"/>
+  </defs>
+
+  <g id="glow" filter="url(#sat-soft-glow)">
+    <circle cx="100" cy="100" r="82" fill="url(#sat-glow-grad)"/>
+  </g>
+  <g id="orbit" fill="none" stroke="#fff" stroke-opacity=".32" stroke-width="1.2" transform="rotate(-14 100 100)">
+    <ellipse cx="100" cy="100" rx="104" ry="38"/>
+    <circle cx="24" cy="100" r="4" fill="#fff" fill-opacity=".55" stroke="none"/>
+    <circle cx="100" cy="62" r="3.5" fill="#fff" fill-opacity=".7" stroke="none"/>
+    <circle cx="176" cy="100" r="4.5" fill="#fff" fill-opacity=".5" stroke="none"/>
+  </g>
+  <g id="ring-back" fill="none" stroke="url(#sat-ring)" stroke-width="22" stroke-linecap="round" transform="rotate(-14 100 100)">
+    <path d="M 8 100 A 92 24 0 0 1 192 100"/>
+  </g>
+  <g id="ball-base">
+    <circle cx="100" cy="100" r="70" fill="url(#sat-ball)"/>
+  </g>
+  <g id="ball-bands" fill="none" stroke="#fff" stroke-opacity=".18" stroke-linecap="round">
+    <path d="M 43 70 C 70 62, 130 62, 157 70" stroke-width="7"/>
+    <path d="M 34 83 C 65 76, 135 76, 166 83" stroke-width="9"/>
+    <path d="M 31 98 C 63 92, 137 92, 169 98" stroke-width="6"/>
+    <path d="M 31 112 C 63 118, 137 118, 169 112" stroke-width="10"/>
+    <path d="M 38 128 C 68 135, 132 135, 162 128" stroke-width="7"/>
+    <path d="M 50 143 C 73 149, 127 149, 150 143" stroke-width="6"/>
+  </g>
+  <g id="ball-shine">
+    <ellipse cx="78" cy="74" rx="19" ry="27" fill="#fff" fill-opacity=".18" transform="rotate(-25 78 74)"/>
+    <ellipse cx="72" cy="67" rx="7" ry="11" fill="#fff" fill-opacity=".28" transform="rotate(-25 72 67)"/>
+  </g>
+  <g id="ball-shadow">
+    <ellipse cx="128" cy="126" rx="31" ry="39" fill="#000" fill-opacity=".13" transform="rotate(-25 128 126)"/>
+  </g>
+  <g id="ring-front" fill="none" stroke="url(#sat-ring)" stroke-width="22" stroke-linecap="round" transform="rotate(-14 100 100)">
+    <path d="M 192 100 A 92 24 0 0 1 8 100"/>
+  </g>
+</svg>
