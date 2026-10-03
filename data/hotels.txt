@@ -71,7 +71,6 @@
 Хургада|Steigenberger Al Dau*5;Baron Palace Sahl Hasheesh;Sunrise Meraki*5;Albatros White Beach*5;Baron Palace*5;Jaz Aquamarine*5;Rixos Premium Magawish*5;Hilton Plaza*4;Titanic Beach*5;Grand Hyatt*5;Park Hyatt*5;Four Seasons*5;Rosewood*5;Fairmont*5;Raffles*5;JW Marriott*5;Novotel*4;Hyatt Place*4;Mercure*4;DoubleTree by Hilton*4;Radisson Blu*4;Travelodge*3;Days Inn*3;citizenM*3
 Шарм-эль-Шейх|Four Seasons Sharm;Rixos Premium Seagate*5;Savoy Sharm;Baron Palms*5;Sunrise Arabian*5;Four Seasons*5;Savoy*5;Jaz Mirabel*5;Hilton Waterfalls*5;Coral Sea Sensatori*5;Steigenberger Alcazar*5;Conrad*5;Swissôtel*5;Le Méridien*5;Sheraton Grand*5;Sofitel*5;Radisson Collection*5;Four Points*4;AC Hotel*4;DoubleTree by Hilton*4;Tryp*4;Courtyard Marriott*4;Comfort Inn*3;Premier Inn*3;Hampton by Hilton*3
 Марракеш|La Mamounia*5;Royal Mansour*5;Four Seasons Marrakech;Amanjena*5;Four Seasons*5;Sofitel Palais Imperial*5;Movenpick*5;Radisson Blu*4;Hilton*5;St. Regis*5;Kempinski*5;Ritz-Carlton*5;InterContinental*5;Park Hyatt*5;Radisson Collection*5;Scandic*4;DoubleTree by Hilton*4;NH Hotel*4;Four Points*4;Novotel*4;Premier Inn*3;Ibis Styles*3;B&B Hotel*3
-Кейптаун|The Silo Hotel;Belmond Mount Nelson*5;One&Only Cape Town;Cape Grace*5;The Silo*5;One&Only*5;Radisson Blu Waterfront*5;Southern Sun*4;Protea*4;Hilton*5;St. Regis*5;Four Seasons*5;Mandarin Oriental*5;Fairmont*5;Pullman*5;JW Marriott*5;Holiday Inn*4;Four Points*4;Azimut*4;Hyatt Place*4;Vienna House*4;Holiday Inn Express*3;Travelodge*3;Premier Inn*3
 Занзибар|Park Hyatt Zanzibar;The Residence;Baraza Resort;Zuri Zanzibar
 Сидней|Park Hyatt Sydney;Four Seasons Sydney;The Langham*5;Shangri-La Sydney;Park Hyatt*5;Four Seasons*5;Shangri-La*5;Sofitel Darling Harbour*5;Hilton*5;Ibis World Square*3;InterContinental*5;Le Méridien*5;Raffles*5;St. Regis*5;Sofitel*5;Swissôtel*5;Radisson Blu*4;Wyndham Garden*4;Ramada*4;Hyatt Place*4;Scandic*4;Hampton by Hilton*3;Premier Inn*3;Comfort Inn*3
 Мельбурн|Crown Towers*5;Park Hyatt Melbourne;The Langham*5;QT Melbourne;Park Hyatt*5;QT*5;Sofitel Collins*5;Novotel*4;Ibis*3;InterContinental*5;Fairmont*5;Pullman*5;Mandarin Oriental*5;Hyatt Regency*5;Kempinski*5;Conrad*5;NH Hotel*4;Tryp*4;Wyndham Garden*4;Park Inn*4;Azimut*4;Days Inn*3;Comfort Inn*3
@@ -217,8 +216,6 @@
 Пунта-Кана|Tortuga Bay*5;Eden Roc Cap Cana*5;Excellence Punta Cana;Hard Rock Punta Cana;Excellence*5;Hard Rock*5;Barcelo Bavaro*5;Iberostar Grand*5;Riu Palace*5
 Нассау|Baha Mar Rosewood;Atlantis Paradise Island;The Ocean Club
 Аруба|Ritz-Carlton Aruba;Bucuti & Tara;Hyatt Regency Aruba
-Йоханнесбург|Saxon Hotel;Four Seasons The Westcliff;The Michelangelo;St. Regis*5;Marriott*5;Mandarin Oriental*5;Ritz-Carlton*5;Grand Hyatt*5;Pullman*5;Rosewood*5;Park Inn*4;Hyatt Place*4;Courtyard Marriott*4;Best Western Plus*4;Wyndham Garden*4;Holiday Inn Express*3;Ibis*3;citizenM*3
-Дурбан|The Oyster Box;Beverly Hills Hotel;Southern Sun Elangeni;Radisson Collection*5;Sheraton Grand*5;Shangri-La*5;Four Points*4;Golden Tulip*4;Crowne Plaza*4;AC Hotel*4;Motel One*3;Hampton by Hilton*3
 Виктория-Фолс|Victoria Falls Hotel;Royal Livingstone;Matetsi River Lodge
 Момбаса|Serena Beach Resort;Swahili Beach;Diani Reef Beach;Mandarin Oriental*5;Marriott*5;Four Seasons*5;Mercure*4;Scandic*4;Azimut*4;Four Points*4;Super 8*3;B&B Hotel*3
 Аруша|Gran Meliá Arusha;Arusha Coffee Lodge;Four Points Arusha
@@ -454,7 +451,6 @@
 Аделаида|Hilton*5;Radisson Collection*5;Shangri-La*5;Radisson Blu*4;Best Western Plus*4;Wyndham Garden*4;Mercure*4;Comfort Inn*3;Travelodge*3
 Канберра|Mandarin Oriental*5;Four Seasons*5;Fairmont*5;Hyatt Place*4;Ramada*4;Golden Tulip*4;DoubleTree by Hilton*4;Ibis Styles*3;Comfort Inn*3
 Дарвин|Sofitel*5;Ritz-Carlton*5;Marriott*5;Four Points*4;Ramada*4;Tryp*4;Holiday Inn*4;B&B Hotel*3;Days Inn*3
-Претория|Grand Hyatt*5;InterContinental*5;Marriott*5;Courtyard Marriott*4;Mercure*4;Best Western Plus*4;Golden Tulip*4;Comfort Inn*3;Days Inn*3
 Дар-эс-Салам|Four Seasons*5;Raffles*5;Swissôtel*5;Wyndham Garden*4;Holiday Inn*4;Golden Tulip*4;Best Western Plus*4;citizenM*3;Ibis*3
 Аддис-Абеба|Pullman*5;Mandarin Oriental*5;Radisson Collection*5;Scandic*4;Azimut*4;Wyndham Garden*4;Holiday Inn*4;Holiday Inn Express*3;B&B Hotel*3
 Аккра|Fairmont*5;Swissôtel*5;W Hotel*5;Courtyard Marriott*4;DoubleTree by Hilton*4;Novotel*4;Scandic*4;Hampton by Hilton*3;Super 8*3
@@ -464,3 +460,25 @@
 Рабат|Rosewood*5;Pullman*5;Grand Hyatt*5;Azimut*4;Vienna House*4;Tryp*4;Mercure*4;Ibis*3;Days Inn*3
 Сусс|Mandarin Oriental*5;Rosewood*5;Sheraton Grand*5;Best Western Plus*4;Vienna House*4;Mercure*4;Golden Tulip*4;Comfort Inn*3;Days Inn*3
 Джерба|Kempinski*5;Hilton*5;Sofitel*5;Golden Tulip*4;Hyatt Place*4;Four Points*4;Park Inn*4;Super 8*3;Travelodge*3
+Кейптаун|One&Only Cape Town*5;Belmond Mount Nelson*5;The Silo*5;Cape Grace*5;Ellerman House*5;Taj Cape Town*5;The Table Bay*5;Twelve Apostles*5;Westin Cape Town*5;Pepperclub*5;Victoria & Alfred*4;Radisson RED V&A Waterfront*4;Southern Sun Waterfront*4;Hilton City Centre*4;Protea Fire & Ice*4;Mojo Hotel*3;Once in Cape Town*3
+Йоханнесбург|The Saxon*5;Four Seasons The Westcliff*5;Michelangelo*5;Fairlawns*5;Hilton Sandton*5;Radisson Blu Sandton*5;Hyatt Regency Rosebank*5;Marriott Melrose Arch*5;Holiday Inn Sandton*4;Protea Wanderers*4;City Lodge Sandton*3
+Сандтон|Michelangelo*5;The Saxon*5;Hilton Sandton*5;Radisson Blu Sandton*5;Holiday Inn Sandton*4;City Lodge Sandton*3
+Претория|Sheraton Pretoria*5;Leriba Hotel*4;Courtyard Arcadia*4;Protea Hatfield*4;Southern Sun Pretoria*4
+Дурбан|Southern Sun Elangeni & Maharani*4;Suncoast Hotel*4;Hilton Durban*4;Protea Edward*4;Garden Court South Beach*3
+Умхланга|The Oyster Box*5;Beverly Hills*5;The Capital Pearls*5;Protea Umhlanga*4;Umhlanga Sands*4
+Стелленбош|Lanzerac*5;Delaire Graff Lodge*5;Spier Hotel*4;Oude Werf*4;Stellenbosch Hotel*3
+Франсхук|Leeu House*5;La Residence*5;Mont Rochelle*5;Le Quartier Français*5;Franschhoek Country House*4
+Херманус|Birkenhead House*5;The Marine*5;Harbour House*4;Misty Waves*4
+Найсна|Pezula Nature Retreat*5;The Turbine*4;Protea Knysna Quays*4;Knysna Hollow*3
+Плеттенберг-Бей|The Plettenberg*5;Tsala Treetop Lodge*5;Beacon Island*4;Hog Hollow*4
+Порт-Элизабет|No5 by Mantis*5;The Boardwalk*5;Radisson Blu Port Elizabeth*4;Protea Marine*4
+Аддо|Gorah Elephant Camp*5;Kuzuko Lodge*5;Addo Main Camp*3
+Сан-Сити|The Palace of the Lost City*5;Cascades*5;Sun City Hotel*4;The Cabanas*3
+Пиланесберг|Shepherd's Tree*5;Kwa Maritane*4;Bakubung Bush Lodge*4
+Крюгер|Singita Lebombo*5;Sabi Sabi*5;Lion Sands*5;Londolozi*5;Jock Safari Lodge*5;Kruger Shalati*5;Protea Kruger Gate*4;Skukuza Rest Camp*3
+Хейзивью|Perry's Bridge Hollow*4;Hazyview Sabi River Sun*4;Rissington Inn*3
+Хёдспрёйт|Kapama River Lodge*5;Tintswalo Safari Lodge*5;Hoedspruit Hotel*3
+Дракенсберг|Cathedral Peak Hotel*4;Champagne Sports Resort*4;Drakensberg Sun*4
+Исимангалисо|Makakatana Bay Lodge*5;Elephant Lake Hotel*3
+Аудсхорн|Buffelsdrift Game Lodge*4;Queen's Hotel*3
+Лангебан|Club Mykonos*4;The Farmhouse Hotel*4
