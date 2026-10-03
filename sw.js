@@ -1,7 +1,7 @@
 /* Атлас © Demshin_lab. Все права защищены. */
 /* Атлас — офлайн-кеш и обновления.
    Версию поднимайте вместе с APP_VERSION в приложении. */
-const VERSION = "atlas-42.49";
+const VERSION = "atlas-42.50";
 const SHELL = [
   "./",
   "./index.html",
@@ -36,6 +36,22 @@ self.addEventListener("activate", (e) => {
 self.addEventListener("message", (e) => {
   if (e.data === "SKIP_WAITING") self.skipWaiting();
   if (e.data === "VERSION") e.source?.postMessage({ version: VERSION });
+});
+
+/* нажали на уведомление о поездке (42.50): открываем приложение на этой поездке */
+self.addEventListener("notificationclick", (e) => {
+  e.notification.close();
+  const d = e.notification.data || {};
+  e.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
+      const c = list[0];
+      if (c) {
+        c.postMessage({ type: "atlas-open-trip", a3: d.a3, id: d.id });
+        return c.focus && c.focus();
+      }
+      return self.clients.openWindow("./?trip=" + encodeURIComponent((d.a3 || "") + ":" + (d.id || "")));
+    })
+  );
 });
 
 self.addEventListener("fetch", (e) => {

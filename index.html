@@ -2987,7 +2987,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "42.49";
+const APP_VERSION = "42.50";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -8585,7 +8585,7 @@ function DataTools({ home, depGaps, onFillDeparture, regionGaps, onFillRegions, 
                 } })),
         React.createElement(Ask, { ask: ask, onClose: () => setAsk(null), box: box })));
 }
-function SettingsSheet({ reportsCfg, onReportsCfg, open, onClose, box, theme, onTheme, quality, onQuality, cityPins, onToggleCityPins, spinStart, onToggleSpin, mapView, onMapView, night, onToggleNight, geoCount, onReloadGeo, offline, busy, progress, offlineAt, onToggleOffline, booksSize, booksCounts, hasPin, faceAvailable, faceOn, onSetPin, onDropPin, onLock, onFace, home, depGaps, onFillDeparture, regionGaps, onFillRegions, doubles, onDoubles, onRestore, restoreMsg, onExport, onImport, }) {
+function SettingsSheet({ reportsCfg, onReportsCfg, open, onClose, box, theme, onTheme, quality, onQuality, cityPins, onToggleCityPins, spinStart, onToggleSpin, mapView, onMapView, night, onToggleNight, notify = false, notifyState = "none", onToggleNotify, geoCount, onReloadGeo, offline, busy, progress, offlineAt, onToggleOffline, booksSize, booksCounts, hasPin, faceAvailable, faceOn, onSetPin, onDropPin, onLock, onFace, home, depGaps, onFillDeparture, regionGaps, onFillRegions, doubles, onDoubles, onRestore, restoreMsg, onExport, onImport, }) {
     const where = store.kind() === "idb"
         ? "база браузера"
         : store.kind() === "ls"
@@ -8624,6 +8624,18 @@ function SettingsSheet({ reportsCfg, onReportsCfg, open, onClose, box, theme, on
                         ? "Ночная сторона затемнена по текущему времени"
                         : "Весь шар освещён ровно")),
                 React.createElement("span", { className: "switch" + (night ? " on" : "") },
+                    React.createElement("i", null))),
+            React.createElement("button", { className: "switch-row" + (notifyState === "none" ? " off" : ""), onClick: () => onToggleNotify === null || onToggleNotify === void 0 ? void 0 : onToggleNotify(!notify) },
+                React.createElement("span", { className: "switch-text" },
+                    "\u0423\u0432\u0435\u0434\u043E\u043C\u043B\u0435\u043D\u0438\u044F \u043E \u043F\u043E\u0435\u0437\u0434\u043A\u0430\u0445",
+                    React.createElement("em", null, notifyState === "none"
+                        ? "На iPhone работают только у приложения, добавленного на экран «Домой» (iOS 16.4 и новее)"
+                        : notifyState === "denied"
+                            ? "Запрещены для Атласа — разрешите в Настройках телефона → Уведомления"
+                            : notify
+                                ? `При открытии напомним о поездках в ближайшие ${NOTIFY_DAYS} дней — раз в день`
+                                : "Выключены")),
+                React.createElement("span", { className: "switch" + (notify && notifyState === "granted" ? " on" : "") },
                     React.createElement("i", null))),
             React.createElement("p", { className: "step-title" }, "\u041E\u0442\u0447\u0451\u0442\u044B"),
             React.createElement("p", { className: "hint small" }, "\u0413\u0430\u043B\u043E\u0447\u043A\u0430 \u2014 \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0442\u044C \u043E\u0442\u0447\u0451\u0442, \u0441\u0442\u0440\u0435\u043B\u043A\u0438 \u2014 \u043F\u043E\u043C\u0435\u043D\u044F\u0442\u044C \u043F\u043E\u0440\u044F\u0434\u043E\u043A \u043D\u0430 \u044D\u043A\u0440\u0430\u043D\u0435 \u043E\u0442\u0447\u0451\u0442\u043E\u0432."),
@@ -17060,6 +17072,8 @@ const SETTINGS_DEFAULT = {
     night: false, // ночь на глобусе: по умолчанию выключена (с 40.5)
     nightSet: false, // включали/выключали вручную
     conqRemind: [], // напоминания «Покорения страны»: [{ key, a3, name, y, m }] (42.48)
+    notify: false, // уведомления о предстоящих поездках при открытии (42.50)
+    notifyLog: {}, // какой поездке когда уже напомнили: { ключ: "гггг-м-д" }
 };
 /* настройки: читаем при запуске, меняем по одному полю, сохраняем целиком.
    Раньше каждое поле сохранялось своим кодом из своих копий значений —
@@ -17089,6 +17103,10 @@ function useSettings() {
             patch.spinStart = st.spinStart;
         if (st.mapView)
             patch.mapView = st.mapView;
+        if (typeof st.notify === "boolean")
+            patch.notify = st.notify;
+        if (st.notifyLog && typeof st.notifyLog === "object")
+            patch.notifyLog = st.notifyLog;
         if (Array.isArray(st.conqRemind))
             patch.conqRemind = st.conqRemind.filter((r) => r && r.key && r.m);
         /* до 40.5 ночь была включена по умолчанию и сохранялась у всех;
@@ -17726,6 +17744,101 @@ function useExchange(x) {
         setRestoreMsg(`Восстановлено ${np(count, "country")} · ${best.where}`);
     }, [visits]);
     return { exportData, meAva, nearPayload, applySync, restoreMsg, importAsk, joinMember, familyOps, restoreData, who, whoDone, whoCancel };
+}
+/* Атлас · 23c · уведомления о предстоящих поездках (42.50).
+   При открытии приложения (и при возврате к нему) — системное уведомление о поездках
+   в ближайшие 30 дней, не чаще раза в день на поездку. Включается в настройках.
+   На iPhone работает только у приложения на экране «Домой» (iOS 16.4+).
+   Части собираются по номерам в один файл (tools/rebuild.sh) и видят друг друга напрямую. */
+const NOTIFY_DAYS = 30;
+/* что умеет устройство: none — уведомлений нет, denied — запрещены, default — не спрашивали, granted */
+function notifySupport() {
+    if (typeof window === "undefined" || !("Notification" in window))
+        return "none";
+    return Notification.permission || "default";
+}
+/* поездки впереди: точная дата — дни до вылета, только месяц — «в ноябре» */
+function upcomingTrips(visits, days = NOTIFY_DAYS, now = new Date()) {
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const out = new Map();
+    Object.entries(visits || {}).forEach(([a3, arr]) => (arr || []).forEach((t) => {
+        var _d, _e, _f;
+        if (t.approx)
+            return;
+        const a = dParts(t.from);
+        let start;
+        let exact = true;
+        if (a)
+            start = new Date(a.y, a.m - 1, a.d);
+        else if (t.y && t.m) {
+            start = new Date(t.y, t.m - 1, 1);
+            exact = false;
+        }
+        else
+            return;
+        // месяц без даты: напоминаем, пока он не прошёл
+        const end = exact ? start : new Date(t.y, t.m, 0);
+        if (end < today)
+            return;
+        const d = Math.max(0, Math.round((start - today) / 864e5));
+        if (d > days)
+            return;
+        const key = ((_d = t.route) === null || _d === void 0 ? void 0 : _d.id) || `${a3}:${t.id}`;
+        const prev = out.get(key);
+        if (prev && prev.d <= d)
+            return;
+        const title = t.route ? routeCountries(t.route) || ((_e = BY_A3[a3]) === null || _e === void 0 ? void 0 : _e.name) : ((_f = BY_A3[a3]) === null || _f === void 0 ? void 0 : _f.name) || a3;
+        out.set(key, { key, a3, id: t.id, d, exact, title, flag: flagText(a3), when: tripLabel(t), m: t.m, y: t.y, cities: t.route ? [] : t.cities || [] });
+    }));
+    return [...out.values()].sort((x, y) => x.d - y.d);
+}
+/* текст уведомления */
+function notifyText(x) {
+    let lead;
+    if (!x.exact)
+        lead = x.d === 0 ? "В этом месяце в путь" : `В ${MONTHS_IN[x.m - 1]} в путь`;
+    else if (x.d === 0)
+        lead = "Сегодня в путь!";
+    else if (x.d === 1)
+        lead = "Завтра в путь";
+    else
+        lead = `Через ${np(x.d, "day")}`;
+    const cities = x.cities.length ? ` · ${x.cities.slice(0, 3).join(", ")}` : "";
+    return { title: `${x.flag ? x.flag + " " : ""}${x.title}`, body: `${lead} · ${x.when}${cities}` };
+}
+/* показать уведомления, которых сегодня ещё не было; вернуть обновлённый журнал */
+async function notifyTrips(visits, log = {}, now = new Date()) {
+    if (notifySupport() !== "granted")
+        return null;
+    const day = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+    const list = upcomingTrips(visits, NOTIFY_DAYS, now).filter((x) => log[x.key] !== day);
+    if (!list.length)
+        return null;
+    let reg = null;
+    try {
+        reg = "serviceWorker" in navigator ? await navigator.serviceWorker.getRegistration() : null;
+    }
+    catch {
+        reg = null;
+    }
+    const next = {};
+    // старые записи журнала не копим: только поездки, что ещё впереди
+    upcomingTrips(visits, NOTIFY_DAYS, now).forEach((x) => log[x.key] && (next[x.key] = log[x.key]));
+    for (const x of list.slice(0, 3)) {
+        const { title, body } = notifyText(x);
+        const opts = { body, tag: "trip-" + x.key, icon: "./icons/icon-192.png", badge: "./icons/icon-192.png", data: { a3: x.a3, id: x.id } };
+        try {
+            if (reg && reg.showNotification)
+                await reg.showNotification(title, opts);
+            else
+                new Notification(title, opts);
+            next[x.key] = day;
+        }
+        catch {
+            /* система не дала показать — попробуем при следующем открытии */
+        }
+    }
+    return next;
 }
 /* Атлас · 24 · страховка от белого экрана и само приложение.
    Части собираются по номерам в один файл (tools/rebuild.sh) и видят друг друга напрямую. */
@@ -18997,6 +19110,86 @@ function AtlasApp() {
             dead = true;
         };
     }, [sheet, visits]);
+    /* уведомления о предстоящих поездках (42.50): при открытии и при возврате в приложение */
+    const [notifyState, setNotifyState] = useState(notifySupport());
+    const notifyRef = useRef({ visits, settings });
+    notifyRef.current = { visits, settings };
+    const notifyBusy = useRef(false);
+    const runNotify = useCallback(async () => {
+        const { visits: v, settings: st } = notifyRef.current;
+        if (notifyBusy.current || !st.notify || !v || !Object.keys(v).length)
+            return;
+        notifyBusy.current = true; // включение и возврат в приложение не должны показать дважды
+        try {
+            const log = await notifyTrips(v, { ...(st.notifyLog || {}) });
+            if (log)
+                await putSettings({ notifyLog: log });
+        }
+        finally {
+            notifyBusy.current = false;
+        }
+    }, [putSettings]);
+    const toggleNotify = (on) => {
+        if (!on) {
+            putSettings({ notify: false });
+            return;
+        }
+        if (notifySupport() === "none") {
+            setNotifyState("none");
+            return;
+        }
+        // разрешение спрашиваем прямо по нажатию — иначе iPhone откажет молча
+        const ask = Notification.permission === "default" ? Notification.requestPermission() : Promise.resolve(Notification.permission);
+        Promise.resolve(ask).then(async (p) => {
+            setNotifyState(p);
+            if (p !== "granted")
+                return;
+            // покажет эффект ниже: он срабатывает на включение
+            await putSettings({ notify: true, notifyLog: {} });
+        });
+    };
+    const hasVisits = Object.keys(visits || {}).length > 0;
+    useEffect(() => {
+        if (!settings.notify || !hasVisits)
+            return;
+        runNotify();
+        const back = () => document.visibilityState === "visible" && (setNotifyState(notifySupport()), runNotify());
+        document.addEventListener("visibilitychange", back);
+        return () => document.removeEventListener("visibilitychange", back);
+    }, [settings.notify, hasVisits, runNotify]);
+    /* нажали на уведомление — открываем поездку */
+    const openTripRef = useRef(null);
+    openTripRef.current = (a3, id) => {
+        var _d;
+        if (!(((_d = visitsRef.current) === null || _d === void 0 ? void 0 : _d[a3]) || []).some((t) => t.id === id))
+            return;
+        setEditing({ a3, id, back: null });
+        setSheet("edit");
+    };
+    useEffect(() => {
+        if (typeof navigator === "undefined" || !navigator.serviceWorker)
+            return;
+        const on = (e) => { var _d, _e; return ((_d = e.data) === null || _d === void 0 ? void 0 : _d.type) === "atlas-open-trip" && ((_e = openTripRef.current) === null || _e === void 0 ? void 0 : _e.call(openTripRef, e.data.a3, e.data.id)); };
+        navigator.serviceWorker.addEventListener("message", on);
+        return () => navigator.serviceWorker.removeEventListener("message", on);
+    }, []);
+    useEffect(() => {
+        var _d;
+        // приложение открылось с уведомления: ./?trip=A3:id
+        if (!hasVisits || typeof location === "undefined")
+            return;
+        const m = /[?&]trip=([^&]+)/.exec(location.search);
+        if (!m)
+            return;
+        const [a3, id] = decodeURIComponent(m[1]).split(":");
+        (_d = openTripRef.current) === null || _d === void 0 ? void 0 : _d.call(openTripRef, a3, id);
+        try {
+            history.replaceState(null, "", location.pathname);
+        }
+        catch {
+            /* адрес не меняется — не беда */
+        }
+    }, [hasVisits]);
     /* напоминания «Покорения» (42.48): месяц наступил — строка на главном */
     const remindConq = (item, on) => {
         const list = (settings.conqRemind || []).filter((r) => r.key !== item.key);
@@ -19386,7 +19579,7 @@ function AtlasApp() {
                             }, open: sheet === "settings", onClose: () => setSheet("profile"), box: box, theme: theme, onTheme: setTheme, quality: photoQuality, onQuality: (v) => {
                                 setPhotoQuality(v);
                                 setSheet("photomode");
-                            }, cityPins: cityPins, onToggleCityPins: setCityPins, spinStart: spinStart, onToggleSpin: setSpinStart, mapView: mapView, onMapView: setMapView, night: night, onToggleNight: setNight, geoCount: ((_e = geo === null || geo === void 0 ? void 0 : geo.features) === null || _e === void 0 ? void 0 : _e.length) || 0, onReloadGeo: reloadGeo, offline: booksSaved, busy: booksBusy, progress: booksProgress, offlineAt: booksAt, onToggleOffline: () => (booksSaved ? dropBooks() : keepBooks()), booksSize: booksSize, booksCounts: {
+                            }, cityPins: cityPins, onToggleCityPins: setCityPins, spinStart: spinStart, onToggleSpin: setSpinStart, mapView: mapView, onMapView: setMapView, night: night, onToggleNight: setNight, notify: !!settings.notify, notifyState: notifyState, onToggleNotify: toggleNotify, geoCount: ((_e = geo === null || geo === void 0 ? void 0 : geo.features) === null || _e === void 0 ? void 0 : _e.length) || 0, onReloadGeo: reloadGeo, offline: booksSaved, busy: booksBusy, progress: booksProgress, offlineAt: booksAt, onToggleOffline: () => (booksSaved ? dropBooks() : keepBooks()), booksSize: booksSize, booksCounts: {
                                 cities: CITIES.length,
                                 hotels: Object.values(HOTELS_BY_CITY).reduce((n, v) => n + v.length, 0),
                                 sights: SIGHTS.length,
@@ -21670,6 +21863,7 @@ em.cq-selname{font-style:normal; color:var(--dim); font-weight:400;}
 .cq-wmap .cq-stage{flex:1 1 auto; height:auto; width:100%; min-height:0;}
 .cq-side{gap:8px;}
 .cq-due .due-title{margin-bottom:8px;}
+.switch-row.off .switch{opacity:.4;}
 `;
 const __b = document.getElementById('boot');
 if (__b)
