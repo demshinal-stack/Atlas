@@ -2942,7 +2942,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "42.44";
+const APP_VERSION = "42.45";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -4351,7 +4351,7 @@ function launchFlights(st, routes, rot, spin) {
     }
     st.next = now + 1400 + Math.random() * 2600;
 }
-function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home, marks, light, playing, setPlaying, view, page: pageProp, setPage, isWish, arcs, noFull, fitBox, onArcPick, spinStep, glow, lookAt, pins, dashSel, flights, flying, fitK = 1, regions, selRegion }) {
+function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home, marks, light, playing, setPlaying, view, page: pageProp, setPage, isWish, arcs, noFull, fitBox, onArcPick, spinStep, glow, lookAt, pins, dashSel, flights, flying, fitK = 1, regions, selRegion, noPlay = false, blinkOnly = false }) {
     const fitKRef = useRef(fitK);
     fitKRef.current = fitK;
     const wrapRef = useRef(null);
@@ -4380,7 +4380,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
     const state = useRef({ isOn, selected, geo, marks, light, full, isMap, isWish, arcs, glow, glowAt: 0 });
     if (state.current.glow !== glow)
         state.current.glowAt = Date.now();
-    state.current = { ...state.current, isOn, selected, geo, marks, light, full, isMap, isWish, arcs, glow, pins, dashSel, night, flights, flying, regions, selRegion };
+    state.current = { ...state.current, isOn, selected, geo, marks, light, full, isMap, isWish, arcs, glow, pins, dashSel, night, flights, flying, regions, selRegion, blinkOnly };
     /* размер: по фактической ширине плитки, с повторами до готовности разметки */
     useEffect(() => {
         var _d;
@@ -4658,10 +4658,16 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                     if (hot) {
                         // страна года: сначала зелёный контур с миганием, потом золото
                         const ms = Date.now() - (state.current.glowAt || 0);
-                        const blink = 900; // два быстрых мигания
+                        // два быстрых мигания; на главном экране (выбор страны) — три и без золота после (42.45)
+                        const only = state.current.blinkOnly;
+                        const blink = only ? 1350 : 900;
                         ctx.save();
-                        if (ms < blink) {
-                            const wave = Math.abs(Math.sin((ms / blink) * Math.PI * 2));
+                        if (ms < 0) {
+                            // ещё доворачиваемся к стране — ждём
+                            needFrame = true;
+                        }
+                        else if (ms < blink) {
+                            const wave = Math.abs(Math.sin((ms / blink) * Math.PI * (only ? 3 : 2)));
                             ctx.strokeStyle = "#57e39a";
                             ctx.lineWidth = 2.4;
                             ctx.shadowColor = "rgba(87,227,154,.9)";
@@ -4673,7 +4679,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                             ctx.fill();
                             needFrame = true;
                         }
-                        else {
+                        else if (!only) {
                             const t = Math.min(1, (ms - blink) / 450);
                             const e = t * t * (3 - 2 * t);
                             ctx.shadowColor = "rgba(255,214,120,.95)";
@@ -5256,7 +5262,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         const flagPins = state.current.pins || [];
         if (flagPins.length) {
             const sinceP = Date.now() - (state.current.glowAt || 0);
-            const show = Math.min(1, Math.max(0, (sinceP - 1000) / 450));
+            const show = Math.min(1, Math.max(0, (sinceP - (state.current.blinkOnly ? 1350 : 1000)) / 450));
             if (show > 0) {
                 if (show < 1)
                     needDraw = true;
@@ -5720,7 +5726,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
             }, onMouseLeave: endDrag, onTouchStart: onTouchStart, onTouchMove: onTouchMove, onTouchEnd: onTouchEnd, onTouchCancel: onTouchEnd })));
     const pager = isMap ? (React.createElement("div", { className: "map-pager" }, MAP_PAGES.map((pg, i) => (React.createElement("span", { key: pg.id, className: "map-dot" + (pageUi === i ? " on" : "") }))))) : null;
     const controls = (React.createElement("div", { className: "globe-controls" },
-        !isMap && (React.createElement("button", { className: "play" + (playing ? " on" : ""), onClick: () => setPlaying((v) => !v), "aria-label": playing ? "Остановить вращение" : "Вращать глобус" }, playing ? (React.createElement("svg", { viewBox: "0 0 24 24", width: "15", height: "15" },
+        !isMap && !noPlay && (React.createElement("button", { className: "play" + (playing ? " on" : ""), onClick: () => setPlaying((v) => !v), "aria-label": playing ? "Остановить вращение" : "Вращать глобус" }, playing ? (React.createElement("svg", { viewBox: "0 0 24 24", width: "15", height: "15" },
             React.createElement("path", { d: "M8 6h3v12H8zM13 6h3v12h-3z", fill: "currentColor" }))) : (React.createElement("svg", { viewBox: "0 0 24 24", width: "15", height: "15" },
             React.createElement("path", { d: "M9 6l9 6-9 6z", fill: "currentColor" }))))),
         !noFull && (React.createElement("button", { onClick: onToggleFull, "aria-label": "\u0412\u043E \u0432\u0435\u0441\u044C \u044D\u043A\u0440\u0430\u043D" }, full ? "✕" : "⛶"))));
@@ -18273,8 +18279,24 @@ function AtlasApp() {
     // список стран на главном без выбора: где были, а с поиском — все страны
     const [homeQ, setHomeQ] = useState("");
     const homeRows = useMemo(() => countryList(visits, wish, homeQ, homeQ.trim() ? "all" : "been"), [visits, wish, homeQ]);
+    /* выбор страны на главном: мигнуть 3 раза и поставить флажок (42.45) */
+    const selGlow = useMemo(() => (selected ? new Set([selected]) : null), [selected, lookNonce]);
+    const selPins = useMemo(() => {
+        const c = selected ? BY_A3[selected] : null;
+        if (!c)
+            return [];
+        return [{ a3: c.a3, lon: c.lon, lat: c.lat, flag: c.a2 ? flag(c.a2) : "", img: OWN_FLAGS[c.a3] || null, code: c.a3 }];
+    }, [selected, lookNonce]);
+    /* выбор снят (✕ в ленте стран) — глобус снова вращается сам */
+    const wasSel = useRef(selected);
+    useEffect(() => {
+        if (wasSel.current && !selected && !full)
+            setSpinning(true);
+        wasSel.current = selected;
+    }, [selected, full]);
     const pickCountry = (a3) => {
         setHomeQ("");
+        setSpinning(false); // выбрали страну — глобус останавливается (42.45)
         setSelected(a3);
         setSelRegion(null);
         setLookNonce((n) => n + 1);
@@ -18301,9 +18323,14 @@ function AtlasApp() {
                 React.createElement("div", { className: "cols" + (full ? " is-full" : "") },
                     React.createElement("div", { className: "col-map" },
                         React.createElement(Globe, { geo: geo, isOn: isOn, onPick: (a3, x) => {
+                                if (BY_A3[a3]) {
+                                    setSpinning(false);
+                                    if (a3 !== selected)
+                                        setLookNonce((n) => n + 1);
+                                }
                                 setSelected(BY_A3[a3] ? a3 : null);
                                 setSelRegion((x === null || x === void 0 ? void 0 : x.region) || null);
-                            }, selected: selected, full: false, onToggleFull: () => setFull(true), visitKey: visitKey, home: lastTrip, marks: marks, regions: regionsOn, selRegion: selRegion, lookAt: cardLook && (!regLook || !selRegion) ? cardLook : regLook, light: light, playing: spinning, setPlaying: setSpinning, view: mapView, page: mapPage, setPage: setMapPage, isWish: isWish }),
+                            }, selected: selected, full: false, noPlay: true, blinkOnly: true, glow: selGlow, pins: selPins, onToggleFull: () => setFull(true), visitKey: visitKey, home: lastTrip, marks: marks, regions: regionsOn, selRegion: selRegion, lookAt: cardLook && (!regLook || !selRegion) ? cardLook : regLook, light: light, playing: spinning, setPlaying: setSpinning, view: mapView, page: mapPage, setPage: setMapPage, isWish: isWish }),
                         full && (React.createElement(Globe, { geo: geo, isOn: isOn, onPick: (a3, x) => {
                                 setSelected(BY_A3[a3] ? a3 : null);
                                 setSelRegion((x === null || x === void 0 ? void 0 : x.region) || null);
@@ -20336,7 +20363,7 @@ button, input, select, textarea{font-family:inherit;}
 .trip-pen{flex:none; display:flex; align-items:center; justify-content:center; width:32px; height:32px; margin-left:6px; border-radius:50%; border:1px solid var(--line); color:var(--gold);}
 
 /* 42.7 · кнопки глобуса — значками в правом верхнем углу окна, окно ниже не тянется */
-.col-map > .map-wrap > .globe-controls{position:absolute; top:8px; right:8px; z-index:2; padding:0; gap:6px; justify-content:flex-end;}
+.col-map > .map-wrap > .globe-controls{position:absolute; top:auto; bottom:8px; right:8px; /* 42.45: правый нижний угол */ z-index:2; padding:0; gap:6px; justify-content:flex-end;}
 .col-map > .map-wrap > .globe-controls button{width:34px; height:34px; border-radius:10px; font-size:14px;
   background:color-mix(in srgb, var(--el2) 70%, transparent); -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);}
 .col-map > .map-wrap > .globe-stage{padding:8px 0;}
