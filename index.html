@@ -292,7 +292,7 @@ VU|VUT|Вануату|OC|-16.3|167.5
 /* справочники живут отдельно: на сервере, а по желанию — на устройстве */
 const K_BOOKS = "atlas:books";
 /* версия справочников: меняется, когда данные обновились на сервере */
-const BOOKS_VER = 20;
+const BOOKS_VER = 21;
 const BOOKS = [
     { id: "cities", file: "cities.txt", title: "Города" },
     { id: "regions", file: "regions.txt", title: "Регионы" },
@@ -2987,7 +2987,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "42.48";
+const APP_VERSION = "42.49";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -15204,24 +15204,133 @@ function moveJourneys(visits, home, year) {
     out.sort((x, y) => x.at - y.at);
     return out;
 }
+/* подписи станций змейки (42.49): длинное название не налезает на соседнее.
+   1) переносим по словам на две строки; 2) не помогло — среднюю станцию ряда подписываем
+   над линией (там свободно: значки перегонов лишь по бокам); 3) уменьшаем шрифт; 4) «…» */
+let mvsCtx = null;
+const mvsWidth = (t, size = 12) => {
+    if (!mvsCtx && typeof document !== "undefined")
+        mvsCtx = document.createElement("canvas").getContext("2d");
+    if (!mvsCtx)
+        return t.length * size * 0.6;
+    mvsCtx.font = `${size}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, system-ui, sans-serif`;
+    return mvsCtx.measureText(t).width;
+};
+/* лучший перенос на две строки: по пробелам и дефисам, самая длинная строка — короче всех */
+const mvsWrap = (t, size) => {
+    const cuts = [];
+    for (let i = 1; i < t.length - 1; i++)
+        if (t[i] === " " || t[i - 1] === "-")
+            cuts.push(i);
+    let best = null;
+    cuts.forEach((i) => {
+        const l = [t.slice(0, i).trim(), t.slice(i).trim()];
+        const w = Math.max(mvsWidth(l[0], size), mvsWidth(l[1], size));
+        if (!best || w < best.w)
+            best = { l, w };
+    });
+    return best;
+};
+function mvsLabels(names, pos, cols, W) {
+    const L = names.map((n, i) => {
+        const [x, , r, c] = pos[i];
+        const anchor = c === 0 ? "start" : c === cols - 1 ? "end" : "middle";
+        const lx = anchor === "start" ? x - 10 : anchor === "end" ? x + 10 : x;
+        return { n, lines: [n], size: 12, up: false, anchor, lx, r, c, w: mvsWidth(n) };
+    });
+    const span = (l) => l.anchor === "start" ? [l.lx, l.lx + l.w] : l.anchor === "end" ? [l.lx - l.w, l.lx] : [l.lx - l.w / 2, l.lx + l.w / 2];
+    const clash = (a, b) => {
+        if (a.up !== b.up)
+            return false;
+        const [a0, a1] = span(a);
+        const [b0, b1] = span(b);
+        return a0 < b1 + 6 && b0 < a1 + 6;
+    };
+    const fit = (l) => {
+        // перенос: ширина — самая длинная строка
+        const wr = mvsWrap(l.n, l.size);
+        if (wr && wr.w < l.w - 4) {
+            l.lines = wr.l;
+            l.w = wr.w;
+            return true;
+        }
+        return false;
+    };
+    const rows = [...new Set(L.map((l) => l.r))];
+    rows.forEach((r) => {
+        const row = L.filter((l) => l.r === r);
+        const bad = () => {
+            const out = new Set();
+            row.forEach((a, i) => row.slice(i + 1).forEach((b) => clash(a, b) && (out.add(a), out.add(b))));
+            return [...out];
+        };
+        // 1) перенос, начиная с самых широких
+        for (let k = 0; k < 6; k++) {
+            const b = bad().filter((l) => l.lines.length < 2).sort((x, y) => y.w - x.w);
+            if (!b.length || !fit(b[0]))
+                break;
+        }
+        // 2) средняя станция — над линией, одной строкой, если влезает в ширину схемы
+        if (bad().length) {
+            const mid = row.find((l) => l.anchor === "middle");
+            if (mid) {
+                mid.up = true;
+                const w1 = mvsWidth(mid.n, mid.size);
+                if (w1 < W - 40)
+                    Object.assign(mid, { lines: [mid.n], w: w1 });
+            }
+        }
+        // 3) мельче шрифт, 4) многоточие
+        for (let k = 0; k < 8 && bad().length; k++) {
+            const l = bad().sort((x, y) => y.w - x.w)[0];
+            if (l.size > 10) {
+                l.size = 10;
+                l.w = Math.max(...l.lines.map((t) => mvsWidth(t, 10)));
+            }
+            else {
+                const t = l.lines[l.lines.length - 1];
+                if (t.length < 5)
+                    break;
+                l.lines[l.lines.length - 1] = t.slice(0, -2).trim() + "…";
+                l.w = Math.max(...l.lines.map((x) => mvsWidth(x, l.size)));
+            }
+        }
+    });
+    return L;
+}
 /* одна змейка: по два перегона в ряду, на краю — поворот вниз и обратно */
 function MoveSnake({ j, delay = 0, run = 0, anim = false, hl = null, tight = false }) {
     const plan = !!j.plan;
     const go = anim || !plan; // в карточке поездки едем и по планам
     const W = 330;
     const cols = 3;
-    const rowH = 70;
-    const R = rowH / 2;
+    const R = 35;
     const xs = [R + 14, W / 2, W - R - 14];
-    const top = 14;
-    const pos = j.st.map((_s, i) => {
+    const cells = j.st.map((_s, i) => {
         const r = Math.floor(i / cols);
         let c = i % cols;
         if (r % 2)
             c = cols - 1 - c;
-        return [xs[c], top + r * rowH, r];
+        return [xs[c], 0, r, c];
     });
-    const H = top + pos[pos.length - 1][2] * rowH + (tight ? 40 : rowH - 10);
+    const labels = mvsLabels(j.st.map((s) => s.n || ""), cells, cols, W);
+    // высота рядов: снизу — подпись (1–2 строки) и дата, сверху — подпись над линией
+    const nRows = cells[cells.length - 1][2] + 1;
+    const below = Array(nRows).fill(11);
+    const above = Array(nRows).fill(11);
+    labels.forEach((l, i) => {
+        const s = j.st[i];
+        const n = l.up ? 0 : l.lines.length;
+        const dn = n ? 21 + (n - 1) * 13 + (s.d ? 13 : 0) + 4 : s.d ? 25 : 11;
+        below[l.r] = Math.max(below[l.r], dn);
+        if (l.up)
+            above[l.r] = Math.max(above[l.r], 15 + (l.lines.length - 1) * 13 + 11);
+    });
+    const ys = [14 + Math.max(0, above[0] - 11)];
+    for (let r = 1; r < nRows; r++)
+        ys.push(ys[r - 1] + Math.max(70, below[r - 1] + above[r] + 6));
+    const pos = cells.map(([x, , r]) => [x, ys[r], r]);
+    const H = ys[nRows - 1] + (tight ? Math.max(40, below[nRows - 1] + 2) : Math.max(60, below[nRows - 1] + 6));
     const kind = (k) => MOVE_KINDS.find((m) => m.id === k);
     return (React.createElement("svg", { className: "mvs" + (plan ? " plan" : ""), viewBox: `0 0 ${W} ${H}`, key: run },
         j.legs.map((L, i) => {
@@ -15231,7 +15340,8 @@ function MoveSnake({ j, delay = 0, run = 0, anim = false, hl = null, tight = fal
             const col = ((_d = kind(L.k)) === null || _d === void 0 ? void 0 : _d.color) || "#5d7891";
             const turn = r1 !== r2;
             const side = x1 > W / 2 ? 1 : 0;
-            const d = turn ? `M${x1} ${y1} A ${R} ${R} 0 0 ${side} ${x2} ${y2}` : `M${x1} ${y1} L${x2} ${y2}`;
+            const ry = (y2 - y1) / 2;
+            const d = turn ? `M${x1} ${y1} A ${R} ${ry} 0 0 ${side} ${x2} ${y2}` : `M${x1} ${y1} L${x2} ${y2}`;
             const mx = turn ? x1 + (side ? R : -R) : (x1 + x2) / 2;
             const my = turn ? (y1 + y2) / 2 : y1;
             const none = L.k === "none";
@@ -15249,12 +15359,15 @@ function MoveSnake({ j, delay = 0, run = 0, anim = false, hl = null, tight = fal
         }),
         j.st.map((s, i) => {
             const [x, y] = pos[i];
-            const anchor = x < W / 4 ? "start" : x > (W * 3) / 4 ? "end" : "middle";
-            const lx = anchor === "start" ? x - 10 : anchor === "end" ? x + 10 : x;
+            const l = labels[i];
+            const n = l.lines.length;
+            // над линией: последняя строка — у самой линии
+            const y0 = l.up ? y - 15 - (n - 1) * 13 : y + 21;
+            const dy = l.up ? y + 21 : y + 21 + n * 13;
             return (React.createElement("g", { key: "s" + i },
                 React.createElement("circle", { cx: x, cy: y, r: s.home ? 6.5 : s.tr ? 4.5 : 5.5, className: "mvs-st" + (s.home ? " home" : "") + (s.tr === 2 ? " air" : s.tr === 1 ? " out" : "") }),
-                React.createElement("text", { x: lx, y: y + 21, textAnchor: anchor, className: "mvs-n" + (hl && s.a3 === hl ? " hl" : "") }, s.n),
-                s.d && (React.createElement("text", { x: lx, y: y + 34, textAnchor: anchor, className: "mvs-d" }, s.d))));
+                React.createElement("text", { x: l.lx, y: y0, textAnchor: l.anchor, className: "mvs-n" + (hl && s.a3 === hl ? " hl" : ""), style: l.size !== 12 ? { fontSize: l.size + "px" } : undefined }, l.lines.map((t, k) => (React.createElement("tspan", { key: k, x: l.lx, dy: k ? 13 : 0 }, t)))),
+                s.d && (React.createElement("text", { x: l.lx, y: dy, textAnchor: l.anchor, className: "mvs-d" }, s.d))));
         })));
 }
 function MoveWin({ visits, home, onClose }) {
