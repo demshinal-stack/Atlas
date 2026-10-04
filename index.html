@@ -2942,7 +2942,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "42.54";
+const APP_VERSION = "42.55";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -15471,42 +15471,85 @@ function conqData(visits) {
 }
 /* с какой страны начать: недопокорённая, где были последними */
 const conqFirst = (rows) => rows.filter((r) => r.pct < 100).sort((a, b) => (b.y1 || 0) - (a.y1 || 0) || b.pct - a.pct)[0] || rows[0] || null;
-/* карта страны: равновеликая коническая проекция по центру страны, у США — Аляска и Гавайи сбоку.
-   Во весь экран карту можно повернуть до ±45°, чтобы вытянутая страна легла вдоль длинной
-   стороны окна (Индонезия, Филиппины, Вьетнам): ищем угол, при котором она крупнее всего.
-   turn: "auto" — поворачиваем сами, если выигрыш от 15% и очертания страны не «иконные»
-   (Россию, Китай повёрнутыми не узнать); "turn" — повернуть по кнопке (выигрыш от 8%);
-   "north" — север вверху. Кнопка-компас в углу переключает (42.52–42.54) */
-const CQ_NOTURN = new Set(["RUS", "CHN", "KAZ", "CAN", "AUS", "BRA", "IND", "ARE", "EGY", "TUR"]);
+/* карта страны: равновеликая коническая проекция по центру «тела» страны, у США — Аляска и
+   Гавайи сбоку. Во весь экран карту можно повернуть до ±45°, чтобы вытянутая страна легла вдоль
+   длинной стороны окна. Из углов, дающих не меньше 97% лучшего размера, берём самый малый.
+   turn: "auto" — сами поворачиваем только длинные островные/узкие страны (CQ_TURN: Индонезия,
+   Филиппины, Вьетнам, Малайзия, Япония, Чили…), если выигрыш от 10%; остальные стоят севером
+   вверх — их очертания узнаваемы (ЮАР, Кипр, Россия повёрнутыми выглядят чужими);
+   "turn" — повернуть по кнопке-компасу «⤢» (выигрыш от 10%); "north" — север вверху (42.52–42.55) */
+const CQ_TURN = new Set(["IDN", "PHL", "VNM", "MYS", "JPN", "CHL", "NZL", "NOR", "ITA"]);
+/* «тело» страны для вписывания в окно (42.55): далёкие крохотные острова (у ЮАР — острова
+   Принс-Эдуард в 1700 км от берега, у Японии — Минамитори) раздували рамку, и материк выходил
+   мелким и сдвинутым в угол. Берём куски, дающие 95% площади, и всё, что лежит рядом с ними
+   (в пределах 35% размера этой рамки); остальное рисуется, но в рамку не входит */
+const CQ_CORE = {};
+function cqCore(a3) {
+    if (CQ_CORE[a3])
+        return CQ_CORE[a3];
+    const feats = cqFeats(a3);
+    const fc = { type: "FeatureCollection", features: feats };
+    const [lon, lat] = d3.geoCentroid(fc);
+    const pr = d3.geoConicEqualArea().parallels([lat - 8, lat + 8]).rotate([-lon, 0]).fitSize([1000, 1000], fc);
+    const path = d3.geoPath(pr);
+    const parts = [];
+    feats.forEach((f) => f.geometry.coordinates.forEach((poly) => {
+        const g = { type: "Polygon", coordinates: poly };
+        parts.push({ poly, a: path.area(g), b: path.bounds(g) });
+    }));
+    const total = parts.reduce((x, p) => x + p.a, 0) || 1;
+    parts.sort((x, y) => y.a - x.a);
+    let acc = 0;
+    let box = null;
+    const grow = (b) => (box = box ? [[Math.min(box[0][0], b[0][0]), Math.min(box[0][1], b[0][1])], [Math.max(box[1][0], b[1][0]), Math.max(box[1][1], b[1][1])]] : b);
+    const keep = [];
+    parts.forEach((p) => {
+        if (acc < total * 0.95) {
+            acc += p.a;
+            grow(p.b);
+            keep.push(p);
+        }
+    });
+    const pad = 0.35 * Math.max(box[1][0] - box[0][0], box[1][1] - box[0][1]);
+    parts.forEach((p) => {
+        if (keep.includes(p))
+            return;
+        const [[x0, y0], [x1, y1]] = p.b;
+        if (x1 >= box[0][0] - pad && x0 <= box[1][0] + pad && y1 >= box[0][1] - pad && y0 <= box[1][1] + pad)
+            keep.push(p);
+    });
+    const core = { type: "Feature", properties: {}, geometry: { type: "MultiPolygon", coordinates: keep.map((p) => p.poly) } };
+    return (CQ_CORE[a3] = { fc, core, center: d3.geoCentroid(core), dropped: parts.length - keep.length });
+}
 const CQ_PATHS = {};
 function cqPaths(a3, w, h, turn = null) {
     const id = `${a3}:${w}x${h}:${turn || "-"}`;
     if (CQ_PATHS[id])
         return CQ_PATHS[id];
     const feats = cqFeats(a3);
-    const fc = { type: "FeatureCollection", features: feats };
-    const [lon, lat] = d3.geoCentroid(fc);
+    const { fc, core, center } = cqCore(a3);
+    const [lon, lat] = center;
+    const m = Math.round(Math.min(w, h) * 0.03); // поле по краям
+    const ext = [[m, m], [w - m, h - m]];
+    // вписываем и центрируем по «телу» страны — и прямую, и повёрнутую карту
     const make = (angle) => {
         if (a3 === "USA")
-            return d3.geoAlbersUsa().fitSize([w, h], fc);
-        return d3.geoConicEqualArea().parallels([lat - 8, lat + 8]).rotate([-lon, 0]).angle(angle).fitSize([w, h], fc);
+            return d3.geoAlbersUsa().fitExtent(ext, fc);
+        return d3.geoConicEqualArea().parallels([lat - 8, lat + 8]).rotate([-lon, 0]).angle(angle).fitExtent(ext, core);
     };
     let pr = make(0);
     let angle = 0;
     let can = false;
     if (turn && a3 !== "USA") {
         const k0 = pr.scale();
-        let best = { k: k0, a: 0 };
-        for (let a = -45; a <= 45; a += 5) {
-            if (!a)
-                continue;
-            const k = make(a).scale();
-            if (k > best.k)
-                best = { k, a };
-        }
-        const gain = best.k / k0;
-        can = gain >= 1.08;
-        const on = turn === "turn" ? can : turn === "auto" ? gain >= 1.15 && !CQ_NOTURN.has(a3) : false;
+        const ks = [];
+        for (let a = -45; a <= 45; a += 5)
+            ks.push({ a, k: a ? make(a).scale() : k0 });
+        const top = Math.max(...ks.map((x) => x.k));
+        // самый малый поворот, дающий почти лучший размер
+        const best = ks.filter((x) => x.k >= top * 0.97).sort((x, y) => Math.abs(x.a) - Math.abs(y.a))[0];
+        can = !!best.a && best.k >= k0 * 1.1;
+        const on = can && (turn === "turn" || (turn === "auto" && CQ_TURN.has(a3)));
         if (on) {
             angle = best.a;
             pr = make(angle);
@@ -15542,10 +15585,10 @@ function ConquestMap({ a3, done, sel = null, onSel, w = 320, h = 220, turn = nul
                 e.stopPropagation();
                 onTurn(angle ? "north" : "turn");
             } },
-            React.createElement("circle", { cx: w - 22, cy: 22, r: "16" }),
+            React.createElement("circle", { cx: w - 30, cy: 32, r: "16" }),
             angle ? (React.createElement(React.Fragment, null,
-                React.createElement("path", { d: "M0 -10 L5 5 L0 2 L-5 5 Z", transform: `translate(${w - 22},22) rotate(${north})` }),
-                React.createElement("text", { x: w - 22 + Math.sin(rad) * 25, y: 22 - Math.cos(rad) * 25 }, "\u0421"))) : (React.createElement("text", { className: "cq-turn", x: w - 22, y: 23 }, "\u2922"))))));
+                React.createElement("path", { d: "M0 -10 L5 5 L0 2 L-5 5 Z", transform: `translate(${w - 30},32) rotate(${north})` }),
+                React.createElement("text", { x: w - 30 + Math.sin(rad) * 25, y: 32 - Math.cos(rad) * 25 }, "\u0421"))) : (React.createElement("text", { className: "cq-turn", x: w - 30, y: 33 }, "\u2922"))))));
 }
 /* карточка в отчётах: фишки стран, карта, процент */
 function ConquestCard({ visits, onOpen }) {
@@ -21318,7 +21361,7 @@ button, input, select, textarea{font-family:inherit;}
 .cq-chip u{text-decoration:none; opacity:.8;}
 .cq-chip.on{border-color:var(--gold); color:var(--ink); background:rgba(232,184,75,.1);}
 .cq-chip .own-flag{width:16px; height:11px; border-radius:2px; object-fit:cover;}
-.cq-mapbox{height:190px; cursor:pointer;}
+.cq-mapbox{height:190px; cursor:pointer; overflow:hidden;}
 .cq-map{display:block; overflow:visible;}
 .cq-reg{fill:#1f3a56; stroke:rgba(150,180,210,.35); stroke-width:.6; vector-effect:non-scaling-stroke; transition:fill .3s;}
 .cq-reg.on{stroke:rgba(70,48,10,.55);}
@@ -21339,7 +21382,7 @@ button, input, select, textarea{font-family:inherit;}
 .cq-pmap, .cq-wmap{position:relative;}
 .cq-stage{position:absolute; inset:0; padding-top:44px;}
 .cq-svgbox{position:absolute; left:0; right:0; top:44px; bottom:0;}
-.cq-svgbox .cq-map{position:absolute; inset:0; width:100%; height:100%;}
+.cq-svgbox .cq-map{position:absolute; inset:0; width:100%; height:100%; overflow:hidden;}
 .cq-north{cursor:pointer;}
 .cq-north circle{fill:rgba(10,22,34,.75); stroke:var(--line);}
 .cq-north .cq-turn{fill:var(--gold); font-size:15px;}
