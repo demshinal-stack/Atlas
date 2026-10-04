@@ -2942,7 +2942,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "42.61";
+const APP_VERSION = "42.62";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -15646,6 +15646,8 @@ function ConquestMap({ a3, done, sel = null, onSel, w = 320, h = 220, turn = nul
                 React.createElement("g", { mask: `url(#${id("mask")})` },
                     env.grat && React.createElement("path", { className: "cq-grat", d: env.grat }),
                     env.nb.map((d, i) => (React.createElement("path", { key: i, className: "cq-nb", d: d }))))),
+            React.createElement("g", { className: "cq-shadow", filter: `url(#${id("glow")})` }, paths.map((p) => (React.createElement("path", { key: p.key, d: p.d })))),
+            React.createElement("g", { className: "cq-rim" }, paths.map((p) => (React.createElement("path", { key: p.key, d: p.d })))),
             React.createElement("g", { filter: `url(#${id("glow")})`, className: "cq-halo" }, gold.map((p) => (React.createElement("path", { key: p.key, d: p.d })))))),
         paths.map((p) => {
             const on = done.has(p.key);
@@ -21438,7 +21440,7 @@ button, input, select, textarea{font-family:inherit;}
 .cq-chip .own-flag{width:16px; height:11px; border-radius:2px; object-fit:cover;}
 .cq-mapbox{height:190px; cursor:pointer; overflow:hidden;}
 .cq-map{display:block; overflow:visible;}
-.cq-reg{fill:#1f3a56; stroke:rgba(150,180,210,.35); stroke-width:.6; vector-effect:non-scaling-stroke; transition:fill .3s;}
+.cq-reg{fill:#244a6e; stroke:rgba(150,180,210,.35); stroke-width:.6; vector-effect:non-scaling-stroke; transition:fill .3s;}
 .cq-reg.on{stroke:rgba(70,48,10,.55);}
 .cq-reg.sel{stroke:#fff; stroke-width:1.8;}
 .root.light .cq-reg.sel{stroke:#16242f;}
@@ -21493,7 +21495,12 @@ button, input, select, textarea{font-family:inherit;}
 .cq-spot0{stop-color:#2c5880; stop-opacity:.75;}
 .cq-spot1{stop-color:#112133; stop-opacity:0;}
 .cq-grat{fill:none; stroke:rgba(143,192,240,.10); stroke-width:.6; vector-effect:non-scaling-stroke;}
-.cq-nb{fill:rgba(160,195,230,.035); stroke:rgba(160,195,230,.28); stroke-width:.5; vector-effect:non-scaling-stroke;}
+.cq-nb{fill:rgba(4,10,18,.35); stroke:rgba(160,195,230,.2); stroke-width:.5; vector-effect:non-scaling-stroke;}
+/* 42.62: своя страна заметно отделена от соседей */
+.cq-shadow path{fill:#02070d; opacity:.75;}
+.cq-rim path{fill:none; stroke:rgba(150,205,255,.75); stroke-width:3; stroke-linejoin:round; vector-effect:non-scaling-stroke;}
+.root.light .cq-shadow path{fill:#7d93a8; opacity:.35;}
+.root.light .cq-rim path{stroke:rgba(47,111,174,.7);}
 .cq-halo path{fill:#e8b84b; opacity:.5;}
 .root.light .cq-spot0{stop-color:#bcd3e8; stop-opacity:.8;}
 .root.light .cq-spot1{stop-color:#ffffff; stop-opacity:0;}
