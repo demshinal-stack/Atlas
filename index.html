@@ -2942,7 +2942,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "42.53";
+const APP_VERSION = "42.54";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -15472,25 +15472,29 @@ function conqData(visits) {
 /* с какой страны начать: недопокорённая, где были последними */
 const conqFirst = (rows) => rows.filter((r) => r.pct < 100).sort((a, b) => (b.y1 || 0) - (a.y1 || 0) || b.pct - a.pct)[0] || rows[0] || null;
 /* карта страны: равновеликая коническая проекция по центру страны, у США — Аляска и Гавайи сбоку.
-   Во весь экран (rot) карту можно повернуть до ±45°, чтобы вытянутая страна легла вдоль длинной
-   стороны окна (Япония, Индонезия, Чили): берём угол, при котором она крупнее всего, если выигрыш
-   больше четверти; на карте тогда стрелка «С» показывает север (42.52) */
+   Во весь экран карту можно повернуть до ±45°, чтобы вытянутая страна легла вдоль длинной
+   стороны окна (Индонезия, Филиппины, Вьетнам): ищем угол, при котором она крупнее всего.
+   turn: "auto" — поворачиваем сами, если выигрыш от 15% и очертания страны не «иконные»
+   (Россию, Китай повёрнутыми не узнать); "turn" — повернуть по кнопке (выигрыш от 8%);
+   "north" — север вверху. Кнопка-компас в углу переключает (42.52–42.54) */
+const CQ_NOTURN = new Set(["RUS", "CHN", "KAZ", "CAN", "AUS", "BRA", "IND", "ARE", "EGY", "TUR"]);
 const CQ_PATHS = {};
-function cqPaths(a3, w, h, rot = false) {
-    const id = `${a3}:${w}x${h}:${rot ? 1 : 0}`;
+function cqPaths(a3, w, h, turn = null) {
+    const id = `${a3}:${w}x${h}:${turn || "-"}`;
     if (CQ_PATHS[id])
         return CQ_PATHS[id];
     const feats = cqFeats(a3);
     const fc = { type: "FeatureCollection", features: feats };
+    const [lon, lat] = d3.geoCentroid(fc);
     const make = (angle) => {
         if (a3 === "USA")
             return d3.geoAlbersUsa().fitSize([w, h], fc);
-        const [lon, lat] = d3.geoCentroid(fc);
         return d3.geoConicEqualArea().parallels([lat - 8, lat + 8]).rotate([-lon, 0]).angle(angle).fitSize([w, h], fc);
     };
     let pr = make(0);
     let angle = 0;
-    if (rot && a3 !== "USA") {
+    let can = false;
+    if (turn && a3 !== "USA") {
         const k0 = pr.scale();
         let best = { k: k0, a: 0 };
         for (let a = -45; a <= 45; a += 5) {
@@ -15500,7 +15504,10 @@ function cqPaths(a3, w, h, rot = false) {
             if (k > best.k)
                 best = { k, a };
         }
-        if (best.k > k0 * 1.25) {
+        const gain = best.k / k0;
+        can = gain >= 1.08;
+        const on = turn === "turn" ? can : turn === "auto" ? gain >= 1.15 && !CQ_NOTURN.has(a3) : false;
+        if (on) {
             angle = best.a;
             pr = make(angle);
         }
@@ -15509,19 +15516,19 @@ function cqPaths(a3, w, h, rot = false) {
     // куда смотрит север: две точки на одном меридиане
     let north = 0;
     if (angle) {
-        const [lon, lat] = d3.geoCentroid(fc);
         const p0 = pr([lon, lat]);
         const p1 = pr([lon, lat + 1]);
         if (p0 && p1)
             north = (Math.atan2(p1[0] - p0[0], -(p1[1] - p0[1])) * 180) / Math.PI;
     }
-    const out = { angle, north, list: feats.map((f) => ({ key: f.properties.key, name: f.properties.n, d: path(f) || "" })) };
+    const out = { angle, north, can, list: feats.map((f) => ({ key: f.properties.key, name: f.properties.n, d: path(f) || "" })) };
     CQ_PATHS[id] = out;
     return out;
 }
-function ConquestMap({ a3, done, sel = null, onSel, w = 320, h = 220, rot = false }) {
-    const { list: paths, angle, north } = useMemo(() => cqPaths(a3, w, h, rot), [a3, w, h, rot]);
+function ConquestMap({ a3, done, sel = null, onSel, w = 320, h = 220, turn = null, onTurn }) {
+    const { list: paths, angle, north, can } = useMemo(() => cqPaths(a3, w, h, turn), [a3, w, h, turn]);
     const gid = "cqg-" + a3;
+    const rad = (north * Math.PI) / 180;
     return (React.createElement("svg", { className: "cq-map", viewBox: `0 0 ${w} ${h}`, width: "100%", height: "100%", preserveAspectRatio: "xMidYMid meet" },
         React.createElement("defs", null,
             React.createElement("linearGradient", { id: gid, x1: "0", y1: "0", x2: "1", y2: "1" },
@@ -15531,10 +15538,14 @@ function ConquestMap({ a3, done, sel = null, onSel, w = 320, h = 220, rot = fals
             const on = done.has(p.key);
             return (React.createElement("path", { key: p.key, d: p.d, className: "cq-reg" + (on ? " on" : "") + (sel === p.key ? " sel" : ""), style: on ? { fill: `url(#${gid})` } : undefined, onClick: onSel ? (e) => (e.stopPropagation(), onSel(sel === p.key ? null : p.key)) : undefined }));
         }),
-        angle !== 0 && (React.createElement("g", { className: "cq-north" },
-            React.createElement("circle", { cx: w - 22, cy: 22, r: "14" }),
-            React.createElement("path", { d: "M0 -10 L5 5 L0 2 L-5 5 Z", transform: `translate(${w - 22},22) rotate(${north})` }),
-            React.createElement("text", { x: w - 22 + Math.sin((north * Math.PI) / 180) * 23, y: 22 - Math.cos((north * Math.PI) / 180) * 23 }, "\u0421")))));
+        onTurn && (angle !== 0 || can) && (React.createElement("g", { className: "cq-north" + (angle ? " on" : ""), role: "button", "aria-label": angle ? "Север вверху" : "Повернуть крупнее", onClick: (e) => {
+                e.stopPropagation();
+                onTurn(angle ? "north" : "turn");
+            } },
+            React.createElement("circle", { cx: w - 22, cy: 22, r: "16" }),
+            angle ? (React.createElement(React.Fragment, null,
+                React.createElement("path", { d: "M0 -10 L5 5 L0 2 L-5 5 Z", transform: `translate(${w - 22},22) rotate(${north})` }),
+                React.createElement("text", { x: w - 22 + Math.sin(rad) * 25, y: 22 - Math.cos(rad) * 25 }, "\u0421"))) : (React.createElement("text", { className: "cq-turn", x: w - 22, y: 23 }, "\u2922"))))));
 }
 /* карточка в отчётах: фишки стран, карта, процент */
 function ConquestCard({ visits, onOpen }) {
@@ -15594,6 +15605,7 @@ function ConquestWin({ visits, a3: a30, onClose }) {
     const rows = useMemo(() => conqData(visits), [visits]);
     const [a3, setA3] = useState(a30 || ((_d = conqFirst(rows)) === null || _d === void 0 ? void 0 : _d.a3) || null);
     const [sel, setSel] = useState(null);
+    const [turn, setTurn] = useState({}); // выбор «север вверху / крупнее» по странам
     const wide = useWide();
     // карта рисуется под настоящий размер места (а не 360×260): вытянутые страны крупнее
     const boxRef = useRef(null);
@@ -15648,7 +15660,7 @@ function ConquestWin({ visits, a3: a30, onClose }) {
             "%",
             React.createElement("em", null, selF ? `${selF.properties.n}${row.done.has(sel) ? " — были" : " — ещё нет"}` : "касание региона — его название")),
         React.createElement("div", { className: "cq-svgbox", ref: boxRef },
-            React.createElement(ConquestMap, { a3: row.a3, done: row.done, sel: sel, onSel: setSel, w: size[0], h: size[1], rot: true }))));
+            React.createElement(ConquestMap, { a3: row.a3, done: row.done, sel: sel, onSel: setSel, w: size[0], h: size[1], turn: turn[row.a3] || "auto", onTurn: (v) => setTurn((t) => ({ ...t, [row.a3]: v })) }))));
     const list = (React.createElement("div", { className: "ag-list cq-list", ref: listRef }, rows.map((r) => {
         var _d;
         return (React.createElement("button", { key: r.a3, className: "ag-row cq-row" + (r.a3 === row.a3 ? " on" : ""), onClick: () => setA3(r.a3) },
@@ -15682,7 +15694,7 @@ function ConquestWin({ visits, a3: a30, onClose }) {
             React.createElement("div", { className: "zoom-body rep cq-win" },
                 React.createElement("b", null, "\u041F\u043E\u043A\u043E\u0440\u0435\u043D\u0438\u0435 \u0441\u0442\u0440\u0430\u043D\u044B"),
                 React.createElement("div", { className: "pg-map far-map cq-pmap" }, map),
-                React.createElement("div", { className: "ag-frame sd-frame" }, list)))));
+                React.createElement("div", { className: "ag-frame sd-frame cq-lframe" }, list)))));
 }
 /* ярлычки на большом глобусе: процент покорения у стран от 25% */
 const conqTags = (visits) => conqData(visits)
@@ -21328,10 +21340,14 @@ button, input, select, textarea{font-family:inherit;}
 .cq-stage{position:absolute; inset:0; padding-top:44px;}
 .cq-svgbox{position:absolute; left:0; right:0; top:44px; bottom:0;}
 .cq-svgbox .cq-map{position:absolute; inset:0; width:100%; height:100%;}
-.cq-north circle{fill:rgba(10,22,34,.7); stroke:var(--line);}
+.cq-north{cursor:pointer;}
+.cq-north circle{fill:rgba(10,22,34,.75); stroke:var(--line);}
+.cq-north .cq-turn{fill:var(--gold); font-size:15px;}
+.root.light .cq-north circle{fill:rgba(255,255,255,.85);}
 .cq-north path{fill:var(--gold);}
 .cq-north text{fill:var(--gold); font-size:10px; font-weight:600; text-anchor:middle; dominant-baseline:middle;}
 .cq-pmap{min-height:200px;}
+.pg-layer .cq-lframe{height:24vh; height:24dvh;} /* 42.54: карте больше места */
 .cq-wmap .cq-stage{inset:10px;}
 .cq-row.on{border-color:var(--gold);}
 .cq-row span{flex:1 1 auto; gap:3px;}
