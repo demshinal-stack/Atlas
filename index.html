@@ -2942,7 +2942,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "42.60";
+const APP_VERSION = "42.61";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -15567,23 +15567,93 @@ function cqPaths(a3, w, h, turn = null) {
         if (p0 && p1)
             north = (Math.atan2(p1[0] - p0[0], -(p1[1] - p0[1])) * 180) / Math.PI;
     }
-    const out = { angle, north, can, list: feats.map((f) => ({ key: f.properties.key, name: f.properties.n, d: path(f) || "" })) };
+    const out = { angle, north, can, pr, box: d3.geoPath(pr).bounds(core), list: feats.map((f) => ({ key: f.properties.key, name: f.properties.n, d: path(f) || "" })) };
     CQ_PATHS[id] = out;
     return out;
 }
-function ConquestMap({ a3, done, sel = null, onSel, w = 320, h = 220, turn = null, onTurn }) {
-    const { list: paths, angle, north, can } = useMemo(() => cqPaths(a3, w, h, turn), [a3, w, h, turn]);
-    const gid = "cqg-" + a3;
+/* «живая» карта (42.61): прожектор под страной, сетка широт и долгот, еле заметные контуры
+   соседних стран, угасающие к краям, свечение покорённых регионов и редкий блик по золоту */
+let CQ_UID = 0;
+const cqStep = (deg) => [0.5, 1, 2, 5, 10, 15].find((s) => deg / s <= 9) || 20;
+function ConquestMap({ a3, done, sel = null, onSel, w = 320, h = 220, turn = null, onTurn, geo = null, alive = true }) {
+    const { list: paths, angle, north, can, pr, box } = useMemo(() => cqPaths(a3, w, h, turn), [a3, w, h, turn]);
+    const uid = useRef(null);
+    if (!uid.current)
+        uid.current = "cq" + ++CQ_UID;
+    const id = (x) => `${uid.current}-${x}`;
+    const gid = id("g");
     const rad = (north * Math.PI) / 180;
+    // окружение: соседи, сетка — по той же проекции, обрезаем далёкое
+    const env = useMemo(() => {
+        var _d, _e, _f, _h;
+        if (!alive || !pr)
+            return null;
+        const [[x0, y0], [x1, y1]] = box;
+        const cx = (x0 + x1) / 2;
+        const cy = (y0 + y1) / 2;
+        const r = Math.max(w, h) * 0.62;
+        const p2 = (a3 === "USA" ? pr : pr.clipAngle ? pr.clipAngle(85) : pr);
+        const path = d3.geoPath(p2);
+        const ctr = pr.invert ? pr.invert([cx, cy]) : null;
+        let nb = [];
+        if ((geo === null || geo === void 0 ? void 0 : geo.features) && a3 !== "USA" && ctr) {
+            nb = geo.features
+                .filter((f) => { var _d; return ((_d = f.properties) === null || _d === void 0 ? void 0 : _d.a3) !== a3 && d3.geoDistance(d3.geoCentroid(f), ctr) < 0.6; })
+                .map((f) => path(f))
+                .filter(Boolean);
+        }
+        let grat = "";
+        if (ctr && a3 !== "USA") {
+            const span = Math.abs(((_e = (_d = pr.invert([x1, cy])) === null || _d === void 0 ? void 0 : _d[0]) !== null && _e !== void 0 ? _e : 0) - ((_h = (_f = pr.invert([x0, cy])) === null || _f === void 0 ? void 0 : _f[0]) !== null && _h !== void 0 ? _h : 0)) || 10;
+            grat = path(d3.geoGraticule().step([cqStep(span), cqStep(span)])()) || "";
+        }
+        if (pr.clipAngle && a3 !== "USA")
+            pr.clipAngle(null); // проекция общая с кешем — возвращаем как было
+        // прожектор гаснет точно к самому дальнему углу — без видимой рамки
+        const rs = Math.max(...[[0, 0], [w, 0], [0, h], [w, h]].map(([x, y]) => Math.hypot(x - cx, y - cy)));
+        return { cx, cy, r, rs, nb, grat };
+    }, [alive, pr, box, geo, a3, w, h]);
+    const gold = paths.filter((p) => done.has(p.key));
     return (React.createElement("svg", { className: "cq-map", viewBox: `0 0 ${w} ${h}`, width: "100%", height: "100%", preserveAspectRatio: "xMidYMid meet" },
         React.createElement("defs", null,
             React.createElement("linearGradient", { id: gid, x1: "0", y1: "0", x2: "1", y2: "1" },
-                React.createElement("stop", { offset: "0", stopColor: "#f3d27c" }),
-                React.createElement("stop", { offset: "1", stopColor: "#d9a53c" }))),
+                React.createElement("stop", { offset: "0", stopColor: "#f6dc8c" }),
+                React.createElement("stop", { offset: "1", stopColor: "#d9a53c" })),
+            env && (React.createElement(React.Fragment, null,
+                React.createElement("radialGradient", { id: id("spot"), gradientUnits: "userSpaceOnUse", cx: env.cx, cy: env.cy, r: env.rs },
+                    React.createElement("stop", { offset: "0", className: "cq-spot0" }),
+                    React.createElement("stop", { offset: "1", className: "cq-spot1" })),
+                React.createElement("radialGradient", { id: id("fade"), gradientUnits: "userSpaceOnUse", cx: env.cx, cy: env.cy, r: env.r },
+                    React.createElement("stop", { offset: "0.25", stopColor: "#fff", stopOpacity: "1" }),
+                    React.createElement("stop", { offset: "1", stopColor: "#fff", stopOpacity: "0" })),
+                React.createElement("radialGradient", { id: id("edgeg"), cx: "0.5", cy: "0.5", r: "0.5" },
+                    React.createElement("stop", { offset: "0.6", stopColor: "#fff", stopOpacity: "1" }),
+                    React.createElement("stop", { offset: "1", stopColor: "#fff", stopOpacity: "0" })),
+                React.createElement("mask", { id: id("edge"), maskUnits: "userSpaceOnUse", x: "0", y: "0", width: w, height: h },
+                    React.createElement("rect", { width: w, height: h, fill: `url(#${id("edgeg")})` })),
+                React.createElement("mask", { id: id("mask"), maskUnits: "userSpaceOnUse", x: "0", y: "0", width: w, height: h },
+                    React.createElement("rect", { width: w, height: h, fill: `url(#${id("fade")})` })),
+                React.createElement("filter", { id: id("glow"), x: "-30%", y: "-30%", width: "160%", height: "160%" },
+                    React.createElement("feGaussianBlur", { stdDeviation: Math.max(3, Math.min(w, h) / 60) })),
+                React.createElement("linearGradient", { id: id("sheen"), gradientUnits: "userSpaceOnUse", x1: "0", y1: "0", x2: w * 0.35, y2: h * 0.12 },
+                    React.createElement("stop", { offset: "0", stopColor: "#fff", stopOpacity: "0" }),
+                    React.createElement("stop", { offset: "0.5", stopColor: "#fff", stopOpacity: "0.5" }),
+                    React.createElement("stop", { offset: "1", stopColor: "#fff", stopOpacity: "0" })),
+                React.createElement("clipPath", { id: id("gold") }, gold.map((p) => (React.createElement("path", { key: p.key, d: p.d }))))))),
+        env && (React.createElement("g", { className: "cq-env", pointerEvents: "none" },
+            React.createElement("g", { mask: `url(#${id("edge")})` },
+                React.createElement("rect", { width: w, height: h, fill: `url(#${id("spot")})` }),
+                React.createElement("g", { mask: `url(#${id("mask")})` },
+                    env.grat && React.createElement("path", { className: "cq-grat", d: env.grat }),
+                    env.nb.map((d, i) => (React.createElement("path", { key: i, className: "cq-nb", d: d }))))),
+            React.createElement("g", { filter: `url(#${id("glow")})`, className: "cq-halo" }, gold.map((p) => (React.createElement("path", { key: p.key, d: p.d })))))),
         paths.map((p) => {
             const on = done.has(p.key);
             return (React.createElement("path", { key: p.key, d: p.d, className: "cq-reg" + (on ? " on" : "") + (sel === p.key ? " sel" : ""), style: on ? { fill: `url(#${gid})` } : undefined, onClick: onSel ? (e) => (e.stopPropagation(), onSel(sel === p.key ? null : p.key)) : undefined }));
         }),
+        env && gold.length > 0 && (React.createElement("g", { clipPath: `url(#${id("gold")})`, pointerEvents: "none" },
+            React.createElement("rect", { className: "cq-sheen", x: -w * 0.5, y: "0", width: w * 0.5, height: h, fill: `url(#${id("sheen")})` },
+                React.createElement("animateTransform", { attributeName: "transform", type: "translate", values: `0 0;${w * 1.6} 0;${w * 1.6} 0`, keyTimes: "0;0.3;1", dur: "6s", begin: "1.2s", repeatCount: "indefinite" })))),
         onTurn && (angle !== 0 || can) && (React.createElement("g", { className: "cq-north" + (angle ? " on" : ""), role: "button", "aria-label": angle ? "Север вверху" : "Повернуть крупнее", onClick: (e) => {
                 e.stopPropagation();
                 onTurn(angle ? "north" : "turn");
@@ -15594,7 +15664,7 @@ function ConquestMap({ a3, done, sel = null, onSel, w = 320, h = 220, turn = nul
                 React.createElement("text", { x: w - 30 + Math.sin(rad) * 25, y: 32 - Math.cos(rad) * 25 }, "\u0421"))) : (React.createElement("text", { className: "cq-turn", x: w - 30, y: 33 }, "\u2922"))))));
 }
 /* карточка в отчётах: фишки стран, карта, процент */
-function ConquestCard({ visits, onOpen }) {
+function ConquestCard({ visits, onOpen, geo = null }) {
     var _d;
     const rows = useMemo(() => conqData(visits), [visits]);
     const [a3, setA3] = useState(null);
@@ -15605,7 +15675,7 @@ function ConquestCard({ visits, onOpen }) {
     return (React.createElement("div", { className: "cq-card" },
         React.createElement(CqChips, { rows: rows, a3: row.a3, onPick: setA3 }),
         React.createElement("div", { className: "cq-mapbox", onClick: () => onOpen === null || onOpen === void 0 ? void 0 : onOpen(row.a3) },
-            React.createElement(ConquestMap, { a3: row.a3, done: row.done, w: 320, h: 200 })),
+            React.createElement(ConquestMap, { a3: row.a3, done: row.done, w: 320, h: 200, geo: geo })),
         React.createElement("div", { className: "cq-sum" },
             React.createElement("b", { className: "cq-pct cq-big " + cqMetal(row.pct) },
                 row.pct,
@@ -15646,7 +15716,7 @@ function CqBar({ pct }) {
         React.createElement("i", { style: { width: `${pct}%` } })));
 }
 /* окно во весь экран — как другие отчёты: карта, под ней (или справа) страны списком */
-function ConquestWin({ visits, a3: a30, onClose }) {
+function ConquestWin({ visits, a3: a30, onClose, geo = null }) {
     var _d, _e;
     const rows = useMemo(() => conqData(visits), [visits]);
     const [a3, setA3] = useState(a30 || ((_d = conqFirst(rows)) === null || _d === void 0 ? void 0 : _d.a3) || null);
@@ -15708,7 +15778,7 @@ function ConquestWin({ visits, a3: a30, onClose }) {
                 row.pct,
                 "%")),
         React.createElement("div", { className: "cq-svgbox", ref: boxRef },
-            React.createElement(ConquestMap, { a3: row.a3, done: row.done, sel: sel, onSel: setSel, w: size[0], h: size[1], turn: turn[row.a3] || "auto", onTurn: (v) => setTurn((t) => ({ ...t, [row.a3]: v })) }))));
+            React.createElement(ConquestMap, { a3: row.a3, done: row.done, sel: sel, onSel: setSel, w: size[0], h: size[1], turn: turn[row.a3] || "auto", geo: geo, onTurn: (v) => setTurn((t) => ({ ...t, [row.a3]: v })) }))));
     const list = (React.createElement("div", { className: "ag-list cq-list", ref: listRef }, rows.map((r) => {
         var _d;
         return (React.createElement("button", { key: r.a3, className: "ag-row cq-row" + (r.a3 === row.a3 ? " on" : ""), onClick: () => setA3(r.a3) },
@@ -16055,7 +16125,7 @@ function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], o
             React.createElement(Reveal, { rid: "conquest", className: "rep cq-rep", zoomable: false, onFull: () => onConquest === null || onConquest === void 0 ? void 0 : onConquest(null) },
                 React.createElement("b", null, "\u041F\u043E\u043A\u043E\u0440\u0435\u043D\u0438\u0435 \u0441\u0442\u0440\u0430\u043D\u044B"),
                 React.createElement("em", null, "\u0432 \u0441\u043A\u043E\u043B\u044C\u043A\u0438\u0445 \u0440\u0435\u0433\u0438\u043E\u043D\u0430\u0445 \u0441\u0442\u0440\u0430\u043D\u044B \u0432\u044B \u0431\u044B\u043B\u0438"),
-                React.createElement(ConquestCard, { visits: visits, onOpen: (a3) => onConquest === null || onConquest === void 0 ? void 0 : onConquest(a3) })),
+                React.createElement(ConquestCard, { visits: visits, geo: geo, onOpen: (a3) => onConquest === null || onConquest === void 0 ? void 0 : onConquest(a3) })),
             React.createElement(Reveal, { rid: "calendar", className: "rep", zoomable: false, onFull: () => onCalendar === null || onCalendar === void 0 ? void 0 : onCalendar() },
                 React.createElement("b", null, "\u041A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u044C \u043F\u043E\u0435\u0437\u0434\u043E\u043A"),
                 React.createElement("em", null, "\u0433\u043E\u0434 \u0438 \u043C\u0435\u0441\u044F\u0446, \u044F\u0440\u0447\u0435 \u2014 \u0434\u043E\u043B\u044C\u0448\u0435"),
@@ -19291,7 +19361,7 @@ function AtlasApp() {
                                 setSheet(null);
                             } })),
                         moveWin && React.createElement(MoveWin, { visits: visits, home: profile.home || null, onClose: () => setMoveWin(false) }),
-                        conqWin && React.createElement(ConquestWin, { visits: visits, a3: conqWin.a3, onClose: () => setConqWin(null) }),
+                        conqWin && React.createElement(ConquestWin, { visits: visits, geo: geo, a3: conqWin.a3, onClose: () => setConqWin(null) }),
                         contsWin && React.createElement(ContsWin, { visits: visits, geo: geo, onClose: () => setContsWin(false) }),
                         soloWin && (React.createElement(SoloWin, { visits: visits, people: profile.people || [], geo: geo, onClose: () => setSoloWin(false), mapProps: {
                                 isOn,
@@ -21418,6 +21488,19 @@ button, input, select, textarea{font-family:inherit;}
 .cq-rflag{flex:none; font-style:normal; font-size:20px; line-height:1;}
 
 .switch-row.off .switch{opacity:.4;}
+
+/* 42.61: «живая» карта покорения */
+.cq-spot0{stop-color:#2c5880; stop-opacity:.75;}
+.cq-spot1{stop-color:#112133; stop-opacity:0;}
+.cq-grat{fill:none; stroke:rgba(143,192,240,.10); stroke-width:.6; vector-effect:non-scaling-stroke;}
+.cq-nb{fill:rgba(160,195,230,.035); stroke:rgba(160,195,230,.28); stroke-width:.5; vector-effect:non-scaling-stroke;}
+.cq-halo path{fill:#e8b84b; opacity:.5;}
+.root.light .cq-spot0{stop-color:#bcd3e8; stop-opacity:.8;}
+.root.light .cq-spot1{stop-color:#ffffff; stop-opacity:0;}
+.root.light .cq-grat{stroke:rgba(47,111,174,.12);}
+.root.light .cq-nb{fill:rgba(47,111,174,.04); stroke:rgba(47,111,174,.3);}
+.root.light .cq-halo path{opacity:.35;}
+@media (prefers-reduced-motion: reduce){ .cq-sheen{display:none;} }
 `;
 const __b = document.getElementById('boot');
 if (__b)
