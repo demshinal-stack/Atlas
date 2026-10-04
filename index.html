@@ -2942,7 +2942,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "42.52";
+const APP_VERSION = "42.53";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -21319,16 +21319,20 @@ button, input, select, textarea{font-family:inherit;}
 .cq-bar{position:relative; height:7px; border-radius:4px; background:var(--track); flex:none;}
 .cq-bar i{position:absolute; left:0; top:0; bottom:0; border-radius:4px; background:linear-gradient(90deg,#d9a53c,#f3d27c); transition:width .6s;}
 .cq-rflag .own-flag{width:18px; height:12px; border-radius:2px; object-fit:cover;}
-.cq-wmap{flex-direction:column; padding:10px;}
+.cq-wmap{flex-direction:column;}
 .cq-title{display:flex; flex-direction:column; gap:2px; position:absolute; top:10px; left:12px; right:12px; z-index:1; pointer-events:none;}
 .cq-title em{font-style:normal; font-size:11px; color:var(--dim);}
-.cq-stage{position:relative; width:100%; height:100%; padding-top:44px; display:flex; flex-direction:column;}
-.cq-svgbox{flex:1 1 auto; min-height:0; width:100%;}
+/* 42.53: в Safari высота 100% у потомка flex-элемента «не определена» — карта бралась по своей
+   пропорции 360×260 и не росла; теперь слои закреплены абсолютно, размер — только от окна */
+.cq-pmap, .cq-wmap{position:relative;}
+.cq-stage{position:absolute; inset:0; padding-top:44px;}
+.cq-svgbox{position:absolute; left:0; right:0; top:44px; bottom:0;}
+.cq-svgbox .cq-map{position:absolute; inset:0; width:100%; height:100%;}
 .cq-north circle{fill:rgba(10,22,34,.7); stroke:var(--line);}
 .cq-north path{fill:var(--gold);}
 .cq-north text{fill:var(--gold); font-size:10px; font-weight:600; text-anchor:middle; dominant-baseline:middle;}
 .cq-pmap{min-height:200px;}
-.cq-wmap .cq-stage{min-height:0;}
+.cq-wmap .cq-stage{inset:10px;}
 .cq-row.on{border-color:var(--gold);}
 .cq-row span{flex:1 1 auto; gap:3px;}
 .cq-row .cq-bar{height:4px; margin-top:3px;}
