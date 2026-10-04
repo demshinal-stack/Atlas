@@ -2942,7 +2942,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "42.56";
+const APP_VERSION = "42.59";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -15606,7 +15606,7 @@ function ConquestCard({ visits, onOpen }) {
         React.createElement("div", { className: "cq-mapbox", onClick: () => onOpen === null || onOpen === void 0 ? void 0 : onOpen(row.a3) },
             React.createElement(ConquestMap, { a3: row.a3, done: row.done, w: 320, h: 200 })),
         React.createElement("div", { className: "cq-sum" },
-            React.createElement("b", { className: "cq-pct" },
+            React.createElement("b", { className: "cq-pct cq-big " + cqMetal(row.pct) },
                 row.pct,
                 "%"),
             React.createElement("span", null,
@@ -15641,7 +15641,7 @@ function CqChips({ rows, a3, onPick }) {
     })));
 }
 function CqBar({ pct }) {
-    return (React.createElement("div", { className: "cq-bar" },
+    return (React.createElement("div", { className: "cq-bar " + cqMetal(pct) },
         React.createElement("i", { style: { width: `${pct}%` } })));
 }
 /* окно во весь экран — как другие отчёты: карта, под ней (или справа) страны списком */
@@ -15722,7 +15722,7 @@ function ConquestWin({ visits, a3: a30, onClose }) {
                     " ",
                     cqOf(r.total)),
                 React.createElement(CqBar, { pct: r.pct })),
-            React.createElement("u", null,
+            React.createElement("u", { className: "cq-big " + cqMetal(r.pct) },
                 r.pct,
                 "%")));
     })));
@@ -21373,10 +21373,14 @@ button, input, select, textarea{font-family:inherit;}
 .root.light .cq-reg.sel{stroke:#16242f;}
 .root.light .cq-reg{fill:#d6e2ec; stroke:rgba(60,90,120,.35);}
 .cq-sum{display:flex; align-items:center; gap:12px;}
-.cq-pct{flex:none; font-size:38px; line-height:1; font-weight:300; color:var(--gold); font-family:Georgia, "Times New Roman", serif;}
+.cq-pct{flex:none;}
+.cq-pct.cq-big{font-size:38px;} /* 42.57: в ленте тот же «металл», что во весь экран */
 .cq-sum span{font-size:12px; color:var(--dim); line-height:1.35;}
 .cq-bar{position:relative; height:7px; border-radius:4px; background:var(--track); flex:none;}
 .cq-bar i{position:absolute; left:0; top:0; bottom:0; border-radius:4px; background:linear-gradient(90deg,#d9a53c,#f3d27c); transition:width .6s;}
+/* 42.59: полоска того же «металла», что и процент */
+.cq-bar.silver i{background:linear-gradient(90deg,#8796a4,#e4eaf0);}
+.cq-bar.bronze i{background:linear-gradient(90deg,#8f5427,#e0a473);}
 .cq-rflag .own-flag{width:18px; height:12px; border-radius:2px; object-fit:cover;}
 .cq-wmap{flex-direction:column;}
 .cq-title{display:flex; align-items:center; justify-content:space-between; gap:10px; position:absolute; top:6px; left:12px; right:12px; height:38px; z-index:1; pointer-events:none;}
@@ -21408,7 +21412,8 @@ button, input, select, textarea{font-family:inherit;}
 .cq-row.on{border-color:var(--gold);}
 .cq-row span{flex:1 1 auto; gap:3px;}
 .cq-row .cq-bar{height:4px; margin-top:3px;}
-.cq-row u{flex:none; color:var(--gold) !important; font-weight:600; font-size:13px;}
+.cq-row u{flex:none; font-weight:700;}
+.cq-row u.cq-big{font-size:16px; color:transparent;} /* 42.58: «металл» и в списке стран */
 .cq-rflag{flex:none; font-style:normal; font-size:20px; line-height:1;}
 
 .switch-row.off .switch{opacity:.4;}
