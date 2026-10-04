@@ -292,7 +292,7 @@ VU|VUT|Вануату|OC|-16.3|167.5
 /* справочники живут отдельно: на сервере, а по желанию — на устройстве */
 const K_BOOKS = "atlas:books";
 /* версия справочников: меняется, когда данные обновились на сервере */
-const BOOKS_VER = 22;
+const BOOKS_VER = 23;
 const BOOKS = [
     { id: "cities", file: "cities.txt", title: "Города" },
     { id: "regions", file: "regions.txt", title: "Регионы" },
@@ -2942,7 +2942,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "42.63";
+const APP_VERSION = "42.64";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -3305,9 +3305,14 @@ function tripRegionKeys(a3, t) {
     const feats = REG.feats.filter((f) => f.properties.a3 === a3);
     const norm = (x) => String(x || "").toLowerCase().replace(/ё/g, "е").trim();
     const nCities = (t.cities || []).length;
+    let exact = 0; // городов, найденных по точным координатам
     [...(t.cities || []), ...(t.regions || [])].forEach((name, i) => {
         // старые «туристические» регионы поездки («Синай», «Лусон») — только если по городам
-        // ничего не нашлось, иначе лишь точное совпадение с названием области (42.47)
+        // ничего не нашлось, иначе лишь точное совпадение с названием области (42.47).
+        // Все города нашлись по координатам — старые регионы не нужны: их когда-то подставлял
+        // справочник, и бывало неверно (Мцхета → «Кахетия», Боржоми → «Имеретия») (42.64)
+        if (i >= nCities && nCities && exact === nCities)
+            return;
         if (i >= nCities && out.size) {
             const w = norm(name);
             const f = w.length >= 4 && feats.find((x) => norm(x.properties.n) === w);
@@ -3319,6 +3324,8 @@ function tripRegionKeys(a3, t) {
         let hit = null;
         if (pt && !pt[2])
             hit = regHit(feats, [pt[0], pt[1]]);
+        if (pt && !pt[2] && i < nCities)
+            exact += 1; // точка есть — регион по ней (в т.ч. «рядом» у берега)
         // город на самом берегу: упрощённый контур мог «срезать» его в море — ищем рядом (42.46)
         if (!hit && pt && !pt[2])
             for (const r of [0.06, 0.12, 0.2]) {
