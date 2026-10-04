@@ -2942,7 +2942,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "42.55";
+const APP_VERSION = "42.56";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -15437,6 +15437,8 @@ const MONTHS_IN = [
     "январе", "феврале", "марте", "апреле", "мае", "июне",
     "июле", "августе", "сентябре", "октябре", "ноябре", "декабре",
 ];
+/* цвет процента (42.56): до трети — бронза, до двух третей — серебро, дальше — золото */
+const cqMetal = (pct) => (pct >= 66 ? "gold" : pct >= 33 ? "silver" : "bronze");
 /* «из 81 региона», «из 33 регионов» — после «из» родительный падеж */
 const cqOf = (n) => (n % 10 === 1 && n % 100 !== 11 ? "региона" : "регионов");
 const cqFeats = (a3) => REG.feats.filter((f) => f.properties.a3 === a3);
@@ -15691,17 +15693,19 @@ function ConquestWin({ visits, a3: a30, onClose }) {
     const selF = sel && regionByKey(sel);
     const map = (React.createElement("div", { className: "cq-stage", onClick: () => setSel(null) },
         React.createElement("span", { className: "pg-title cq-title" },
-            React.createElement(Flg, { a3: row.a3 }),
-            " ",
-            name,
-            " \u00B7 ",
-            row.n,
-            " \u0438\u0437 ",
-            row.total,
-            " \u00B7 ",
-            row.pct,
-            "%",
-            React.createElement("em", null, selF ? `${selF.properties.n}${row.done.has(sel) ? " — были" : " — ещё нет"}` : "касание региона — его название")),
+            React.createElement("span", { className: "cq-tl" },
+                React.createElement("span", null,
+                    React.createElement(Flg, { a3: row.a3 }),
+                    " ",
+                    name,
+                    " \u00B7 ",
+                    row.n,
+                    " \u0438\u0437 ",
+                    row.total),
+                React.createElement("em", null, selF ? `${selF.properties.n}${row.done.has(sel) ? " — были" : " — ещё нет"}` : "касание региона — его название")),
+            React.createElement("b", { className: "cq-big " + cqMetal(row.pct) },
+                row.pct,
+                "%")),
         React.createElement("div", { className: "cq-svgbox", ref: boxRef },
             React.createElement(ConquestMap, { a3: row.a3, done: row.done, sel: sel, onSel: setSel, w: size[0], h: size[1], turn: turn[row.a3] || "auto", onTurn: (v) => setTurn((t) => ({ ...t, [row.a3]: v })) }))));
     const list = (React.createElement("div", { className: "ag-list cq-list", ref: listRef }, rows.map((r) => {
@@ -21375,7 +21379,16 @@ button, input, select, textarea{font-family:inherit;}
 .cq-bar i{position:absolute; left:0; top:0; bottom:0; border-radius:4px; background:linear-gradient(90deg,#d9a53c,#f3d27c); transition:width .6s;}
 .cq-rflag .own-flag{width:18px; height:12px; border-radius:2px; object-fit:cover;}
 .cq-wmap{flex-direction:column;}
-.cq-title{display:flex; flex-direction:column; gap:2px; position:absolute; top:10px; left:12px; right:12px; z-index:1; pointer-events:none;}
+.cq-title{display:flex; align-items:center; justify-content:space-between; gap:10px; position:absolute; top:6px; left:12px; right:12px; height:38px; z-index:1; pointer-events:none;}
+.cq-tl{display:flex; flex-direction:column; gap:2px; min-width:0;}
+.cq-tl>span{white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+/* 42.56: процент покорения крупно — бронза, серебро или золото */
+.cq-big{flex:none; font-size:34px; line-height:1; font-weight:700; letter-spacing:-.01em; font-variant-numeric:tabular-nums;
+  -webkit-background-clip:text; background-clip:text; color:transparent; filter:drop-shadow(0 1px 2px rgba(0,0,0,.45));}
+.cq-big.gold{background-image:linear-gradient(180deg,#fbe7a6 0%,#e8b84b 45%,#b9862a 100%);}
+.cq-big.silver{background-image:linear-gradient(180deg,#ffffff 0%,#c9d3dc 45%,#8796a4 100%);}
+.cq-big.bronze{background-image:linear-gradient(180deg,#f3c49a 0%,#cd8a4f 45%,#8f5427 100%);}
+.root.light .cq-big{filter:none;}
 .cq-title em{font-style:normal; font-size:11px; color:var(--dim);}
 /* 42.53: в Safari высота 100% у потомка flex-элемента «не определена» — карта бралась по своей
    пропорции 360×260 и не росла; теперь слои закреплены абсолютно, размер — только от окна */
