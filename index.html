@@ -292,7 +292,7 @@ VU|VUT|Вануату|OC|-16.3|167.5
 /* справочники живут отдельно: на сервере, а по желанию — на устройстве */
 const K_BOOKS = "atlas:books";
 /* версия справочников: меняется, когда данные обновились на сервере */
-const BOOKS_VER = 21;
+const BOOKS_VER = 22;
 const BOOKS = [
     { id: "cities", file: "cities.txt", title: "Города" },
     { id: "regions", file: "regions.txt", title: "Регионы" },
@@ -303,7 +303,6 @@ const BOOKS = [
     { id: "airlines", file: "airlines.txt", title: "Авиакомпании" },
     { id: "cityregions", file: "cityregions.txt", title: "Города и регионы" },
     { id: "badges", file: "badges.txt", title: "Значки стран" },
-    { id: "conquest", file: "conquest.txt", title: "Покорение стран" },
 ];
 /* значки: один рисунок на все страны, по нему вырезаем нужную клетку */
 let BADGE = { cols: 14, cell: 56, index: {}, ready: false };
@@ -425,49 +424,6 @@ const parseCityRegions = (raw) => {
     return out;
 };
 const regionOf = (a3, city) => (CITY_REG[a3] || {})[city] || null;
-/* «Покорение страны» (42.48): =A3|транспорт|заголовок|совет и A3|регион|месяцы|транспорт|город|почему.
-   Месяцы — «4-6,9-10», через Новый год — «11-3» */
-let CONQ = { country: {}, region: {} };
-const conqMonths = (s) => {
-    const out = [];
-    String(s || "").split(",").forEach((part) => {
-        const [a, b] = part.split("-").map((x) => parseInt(x, 10));
-        if (!(a >= 1 && a <= 12))
-            return;
-        const end = b >= 1 && b <= 12 ? b : a;
-        for (let m = a, k = 0; k < 12; k++, m = (m % 12) + 1) {
-            if (!out.includes(m))
-                out.push(m);
-            if (m === end)
-                break;
-        }
-    });
-    return out.sort((x, y) => x - y);
-};
-const parseConquest = (raw) => {
-    const out = { country: {}, region: {} };
-    (raw || "").split("\n").forEach((row) => {
-        const line = row.trim();
-        if (!line || line[0] === "#")
-            return;
-        const f = line.split("|");
-        if (line[0] === "=") {
-            const [a3, moves, title, text] = f;
-            out.country[a3.slice(1)] = { moves: (moves || "").split(",").filter(Boolean), title: title || "", text: text || "" };
-            return;
-        }
-        const [a3, name, months, moves, city, why] = f;
-        if (!a3 || !name)
-            return;
-        out.region[a3 + "|" + name] = {
-            months: conqMonths(months),
-            moves: (moves || "").split(",").filter(Boolean),
-            city: city || "",
-            why: why || "",
-        };
-    });
-    return out;
-};
 /* флаги стран, которых нет в наборе эмодзи: рисуем своей картинкой */
 const OWN_FLAGS = {
     ABH: "data:image/webp;base64,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",
@@ -573,7 +529,6 @@ const applyBooks = (data) => {
     CITY_PT = parsePoints(data === null || data === void 0 ? void 0 : data.points);
     AIRLINES = parseAirlines(data === null || data === void 0 ? void 0 : data.airlines);
     CITY_REG = parseCityRegions(data === null || data === void 0 ? void 0 : data.cityregions);
-    CONQ = parseConquest(data === null || data === void 0 ? void 0 : data.conquest);
     if (data === null || data === void 0 ? void 0 : data.badges) {
         const [cols, cell, list] = data.badges.trim().split("|");
         const index = {};
@@ -2987,7 +2942,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "42.50";
+const APP_VERSION = "42.51";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -12849,7 +12804,7 @@ const REPORTS = [
     { id: "radar", title: "Части света лепестками",
         help: "Форма показывает перекос: у кого больше Азии, у кого Европы. Считаются страны, а не поездки." },
     { id: "conquest", title: "Покорение страны",
-        help: "Карта страны по регионам: золотом — где вы были (считаются состоявшиеся поездки по городам), пунктиром с номерами — что посетить дальше. Следующие регионы подбираются рядом с покорёнными, с учётом сезона, достопримечательностей и расстояния, а советы — когда ехать и на чём — берутся из справочника (Грузия, Россия, Узбекистан, Вьетнам, Китай, США). В развороте — значки за 25, 50, 75 и 100%, рейтинг стран, «на выходные», «сезон сейчас», напоминание и кнопка, которая собирает поездку-план из следующих регионов." },
+        help: "Карта страны по регионам: золотом — регионы, где вы были (по городам состоявшихся поездок), рядом — процент покорения. Фишки сверху переключают страну. В развороте — карта и список всех стран с регионами; касание региона на карте показывает его название, касание страны в списке — её карту. На большом глобусе у стран, покорённых на четверть и больше, виден процент." },
     { id: "calendar", title: "Календарь поездок",
         help: "Год и месяц: чем ярче клетка, тем дольше вы были в пути. Штриховка — поездки с неточной датой, синяя клетка — планы." },
 ];
@@ -15474,114 +15429,15 @@ function MoveWin({ visits, home, onClose }) {
                 React.createElement("div", { className: "pg-map far-map cw-map" }, chart),
                 React.createElement("div", { className: "ag-frame sd-frame" }, path)))));
 }
-/* Атлас · 21b · «Покорение страны» (42.48): карта страны по регионам, что посетить дальше,
-   когда и на чём, значки, рейтинг стран, «на выходные», «сезон сейчас», напоминания.
-   Советы — справочник data/conquest.txt (CONQ), для остальных стран — по соседству и вашим поездкам.
+/* Атлас · 21b · «Покорение страны» (42.48, упрощено в 42.51): карта страны по регионам —
+   золотом где были, процент покорения. В отчётах — фишки стран над картой; во весь экран —
+   как другие окна отчётов: карта и под ней (горизонтально — справа) список стран.
    Части собираются по номерам в один файл (tools/rebuild.sh) и видят друг друга напрямую. */
-const CQ_LEVELS = [
-    { p: 25, ico: "🥉", name: "бронза" },
-    { p: 50, ico: "🥈", name: "серебро" },
-    { p: 75, ico: "🥇", name: "золото" },
-    { p: 100, ico: "👑", name: "корона" },
-];
-const CQ_MV_WORD = { car: "на машине", air: "самолётом", rail: "поездом", other: "паромом" };
-const CQ_MN = ["я", "ф", "м", "а", "м", "и", "и", "а", "с", "о", "н", "д"];
 const MONTHS_IN = [
     "январе", "феврале", "марте", "апреле", "мае", "июне",
     "июле", "августе", "сентябре", "октябре", "ноябре", "декабре",
 ];
 const cqFeats = (a3) => REG.feats.filter((f) => f.properties.a3 === a3);
-/* соседи по границе: точки контуров (с шагом не реже 0,2°) раскладываем по клеткам 0,25°;
-   области в одной или соседней клетке — соседи. Контуры упрощены порознь, поэтому
-   общие вершины не совпадают точь-в-точь */
-const CQ_NB = {};
-function cqNeighbors(a3) {
-    if (CQ_NB[a3])
-        return CQ_NB[a3];
-    const C = 0.25;
-    const cell = new Map();
-    const feats = cqFeats(a3);
-    const put = (x, y, k) => {
-        const c = Math.floor(x / C) + ":" + Math.floor(y / C);
-        let s = cell.get(c);
-        if (!s)
-            cell.set(c, (s = new Set()));
-        s.add(k);
-    };
-    feats.forEach((f) => {
-        const k = f.properties.key;
-        f.geometry.coordinates.forEach((poly) => poly.forEach((ring) => ring.forEach(([x, y], i) => {
-            const [x2, y2] = ring[(i + 1) % ring.length];
-            const n = Math.min(60, Math.ceil(Math.hypot(x2 - x, y2 - y) / 0.2));
-            for (let j = 0; j < Math.max(1, n); j++)
-                put(x + ((x2 - x) * j) / n || x, y + ((y2 - y) * j) / n || y, k);
-        })));
-    });
-    const nb = new Map(feats.map((f) => [f.properties.key, new Set()]));
-    cell.forEach((s, c) => {
-        const [cx, cy] = c.split(":").map(Number);
-        const around = new Set();
-        for (let dx = -1; dx <= 1; dx++)
-            for (let dy = -1; dy <= 1; dy++)
-                (cell.get(cx + dx + ":" + (cy + dy)) || []).forEach((k) => around.add(k));
-        s.forEach((a) => around.forEach((b) => a !== b && nb.get(a).add(b)));
-    });
-    return (CQ_NB[a3] = nb);
-}
-/* точка региона: город из справочника, иначе город справочника внутри области, иначе центр */
-const CQ_PT = {};
-function cqPoint(key) {
-    var _d;
-    if (CQ_PT[key] !== undefined)
-        return CQ_PT[key];
-    const a3 = key.split("|")[0];
-    const f = regionByKey(key);
-    let out = null;
-    const named = (name) => {
-        const p = name && distPoint(a3, name);
-        return p && !p[2] ? { name, lon: p[0], lat: p[1] } : null;
-    };
-    out = named((_d = CONQ.region[key]) === null || _d === void 0 ? void 0 : _d.city) || (f && named(citiesInRegion(key, 1)[0]));
-    if (!out && f) {
-        const [lon, lat] = d3.geoCentroid(f);
-        out = { name: null, lon, lat };
-    }
-    // точку из книги держим в кеше только когда книга уже загружена
-    if (Object.keys(CONQ.region).length)
-        CQ_PT[key] = out;
-    return out;
-}
-/* месяцы текстом: [7,8,9] → «июль–сентябрь», [4,5,9,10] → «апрель–май, сентябрь–октябрь» */
-function cqMonthsText(months) {
-    const ms = [...new Set(months || [])].sort((a, b) => a - b);
-    if (!ms.length)
-        return "";
-    if (ms.length === 12)
-        return "круглый год";
-    const has = (m) => ms.includes(((m - 1 + 12) % 12) + 1);
-    const runs = [];
-    ms.forEach((m) => {
-        if (has(m - 1))
-            return; // начало серии — месяц, перед которым пусто
-        let e = m;
-        while (has(e + 1) && runs.length < 12)
-            e = (e % 12) + 1;
-        runs.push([m, e]);
-    });
-    return runs.map(([a, b]) => (a === b ? MONTHS[a - 1] : MONTHS[a - 1] + "–" + MONTHS[b - 1])).join(", ");
-}
-/* ближайший подходящий месяц, начиная с текущего */
-function cqWhen(months, now = NOW) {
-    if (!(months === null || months === void 0 ? void 0 : months.length))
-        return null;
-    const m0 = now.getMonth() + 1;
-    for (let k = 0; k < 12; k++) {
-        const m = ((m0 - 1 + k) % 12) + 1;
-        if (months.includes(m))
-            return { m, y: now.getFullYear() + (m0 - 1 + k >= 12 ? 1 : 0), now: k === 0 };
-    }
-    return null;
-}
 /* страны с регионами, где вы уже были: сколько покорено */
 function conqData(visits) {
     if (!REG.ready)
@@ -15613,154 +15469,7 @@ function conqData(visits) {
 }
 /* с какой страны начать: недопокорённая, где были последними */
 const conqFirst = (rows) => rows.filter((r) => r.pct < 100).sort((a, b) => (b.y1 || 0) - (a.y1 || 0) || b.pct - a.pct)[0] || rows[0] || null;
-/* что посетить дальше: соседи покорённого, с советом в справочнике, в сезон, с достопримечательностями
-   и поближе; три лучших — в порядке объезда от дома (или от покорённого) */
-function conqNext(a3, done, home, n = 3) {
-    const nb = cqNeighbors(a3);
-    const m0 = NOW.getMonth() + 1;
-    const soon = [m0, (m0 % 12) + 1, ((m0 + 1) % 12) + 1];
-    const feats = cqFeats(a3);
-    const doneF = feats.filter((f) => done.has(f.properties.key));
-    let base = null;
-    if (home && home.a3 === a3 && isFinite(home.lat) && isFinite(home.lon))
-        base = { lon: home.lon, lat: home.lat };
-    else if (doneF.length) {
-        const [lon, lat] = d3.geoCentroid({ type: "FeatureCollection", features: doneF });
-        base = { lon, lat };
-    }
-    const sights = (SIGHTS_BY_A3[a3] || [])
-        .map((x) => distPoint(a3, x.city))
-        .filter((p) => p && !p[2]);
-    const cands = feats
-        .filter((f) => !done.has(f.properties.key))
-        .map((f) => {
-        const key = f.properties.key;
-        const b = CONQ.region[key] || null;
-        const pt = cqPoint(key);
-        let s = 0;
-        const near = [...(nb.get(key) || [])].some((k) => done.has(k));
-        if (near)
-            s += 3;
-        if (b)
-            s += 2;
-        if (b && b.months.includes(m0))
-            s += 2;
-        else if (b && b.months.some((m) => soon.includes(m)))
-            s += 1;
-        const ns = sights.filter((p) => d3.geoContains(f, [p[0], p[1]])).length;
-        s += Math.min(3, ns) * 0.5;
-        const km = base && pt ? kmBetween(base, pt) : 0;
-        s -= km / 1500;
-        return { key, a3, name: f.properties.n, b, pt, km, near, sights: ns, s };
-    })
-        .sort((x, y) => y.s - x.s);
-    const left = cands.slice(0, n);
-    const out = [];
-    let at = base;
-    while (left.length) {
-        let bi = 0;
-        if (at)
-            left.forEach((c, i) => {
-                const d = c.pt ? kmBetween(at, c.pt) : 1e9;
-                const db = left[bi].pt ? kmBetween(at, left[bi].pt) : 1e9;
-                if (d < db)
-                    bi = i;
-            });
-        const c = left.splice(bi, 1)[0];
-        out.push(c);
-        if (c.pt)
-            at = c.pt;
-    }
-    return out;
-}
-/* совет по стране: из справочника, иначе — как вы туда обычно добирались */
-function conqTip(a3, visits) {
-    var _d;
-    const c = CONQ.country[a3];
-    if (c)
-        return { moves: c.moves, title: c.title, text: c.text, book: true };
-    const cnt = {};
-    (visits[a3] || []).forEach((t) => !t.plan && t.move && (cnt[t.move] = (cnt[t.move] || 0) + 1));
-    const top = Object.entries(cnt).sort((a, b) => b[1] - a[1])[0];
-    const name = ((_d = BY_A3[a3]) === null || _d === void 0 ? void 0 : _d.name) || a3;
-    if (!top)
-        return { moves: [], title: name, text: "Советов по этой стране в справочнике пока нет: следующие регионы подобраны по соседству с теми, где вы уже были.", book: false };
-    return {
-        moves: [top[0]],
-        title: `${name} — ${CQ_MV_WORD[top[0]] || "как привыкли"}`,
-        text: "Так вы добирались сюда чаще всего. Советов по этой стране в справочнике пока нет: следующие регионы подобраны по соседству с теми, где вы уже были.",
-        book: false,
-    };
-}
-/* общее лучшее время для нескольких регионов: месяцы, подходящие всем, иначе — первому */
-function cqCommonMonths(list) {
-    const ms = list.map((x) => { var _d; return ((_d = x.b) === null || _d === void 0 ? void 0 : _d.months) || []; }).filter((m) => m.length);
-    if (!ms.length)
-        return [];
-    const all = ms[0].filter((m) => ms.every((x) => x.includes(m)));
-    return all.length ? all : ms[0];
-}
-/* регионы рядом с домом, где ещё не были (до 300 км) */
-function conqWeekend(done, home, limit = 6) {
-    if (!home || !isFinite(home.lat) || !isFinite(home.lon))
-        return [];
-    const own = regionAt([home.lon, home.lat]); // свой регион — не «на выходные»
-    const out = [];
-    REG.feats.forEach((f) => {
-        const key = f.properties.key;
-        if (done.has(key) || key === (own === null || own === void 0 ? void 0 : own.key))
-            return;
-        const pt = cqPoint(key);
-        if (!pt)
-            return;
-        const km = kmBetween(home, pt);
-        if (km <= 300)
-            out.push({ key, a3: f.properties.a3, name: f.properties.n, km });
-    });
-    return out.sort((a, b) => a.km - b.km).slice(0, limit);
-}
-/* куда лучше всего ехать в этом и следующем месяце: начатые страны — первыми */
-function conqSeason(done, started, home, limit = 6) {
-    const m0 = NOW.getMonth() + 1;
-    const m1 = (m0 % 12) + 1;
-    const out = [];
-    Object.entries(CONQ.region).forEach(([key, b]) => {
-        if (done.has(key) || !regionByKey(key))
-            return;
-        const now = b.months.includes(m0);
-        if (!now && !b.months.includes(m1))
-            return;
-        const a3 = key.split("|")[0];
-        const pt = cqPoint(key);
-        const km = home && pt && isFinite(home.lat) ? kmBetween(home, pt) : 0;
-        out.push({ key, a3, name: key.split("|")[1], now, km, own: started.has(a3) });
-    });
-    return out.sort((a, b) => b.own - a.own || b.now - a.now || a.km - b.km).slice(0, limit);
-}
-/* маршрут-план для «Собрать поездку»: точки — города регионов, транспорт — из справочника */
-function conqRoute(next, homePt, tip) {
-    var _d;
-    const r = blankRoute(homePt);
-    r.legs = [];
-    next.forEach((c, i) => {
-        var _d, _e, _f, _h, _j, _k;
-        const pt = c.pt || {};
-        const name = pt.name || c.name;
-        r.stops.push({ ...routePoint(c.a3, name), name, lat: (_d = pt.lat) !== null && _d !== void 0 ? _d : null, lon: (_e = pt.lon) !== null && _e !== void 0 ? _e : null, tr: 0 });
-        const k = (i === 0 ? (_f = tip === null || tip === void 0 ? void 0 : tip.moves) === null || _f === void 0 ? void 0 : _f[0] : null) || ((_j = (_h = c.b) === null || _h === void 0 ? void 0 : _h.moves) === null || _j === void 0 ? void 0 : _j[0]) || ((_k = tip === null || tip === void 0 ? void 0 : tip.moves) === null || _k === void 0 ? void 0 : _k[0]) || null;
-        r.legs.push({ k, air: [] });
-    });
-    r.legs.push({ k: ((_d = r.legs[0]) === null || _d === void 0 ? void 0 : _d.k) || null, air: [] });
-    const when = cqWhen(cqCommonMonths(next));
-    if (when)
-        Object.assign(r, { y: when.y, m: when.m, plan: true });
-    else
-        r.plan = true;
-    return r;
-}
-/* ------------------------------------------------------------------ */
-/* карта страны по регионам                                            */
-/* ------------------------------------------------------------------ */
+/* карта страны: равновеликая коническая проекция по центру страны, у США — Аляска и Гавайи сбоку */
 const CQ_PATHS = {};
 function cqPaths(a3, w, h) {
     const id = `${a3}:${w}x${h}`;
@@ -15777,56 +15486,13 @@ function cqPaths(a3, w, h) {
     }
     pr.fitSize([w, h], fc);
     const path = d3.geoPath(pr);
-    const out = feats.map((f) => {
-        let c = pr(cqPoint(f.properties.key) ? [cqPoint(f.properties.key).lon, cqPoint(f.properties.key).lat] : d3.geoCentroid(f));
-        if (!c)
-            c = path.centroid(f);
-        return { key: f.properties.key, name: f.properties.n, d: path(f) || "", c };
-    });
+    const out = feats.map((f) => ({ key: f.properties.key, name: f.properties.n, d: path(f) || "" }));
     CQ_PATHS[id] = out;
     return out;
 }
-function ConquestMap({ a3, done, next = [], sel = null, onSel, w = 320, h = 220, nums = true }) {
+function ConquestMap({ a3, done, sel = null, onSel, w = 320, h = 220 }) {
     const paths = useMemo(() => cqPaths(a3, w, h), [a3, w, h]);
-    const nextKeys = next.map((x) => x.key);
     const gid = "cqg-" + a3;
-    /* номера следующих регионов: мелкие соседние области (Кавказ на карте России) дали бы
-       кучу — разводим кружки и тянем к области тонкую линию */
-    const labels = useMemo(() => {
-        const ls = next
-            .map((x, i) => {
-            const p = paths.find((q) => q.key === x.key);
-            return p && p.c ? { key: x.key, i, c: p.c, x: p.c[0], y: p.c[1], moved: false } : null;
-        })
-            .filter(Boolean);
-        for (let it = 0; it < 60; it++) {
-            let hit = false;
-            for (let a = 0; a < ls.length; a++)
-                for (let b = a + 1; b < ls.length; b++) {
-                    const dx = ls[b].x - ls[a].x;
-                    const dy = ls[b].y - ls[a].y;
-                    const d = Math.hypot(dx, dy);
-                    if (d >= 22)
-                        continue;
-                    hit = true;
-                    const ux = d > 0.01 ? dx / d : Math.cos(a + b);
-                    const uy = d > 0.01 ? dy / d : Math.sin(a + b);
-                    const k = (22 - d) / 2 + 0.5;
-                    ls[a].x -= ux * k;
-                    ls[a].y -= uy * k;
-                    ls[b].x += ux * k;
-                    ls[b].y += uy * k;
-                }
-            if (!hit)
-                break;
-        }
-        ls.forEach((l) => {
-            l.x = Math.max(10, Math.min(w - 10, l.x));
-            l.y = Math.max(10, Math.min(h - 10, l.y));
-            l.moved = Math.hypot(l.x - l.c[0], l.y - l.c[1]) > 4;
-        });
-        return ls;
-    }, [paths, next, w, h]);
     return (React.createElement("svg", { className: "cq-map", viewBox: `0 0 ${w} ${h}`, width: "100%", height: "100%", preserveAspectRatio: "xMidYMid meet" },
         React.createElement("defs", null,
             React.createElement("linearGradient", { id: gid, x1: "0", y1: "0", x2: "1", y2: "1" },
@@ -15834,64 +15500,34 @@ function ConquestMap({ a3, done, next = [], sel = null, onSel, w = 320, h = 220,
                 React.createElement("stop", { offset: "1", stopColor: "#d9a53c" }))),
         paths.map((p) => {
             const on = done.has(p.key);
-            const nx = nextKeys.includes(p.key);
-            return (React.createElement("path", { key: p.key, d: p.d, className: "cq-reg" + (on ? " on" : nx ? " next" : "") + (sel === p.key ? " sel" : ""), style: on ? { fill: `url(#${gid})` } : undefined, onClick: onSel ? (e) => (e.stopPropagation(), onSel(sel === p.key ? null : p.key)) : undefined }));
-        }),
-        nums &&
-            labels.map((l) => (React.createElement("g", { key: l.key },
-                l.moved && React.createElement("line", { className: "cq-lead", x1: l.c[0], y1: l.c[1], x2: l.x, y2: l.y }),
-                l.moved && React.createElement("circle", { className: "cq-dot", cx: l.c[0], cy: l.c[1], r: "2.2" }),
-                React.createElement("g", { className: "cq-num", transform: `translate(${l.x},${l.y})` },
-                    React.createElement("circle", { r: "9" }),
-                    React.createElement("text", { y: "0.5" }, l.i + 1)))))));
+            return (React.createElement("path", { key: p.key, d: p.d, className: "cq-reg" + (on ? " on" : "") + (sel === p.key ? " sel" : ""), style: on ? { fill: `url(#${gid})` } : undefined, onClick: onSel ? (e) => (e.stopPropagation(), onSel(sel === p.key ? null : p.key)) : undefined }));
+        })));
 }
-/* полоска месяцев: лучшие — зелёным, текущий месяц — с рамкой */
-function MonthStrip({ months = [] }) {
-    const m0 = NOW.getMonth() + 1;
-    return (React.createElement("div", { className: "cq-months" }, CQ_MN.map((x, i) => (React.createElement("i", { key: i, className: (months.includes(i + 1) ? "on" : "") + (i + 1 === m0 ? " cur" : "") }, x)))));
-}
-const cqMoveIcons = (moves = []) => moves.map((k) => MOVE_ICON[k] || "").join(" ");
-/* карточка в отчётах */
-function ConquestCard({ visits, home, onOpen }) {
+/* карточка в отчётах: фишки стран, карта, процент */
+function ConquestCard({ visits, onOpen }) {
     var _d;
     const rows = useMemo(() => conqData(visits), [visits]);
     const [a3, setA3] = useState(null);
     const row = rows.find((r) => r.a3 === a3) || conqFirst(rows);
-    const next = useMemo(() => (row ? conqNext(row.a3, row.done, home) : []), [row, home]);
     if (!row)
         return React.createElement("p", { className: "hint small" }, "\u041F\u043E\u043A\u043E\u0440\u0435\u043D\u0438\u0435 \u043F\u043E\u044F\u0432\u0438\u0442\u0441\u044F, \u043A\u043E\u0433\u0434\u0430 \u043F\u043E\u0431\u044B\u0432\u0430\u0435\u0442\u0435 \u0432 \u0441\u0442\u0440\u0430\u043D\u0435, \u0440\u0430\u0437\u0431\u0438\u0442\u043E\u0439 \u043D\u0430 \u0440\u0435\u0433\u0438\u043E\u043D\u044B: \u0420\u043E\u0441\u0441\u0438\u044F, \u0413\u0440\u0443\u0437\u0438\u044F, \u0421\u0428\u0410, \u041A\u0438\u0442\u0430\u0439 \u0438 \u0434\u0440\u0443\u0433\u0438\u0435.");
-    const tip = conqTip(row.a3, visits);
     const name = ((_d = BY_A3[row.a3]) === null || _d === void 0 ? void 0 : _d.name) || row.a3;
-    const common = cqCommonMonths(next);
-    const lead = next[0];
     return (React.createElement("div", { className: "cq-card" },
         React.createElement(CqChips, { rows: rows, a3: row.a3, onPick: setA3 }),
         React.createElement("div", { className: "cq-mapbox", onClick: () => onOpen === null || onOpen === void 0 ? void 0 : onOpen(row.a3) },
-            React.createElement(ConquestMap, { a3: row.a3, done: row.done, next: next, w: 320, h: 200 })),
+            React.createElement(ConquestMap, { a3: row.a3, done: row.done, w: 320, h: 200 })),
         React.createElement("div", { className: "cq-sum" },
             React.createElement("b", { className: "cq-pct" },
                 row.pct,
                 "%"),
             React.createElement("span", null,
                 name,
-                ": \u043F\u043E\u043A\u043E\u0440\u0435\u043D\u043E ",
-                row.n,
+                ": ",
+                np(row.n, "region"),
                 " \u0438\u0437 ",
                 row.total,
-                row.total - row.n > 0 ? ` · осталось ${row.total - row.n}` : " — вся страна!",
-                lead && lead.km > 0 ? ` · ближе всего — ${lead.name}` : "")),
-        React.createElement(CqBar, { pct: row.pct }),
-        next.length > 0 && (React.createElement("div", { className: "cq-tip", onClick: () => onOpen === null || onOpen === void 0 ? void 0 : onOpen(row.a3) },
-            React.createElement("i", null, cqMoveIcons(tip.moves.slice(0, 1)) || "🧭"),
-            React.createElement("span", null,
-                React.createElement("b", null, tip.title),
-                " — следующие регионы по пути: ",
-                next.map((x) => { var _d; return ((_d = x.pt) === null || _d === void 0 ? void 0 : _d.name) || x.name; }).join(" → "),
-                ".",
-                common.length > 0 && React.createElement("em", null,
-                    " \u041B\u0443\u0447\u0448\u0435 \u0432\u0441\u0435\u0433\u043E: ",
-                    cqMonthsText(common),
-                    "."))))));
+                row.total - row.n > 0 ? ` · осталось ${row.total - row.n}` : " — вся страна!")),
+        React.createElement(CqBar, { pct: row.pct })));
 }
 /* страны-фишки: выбранная всегда видна в ленте */
 function CqChips({ rows, a3, onPick }) {
@@ -15909,214 +15545,96 @@ function CqChips({ rows, a3, onPick }) {
             " ",
             ((_d = BY_A3[r.a3]) === null || _d === void 0 ? void 0 : _d.name) || r.a3,
             " ",
-            React.createElement("u", null, r.pct >= 100 ? "👑" : `${r.n}/${r.total}`)));
+            React.createElement("u", null,
+                r.n,
+                "/",
+                r.total)));
     })));
 }
 function CqBar({ pct }) {
     return (React.createElement("div", { className: "cq-bar" },
-        React.createElement("i", { style: { width: `${pct}%` } }),
-        [25, 50, 75].map((p) => (React.createElement("u", { key: p, className: pct >= p ? "on" : "", style: { left: `${p}%` } })))));
+        React.createElement("i", { style: { width: `${pct}%` } })));
 }
-/* окно во весь экран */
-function ConquestWin({ visits, home, a3: a30, reminds = [], onRemind, onPlan, onClose }) {
-    var _d, _e, _f;
+/* окно во весь экран — как другие отчёты: карта, под ней (или справа) страны списком */
+function ConquestWin({ visits, a3: a30, onClose }) {
+    var _d, _e;
     const rows = useMemo(() => conqData(visits), [visits]);
     const [a3, setA3] = useState(a30 || ((_d = conqFirst(rows)) === null || _d === void 0 ? void 0 : _d.a3) || null);
     const [sel, setSel] = useState(null);
     const wide = useWide();
-    const row = rows.find((r) => r.a3 === a3) || rows[0];
-    const next = useMemo(() => (row ? conqNext(row.a3, row.done, home) : []), [row, home]);
-    const allDone = useMemo(() => visitedRegions(visits), [visits]);
-    const started = useMemo(() => new Set(rows.map((r) => r.a3)), [rows]);
-    const weekend = useMemo(() => conqWeekend(allDone, home), [allDone, home]);
-    const season = useMemo(() => conqSeason(allDone, started, home), [allDone, started, home]);
+    const row = rows.find((r) => r.a3 === a3) || conqFirst(rows);
     useEffect(() => setSel(null), [a3]);
+    // выбранная страна видна в списке
+    const listRef = useRef(null);
+    useEffect(() => {
+        var _d;
+        const el = (_d = listRef.current) === null || _d === void 0 ? void 0 : _d.querySelector(".cq-row.on");
+        const box = listRef.current;
+        if (el && box && (el.offsetTop < box.scrollTop || el.offsetTop + el.offsetHeight > box.scrollTop + box.clientHeight))
+            box.scrollTop = el.offsetTop - box.offsetTop - 8;
+    }, [a3, wide]);
     if (!row)
         return (React.createElement("div", { className: "zoom-layer pg-layer", onClick: onClose },
             React.createElement("div", { className: "zoom-box", onClick: (e) => e.stopPropagation() },
                 React.createElement("button", { className: "zoom-x", onClick: onClose, "aria-label": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C" }, "\u2715"),
                 React.createElement("p", { className: "hint small" }, "\u041F\u043E\u043A\u0430 \u043D\u0435\u0442 \u0441\u0442\u0440\u0430\u043D \u0441 \u0440\u0435\u0433\u0438\u043E\u043D\u0430\u043C\u0438, \u0433\u0434\u0435 \u0432\u044B \u0431\u044B\u043B\u0438."))));
     const name = ((_e = BY_A3[row.a3]) === null || _e === void 0 ? void 0 : _e.name) || row.a3;
-    const tip = conqTip(row.a3, visits);
     const selF = sel && regionByKey(sel);
-    const selB = sel && CONQ.region[sel];
-    const selN = next.findIndex((x) => x.key === sel);
-    const lvl = CQ_LEVELS.filter((l) => row.pct >= l.p).pop();
-    const nextLvl = CQ_LEVELS.find((l) => row.pct < l.p);
-    const need = nextLvl ? Math.ceil((nextLvl.p * row.total) / 100) - row.n : 0;
-    const isRemind = (key) => reminds.some((r) => r.key === key);
-    const jump = (x) => {
-        setA3(x.a3);
-        setTimeout(() => setSel(x.key), 0);
-    };
     const map = (React.createElement("div", { className: "cq-stage", onClick: () => setSel(null) },
-        React.createElement(ConquestMap, { a3: row.a3, done: row.done, next: next, sel: sel, onSel: setSel, w: 360, h: 260 })));
-    const legend = (React.createElement("div", { className: "cq-legend" },
-        React.createElement("span", null,
-            React.createElement("i", { className: "on" }),
-            "\u0431\u044B\u043B\u0438"),
-        React.createElement("span", null,
-            React.createElement("i", { className: "next" }),
-            "\u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0438\u0435"),
-        React.createElement("span", null,
-            React.createElement("i", null),
-            "\u0435\u0449\u0451 \u043D\u0435\u0442"),
-        selF ? (React.createElement("b", { className: "cq-selname" },
-            selF.properties.n,
-            row.done.has(sel) ? " — были" : selN >= 0 ? ` — следующий №${selN + 1}` : "",
-            ((_f = selB === null || selB === void 0 ? void 0 : selB.months) === null || _f === void 0 ? void 0 : _f.length) ? ` · ${cqMonthsText(selB.months)}` : "")) : (React.createElement("em", { className: "cq-selname" }, "\u043A\u0430\u0441\u0430\u043D\u0438\u0435 \u0440\u0435\u0433\u0438\u043E\u043D\u0430 \u2014 \u0435\u0433\u043E \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u0435"))));
-    const chips = React.createElement(CqChips, { rows: rows, a3: row.a3, onPick: setA3 });
-    const side = (React.createElement(React.Fragment, null,
-        React.createElement("div", { className: "cq-stats" },
-            React.createElement("b", null,
-                row.n,
-                "/",
-                row.total),
-            React.createElement("span", null,
-                pw(row.total, "region"),
-                " \u00B7 ",
-                np(row.trips, "trip"),
-                " \u00B7 ",
-                np(row.cities, "city"),
-                row.y0 && (React.createElement("em", null, row.y0 === row.y1 ? `впервые — ${row.y0}` : `впервые — ${row.y0}, последний раз — ${row.y1}`)))),
-        React.createElement(CqBar, { pct: row.pct }),
-        React.createElement("div", { className: "cq-tip big" },
-            React.createElement("i", null, cqMoveIcons(tip.moves.slice(0, 2)) || "🧭"),
-            React.createElement("span", null,
-                React.createElement("b", null,
-                    tip.title,
-                    "."),
-                " ",
-                tip.text)),
-        next.length > 0 && (React.createElement(React.Fragment, null,
-            React.createElement("p", { className: "cq-h" }, "\u0427\u0442\u043E \u043F\u043E\u0441\u0435\u0442\u0438\u0442\u044C \u0434\u0430\u043B\u044C\u0448\u0435"),
-            next.map((x, i) => {
-                var _d, _e, _f, _h, _j, _k, _l, _o, _p, _q;
-                const when = cqWhen((_d = x.b) === null || _d === void 0 ? void 0 : _d.months);
-                const on = isRemind(x.key);
-                return (React.createElement("div", { key: x.key, className: "cq-next" + (sel === x.key ? " sel" : ""), onClick: () => setSel(x.key) },
-                    React.createElement("div", { className: "cq-next-top" },
-                        React.createElement("i", { className: "cq-n" }, i + 1),
-                        React.createElement("b", null, x.name),
-                        React.createElement("span", { className: "cq-mv" }, cqMoveIcons(((_e = x.b) === null || _e === void 0 ? void 0 : _e.moves) || tip.moves.slice(0, 1)))),
-                    React.createElement("p", null, ((_f = x.b) === null || _f === void 0 ? void 0 : _f.why) ||
-                        [
-                            x.near ? "Граничит с регионами, где вы уже были" : "Ещё не открытый регион",
-                            x.sights ? `достопримечательностей в справочнике: ${x.sights}` : "",
-                            ((_h = x.pt) === null || _h === void 0 ? void 0 : _h.name) ? `город — ${x.pt.name}` : "",
-                        ]
-                            .filter(Boolean)
-                            .join(", ") + "."),
-                    ((_k = (_j = x.b) === null || _j === void 0 ? void 0 : _j.months) === null || _k === void 0 ? void 0 : _k.length) > 0 && React.createElement(MonthStrip, { months: x.b.months }),
-                    React.createElement("div", { className: "cq-next-foot" },
-                        React.createElement("em", null,
-                            ((_o = (_l = x.b) === null || _l === void 0 ? void 0 : _l.months) === null || _o === void 0 ? void 0 : _o.length) ? `лучше всего: ${cqMonthsText(x.b.months)}` : "",
-                            x.km > 0 ? `${((_q = (_p = x.b) === null || _p === void 0 ? void 0 : _p.months) === null || _q === void 0 ? void 0 : _q.length) ? " · " : ""}${kmText(x.km)}` : ""),
-                        when &&
-                            (when.now ? (React.createElement("u", { className: "cq-now" }, "\u0441\u0435\u0439\u0447\u0430\u0441 \u0441\u0435\u0437\u043E\u043D")) : (React.createElement("button", { className: "cq-bell" + (on ? " on" : ""), onClick: (e) => {
-                                    e.stopPropagation();
-                                    onRemind === null || onRemind === void 0 ? void 0 : onRemind({ key: x.key, a3: x.a3, name: x.name, y: when.y, m: when.m }, !on);
-                                } }, on ? `🔔 напомню в ${MONTHS_IN[when.m - 1]}` : `🔔 напомнить в ${MONTHS_IN[when.m - 1]}`))))));
-            }),
-            React.createElement("button", { className: "cq-plan", onClick: () => onPlan === null || onPlan === void 0 ? void 0 : onPlan(next, tip) },
-                "\uD83E\uDDED \u0421\u043E\u0431\u0440\u0430\u0442\u044C \u043F\u043E\u0435\u0437\u0434\u043A\u0443: ",
-                next.map((_, i) => i + 1).join(" → ")))),
-        !next.length && React.createElement("p", { className: "cq-crown" },
-            "\uD83D\uDC51 ",
+        React.createElement("span", { className: "pg-title cq-title" },
+            React.createElement(Flg, { a3: row.a3 }),
+            " ",
             name,
-            " \u043F\u043E\u043A\u043E\u0440\u0435\u043D\u0430 \u0446\u0435\u043B\u0438\u043A\u043E\u043C!"),
-        React.createElement("p", { className: "cq-h" }, "\u0417\u043D\u0430\u0447\u043A\u0438 \u043F\u043E\u043A\u043E\u0440\u0435\u043D\u0438\u044F"),
-        React.createElement("div", { className: "cq-badges" }, CQ_LEVELS.map((l) => (React.createElement("span", { key: l.p, className: row.pct >= l.p ? "on" : "" },
-            React.createElement("i", null, l.ico),
-            l.p,
-            "%")))),
-        React.createElement("p", { className: "cq-note" },
-            name,
-            ": ",
-            lvl ? lvl.name : "значка пока нет",
-            nextLvl ? ` · до значка «${nextLvl.name}» — ${np(need, "region")}` : " · все значки собраны"),
-        rows.length > 1 && (React.createElement(React.Fragment, null,
-            React.createElement("p", { className: "cq-h" }, "\u0420\u0435\u0439\u0442\u0438\u043D\u0433 \u0441\u0442\u0440\u0430\u043D"),
-            React.createElement("div", { className: "cq-rank" }, rows.map((r) => {
-                var _d;
-                const nx = r.a3 === row.a3 ? next[0] : null;
-                return (React.createElement("button", { key: r.a3, className: r.a3 === row.a3 ? "on" : "", onClick: () => setA3(r.a3) },
-                    React.createElement("span", { className: "cq-rflag" },
-                        React.createElement(Flg, { a3: r.a3 })),
-                    React.createElement("b", null,
-                        r.pct,
-                        "%"),
-                    React.createElement("span", { className: "cq-rname" }, ((_d = BY_A3[r.a3]) === null || _d === void 0 ? void 0 : _d.name) || r.a3),
-                    React.createElement("em", null, r.pct >= 100 ? "👑 покорена" : nx ? `дальше: ${nx.name}` : `осталось ${r.total - r.n}`)));
-            })))),
-        weekend.length > 0 && (React.createElement(React.Fragment, null,
-            React.createElement("p", { className: "cq-h" },
-                "\u041D\u0430 \u0432\u044B\u0445\u043E\u0434\u043D\u044B\u0435 ",
-                React.createElement("em", null, "\u0434\u043E 300 \u043A\u043C \u043E\u0442 \u0434\u043E\u043C\u0430")),
-            React.createElement("div", { className: "cq-pills" }, weekend.map((x) => (React.createElement("button", { key: x.key, onClick: () => jump(x) },
-                React.createElement(Flg, { a3: x.a3 }),
-                " ",
-                x.name,
-                " ",
-                React.createElement("u", null, kmText(x.km)))))))),
-        season.length > 0 && (React.createElement(React.Fragment, null,
-            React.createElement("p", { className: "cq-h" },
-                "\u0421\u0435\u0437\u043E\u043D \u0441\u0435\u0439\u0447\u0430\u0441 ",
+            " \u00B7 ",
+            row.n,
+            " \u0438\u0437 ",
+            row.total,
+            " \u00B7 ",
+            row.pct,
+            "%",
+            React.createElement("em", null, selF ? `${selF.properties.n}${row.done.has(sel) ? " — были" : " — ещё нет"}` : "касание региона — его название")),
+        React.createElement(ConquestMap, { a3: row.a3, done: row.done, sel: sel, onSel: setSel, w: 360, h: 260 })));
+    const list = (React.createElement("div", { className: "ag-list cq-list", ref: listRef }, rows.map((r) => {
+        var _d;
+        return (React.createElement("button", { key: r.a3, className: "ag-row cq-row" + (r.a3 === row.a3 ? " on" : ""), onClick: () => setA3(r.a3) },
+            React.createElement("i", { className: "cq-rflag" },
+                React.createElement(Flg, { a3: r.a3 })),
+            React.createElement("span", null,
+                React.createElement("b", null, ((_d = BY_A3[r.a3]) === null || _d === void 0 ? void 0 : _d.name) || r.a3),
                 React.createElement("em", null,
-                    MONTHS[NOW.getMonth()],
-                    " \u0438 ",
-                    MONTHS[(NOW.getMonth() + 1) % 12])),
-            React.createElement("div", { className: "cq-pills" }, season.map((x) => (React.createElement("button", { key: x.key, onClick: () => started.has(x.a3) && jump(x), className: started.has(x.a3) ? "" : "far" },
-                React.createElement(Flg, { a3: x.a3 }),
-                " ",
-                x.name,
-                !x.now && React.createElement("u", null, "\u0441\u043E \u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0435\u0433\u043E \u043C\u0435\u0441\u044F\u0446\u0430")))))))));
+                    r.n,
+                    " \u0438\u0437 ",
+                    r.total,
+                    " ",
+                    pw(r.total, "region")),
+                React.createElement(CqBar, { pct: r.pct })),
+            React.createElement("u", null,
+                r.pct,
+                "%")));
+    })));
     if (wide)
         return (React.createElement("div", { className: "pg-wide", onClick: onClose },
             React.createElement("div", { className: "pg-panel", onClick: (e) => e.stopPropagation() },
-                React.createElement("div", { className: "pg-map cq-wmap" },
-                    React.createElement("span", { className: "pg-title" },
-                        React.createElement(Flg, { a3: row.a3 }),
-                        " ",
-                        name,
-                        " \u00B7 ",
-                        row.pct,
-                        "%"),
-                    map,
-                    legend),
+                React.createElement("div", { className: "pg-map cq-wmap" }, map),
                 React.createElement("div", { className: "pg-side ag-side" },
                     React.createElement("div", { className: "pg-side-head" },
                         React.createElement("b", null, "\u041F\u043E\u043A\u043E\u0440\u0435\u043D\u0438\u0435 \u0441\u0442\u0440\u0430\u043D\u044B"),
                         React.createElement("button", { className: "zoom-x", onClick: onClose, "aria-label": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C" }, "\u2715")),
-                    React.createElement("div", { className: "ag-frame sd-frame cq-side" },
-                        chips,
-                        side)))));
+                    React.createElement("div", { className: "ag-frame sd-frame" }, list)))));
     return (React.createElement("div", { className: "zoom-layer pg-layer", onClick: onClose },
         React.createElement("div", { className: "zoom-box", onClick: (e) => e.stopPropagation() },
             React.createElement("button", { className: "zoom-x", onClick: onClose, "aria-label": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C" }, "\u2715"),
             React.createElement("div", { className: "zoom-body rep cq-win" },
-                React.createElement("b", null,
-                    React.createElement(Flg, { a3: row.a3 }),
-                    " \u041F\u043E\u043A\u043E\u0440\u0435\u043D\u0438\u0435 \u00B7 ",
-                    name),
-                chips,
-                map,
-                legend,
-                side))));
+                React.createElement("b", null, "\u041F\u043E\u043A\u043E\u0440\u0435\u043D\u0438\u0435 \u0441\u0442\u0440\u0430\u043D\u044B"),
+                React.createElement("div", { className: "pg-map far-map cq-pmap" }, map),
+                React.createElement("div", { className: "ag-frame sd-frame" }, list)))));
 }
-/* напоминания, чей месяц наступил: показываем на главном */
-const conqDue = (reminds = []) => {
-    const y = NOW.getFullYear();
-    const m = NOW.getMonth() + 1;
-    return reminds.filter((r) => r.y < y || (r.y === y && r.m <= m));
-};
-/* ярлычки на большом глобусе: страны со значком покорения (от 25%) — значок и процент */
+/* ярлычки на большом глобусе: процент покорения у стран от 25% */
 const conqTags = (visits) => conqData(visits)
     .filter((r) => r.pct >= 25)
     .map((r) => {
     const c = BY_A3[r.a3];
-    const l = CQ_LEVELS.filter((x) => r.pct >= x.p).pop();
-    return c ? { a3: r.a3, lon: c.lon, lat: c.lat, text: `${l.ico} ${r.pct}%`, full: r.pct >= 100 } : null;
+    return c ? { a3: r.a3, lon: c.lon, lat: c.lat, text: `${r.pct}%`, full: r.pct >= 100 } : null;
 })
     .filter(Boolean);
 /* Атлас · 22 · экран отчётов.
@@ -16421,8 +15939,8 @@ function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], o
                     React.createElement(RadarChart, { rows: crewR.rows })))),
             React.createElement(Reveal, { rid: "conquest", className: "rep cq-rep", zoomable: false, onFull: () => onConquest === null || onConquest === void 0 ? void 0 : onConquest(null) },
                 React.createElement("b", null, "\u041F\u043E\u043A\u043E\u0440\u0435\u043D\u0438\u0435 \u0441\u0442\u0440\u0430\u043D\u044B"),
-                React.createElement("em", null, "\u0440\u0435\u0433\u0438\u043E\u043D\u044B, \u0433\u0434\u0435 \u0431\u044B\u043B\u0438, \u0438 \u0447\u0442\u043E \u043F\u043E\u0441\u0435\u0442\u0438\u0442\u044C \u0434\u0430\u043B\u044C\u0448\u0435"),
-                React.createElement(ConquestCard, { visits: visits, home: home, onOpen: (a3) => onConquest === null || onConquest === void 0 ? void 0 : onConquest(a3) })),
+                React.createElement("em", null, "\u0432 \u0441\u043A\u043E\u043B\u044C\u043A\u0438\u0445 \u0440\u0435\u0433\u0438\u043E\u043D\u0430\u0445 \u0441\u0442\u0440\u0430\u043D\u044B \u0432\u044B \u0431\u044B\u043B\u0438"),
+                React.createElement(ConquestCard, { visits: visits, onOpen: (a3) => onConquest === null || onConquest === void 0 ? void 0 : onConquest(a3) })),
             React.createElement(Reveal, { rid: "calendar", className: "rep", zoomable: false, onFull: () => onCalendar === null || onCalendar === void 0 ? void 0 : onCalendar() },
                 React.createElement("b", null, "\u041A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u044C \u043F\u043E\u0435\u0437\u0434\u043E\u043A"),
                 React.createElement("em", null, "\u0433\u043E\u0434 \u0438 \u043C\u0435\u0441\u044F\u0446, \u044F\u0440\u0447\u0435 \u2014 \u0434\u043E\u043B\u044C\u0448\u0435"),
@@ -17071,7 +16589,6 @@ const SETTINGS_DEFAULT = {
     mapView: "globe",
     night: false, // ночь на глобусе: по умолчанию выключена (с 40.5)
     nightSet: false, // включали/выключали вручную
-    conqRemind: [], // напоминания «Покорения страны»: [{ key, a3, name, y, m }] (42.48)
     notify: false, // уведомления о предстоящих поездках при открытии (42.50)
     notifyLog: {}, // какой поездке когда уже напомнили: { ключ: "гггг-м-д" }
 };
@@ -17107,8 +16624,6 @@ function useSettings() {
             patch.notify = st.notify;
         if (st.notifyLog && typeof st.notifyLog === "object")
             patch.notifyLog = st.notifyLog;
-        if (Array.isArray(st.conqRemind))
-            patch.conqRemind = st.conqRemind.filter((r) => r && r.key && r.m);
         /* до 40.5 ночь была включена по умолчанию и сохранялась у всех;
            теперь по умолчанию выключена — берём сохранённое, только если его меняли руками */
         if (st.nightSet === true && typeof st.night === "boolean") {
@@ -19190,12 +18705,6 @@ function AtlasApp() {
             /* адрес не меняется — не беда */
         }
     }, [hasVisits]);
-    /* напоминания «Покорения» (42.48): месяц наступил — строка на главном */
-    const remindConq = (item, on) => {
-        const list = (settings.conqRemind || []).filter((r) => r.key !== item.key);
-        putSettings({ conqRemind: on ? [...list, item] : list });
-    };
-    const conqDueList = useMemo(() => conqDue(settings.conqRemind || []), [settings.conqRemind]);
     const overdue = useMemo(() => {
         const out = [];
         Object.entries(visits).forEach(([a3, arr]) => (arr || []).forEach((t, idx) => {
@@ -19459,27 +18968,6 @@ function AtlasApp() {
                                 "\u0415\u0449\u0451 ",
                                 np(overdue.length - 3, "trip"),
                                 " \u0436\u0434\u0443\u0442 \u0432 \u0441\u043F\u0438\u0441\u043A\u0435 \u043F\u043E\u0435\u0437\u0434\u043E\u043A.")))),
-                        conqDueList.length > 0 && (React.createElement("div", { className: "due cq-due" },
-                            React.createElement("b", { className: "due-title" }, "\uD83D\uDD14 \u0412\u0440\u0435\u043C\u044F \u043F\u043E\u043A\u043E\u0440\u044F\u0442\u044C"),
-                            conqDueList.map((r) => {
-                                var _d;
-                                return (React.createElement("div", { key: r.key, className: "due-row" },
-                                    React.createElement("span", { className: "due-what" },
-                                        React.createElement("b", null,
-                                            React.createElement(Flg, { a3: r.a3 }),
-                                            " ",
-                                            r.name),
-                                        React.createElement("em", null,
-                                            r.y === NOW.getFullYear() && r.m === NOW.getMonth() + 1
-                                                ? "сейчас лучшее время для поездки"
-                                                : `напоминание на ${MONTHS[r.m - 1]}`,
-                                            " ",
-                                            "\u00B7 ",
-                                            ((_d = BY_A3[r.a3]) === null || _d === void 0 ? void 0 : _d.name) || r.a3)),
-                                    React.createElement("div", { className: "due-acts" },
-                                        React.createElement("button", { className: "due-yes", onClick: () => setConqWin({ a3: r.a3 }) }, "\u041E\u0442\u043A\u0440\u044B\u0442\u044C \u043F\u043E\u043A\u043E\u0440\u0435\u043D\u0438\u0435"),
-                                        React.createElement("button", { onClick: () => remindConq(r, false) }, "\u0423\u0431\u0440\u0430\u0442\u044C"))));
-                            }))),
                         React.createElement("section", { className: "focus" }, sel ? (React.createElement(React.Fragment, null,
                             React.createElement("div", { className: "focus-head fc-head" },
                                 React.createElement("button", { className: "fc-country", onClick: () => {
@@ -19688,10 +19176,7 @@ function AtlasApp() {
                                 setSheet(null);
                             } })),
                         moveWin && React.createElement(MoveWin, { visits: visits, home: profile.home || null, onClose: () => setMoveWin(false) }),
-                        conqWin && (React.createElement(ConquestWin, { visits: visits, home: profile.home || null, a3: conqWin.a3, reminds: settings.conqRemind || [], onRemind: remindConq, onPlan: (next, tip) => {
-                                setConqWin(null);
-                                setRouteEdit({ route: conqRoute(next, homePt, tip), src: [] });
-                            }, onClose: () => setConqWin(null) })),
+                        conqWin && React.createElement(ConquestWin, { visits: visits, a3: conqWin.a3, onClose: () => setConqWin(null) }),
                         contsWin && React.createElement(ContsWin, { visits: visits, geo: geo, onClose: () => setContsWin(false) }),
                         soloWin && (React.createElement(SoloWin, { visits: visits, people: profile.people || [], geo: geo, onClose: () => setSoloWin(false), mapProps: {
                                 isOn,
@@ -21757,7 +21242,7 @@ button, input, select, textarea{font-family:inherit;}
   body{position:absolute; top:0; left:0; width:100%; height:100%; min-height:0; overflow:hidden; transform:translateZ(0);}
   #root{height:100%;}
 }
-/* ===== «Покорение страны» (42.48) ===== */
+/* ===== «Покорение страны» (42.48, упрощено в 42.51) ===== */
 .cq-card{display:flex; flex-direction:column; gap:10px; margin-top:8px;}
 .cq-chips{display:flex; gap:6px; overflow-x:auto; scrollbar-width:none; padding-bottom:2px; flex:none;}
 .cq-chips::-webkit-scrollbar{display:none;}
@@ -21770,99 +21255,27 @@ button, input, select, textarea{font-family:inherit;}
 .cq-map{display:block; overflow:visible;}
 .cq-reg{fill:#1f3a56; stroke:rgba(150,180,210,.35); stroke-width:.6; vector-effect:non-scaling-stroke; transition:fill .3s;}
 .cq-reg.on{stroke:rgba(70,48,10,.55);}
-.cq-reg.next{fill:#24496c; stroke:#8fd0ff; stroke-width:1.3; stroke-dasharray:3 2.5;}
-.cq-reg.sel{stroke:#fff; stroke-width:1.8; stroke-dasharray:none;}
-.cq-num circle{fill:#8fd0ff; stroke:#0d1b2a; stroke-width:1.5;}
-.cq-num text{fill:#0d1b2a; font-size:11px; font-weight:700; text-anchor:middle; dominant-baseline:middle; pointer-events:none;}
-.cq-num{pointer-events:none;}
-.cq-lead{stroke:#8fd0ff; stroke-width:1; opacity:.8;}
-.cq-dot{fill:#8fd0ff;}
-.root.light .cq-lead{stroke:#2f6fae;}
-.root.light .cq-dot{fill:#2f6fae;}
+.cq-reg.sel{stroke:#fff; stroke-width:1.8;}
+.root.light .cq-reg.sel{stroke:#16242f;}
 .root.light .cq-reg{fill:#d6e2ec; stroke:rgba(60,90,120,.35);}
-.root.light .cq-reg.next{fill:#c6dcef; stroke:#2f6fae;}
-.root.light .cq-num circle{fill:#2f6fae; stroke:#fff;}
-.root.light .cq-num text{fill:#fff;}
 .cq-sum{display:flex; align-items:center; gap:12px;}
 .cq-pct{flex:none; font-size:38px; line-height:1; font-weight:300; color:var(--gold); font-family:Georgia, "Times New Roman", serif;}
 .cq-sum span{font-size:12px; color:var(--dim); line-height:1.35;}
 .cq-bar{position:relative; height:7px; border-radius:4px; background:var(--track); flex:none;}
 .cq-bar i{position:absolute; left:0; top:0; bottom:0; border-radius:4px; background:linear-gradient(90deg,#d9a53c,#f3d27c); transition:width .6s;}
-.cq-bar u{position:absolute; top:-2px; width:2px; height:11px; margin-left:-1px; border-radius:1px; background:var(--line);}
-.cq-bar u.on{background:rgba(255,255,255,.55);}
-.cq-tip{display:flex; gap:10px; align-items:flex-start; padding:10px 12px; border-radius:14px;
-  border:1px solid rgba(232,184,75,.45); background:rgba(232,184,75,.07); font-size:12.5px; line-height:1.4; flex:none;}
-.cq-tip i{flex:none; font-style:normal; font-size:20px; line-height:1.1;}
-.cq-tip b{color:var(--gold); font-weight:600;}
-.cq-tip em{font-style:normal; color:var(--dim);}
-.cq-tip.big{font-size:13px;}
-.cq-h{margin:14px 0 2px; font-size:12px; color:var(--dim); text-transform:none; flex:none;}
-.cq-h em{font-style:normal; opacity:.75; margin-left:6px;}
-.cq-next{flex:none; padding:10px 12px; border-radius:14px; border:1px solid var(--line); background:var(--field); cursor:pointer;}
-.cq-next.sel{border-color:#8fd0ff;}
-.cq-next-top{display:flex; align-items:center; gap:8px;}
-.cq-next-top b{font-size:14px; font-weight:500; flex:1 1 auto; min-width:0;}
-.cq-n{flex:none; width:20px; height:20px; border-radius:50%; background:#8fd0ff; color:#0d1b2a; font-style:normal;
-  font-size:11px; font-weight:700; display:flex; align-items:center; justify-content:center;}
-.root.light .cq-n{background:#2f6fae; color:#fff;}
-.cq-mv{flex:none; font-size:16px;}
-.cq-next p{margin:6px 0 8px; font-size:12px; line-height:1.4; color:var(--dim);}
-.cq-months{display:grid; grid-template-columns:repeat(12, minmax(0,1fr)); gap:3px;}
-.cq-months i{font-style:normal; text-align:center; font-size:9.5px; padding:3px 0; border-radius:4px; background:rgba(255,255,255,.04); color:var(--dim);}
-.cq-months i.on{background:#2f8a5a; color:#eafff2;}
-.cq-months i.cur{outline:1.5px solid var(--gold); outline-offset:-1.5px;}
-.root.light .cq-months i{background:#eef2f6;}
-.root.light .cq-months i.on{background:#3aa06c; color:#fff;}
-.cq-next-foot{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:8px; min-height:26px;}
-.cq-next-foot em{font-style:normal; font-size:11px; color:var(--dim);}
-.cq-bell{flex:none; padding:5px 10px; border-radius:999px; border:1px solid var(--line); background:none; color:var(--gold);
-  font:inherit; font-size:11px; cursor:pointer;}
-.cq-bell.on{border-color:var(--gold); background:rgba(232,184,75,.12);}
-.cq-now{flex:none; text-decoration:none; padding:4px 9px; border-radius:999px; background:#2f8a5a; color:#eafff2; font-size:11px;}
-.cq-plan{flex:none; margin-top:4px; min-height:46px; border:0; border-radius:14px; background:var(--gold); color:#11202e;
-  font:inherit; font-size:14px; font-weight:600; cursor:pointer;}
-.cq-crown{margin:12px 0 0; text-align:center; color:var(--gold);}
-.cq-badges{display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:6px; flex:none;}
-.cq-badges span{display:flex; flex-direction:column; align-items:center; gap:2px; padding:8px 0; border-radius:12px;
-  border:1px solid var(--line); font-size:11px; color:var(--dim); opacity:.55;}
-.cq-badges span.on{opacity:1; border-color:var(--gold); color:var(--ink);}
-.cq-badges i{font-style:normal; font-size:22px; filter:grayscale(1);}
-.cq-badges span.on i{filter:none;}
-.cq-note{margin:6px 2px 0; font-size:11.5px; color:var(--dim);}
-.cq-rank{display:flex; flex-direction:column; flex:none;}
-.cq-rank button{display:grid; grid-template-columns:22px 48px minmax(0,1fr) auto; align-items:center; gap:6px; padding:8px 4px;
-  border:0; border-bottom:1px solid var(--line); background:none; color:var(--ink); font:inherit; font-size:13px; text-align:left; cursor:pointer;}
-.cq-rank button.on{color:var(--gold);}
-.cq-rank b{font-weight:600;}
-.cq-rank em{font-style:normal; font-size:11px; color:var(--dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:150px;}
-.cq-rname{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .cq-rflag .own-flag{width:18px; height:12px; border-radius:2px; object-fit:cover;}
-.cq-pills{display:flex; flex-wrap:wrap; gap:6px; flex:none;}
-.cq-pills button{display:flex; align-items:center; gap:5px; padding:6px 10px; border-radius:999px; border:1px solid var(--line);
-  background:var(--field); color:var(--ink); font:inherit; font-size:12px; cursor:pointer;}
-.cq-pills button.far{cursor:default;}
-.cq-pills u{text-decoration:none; font-size:10.5px; color:var(--dim);}
-.cq-pills .own-flag{width:16px; height:11px; border-radius:2px; object-fit:cover;}
-.cq-legend{display:flex; flex-wrap:wrap; align-items:center; gap:4px 12px; font-size:11px; color:var(--dim); flex:none; margin:4px 0 2px;}
-.cq-legend span{display:flex; align-items:center; gap:5px;}
-.cq-legend i{width:10px; height:10px; border-radius:3px; background:#1f3a56; border:1px solid rgba(150,180,210,.4);}
-.cq-legend i.on{background:#e8b84b; border-color:#e8b84b;}
-.cq-legend i.next{background:#24496c; border:1px dashed #8fd0ff;}
-.root.light .cq-legend i{background:#d6e2ec;}
-.cq-selname{flex-basis:100%; font-size:12px; color:var(--ink); font-weight:500;}
-em.cq-selname{font-style:normal; color:var(--dim); font-weight:400;}
-.cq-stats{display:flex; align-items:center; gap:12px; flex:none; margin-top:8px;}
-.cq-stats>b{font-size:36px; line-height:1; font-weight:300; color:var(--gold); font-family:Georgia, "Times New Roman", serif; white-space:nowrap;}
-.cq-stats span{display:flex; flex-direction:column; font-size:12px; color:var(--dim); line-height:1.4;}
-.cq-stats em{font-style:normal;}
-.cq-stage{flex:none; height:34vh; height:34dvh; min-height:180px; margin-top:6px;}
-.cq-win{overflow-y:auto; overscroll-behavior:contain; -webkit-overflow-scrolling:touch; gap:8px; padding-bottom:10px;}
-.cq-win>.cq-chips{margin-top:4px;}
-.pg-layer .cq-win{display:flex; flex-direction:column;}
 .cq-wmap{flex-direction:column; padding:10px;}
-.cq-wmap .cq-stage{flex:1 1 auto; height:auto; width:100%; min-height:0;}
-.cq-side{gap:8px;}
-.cq-due .due-title{margin-bottom:8px;}
+.cq-title{display:flex; flex-direction:column; gap:2px; position:absolute; top:10px; left:12px; right:12px; z-index:1; pointer-events:none;}
+.cq-title em{font-style:normal; font-size:11px; color:var(--dim);}
+.cq-stage{position:relative; width:100%; height:100%; padding-top:40px;}
+.cq-pmap{min-height:200px;}
+.cq-wmap .cq-stage{min-height:0;}
+.cq-row.on{border-color:var(--gold);}
+.cq-row span{flex:1 1 auto; gap:3px;}
+.cq-row .cq-bar{height:4px; margin-top:3px;}
+.cq-row u{flex:none; color:var(--gold) !important; font-weight:600; font-size:13px;}
+.cq-rflag{flex:none; font-style:normal; font-size:20px; line-height:1;}
+
 .switch-row.off .switch{opacity:.4;}
 `;
 const __b = document.getElementById('boot');
