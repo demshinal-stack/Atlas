@@ -2957,7 +2957,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "42.81";
+const APP_VERSION = "42.82";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -6262,7 +6262,7 @@ const NOW = new Date();
 /* годы для выбора: пять лет вперёд для планов и шестьдесят назад */
 const YEARS_AHEAD = 5;
 const YEARS = Array.from({ length: 60 + YEARS_AHEAD }, (_, i) => NOW.getFullYear() + YEARS_AHEAD - i);
-function Sheet({ open, onClose, title, children, box, back = null, tools = null, noX = false }) {
+function Sheet({ open, onClose, title, children, box, back = null, deco = null, tools = null, noX = false }) {
     const [shown, setShown] = useState(false);
     const [shift, setShift] = useState(0);
     const [kb, setKb] = useState(0);
@@ -6367,6 +6367,7 @@ function Sheet({ open, onClose, title, children, box, back = null, tools = null,
                         : undefined,
                 } },
             back && React.createElement("div", { className: "sheet-back" }, back),
+            deco && React.createElement("div", { className: "sheet-deco" }, deco),
             React.createElement("div", { className: "sheet-grab", ...pull },
                 React.createElement("span", null)),
             React.createElement("div", { className: "sheet-head", ...pull },
@@ -7863,6 +7864,7 @@ function PlacePick({ visits = {}, onPick, onClose, all = false, placeholder = "�
 }
 /* единая карточка поездки */
 function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onRemove, onMergeWith, mode, quality, since, people = [], meId = ME, occasions = null, onAddOccasion = null, fxShow = true }) {
+    var _d;
     const totalPhotos = useMemo(() => {
         let k = 0;
         Object.values(visits).forEach((arr) => arr.forEach((t) => (k += (t.photos || []).length)));
@@ -8144,7 +8146,7 @@ function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onR
         close();
     };
     return (React.createElement(React.Fragment, null,
-        React.createElement(Sheet, { open: open, onClose: onClose, box: box, title: title, back: jr.sp && fxShow && FX[jr.sp.fx] ? React.createElement(FxCanvas, { fx: jr.sp.fx, anim: true, scale: 1.25, seed: 7 }) : null }, (close) => {
+        React.createElement(Sheet, { open: open, onClose: onClose, box: box, title: title, back: jr.sp && fxShow && FX[jr.sp.fx] ? React.createElement(FxCanvas, { fx: jr.sp.fx, anim: true, scale: 1.25, seed: 7 }) : null, deco: jr.sp && fxShow && ((_d = FX[jr.sp.fx]) === null || _d === void 0 ? void 0 : _d.tree) ? React.createElement(FxTree, null) : null }, (close) => {
             var _d, _e, _f, _h, _j, _k;
             return (React.createElement("div", { className: "sheet-body rt-body jr-body" }, !stops.length ? (React.createElement(PlacePick, { visits: visits, all: true, onPick: (x) => addPlace(x) })) : (React.createElement(React.Fragment, null,
                 !pathOpen ? (React.createElement("button", { className: "rt-start in rt-metro", onClick: () => setPathOpen(true), "aria-label": routeText(r) },
@@ -8349,7 +8351,7 @@ const FX = {
             { t: "burst", k: 2, col: ["#f2c96b", "#e8a93a"], m: "burst", s: [18, 30] },
             { t: "spark", k: 6, col: FX_GOLD, m: "twinkle", s: [2, 3] }
         ] },
-    snowlights: { n: "Снег и огоньки", c: "#a8ecd0", p: [
+    snowlights: { n: "Снег и огоньки", c: "#a8ecd0", tree: 1, p: [
             { t: "light", k: 12, col: ["#ff8fab", "#f2c96b", "#78c8ff", "#78dcaa"], m: "blink", s: [1.6, 2] },
             { t: "crystal", k: 16, col: ["#ffffff", "#dcecff"], m: "fall", s: [3, 5] },
             { t: "flake", k: 18, col: ["#ffffff"], m: "fall", s: [0.7, 1.4] }
@@ -8514,8 +8516,10 @@ function fxSpark(c, x, y, r, col, a) {
     c.fill();
 }
 /* один кадр: t — секунды от начала (в ленте 0 — неподвижный кадр) */
-function fxDraw(c, parts, w, h, t) {
+function fxDraw(c, parts, w, h, t, under = null) {
     c.clearRect(0, 0, w, h);
+    if (under)
+        under(c, t);
     const wrap = (v, a, len) => a + ((((v - a) % len) + len) % len);
     parts.forEach((p) => {
         let x = p.x;
@@ -8869,18 +8873,22 @@ function FxCanvas({ fx, anim = false, zone = null, scale = 1, seed = 1, classNam
             cv.getContext("2d").setTransform(dpr, 0, 0, dpr, 0, 0);
             parts = fxMake(fx, w, h, { seed, zone, scale });
         };
+        // «Новый год» в строке ленты: ёлочка посередине зоны частиц, под ними
+        const under = FX[fx].tree && zone
+            ? (c, t) => fxTree(c, { cx: w * (zone[0] + zone[1]) / 2, top: h * 0.12, bot: h * 0.92, bw: Math.min(h * 0.72, w * 0.14), small: true }, t)
+            : null;
         let vis = true;
         const frame = (now) => {
             raf = 0;
             if (!vis)
                 return;
             if (!document.hidden)
-                fxDraw(cv.getContext("2d"), parts, w, h, (now - t0) / 1000);
+                fxDraw(cv.getContext("2d"), parts, w, h, (now - t0) / 1000, under);
             raf = requestAnimationFrame(frame);
         };
         setup();
         if (still)
-            fxDraw(cv.getContext("2d"), parts, w, h, 0.6);
+            fxDraw(cv.getContext("2d"), parts, w, h, 0.6, under);
         else
             raf = requestAnimationFrame(frame);
         /* вне экрана цикл стоит — в длинной ленте анимируются только видимые строки */
@@ -8896,7 +8904,7 @@ function FxCanvas({ fx, anim = false, zone = null, scale = 1, seed = 1, classNam
             ? new ResizeObserver(() => {
                 setup();
                 if (still)
-                    fxDraw(cv.getContext("2d"), parts, w, h, 0.6);
+                    fxDraw(cv.getContext("2d"), parts, w, h, 0.6, under);
             })
             : null;
         ro === null || ro === void 0 ? void 0 : ro.observe(cv);
@@ -8907,6 +8915,156 @@ function FxCanvas({ fx, anim = false, zone = null, scale = 1, seed = 1, classNam
         };
     }, [fx, anim, zone && zone.join(), scale, seed]);
     return React.createElement("canvas", { ref: ref, className: "fx-cv " + className, "aria-hidden": "true" });
+}
+/* ёлка «Нового года» (42.82): ярусы мягким силуэтом, провисающие гирлянды, шары, звезда.
+   small — ёлочка в строке ленты (силуэт + спираль огоньков). Огоньки мерцают от t */
+const FX_LIGHTS = ["255,214,120", "255,120,120", "140,200,255", "180,255,170", "255,170,230"];
+function fxTree(c, { cx, top, bot, bw, small = false }, t = 0.6) {
+    const glow = (x, y, r, rgb, a) => {
+        const g = c.createRadialGradient(x, y, 0, x, y, r);
+        g.addColorStop(0, `rgba(${rgb},${a})`);
+        g.addColorStop(1, `rgba(${rgb},0)`);
+        c.fillStyle = g;
+        c.beginPath();
+        c.arc(x, y, r, 0, 7);
+        c.fill();
+    };
+    const bulb = (x, y, i, k = 1) => {
+        const rgb = FX_LIGHTS[i % FX_LIGHTS.length];
+        const a = 0.55 + 0.45 * Math.sin(t * 2.2 + i * 1.7);
+        glow(x, y, 5.5 * k, rgb, 0.55 * a);
+        c.fillStyle = `rgba(${rgb},${0.6 + 0.4 * a})`;
+        c.beginPath();
+        c.arc(x, y, 1.5 * k, 0, 7);
+        c.fill();
+    };
+    const star = (x, y, r) => {
+        glow(x, y, r * 4, "255,220,140", 0.45 + 0.1 * Math.sin(t * 1.5));
+        c.fillStyle = "#ffe7a6";
+        c.beginPath();
+        for (let i = 0; i < 10; i++) {
+            const an = -Math.PI / 2 + (i * Math.PI) / 5;
+            const rr = i % 2 ? r * 0.45 : r;
+            c.lineTo(x + Math.cos(an) * rr, y + Math.sin(an) * rr);
+        }
+        c.closePath();
+        c.fill();
+    };
+    if (small) {
+        c.save();
+        c.globalAlpha = 0.5;
+        const g = c.createLinearGradient(0, top, 0, bot);
+        g.addColorStop(0, "#4fa47f");
+        g.addColorStop(1, "#1d4a3a");
+        c.fillStyle = g;
+        c.beginPath();
+        c.moveTo(cx, top);
+        c.lineTo(cx + bw / 2, bot);
+        c.quadraticCurveTo(cx, bot + bw * 0.08, cx - bw / 2, bot);
+        c.closePath();
+        c.fill();
+        c.restore();
+        for (let i = 0, n = 0; i < 120; i += 3, n++) {
+            const q = i / 120;
+            const an = q * 3 * Math.PI * 2;
+            if (Math.cos(an) < -0.15)
+                continue;
+            bulb(cx + Math.sin(an) * (bw / 2) * q, top + (bot - top) * q + Math.cos(an) * 1.5, n, 0.55);
+        }
+        star(cx, top - 1, 5);
+        return;
+    }
+    const tiers = 4;
+    const R = fxRand(11);
+    const balls = ["232,93,106", "242,201,107", "124,195,255", "199,156,255"];
+    for (let i = 0; i < tiers; i++) {
+        const y0 = top + (bot - top) * (i / tiers) * 0.85;
+        const y1 = top + (bot - top) * ((i + 1) / tiers);
+        const half = (bw / 2) * ((i + 1) / tiers);
+        const g = c.createLinearGradient(0, y0, 0, y1);
+        g.addColorStop(0, "rgba(80,165,120,.55)");
+        g.addColorStop(1, "rgba(28,80,58,.6)");
+        c.fillStyle = g;
+        c.beginPath();
+        c.moveTo(cx, y0);
+        c.quadraticCurveTo(cx + half * 0.5, y1 - (y1 - y0) * 0.35, cx + half, y1);
+        c.quadraticCurveTo(cx, y1 - 10, cx - half, y1);
+        c.quadraticCurveTo(cx - half * 0.5, y1 - (y1 - y0) * 0.35, cx, y0);
+        c.fill();
+        c.strokeStyle = "rgba(160,230,190,.18)";
+        c.lineWidth = 1;
+        c.stroke();
+        // шары: место постоянное (своё зерно), блик сверху слева
+        for (let j = 0; j < i + 2; j++) {
+            const x = cx + (R() - 0.5) * half * 1.3;
+            const y = y1 - (y1 - y0) * (0.25 + R() * 0.3);
+            const rgb = balls[(i + j) % 4];
+            const gg = c.createRadialGradient(x - 1.5, y - 1.5, 0, x, y, 5);
+            gg.addColorStop(0, "rgba(255,255,255,.8)");
+            gg.addColorStop(0.3, `rgba(${rgb},.8)`);
+            gg.addColorStop(1, `rgba(${rgb},0)`);
+            c.fillStyle = gg;
+            c.beginPath();
+            c.arc(x, y, 5, 0, 7);
+            c.fill();
+        }
+        // гирлянда провисает вдоль нижнего края яруса
+        for (let j = 0; j <= 14; j++) {
+            const q = j / 14;
+            bulb(cx - half * 0.9 + half * 1.8 * q, y1 - 6 + Math.sin(q * Math.PI) * 8 - (y1 - y0) * 0.12, j + i * 3);
+        }
+    }
+    c.fillStyle = "rgba(120,80,50,.35)";
+    c.fillRect(cx - 7, bot, 14, 14);
+    star(cx, top, 10);
+}
+/* ёлка в нижнем правом углу карточки «Нового года»: свой слой, не затухает вместе с частицами */
+function FxTree({ anim = true }) {
+    const ref = useRef(null);
+    useEffect(() => {
+        const cv = ref.current;
+        if (!cv)
+            return;
+        let raf = 0;
+        let w = 0;
+        let h = 0;
+        const t0 = performance.now();
+        const still = !anim || (typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches);
+        const draw = (t) => {
+            const c = cv.getContext("2d");
+            c.clearRect(0, 0, w, h);
+            fxTree(c, { cx: w * 0.64, top: 14, bot: h - 16, bw: w * 0.98 }, t);
+        };
+        const setup = () => {
+            const r = cv.getBoundingClientRect();
+            w = Math.max(1, Math.round(r.width));
+            h = Math.max(1, Math.round(r.height));
+            const dpr = Math.min(2, window.devicePixelRatio || 1);
+            cv.width = Math.round(w * dpr);
+            cv.height = Math.round(h * dpr);
+            cv.getContext("2d").setTransform(dpr, 0, 0, dpr, 0, 0);
+            draw(0.6);
+        };
+        // огоньки мигают неспешно — хватает ~20 кадров в секунду
+        let last = 0;
+        const frame = (now) => {
+            raf = requestAnimationFrame(frame);
+            if (document.hidden || now - last < 50)
+                return;
+            last = now;
+            draw((now - t0) / 1000);
+        };
+        setup();
+        if (!still)
+            raf = requestAnimationFrame(frame);
+        const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(setup) : null;
+        ro === null || ro === void 0 ? void 0 : ro.observe(cv);
+        return () => {
+            cancelAnimationFrame(raf);
+            ro === null || ro === void 0 ? void 0 : ro.disconnect();
+        };
+    }, [anim]);
+    return React.createElement("canvas", { ref: ref, className: "fx-cv", "aria-hidden": "true" });
 }
 /* плитка эффекта для выбора: тёмный фон, неподвижный кадр, название */
 function FxTile({ id, on, onPick }) {
@@ -22686,6 +22844,9 @@ button, input, select, textarea{font-family:inherit;}
 .sheet-back{position:absolute; left:0; right:0; top:0; bottom:4%; z-index:0; pointer-events:none; opacity:.6; border-radius:inherit; overflow:hidden;
   -webkit-mask-image:linear-gradient(180deg,#000 0%,#000 58%,rgba(0,0,0,.45) 78%,transparent 100%); mask-image:linear-gradient(180deg,#000 0%,#000 58%,rgba(0,0,0,.45) 78%,transparent 100%);}
 .sheet-back + .sheet-grab, .sheet-back ~ .sheet-head, .sheet-back ~ .sheet-body{position:relative; z-index:1;}
+/* ёлка «Нового года» (42.82): нижний правый угол шторки, над панелью «Удалить · Сохранить», не прокручивается */
+.sheet-deco{position:absolute; right:0; bottom:70px; width:62%; height:min(44%,340px); z-index:0; pointer-events:none; opacity:.9; overflow:hidden;}
+.sheet-deco ~ .sheet-grab, .sheet-deco ~ .sheet-head, .sheet-deco ~ .sheet-body{position:relative; z-index:1;}
 .trip-main{position:relative; overflow:hidden; isolation:isolate;}
 .trip-item.sp{position:relative;}
 .trip-item.sp::before{content:""; position:absolute; left:0; top:25%; height:50%; width:3px; border-radius:0 3px 3px 0; background:var(--fxc); z-index:2; pointer-events:none;}
