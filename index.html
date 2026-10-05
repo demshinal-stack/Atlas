@@ -2957,7 +2957,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "42.82";
+const APP_VERSION = "42.83";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -8475,6 +8475,9 @@ function fxMake(id, w, h, { seed = 1, zone = null, scale = 1 } = {}) {
     const area = Math.max(0.35, Math.min(1.6, ((zw * h) / (390 * 420)) * (zw * h < 40000 ? 6 : 1)));
     const out = [];
     fx.p.forEach((sp) => {
+        // «Новый год» в ленте: гирлянду-строку не рисуем — там ёлочка (42.83)
+        if (zone && fx.tree && sp.t === "light")
+            return;
         const many = sp.m === "burst" || sp.m === "pulse" || sp.t === "ribbon" || sp.t === "light";
         const n = many ? sp.k : Math.max(3, Math.round(sp.k * area));
         for (let i = 0; i < n; i++) {
