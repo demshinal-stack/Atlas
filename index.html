@@ -2648,7 +2648,7 @@ const famBrief = (profile) => {
 };
 /* всё, что уходит семье: все поездки (атлас общий), без снимков
    или со снимками по желанию; состав — постоянными номерами */
-function familyPacket(visits, tombs, profile, { photos = null, ava = "" } = {}) {
+function familyPacket(visits, tombs, profile, { photos = null, ava = "", occ = null } = {}) {
     const myId = (profile === null || profile === void 0 ? void 0 : profile.deviceId) || "";
     const people = (profile === null || profile === void 0 ? void 0 : profile.people) || [];
     const dir = {};
@@ -2699,6 +2699,8 @@ function familyPacket(visits, tombs, profile, { photos = null, ava = "" } = {}) 
         visits: out,
         tombs: tombs || {},
         dir,
+        // свои поводы особенных поездок (42.78): у семьи появятся в списке
+        ...(occ && occ.length ? { occ } : {}),
         ...(photos ? { photos } : {}),
     };
 }
@@ -2955,7 +2957,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "42.77";
+const APP_VERSION = "42.78";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -6260,7 +6262,7 @@ const NOW = new Date();
 /* годы для выбора: пять лет вперёд для планов и шестьдесят назад */
 const YEARS_AHEAD = 5;
 const YEARS = Array.from({ length: 60 + YEARS_AHEAD }, (_, i) => NOW.getFullYear() + YEARS_AHEAD - i);
-function Sheet({ open, onClose, title, children, box, back = null, tools = null }) {
+function Sheet({ open, onClose, title, children, box, back = null, tools = null, noX = false }) {
     const [shown, setShown] = useState(false);
     const [shift, setShift] = useState(0);
     const [kb, setKb] = useState(0);
@@ -6370,7 +6372,7 @@ function Sheet({ open, onClose, title, children, box, back = null, tools = null 
             React.createElement("div", { className: "sheet-head", ...pull },
                 React.createElement("h2", null, title),
                 tools,
-                React.createElement("button", { className: "sheet-x", onClick: close, "aria-label": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C" }, "\u2715")),
+                !noX && (React.createElement("button", { className: "sheet-x", onClick: close, "aria-label": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C" }, "\u2715"))),
             children(close))));
 }
 /* ------------------------------------------------------------------ */
@@ -7860,7 +7862,7 @@ function PlacePick({ visits = {}, onPick, onClose, all = false, placeholder = "�
         })))));
 }
 /* единая карточка поездки */
-function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onRemove, onMergeWith, mode, quality, since, people = [], meId = ME, occasions = null, fxShow = true }) {
+function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onRemove, onMergeWith, mode, quality, since, people = [], meId = ME, occasions = null, onAddOccasion = null, fxShow = true }) {
     const totalPhotos = useMemo(() => {
         let k = 0;
         Object.values(visits).forEach((arr) => arr.forEach((t) => (k += (t.photos || []).length)));
@@ -8128,12 +8130,7 @@ function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onR
         });
         close();
     };
-    return (React.createElement(Sheet, { open: open, onClose: onClose, box: box, title: jr.sp ? (React.createElement(React.Fragment, null,
-            title,
-            React.createElement("span", { className: "sp-badge", style: { "--fxc": fxColor(jr.sp) } },
-                jr.sp.e || "✨",
-                " ",
-                jr.sp.o))) : (title), back: jr.sp && fxShow && FX[jr.sp.fx] ? React.createElement(FxCanvas, { fx: jr.sp.fx, anim: true, scale: 1.25, seed: 7 }) : null }, (close) => {
+    return (React.createElement(Sheet, { open: open, onClose: onClose, box: box, title: title, back: jr.sp && fxShow && FX[jr.sp.fx] ? React.createElement(FxCanvas, { fx: jr.sp.fx, anim: true, scale: 1.25, seed: 7 }) : null }, (close) => {
         var _d, _e, _f, _h, _j, _k;
         return (React.createElement("div", { className: "sheet-body rt-body jr-body" }, !stops.length ? (React.createElement(PlacePick, { visits: visits, all: true, onPick: (x) => addPlace(x) })) : (React.createElement(React.Fragment, null,
             !pathOpen ? (React.createElement("button", { className: "rt-start in rt-metro", onClick: () => setPathOpen(true), "aria-label": routeText(r) },
@@ -8202,7 +8199,7 @@ function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onR
                     React.createElement("em", null, r.plan ? "Поездка впереди — в статистику не попадёт" : "Включится само, если выбрать будущую дату")),
                 React.createElement("span", { className: "switch" + (r.plan ? " on" : "") },
                     React.createElement("i", null)))),
-            r.y && !editWhen && (React.createElement(SpecialBlock, { sp: jr.sp, occasions: occasions, onChange: (sp) => setJr((j) => ({ ...j, sp })) })),
+            r.y && !editWhen && (React.createElement(SpecialBlock, { sp: jr.sp, occasions: occasions, onAddOccasion: onAddOccasion, onChange: (sp) => setJr((j) => ({ ...j, sp })) })),
             !editWhen && (React.createElement("div", { className: "step" },
                 React.createElement("p", { className: "step-title" }, "\u041A\u0442\u043E \u0435\u0437\u0434\u0438\u043B"),
                 React.createElement("div", { className: "city-chips" },
@@ -8419,6 +8416,25 @@ function occUpgrade(list) {
         next.splice(at < 0 ? 0 : at + 1, 0, def["Свадьба"]);
     }
     return next;
+}
+/* свой повод: не длиннее самого длинного стандартного («Романтическое путешествие», 25) + 5 — зафиксировано (42.78) */
+const OCC_MAX = 30;
+/* название повода: без лишних пробелов, с заглавной буквы, не длиннее OCC_MAX */
+const occName = (v) => {
+    const t = String(v || "").replace(/\s+/g, " ").replace(/^\s+/, "").slice(0, OCC_MAX);
+    return t ? t[0].toLocaleUpperCase("ru") + t.slice(1) : t;
+};
+const occSame = (a, b) => String(a || "").trim().toLowerCase() === String(b || "").trim().toLowerCase();
+/* свои поводы (не из стандартного списка) — их и передаём семье */
+const occOwn = (list) => (Array.isArray(list) ? list : []).filter((o) => o && o.n && !OCC_DEFAULT.some((d) => occSame(d.n, o.n)));
+/* поводы от семьи: добавляем те, которых у нас ещё нет (по названию) */
+function occMerge(list, incoming) {
+    const base = occList(list);
+    const add = (Array.isArray(incoming) ? incoming : [])
+        .filter((o) => o && typeof o.n === "string" && o.n.trim())
+        .map((o) => ({ e: String(o.e || "✨").slice(0, 4), n: occName(o.n).trim(), fx: FX[o.fx] ? o.fx : "" }))
+        .filter((o, i, arr) => !base.some((b) => occSame(b.n, o.n)) && arr.findIndex((x) => occSame(x.n, o.n)) === i);
+    return add.length ? [...base, ...add] : null;
 }
 const occList = (list) => (Array.isArray(list) ? list : OCC_DEFAULT).filter((o) => o && o.n);
 const fxColor = (sp) => { var _d; return ((_d = FX[sp === null || sp === void 0 ? void 0 : sp.fx]) === null || _d === void 0 ? void 0 : _d.c) || "#e8b84b"; };
@@ -8879,50 +8895,101 @@ function FxCanvas({ fx, anim = false, zone = null, scale = 1, seed = 1, classNam
 }
 /* плитка эффекта для выбора: тёмный фон, неподвижный кадр, название */
 function FxTile({ id, on, onPick }) {
+    if (!id)
+        return (React.createElement("button", { className: "fx-tile fx-none" + (on ? " on" : ""), onClick: () => onPick("") },
+            React.createElement("i", null, "\u2205"),
+            React.createElement("span", null, "\u0411\u0435\u0437 \u044D\u0444\u0444\u0435\u043A\u0442\u0430")));
     return (React.createElement("button", { className: "fx-tile" + (on ? " on" : ""), onClick: () => onPick(id), style: { "--fxc": FX[id].c } },
         React.createElement(FxCanvas, { fx: id, seed: 3 }),
         React.createElement("span", null, FX[id].n)));
 }
 function FxPicker({ value, onPick }) {
+    const v = FX[value] ? value : "";
     return (React.createElement(React.Fragment, null,
         React.createElement("p", { className: "fx-sub" }, "\u0414\u043B\u044F \u043F\u043E\u0432\u043E\u0434\u043E\u0432"),
-        React.createElement("div", { className: "fx-grid" }, FX_OCC_IDS.map((id) => (React.createElement(FxTile, { key: id, id: id, on: value === id, onPick: onPick })))),
+        React.createElement("div", { className: "fx-grid" },
+            React.createElement(FxTile, { id: "", on: !v, onPick: onPick }),
+            FX_OCC_IDS.map((id) => (React.createElement(FxTile, { key: id, id: id, on: v === id, onPick: onPick })))),
         React.createElement("p", { className: "fx-sub" }, "\u0423\u043D\u0438\u0432\u0435\u0440\u0441\u0430\u043B\u044C\u043D\u044B\u0435"),
-        React.createElement("div", { className: "fx-grid" }, FX_UNI_IDS.map((id) => (React.createElement(FxTile, { key: id, id: id, on: value === id, onPick: onPick }))))));
+        React.createElement("div", { className: "fx-grid" }, FX_UNI_IDS.map((id) => (React.createElement(FxTile, { key: id, id: id, on: v === id, onPick: onPick }))))));
 }
-/* блок «✨ Особенная поездка» в карточке поездки */
-function SpecialBlock({ sp, onChange, occasions }) {
-    var _d, _e;
+/* значок «выбрать»: стрелка вниз, при раскрытии — вверх */
+const PickIcon = ({ up }) => (React.createElement("svg", { className: "pick-ic" + (up ? " up" : ""), viewBox: "0 0 24 24", width: "18", height: "18", "aria-hidden": "true" },
+    React.createElement("path", { d: "M7 10l5 5 5-5", fill: "none", stroke: "currentColor", strokeWidth: "2", strokeLinecap: "round", strokeLinejoin: "round" })));
+/* плашка эффекта: превью, название, значок выбора; касание — сетка эффектов */
+function FxField({ value, onPick }) {
+    var _d;
+    const [open, setOpen] = useState(false);
+    return (React.createElement(React.Fragment, null,
+        React.createElement("button", { className: "sp-fx", onClick: () => setOpen((v) => !v), "aria-expanded": open },
+            React.createElement("span", { className: "sp-fx-prev" }, FX[value] ? React.createElement(FxCanvas, { fx: value, seed: 5 }) : React.createElement("i", { className: "sp-fx-none" }, "\u2205")),
+            React.createElement("span", { className: "sp-fx-t" },
+                "\u042D\u0444\u0444\u0435\u043A\u0442",
+                React.createElement("b", null, ((_d = FX[value]) === null || _d === void 0 ? void 0 : _d.n) || "Без эффекта")),
+            React.createElement(PickIcon, { up: open })),
+        open && (React.createElement(FxPicker, { value: value, onPick: (id) => {
+                onPick(id);
+                setOpen(false);
+            } }))));
+}
+/* новый свой повод: значок, название (с заглавной, до OCC_MAX знаков), эффект или без него */
+function OccasionNew({ list, onAdd, onCancel }) {
+    const [e, setE] = useState("✨");
+    const [n, setN] = useState("");
+    const [fx, setFx] = useState("");
+    const name = n.trim();
+    const dup = !!name && list.some((o) => occSame(o.n, name));
+    const ok = !!name && !dup;
+    return (React.createElement("div", { className: "occ-new" },
+        React.createElement("div", { className: "occ-names" },
+            React.createElement("input", { className: "sp-input occ-e", value: e, maxLength: 4, onChange: (x) => setE(x.target.value), "aria-label": "\u0417\u043D\u0430\u0447\u043E\u043A" }),
+            React.createElement("input", { className: "sp-input", value: n, autoFocus: true, maxLength: OCC_MAX, autoCapitalize: "sentences", autoComplete: "off", placeholder: "\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u043F\u043E\u0432\u043E\u0434\u0430", onChange: (x) => setN(occName(x.target.value)), "aria-label": "\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u043F\u043E\u0432\u043E\u0434\u0430" })),
+        React.createElement("p", { className: "occ-hint" + (dup ? " bad" : "") },
+            dup ? "Такой повод уже есть" : "С заглавной буквы, не длиннее " + OCC_MAX + " знаков",
+            React.createElement("span", null,
+                n.length,
+                "/",
+                OCC_MAX)),
+        React.createElement(FxField, { value: fx, onPick: setFx }),
+        React.createElement("div", { className: "occ-new-btns" },
+            React.createElement("button", { className: "link-btn", onClick: onCancel }, "\u041E\u0442\u043C\u0435\u043D\u0430"),
+            React.createElement("button", { className: "btn-main occ-new-ok", disabled: !ok, onClick: () => ok && onAdd({ e: e.trim() || "✨", n: name, fx }) }, "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C"))));
+}
+/* блок «✨ Особенная поездка» в карточке поездки (42.78): повод — раскрывающийся вниз список,
+   эффект ставится по поводу и меняется плашкой; в конце списка — «Свой повод» */
+function SpecialBlock({ sp, onChange, occasions, onAddOccasion }) {
+    var _d;
     const list = occList(occasions);
-    const [pickFx, setPickFx] = useState(false);
     const on = !!sp;
     // уже особенная поездка открывается свёрнутой: строка-сводка, касание — раскрыть; переключатель — снять
     const [open, setOpen] = useState(false);
-    const chipsRef = useRef(null);
-    // выбранный повод в ленте чипов виден сразу, без ручной прокрутки
-    useEffect(() => {
-        const box = chipsRef.current;
-        const el = box === null || box === void 0 ? void 0 : box.querySelector("[data-on]");
-        if (box && el)
-            box.scrollLeft = Math.max(0, el.offsetLeft - box.clientWidth / 2 + el.offsetWidth / 2);
-    }, [open, sp === null || sp === void 0 ? void 0 : sp.o]);
+    const [menu, setMenu] = useState(false);
+    const [adding, setAdding] = useState(false);
     const turnOn = () => {
-        var _d, _e, _f;
-        onChange({ o: ((_d = list[0]) === null || _d === void 0 ? void 0 : _d.n) || "Особенная поездка", e: ((_e = list[0]) === null || _e === void 0 ? void 0 : _e.e) || "✨", fx: ((_f = list[0]) === null || _f === void 0 ? void 0 : _f.fx) || "gold" });
+        var _d, _e, _f, _h;
+        onChange({ o: ((_d = list[0]) === null || _d === void 0 ? void 0 : _d.n) || "Особенная поездка", e: ((_e = list[0]) === null || _e === void 0 ? void 0 : _e.e) || "✨", fx: (_h = (_f = list[0]) === null || _f === void 0 ? void 0 : _f.fx) !== null && _h !== void 0 ? _h : "gold" });
         setOpen(true);
+    };
+    // повод поездки, которого нет в списке (удалили из настроек или пришёл от семьи) — показываем первым
+    const items = on && sp.o && !list.some((o) => occSame(o.n, sp.o)) ? [{ e: sp.e || "✨", n: sp.o, fx: sp.fx }, ...list] : list;
+    const pick = (o) => {
+        onChange({ o: o.n, e: o.e || "✨", fx: o.fx || "" });
+        setMenu(false);
     };
     return (React.createElement("div", { className: "sp-block" + (on ? " on" : ""), style: on ? { "--fxc": fxColor(sp) } : undefined },
         React.createElement("button", { className: "approx-row plan-row sp-row", onClick: () => (on ? setOpen((v) => !v) : turnOn()) },
             React.createElement("span", null,
                 "\u2728 \u041E\u0441\u043E\u0431\u0435\u043D\u043D\u0430\u044F \u043F\u043E\u0435\u0437\u0434\u043A\u0430",
                 React.createElement("em", null,
-                    on ? `${sp.e || "✨"} ${sp.o || ""} · ${((_d = FX[sp.fx]) === null || _d === void 0 ? void 0 : _d.n) || ""}` : "Повод и праздничный эффект на карточке",
+                    on ? `${sp.e || "✨"} ${sp.o || ""} · ${((_d = FX[sp.fx]) === null || _d === void 0 ? void 0 : _d.n) || "без эффекта"}` : "Повод и праздничный эффект на карточке",
                     on && React.createElement("i", { className: "sp-more" }, open ? " · свернуть ▴" : " · изменить ›"))),
             React.createElement("span", { className: "switch" + (on ? " on" : ""), onClick: (e) => {
                     e.stopPropagation();
                     if (on) {
                         onChange(null);
                         setOpen(false);
+                        setMenu(false);
+                        setAdding(false);
                     }
                     else
                         turnOn();
@@ -8930,31 +8997,35 @@ function SpecialBlock({ sp, onChange, occasions }) {
                 React.createElement("i", null))),
         on && open && (React.createElement("div", { className: "sp-body" },
             React.createElement("p", { className: "fx-sub" }, "\u041F\u043E\u0432\u043E\u0434"),
-            React.createElement("input", { className: "sp-input", value: sp.o || "", placeholder: "\u041D\u0430\u043F\u0440\u0438\u043C\u0435\u0440, \u0441\u0432\u0430\u0434\u0435\u0431\u043D\u043E\u0435 \u043F\u0443\u0442\u0435\u0448\u0435\u0441\u0442\u0432\u0438\u0435", onChange: (e) => {
-                    const v = e.target.value;
-                    const hit = list.find((o) => o.n.toLowerCase() === v.trim().toLowerCase());
-                    onChange({ ...sp, o: v, e: hit ? hit.e : sp.e && list.some((o) => o.e === sp.e) ? "✨" : sp.e || "✨", fx: hit ? hit.fx : sp.fx });
-                }, autoComplete: "off", autoCorrect: "off", "data-lpignore": "true" }),
-            React.createElement("div", { className: "sp-chips", ref: chipsRef }, list.map((o) => (React.createElement("button", { key: o.n, "data-on": sp.o === o.n ? 1 : undefined, className: "sp-chip" + (sp.o === o.n ? " on" : ""), onClick: () => onChange({ o: o.n, e: o.e, fx: o.fx }) },
-                o.e,
-                " ",
-                o.n)))),
-            React.createElement("button", { className: "sp-fx", onClick: () => setPickFx((v) => !v) },
-                React.createElement("span", { className: "sp-fx-prev" },
-                    React.createElement(FxCanvas, { fx: sp.fx, seed: 5 })),
-                React.createElement("span", { className: "sp-fx-t" },
-                    "\u042D\u0444\u0444\u0435\u043A\u0442",
-                    React.createElement("b", null, ((_e = FX[sp.fx]) === null || _e === void 0 ? void 0 : _e.n) || "—")),
-                React.createElement("em", null, pickFx ? "свернуть ▴" : "выбрать ›")),
-            pickFx && (React.createElement(FxPicker, { value: sp.fx, onPick: (id) => {
-                    onChange({ ...sp, fx: id });
-                    setPickFx(false);
-                } }))))));
+            React.createElement("button", { className: "sp-sel" + (menu ? " open" : ""), onClick: () => { setMenu((v) => !v); setAdding(false); }, "aria-expanded": menu },
+                React.createElement("span", { className: "sp-sel-e" }, sp.e || "✨"),
+                React.createElement("span", { className: "sp-sel-n" }, sp.o || "Выберите повод"),
+                React.createElement(PickIcon, { up: menu })),
+            menu && (React.createElement("div", { className: "sp-menu", role: "listbox" },
+                items.map((o) => {
+                    var _d;
+                    const cur = occSame(o.n, sp.o);
+                    return (React.createElement("button", { key: o.n, role: "option", "aria-selected": cur, className: "sp-opt" + (cur ? " on" : ""), onClick: () => pick(o) },
+                        React.createElement("span", { className: "sp-sel-e" }, o.e || "✨"),
+                        React.createElement("span", { className: "sp-opt-n" },
+                            o.n,
+                            React.createElement("em", null, ((_d = FX[o.fx]) === null || _d === void 0 ? void 0 : _d.n) || "без эффекта")),
+                        React.createElement("span", { className: "sp-opt-ck" }, cur ? "✓" : "")));
+                }),
+                adding ? (React.createElement(OccasionNew, { list: items, onCancel: () => setAdding(false), onAdd: (o) => {
+                        onAddOccasion === null || onAddOccasion === void 0 ? void 0 : onAddOccasion(o);
+                        setAdding(false);
+                        pick(o);
+                    } })) : (React.createElement("button", { className: "sp-opt sp-opt-add", onClick: () => setAdding(true) },
+                    React.createElement("span", { className: "sp-sel-e" }, "\uFF0B"),
+                    React.createElement("span", { className: "sp-opt-n" }, "\u0421\u0432\u043E\u0439 \u043F\u043E\u0432\u043E\u0434"))))),
+            React.createElement(FxField, { value: sp.fx, onPick: (id) => onChange({ ...sp, fx: id }) })))));
 }
 /* настройки: список поводов — переименовать, сменить эффект, переставить, удалить, добавить */
 function OccasionsSetup({ list: raw, onChange }) {
     const list = occList(raw);
     const [edit, setEdit] = useState(-1);
+    const [adding, setAdding] = useState(false);
     const put = (next) => onChange(next);
     const move = (i, d) => {
         const j = i + d;
@@ -8985,13 +9056,16 @@ function OccasionsSetup({ list: raw, onChange }) {
                 edit === i && (React.createElement("div", { className: "occ-edit" },
                     React.createElement("div", { className: "occ-names" },
                         React.createElement("input", { className: "sp-input occ-e", value: o.e, maxLength: 4, onChange: (e) => put(list.map((x, k) => (k === i ? { ...x, e: e.target.value } : x))), "aria-label": "\u0417\u043D\u0430\u0447\u043E\u043A" }),
-                        React.createElement("input", { className: "sp-input", value: o.n, onChange: (e) => put(list.map((x, k) => (k === i ? { ...x, n: e.target.value } : x))), "aria-label": "\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u043F\u043E\u0432\u043E\u0434\u0430" })),
+                        React.createElement("input", { className: "sp-input", value: o.n, maxLength: OCC_MAX, autoCapitalize: "sentences", onChange: (e) => put(list.map((x, k) => (k === i ? { ...x, n: occName(e.target.value) } : x))), onBlur: () => !o.n.trim() && put(list.map((x, k) => (k === i ? { ...x, n: "Мой повод" } : x))), "aria-label": "\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u043F\u043E\u0432\u043E\u0434\u0430" })),
                     React.createElement(FxPicker, { value: o.fx, onPick: (id) => put(list.map((x, k) => (k === i ? { ...x, fx: id } : x))) })))));
         }),
-        React.createElement("button", { className: "occ-add", onClick: () => {
-                put([...list, { e: "✨", n: "Новый повод", fx: "gold" }]);
-                setEdit(list.length);
-            } }, "\uFF0B \u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0441\u0432\u043E\u0439 \u043F\u043E\u0432\u043E\u0434"),
+        adding ? (React.createElement(OccasionNew, { list: list, onCancel: () => setAdding(false), onAdd: (o) => {
+                put([...list, o]);
+                setAdding(false);
+            } })) : (React.createElement("button", { className: "occ-add", onClick: () => {
+                setAdding(true);
+                setEdit(-1);
+            } }, "\uFF0B \u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0441\u0432\u043E\u0439 \u043F\u043E\u0432\u043E\u0434")),
         Array.isArray(raw) && (React.createElement("button", { className: "link-btn occ-reset", onClick: () => { put(null); setEdit(-1); } }, "\u0412\u0435\u0440\u043D\u0443\u0442\u044C \u0441\u0442\u0430\u043D\u0434\u0430\u0440\u0442\u043D\u044B\u0435"))));
 }
 /* Атлас · 15 · профиль, настройки, курсы валют, страна, режим снимков.
@@ -17300,12 +17374,13 @@ function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, fx
        на то же место и коротко подсвечиваем. Ушли в другой раздел — App не просит возврата, лента с начала */
     const place = useRef(null);
     const [flash, setFlash] = useState(null);
-    const remember = (el, row) => {
+    const remember = (el, row, key = null, quiet = false) => {
         const box = listRef.current;
         if (!box || !el)
             return;
         place.current = {
-            k: row.a3 + "|" + row.t.id,
+            quiet,
+            k: key || row.a3 + "|" + row.t.id,
             off: el.getBoundingClientRect().top - box.getBoundingClientRect().top,
             scroll: box.scrollTop,
             up: statsUp,
@@ -17338,8 +17413,10 @@ function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, fx
                 // шапка со сводкой могла свернуться/развернуться от прокрутки — поправляем ещё раз
                 setTimeout(fit, 120);
                 setTimeout(fit, 320);
-                setFlash(p.k);
-                setTimeout(() => setFlash(null), 1400);
+                if (!p.quiet) {
+                    setFlash(p.k);
+                    setTimeout(() => setFlash(null), 1400);
+                }
             }
             else
                 box.scrollTop = p.scroll; // поездку удалили или она ушла в другую группу
@@ -17557,21 +17634,47 @@ function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, fx
                 : mode === "move"
                     ? "по транспорту"
                     : "по частям света");
-    const headTitle = searchOn ? (React.createElement("input", { className: "list-find", value: q, placeholder: "\u041F\u043E\u0438\u0441\u043A \u043F\u043E \u0437\u0430\u043F\u0438\u0441\u044F\u043C", autoFocus: true, onChange: (e) => setQ(e.target.value), autoComplete: "off", autoCorrect: "off", spellCheck: "false" })) : (React.createElement(React.Fragment, null,
+    const endSearch = () => {
+        setQ("");
+        setSearchOn(false);
+    };
+    // закрыли ленту — поиск не остаётся висеть до следующего раза
+    useEffect(() => {
+        if (!open)
+            endSearch();
+    }, [open]);
+    /* поиск (42.78): поле во всю шапку, внутри — стереть, справа — «Отмена» (закрывает поиск);
+       «Найти» на клавиатуре убирает клавиатуру, найденное остаётся */
+    const headTitle = searchOn ? (React.createElement("span", { className: "find-box" },
+        React.createElement("input", { className: "list-find", type: "search", enterKeyHint: "search", value: q, placeholder: "\u041F\u043E\u0438\u0441\u043A \u043F\u043E \u0437\u0430\u043F\u0438\u0441\u044F\u043C", autoFocus: true, onChange: (e) => setQ(e.target.value), onKeyDown: (e) => {
+                if (e.key === "Enter")
+                    e.currentTarget.blur();
+                if (e.key === "Escape")
+                    endSearch();
+            }, autoComplete: "off", autoCorrect: "off", spellCheck: "false" }),
+        q && (React.createElement("button", { className: "find-clear", onClick: () => setQ(""), "aria-label": "\u0421\u0442\u0435\u0440\u0435\u0442\u044C" }, "\u2715")))) : (React.createElement(React.Fragment, null,
         "\u041C\u043E\u0438 \u043F\u043E\u0435\u0437\u0434\u043A\u0438",
         React.createElement("small", { className: "mode-hint" }, modeName)));
-    const headTools = selMode ? null : (React.createElement(React.Fragment, null,
-        React.createElement("button", { className: "filter-icon head-tool", onClick: onFilters, "aria-label": "\u0424\u0438\u043B\u044C\u0442\u0440\u044B" },
+    /* фильтры: запоминаем, какая поездка была вверху, — вернёмся к ней (42.78) */
+    const openFilters = () => {
+        const box = listRef.current;
+        if (box) {
+            const top = box.getBoundingClientRect().top + (parseFloat(getComputedStyle(box).getPropertyValue("--lh")) || 0);
+            const el = [...box.querySelectorAll("[data-k]")].find((x) => x.getBoundingClientRect().bottom > top + 4);
+            if (el)
+                remember(el, { a3: "", t: { id: "" } }, el.getAttribute("data-k"), true);
+        }
+        onFilters === null || onFilters === void 0 ? void 0 : onFilters();
+    };
+    const headTools = selMode ? null : searchOn ? (React.createElement("button", { className: "find-cancel", onClick: endSearch }, "\u041E\u0442\u043C\u0435\u043D\u0430")) : (React.createElement(React.Fragment, null,
+        React.createElement("button", { className: "filter-icon head-tool", onClick: openFilters, "aria-label": "\u0424\u0438\u043B\u044C\u0442\u0440\u044B" },
             React.createElement("svg", { viewBox: "0 0 24 24", width: "17", height: "17" },
                 React.createElement("path", { d: "M4 7h16M7 12h10M10 17h4", fill: "none", stroke: "currentColor", strokeWidth: "1.9", strokeLinecap: "round" }))),
-        React.createElement("button", { className: "filter-icon head-tool" + (searchOn ? " on" : ""), "aria-label": searchOn ? "Закрыть поиск" : "Поиск", onClick: () => {
-                if (searchOn)
-                    setQ("");
-                setSearchOn((v) => !v);
-            } }, searchOn ? (React.createElement("span", { className: "find-x" }, "\u2715")) : (React.createElement("svg", { viewBox: "0 0 24 24", width: "17", height: "17" },
-            React.createElement("circle", { cx: "11", cy: "11", r: "6.4", fill: "none", stroke: "currentColor", strokeWidth: "1.9" }),
-            React.createElement("path", { d: "M16 16l4.5 4.5", stroke: "currentColor", strokeWidth: "1.9", strokeLinecap: "round" }))))));
-    return (React.createElement(Sheet, { open: open, onClose: onClose, title: headTitle, tools: headTools, box: box }, () => {
+        React.createElement("button", { className: "filter-icon head-tool", "aria-label": "\u041F\u043E\u0438\u0441\u043A", onClick: () => setSearchOn(true) },
+            React.createElement("svg", { viewBox: "0 0 24 24", width: "17", height: "17" },
+                React.createElement("circle", { cx: "11", cy: "11", r: "6.4", fill: "none", stroke: "currentColor", strokeWidth: "1.9" }),
+                React.createElement("path", { d: "M16 16l4.5 4.5", stroke: "currentColor", strokeWidth: "1.9", strokeLinecap: "round" })))));
+    return (React.createElement(Sheet, { open: open, onClose: onClose, title: headTitle, tools: headTools, noX: searchOn && !selMode, box: box }, () => {
         var _d;
         return (React.createElement("div", { className: "sheet-list", ref: listRef, onScroll: onListScroll },
             React.createElement("div", { className: "list-head" },
@@ -17818,7 +17921,9 @@ function useSettings() {
    состав семьи и приглашения. Вызывается из приложения как useExchange(...).
    Части собираются по номерам в один файл (tools/rebuild.sh) и видят друг друга напрямую. */
 function useExchange(x) {
-    const { profile, visits, profileRef, visitsRef, tombsRef, hiddenRef, receiveRef, loaded, save, saveProfile, setSync, setSheet, setAsk, setVisits, settings, adoptSettings, } = x;
+    const { profile, visits, profileRef, visitsRef, tombsRef, hiddenRef, receiveRef, loaded, save, saveProfile, setSync, setSheet, setAsk, setVisits, settings, adoptSettings, putSettings, } = x;
+    const settingsRef = useRef(settings);
+    settingsRef.current = settings;
     const exportData = useCallback(async () => {
         const photos = {};
         const ids = [];
@@ -17965,6 +18070,7 @@ function useExchange(x) {
         };
     }, [profile === null || profile === void 0 ? void 0 : profile.avatar, avaThumb]);
     const nearPayload = useCallback(async (withPhotos) => {
+        var _d;
         let photos = null;
         if (withPhotos) {
             photos = {};
@@ -17979,6 +18085,7 @@ function useExchange(x) {
                     }
         }
         return familyPacket(visitsRef.current, tombsRef.current, profileRef.current || {}, {
+            occ: occOwn((_d = settingsRef.current) === null || _d === void 0 ? void 0 : _d.occasions),
             photos,
             ava: await avaThumb(),
         });
@@ -18030,7 +18137,7 @@ function useExchange(x) {
        людей, которых раньше не было. opt.trusted — пользователь сам подтвердил
        источник (например, чужую резервную копию). */
     const receiveFamily = useCallback((data, opt = {}) => {
-        var _d, _e, _f, _h;
+        var _d, _e, _f, _h, _j;
         const prof = profileRef.current || {};
         if (!(data === null || data === void 0 ? void 0 : data.visits))
             return { error: "empty" };
@@ -18043,6 +18150,10 @@ function useExchange(x) {
             if (!ok)
                 return { error: "stranger", from: fromName };
         }
+        // свои поводы семьи — в наш список (только новых названий; повторный приём ничего не меняет)
+        const occ = occMerge((_f = settingsRef.current) === null || _f === void 0 ? void 0 : _f.occasions, data.occ);
+        if (occ && putSettings)
+            putSettings({ occasions: occ, occV: OCC_V });
         const un = familyUnpack(data, prof, opt.decide || null);
         // в чужих поездках есть незнакомые люди — сначала спросим, кто они вам
         // и члены семьи, которым вы ещё не дали роль (у отправителя она своя)
@@ -18067,7 +18178,7 @@ function useExchange(x) {
         let next = prof;
         if (un.touched)
             next = { ...next, people: un.people, selfAka: un.selfAka };
-        const given = ((_f = opt.decide) === null || _f === void 0 ? void 0 : _f.__roles) || null;
+        const given = ((_h = opt.decide) === null || _h === void 0 ? void 0 : _h.__roles) || null;
         if (given && Object.keys(given).length)
             next = {
                 ...next,
@@ -18077,7 +18188,7 @@ function useExchange(x) {
             next = {
                 ...next,
                 family: famMerge(next.family, data.family, [prof.deviceId, ...(prof.selfAka || [])], [
-                    { id: sid, name: fromName, ava: ((_h = data.from) === null || _h === void 0 ? void 0 : _h.ava) || "" },
+                    { id: sid, name: fromName, ava: ((_j = data.from) === null || _j === void 0 ? void 0 : _j.ava) || "" },
                 ]),
             };
         if (next !== prof) {
@@ -18650,6 +18761,12 @@ function AtlasApp() {
     const { settings, putSettings, adoptSettings } = useSettings();
     const { cityPins, theme, photoQuality, spinStart, mapView, night } = settings;
     const setMapView = useCallback((v) => putSettings({ mapView: v }), [putSettings]);
+    /* свой повод из карточки поездки — сразу в список (42.78) */
+    const addOccasion = (o) => {
+        if (!(o === null || o === void 0 ? void 0 : o.n) || occList(settings.occasions).some((x) => occSame(x.n, o.n)))
+            return;
+        putSettings({ occasions: [...occList(settings.occasions), o], occV: OCC_V });
+    };
     /* 42.76: свой список поводов подтягивает новые стандартные эффекты и «Свадьбу» — один раз */
     useEffect(() => {
         if (Array.isArray(settings.occasions) && settings.occV !== OCC_V)
@@ -18799,7 +18916,7 @@ function AtlasApp() {
        ушли в другой раздел (Карта, Отчёты, Профиль, Добавить) — забываем */
     const [listPlace, setListPlace] = useState(false);
     useEffect(() => {
-        if (sheet !== "edit" && sheet !== "list")
+        if (sheet !== "edit" && sheet !== "list" && sheet !== "filters")
             setListPlace(false);
     }, [sheet]);
     const editBackRef = useRef(null);
@@ -18855,6 +18972,9 @@ function AtlasApp() {
         setSheet((v) => (v === sheetName && sheetName !== null ? null : sheetName));
     };
     const openFilters = useCallback(() => {
+        // из ленты в фильтры и обратно — на то же место ленты (42.78)
+        if (sheet === "list")
+            setListPlace(true);
         setSheetBack(sheet === "filters" ? sheetBack : sheet);
         setSheet((v) => (v === "filters" ? sheetBack : "filters"));
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -19518,10 +19638,8 @@ function AtlasApp() {
     const saveJourney = (res) => {
         var _d;
         const { r, touched, members, orig, plain, src = [], who, left, photos = [], owner = {} } = res;
-        // особенная поездка (42.75): повод и эффект; новый повод — в список поводов настроек
+        // особенная поездка (42.75): повод и эффект; свой повод попадает в список ещё в карточке (42.78)
         const sp = res.sp || undefined;
-        if (sp && sp.o && !occList(settings.occasions).some((o) => o.n.toLowerCase() === sp.o.toLowerCase()))
-            putSettings({ occasions: [...occList(settings.occasions), { e: sp.e || "✨", n: sp.o, fx: sp.fx }], occV: OCC_V });
         const meId = ((_d = profileRef.current) === null || _d === void 0 ? void 0 : _d.deviceId) || ME;
         const now = Date.now();
         const uniq = (a) => [...new Set(a.filter(Boolean))];
@@ -19788,7 +19906,7 @@ function AtlasApp() {
     [visits]);
     const ex = useExchange({
         profile, visits, profileRef, visitsRef, tombsRef, hiddenRef, receiveRef, loaded,
-        save, saveProfile, setSync, setSheet, setAsk, setVisits, settings, adoptSettings,
+        save, saveProfile, setSync, setSheet, setAsk, setVisits, settings, adoptSettings, putSettings,
     });
     const { exportData, meAva, nearPayload, applySync, restoreMsg, importAsk, joinMember, familyOps, restoreData, who, whoDone, whoCancel } = ex;
     const saveAvatar = useCallback(async (dataUrl) => {
@@ -20242,8 +20360,8 @@ function AtlasApp() {
                                 setSheet(null);
                                 pickCountry(a3);
                             } }),
-                        React.createElement(JourneySheet, { open: sheet === "add", onClose: () => setSheet(null), box: box, initial: null, visits: visits, homePt: homePt, onSave: saveJourney, mode: "add", quality: photoQuality, since: profile.since, people: profile.people || [], meId: profile.deviceId || ME, occasions: settings.occasions, fxShow: settings.fxShow !== false }),
-                        React.createElement(JourneySheet, { open: sheet === "edit" && !!editTripObj, onClose: () => setSheet((editing === null || editing === void 0 ? void 0 : editing.back) || null), box: box, initial: editTripObj ? { a3: editing.a3, id: editing.id, key: editing.a3 + ":" + editing.id } : null, visits: visits, homePt: homePt, onSave: saveJourney, onRemove: removeMany, onMergeWith: (a3, t) => setPickFor({ a3, t }), mode: "edit", quality: photoQuality, since: profile.since, people: profile.people || [], meId: profile.deviceId || ME, occasions: settings.occasions, fxShow: settings.fxShow !== false }),
+                        React.createElement(JourneySheet, { open: sheet === "add", onClose: () => setSheet(null), box: box, initial: null, visits: visits, homePt: homePt, onSave: saveJourney, mode: "add", quality: photoQuality, since: profile.since, people: profile.people || [], meId: profile.deviceId || ME, occasions: settings.occasions, onAddOccasion: addOccasion, fxShow: settings.fxShow !== false }),
+                        React.createElement(JourneySheet, { open: sheet === "edit" && !!editTripObj, onClose: () => setSheet((editing === null || editing === void 0 ? void 0 : editing.back) || null), box: box, initial: editTripObj ? { a3: editing.a3, id: editing.id, key: editing.a3 + ":" + editing.id } : null, visits: visits, homePt: homePt, onSave: saveJourney, onRemove: removeMany, onMergeWith: (a3, t) => setPickFor({ a3, t }), mode: "edit", quality: photoQuality, since: profile.since, people: profile.people || [], meId: profile.deviceId || ME, occasions: settings.occasions, onAddOccasion: addOccasion, fxShow: settings.fxShow !== false }),
                         React.createElement(ProfileSheet, { open: sheet === "profile", onClose: () => setSheet(null), box: box, avatar: profile.avatar, name: profile.name, onName: async (v) => {
                                 const prof = { ...profile, name: v };
                                 await saveProfile(prof);
@@ -20314,7 +20432,7 @@ function AtlasApp() {
                                 showTrip(a3, id);
                                 setSheet(null);
                             } }),
-                        React.createElement(FiltersSheet, { open: sheet === "filters", onClose: () => setSheet(null), box: box, target: sheetBack === "list" ? "list" : "globe", years: allYears, yearFilter: yearFilter, onYear: (v) => {
+                        React.createElement(FiltersSheet, { open: sheet === "filters", onClose: () => setSheet(sheetBack), box: box, target: sheetBack === "list" ? "list" : "globe", years: allYears, yearFilter: yearFilter, onYear: (v) => {
                                 setYearFilter(v);
                                 setSheet(sheetBack);
                             }, mode: listMode, onMode: (v) => {
@@ -20348,7 +20466,7 @@ function AtlasApp() {
                                 setRoutesFind(false);
                                 collectRoute(c);
                             }, onDismiss: (c) => dismissRoute(c.key) }),
-                        React.createElement(JourneySheet, { open: !!routeEdit, onClose: () => setRouteEdit(null), box: box, initial: routeEdit ? { route: routeEdit.route, src: routeEdit.src || [], key: "r:" + (((_f = routeEdit.route) === null || _f === void 0 ? void 0 : _f.id) || "") } : null, visits: visits, homePt: homePt, onSave: saveJourney, mode: "collect", quality: photoQuality, since: profile.since, people: profile.people || [], meId: profile.deviceId || ME, occasions: settings.occasions, fxShow: settings.fxShow !== false }),
+                        React.createElement(JourneySheet, { open: !!routeEdit, onClose: () => setRouteEdit(null), box: box, initial: routeEdit ? { route: routeEdit.route, src: routeEdit.src || [], key: "r:" + (((_f = routeEdit.route) === null || _f === void 0 ? void 0 : _f.id) || "") } : null, visits: visits, homePt: homePt, onSave: saveJourney, mode: "collect", quality: photoQuality, since: profile.since, people: profile.people || [], meId: profile.deviceId || ME, occasions: settings.occasions, onAddOccasion: addOccasion, fxShow: settings.fxShow !== false }),
                         undo && (React.createElement("div", { className: "undo-toast", style: box ? { left: box.left + 14, width: box.width - 28 } : undefined },
                             React.createElement("span", { className: "undo-ring" }),
                             React.createElement("b", null, undo.text),
@@ -20729,11 +20847,13 @@ body > div{max-width:100%;}
 .sheet-list:has(.list-tools){padding-bottom:84px;}
 .filter-icon{flex:none; width:44px; height:44px; display:flex; align-items:center; justify-content:center; border-radius:12px; border:1px solid var(--line); background:var(--el); color:var(--gold); cursor:pointer;}
 .list-find{flex:1 1 auto; min-width:0; height:44px; padding:0 12px; border-radius:12px; border:1px solid var(--gold); background:var(--field); color:var(--ink); font-size:13px; font-family:inherit; outline:none; appearance:none; -webkit-appearance:none;}
-.filter-icon.on{border-color:var(--gold); color:var(--gold);}
-.find-x{font-size:14px;}
 .sheet-head .mode-hint{display:block; padding:0; margin-top:1px; font-size:12px; font-weight:400; color:var(--dim);}
 .sheet-head .head-tool{border-radius:50%; color:var(--gold);}
-.sheet-head .list-find{display:block; width:100%; box-sizing:border-box; border-radius:22px; font-size:16px; padding:0 16px;}
+.find-box{position:relative; display:block;}
+.sheet-head .list-find{display:block; width:100%; box-sizing:border-box; border-radius:22px; font-size:16px; padding:0 40px 0 16px;}
+.list-find::-webkit-search-cancel-button{display:none;}
+.find-clear{position:absolute; right:6px; top:50%; transform:translateY(-50%); width:30px; height:30px; border-radius:50%; border:0; background:var(--el2); color:var(--dim); font-size:12px; cursor:pointer;}
+.find-cancel{flex:none; height:44px; padding:0 4px 0 6px; border:0; background:none; color:var(--gold); font-size:15px; font-family:inherit; cursor:pointer;}
 
 .rep{margin-bottom:16px; padding:14px; border-radius:16px; border:1px solid var(--line); background:var(--el);}
 .rep > b{display:block; font-size:14px; font-weight:600;}
@@ -22553,8 +22673,6 @@ button, input, select, textarea{font-family:inherit;}
 .sheet-back{position:absolute; left:0; right:0; top:0; bottom:4%; z-index:0; pointer-events:none; opacity:.6; border-radius:inherit; overflow:hidden;
   -webkit-mask-image:linear-gradient(180deg,#000 0%,#000 58%,rgba(0,0,0,.45) 78%,transparent 100%); mask-image:linear-gradient(180deg,#000 0%,#000 58%,rgba(0,0,0,.45) 78%,transparent 100%);}
 .sheet-back + .sheet-grab, .sheet-back ~ .sheet-head, .sheet-back ~ .sheet-body{position:relative; z-index:1;}
-.sp-badge{display:inline-flex; align-items:center; gap:5px; margin-left:8px; padding:2px 10px; border-radius:99px; font-size:12px; font-weight:400;
-  border:1px solid var(--fxc); color:var(--ink); background:rgba(15,31,47,.45); vertical-align:2px; white-space:nowrap;}
 .trip-main{position:relative; overflow:hidden; isolation:isolate;}
 .trip-item.sp{position:relative;}
 .trip-item.sp::before{content:""; position:absolute; left:0; top:25%; height:50%; width:3px; border-radius:0 3px 3px 0; background:var(--fxc); z-index:2; pointer-events:none;}
@@ -22570,18 +22688,35 @@ button, input, select, textarea{font-family:inherit;}
 .sp-body{margin-top:8px; padding:12px; border-radius:14px; border:1px solid var(--line); background:var(--field);}
 .fx-sub{margin:10px 0 6px; font-size:12px; color:var(--dim);}
 .fx-sub:first-child{margin-top:0;}
-.sp-input{width:100%; box-sizing:border-box; padding:10px 12px; border-radius:12px; border:1px solid var(--line); background:var(--el); color:var(--ink); font-size:15px;}
-.sp-chips{display:flex; flex-wrap:nowrap; gap:6px; margin:8px -12px 0; padding:0 12px; overflow-x:auto; scrollbar-width:none; overscroll-behavior-x:contain;
-  -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 12px,#000 calc(100% - 28px),transparent); mask-image:linear-gradient(90deg,transparent 0,#000 12px,#000 calc(100% - 28px),transparent);}
-.sp-chips::-webkit-scrollbar{display:none;}
-.sp-chip{flex:none; white-space:nowrap; padding:4px 10px; border-radius:99px; border:1px solid var(--line); background:none; color:var(--ink); font-size:12.5px; cursor:pointer;}
-.sp-chip.on{border-color:var(--gold); color:var(--gold); background:rgba(232,184,75,.1);}
+.sp-input{width:100%; box-sizing:border-box; padding:10px 12px; border-radius:12px; border:1px solid var(--line); background:var(--el); color:var(--ink); font-size:16px;}
+.sp-sel{display:flex; align-items:center; gap:10px; width:100%; padding:10px 12px; border-radius:12px; border:1px solid var(--line); background:var(--el); color:var(--ink); font-size:16px; font-family:inherit; text-align:left; cursor:pointer;}
+.sp-sel.open{border-color:var(--gold); border-radius:12px 12px 0 0;}
+.sp-sel-e{flex:none; width:24px; text-align:center;}
+.sp-sel-n{flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.pick-ic{flex:none; color:var(--gold); transition:transform .2s;}
+.pick-ic.up{transform:rotate(180deg);}
+.sp-menu{border:1px solid var(--gold); border-top:0; border-radius:0 0 12px 12px; background:var(--el); overflow:hidden;}
+.sp-opt{display:flex; align-items:center; gap:10px; width:100%; min-height:46px; padding:6px 12px; border:0; border-top:1px solid var(--line); background:none; color:var(--ink); font-size:15px; font-family:inherit; text-align:left; cursor:pointer;}
+.sp-opt.on{background:rgba(232,184,75,.08);}
+.sp-opt-n{flex:1 1 auto; min-width:0; display:flex; flex-direction:column;}
+.sp-opt-n em{font-style:normal; font-size:11.5px; color:var(--dim);}
+.sp-opt-ck{flex:none; width:18px; color:var(--gold); text-align:center;}
+.sp-opt-add{color:var(--gold);}
+.occ-new{padding:10px 12px 12px; border-top:1px solid var(--line);}
+.occ-list > .occ-new{border:1px solid var(--gold); border-radius:14px; background:var(--field);}
+.occ-hint{display:flex; justify-content:space-between; gap:8px; margin:0 2px; font-size:11.5px; color:var(--dim);}
+.occ-hint.bad{color:#d06a55;}
+.occ-new-btns{display:flex; justify-content:flex-end; align-items:center; gap:14px; margin-top:12px;}
+.occ-new-ok{width:auto; padding:10px 20px;}
+.fx-none{display:flex; align-items:center; justify-content:center; border-color:var(--line);}
+.fx-none.on{border-color:var(--gold);}
+.fx-none i, .sp-fx-none{font-style:normal; font-size:20px; color:var(--dim);}
+.sp-fx-none{display:flex; align-items:center; justify-content:center; height:100%;}
 .sp-fx{display:flex; align-items:center; gap:10px; width:100%; margin-top:12px; padding:8px; border-radius:12px; border:1px solid var(--line); background:var(--el); color:var(--ink); cursor:pointer; text-align:left;}
 .sp-fx-prev, .occ-prev{flex:none; border-radius:9px; overflow:hidden; background:#132436; box-shadow:inset 0 0 0 1px var(--fxc, var(--line));}
 .sp-fx-prev{width:64px; height:42px;}
 .sp-fx-t{flex:1 1 auto; display:flex; flex-direction:column; font-size:12px; color:var(--dim);}
 .sp-fx-t b{font-size:14.5px; font-weight:500; color:var(--ink);}
-.sp-fx em{font-style:normal; font-size:12px; color:var(--gold);}
 .fx-grid{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:7px;}
 .fx-tile{position:relative; height:62px; padding:0; border-radius:11px; border:2px solid transparent; overflow:hidden; background:#132436; cursor:pointer;}
 .fx-tile.on{border-color:var(--gold);}

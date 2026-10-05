@@ -1,7 +1,7 @@
 /* Атлас © Demshin_lab. Все права защищены. */
 /* Атлас — офлайн-кеш и обновления.
    Версию поднимайте вместе с APP_VERSION в приложении. */
-const VERSION = "atlas-42.77";
+const VERSION = "atlas-42.78";
 const SHELL = [
   "./",
   "./index.html",
