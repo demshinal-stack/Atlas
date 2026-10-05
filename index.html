@@ -612,10 +612,6 @@ const COUNTRIES = RAW.split("\n").map((l) => {
 });
 const BY_A3 = Object.fromEntries(COUNTRIES.map((c) => [c.a3, c]));
 const TOTAL = COUNTRIES.length;
-const CONT_TOTALS = CONT_ORDER.reduce((a, k) => {
-    a[k] = COUNTRIES.filter((c) => c.cont === k).length;
-    return a;
-}, {});
 const MONTHS = [
     "январь", "февраль", "март", "апрель", "май", "июнь",
     "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь",
@@ -2959,7 +2955,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "42.73";
+const APP_VERSION = "42.74";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -16489,11 +16485,10 @@ function FiltersSheet({ open, onClose, box, target, years, yearFilter, onYear, m
         years.length === 0 && (React.createElement("p", { className: "focus-empty" }, "\u0424\u0438\u043B\u044C\u0442\u0440 \u043F\u043E\u044F\u0432\u0438\u0442\u0441\u044F, \u043A\u043E\u0433\u0434\u0430 \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u0435 \u043F\u0435\u0440\u0432\u0443\u044E \u043F\u043E\u0435\u0437\u0434\u043A\u0443."))))))));
 }
 /* шторка: все поездки — свёртка групп, поиск */
-function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, since, wishCount = 0, onFilters, focus = null, onMergeSel, onRouteSel, keepPlace = false, onPlaced }) {
+function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, onFilters, focus = null, onMergeSel, onRouteSel, keepPlace = false, onPlaced }) {
     const [q, setQ] = useState("");
     const [searchOn, setSearchOn] = useState(false);
     const [closed, setClosed] = useState({});
-    const [flipped, setFlipped] = useState(false);
     const [statsUp, setStatsUp] = useState(false);
     const listRef = useRef(null);
     const onListScroll = () => {
@@ -16783,32 +16778,17 @@ function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, si
             });
         return list;
     }, [found, mode]);
+    /* сводка над лентой (42.74): поездки, доля мира, страны, города, планы */
     const totals = useMemo(() => {
         const cities = new Set();
-        const years = new Set();
-        const hotels = new Set();
-        let photos = 0;
         let plans = 0;
-        const airs = new Set();
         Object.values(visits).forEach((arr) => arr.forEach((t) => {
             if (t.plan)
                 plans += 1;
             (t.cities || []).forEach((c) => cities.add(c));
-            (t.hotels || []).forEach((h) => hotels.add(h.name));
-            tripYears(t).forEach((y) => years.add(y));
-            photos += (t.photos || []).length;
-            (t.air || []).forEach((code) => airs.add(code));
         }));
-        return {
-            cities: cities.size,
-            // стаж: от года начала путешествий, иначе — годы с поездками
-            years: yearsSpan(visits, since),
-            photos,
-            airs: airs.size,
-            hotels: hotels.size,
-            plans,
-        };
-    }, [visits, since]);
+        return { cities: cities.size, plans };
+    }, [visits]);
     /* в строке: план и первый город; месяц и год — справа (42.70), даты — в карточке */
     const sub = (t) => {
         const parts = [];
@@ -16835,71 +16815,39 @@ function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, si
                         setStatsUp(false);
                         (_d = listRef.current) === null || _d === void 0 ? void 0 : _d.scrollTo({ top: 0, behavior: "smooth" });
                     } },
-                    React.createElement("b", null,
-                        stats.countries,
-                        " \u0438\u0437 ",
-                        TOTAL),
-                    React.createElement("span", null,
-                        pw(TOTAL, "country"),
-                        " \u00B7 ",
-                        np(tripCount(visits), "trip")),
-                    React.createElement("em", null, "\u25BE"))) : (React.createElement("div", { className: "flip" + (flipped ? " on" : ""), onClick: () => setFlipped((v) => !v) },
-                    React.createElement("div", { className: "flip-in" },
-                        React.createElement("div", { className: "flip-side" },
-                            React.createElement("div", { className: "flip-top" },
-                                React.createElement("b", null,
-                                    stats.countries,
-                                    " \u0438\u0437 ",
-                                    TOTAL,
-                                    " ",
-                                    pw(TOTAL, "country")),
-                                React.createElement("span", null, "\u043F\u043E \u0447\u0430\u0441\u0442\u044F\u043C \u0441\u0432\u0435\u0442\u0430")),
-                            React.createElement("div", { className: "bars" }, CONT_ORDER.map((k) => (React.createElement("div", { key: k, className: "bar-row" },
-                                React.createElement("span", { className: "bar-name" }, CONTINENTS[k]),
-                                React.createElement("span", { className: "bar-track" },
-                                    React.createElement("span", { className: "bar-fill", style: {
-                                            width: `${(stats.per[k] / CONT_TOTALS[k]) * 100}%`,
-                                        } })),
-                                React.createElement("span", { className: "bar-val" },
-                                    stats.per[k],
-                                    "/",
-                                    CONT_TOTALS[k]))))),
-                            React.createElement("span", { className: "flip-hint" }, "\u041D\u0430\u0436\u043C\u0438\u0442\u0435, \u0447\u0442\u043E\u0431\u044B \u043F\u0435\u0440\u0435\u0432\u0435\u0440\u043D\u0443\u0442\u044C")),
-                        React.createElement("div", { className: "flip-side back" },
-                            React.createElement("div", { className: "flip-top" },
-                                React.createElement("b", null, np(tripCount(visits), "trip")),
-                                React.createElement("span", null, "\u0432\u0441\u0435\u0433\u043E")),
-                            React.createElement("div", { className: "cubes" },
-                                React.createElement("div", null,
-                                    React.createElement("b", null, totals.cities),
-                                    React.createElement("span", null, pw(totals.cities, "city"))),
-                                React.createElement("div", null,
-                                    React.createElement("b", null, totals.years),
-                                    React.createElement("span", null,
-                                        pw(totals.years, "year"),
-                                        " \u0432 \u043F\u0443\u0442\u0438")),
-                                React.createElement("div", null,
-                                    React.createElement("b", null, totals.airs),
-                                    React.createElement("span", null, pw(totals.airs, "airline"))),
-                                React.createElement("div", null,
-                                    React.createElement("b", null,
-                                        Math.round((stats.countries / TOTAL) * 100),
-                                        "%"),
-                                    React.createElement("span", null, "\u043C\u0438\u0440\u0430")),
-                                React.createElement("div", null,
-                                    React.createElement("b", null, totals.hotels),
-                                    React.createElement("span", null, pw(totals.hotels, "hotel"))),
-                                React.createElement("div", null,
-                                    React.createElement("b", null, stats.countries),
-                                    React.createElement("span", null, pw(stats.countries, "country"))),
-                                React.createElement("div", null,
-                                    React.createElement("b", null, totals.plans),
-                                    React.createElement("span", null, "\u0432 \u043F\u043B\u0430\u043D\u0430\u0445")),
-                                React.createElement("div", null,
-                                    React.createElement("b", null, wishCount),
-                                    React.createElement("span", null, "\u0445\u043E\u0447\u0443 \u043F\u043E\u0441\u0435\u0442\u0438\u0442\u044C"))),
-                            React.createElement("div", { className: "flip-foot" },
-                                React.createElement("span", { className: "flip-hint" }, "\u041D\u0430\u0436\u043C\u0438\u0442\u0435, \u0447\u0442\u043E\u0431\u044B \u043F\u0435\u0440\u0435\u0432\u0435\u0440\u043D\u0443\u0442\u044C")))))),
+                    React.createElement("b", null, np(tripCount(visits), "trip")),
+                    React.createElement("span", null),
+                    React.createElement("em", null, "\u25BE"))) : (React.createElement("div", { className: "sum-card" },
+                    React.createElement("div", { className: "sum-top" },
+                        React.createElement("b", null, np(tripCount(visits), "trip")),
+                        React.createElement("span", null, "\u0432\u0441\u0435\u0433\u043E")),
+                    React.createElement("div", { className: "sum-nums" },
+                        React.createElement("div", null,
+                            React.createElement("b", null,
+                                Math.round((stats.countries / TOTAL) * 100),
+                                "%"),
+                            React.createElement("span", null, "\u043C\u0438\u0440\u0430")),
+                        React.createElement("div", null,
+                            React.createElement("b", null, stats.countries),
+                            React.createElement("span", null, pw(stats.countries, "country"))),
+                        React.createElement("div", null,
+                            React.createElement("b", null, totals.cities),
+                            React.createElement("span", null, pw(totals.cities, "city"))),
+                        React.createElement("div", { className: "plan" },
+                            React.createElement("b", null, totals.plans),
+                            React.createElement("span", null, "\u0432 \u043F\u043B\u0430\u043D\u0430\u0445"))),
+                    React.createElement("div", { className: "sum-bar" },
+                        React.createElement("i", { style: { width: `${(stats.countries / TOTAL) * 100}%` } })),
+                    React.createElement("div", { className: "sum-cap" },
+                        React.createElement("span", null,
+                            stats.countries,
+                            " \u0438\u0437 ",
+                            TOTAL,
+                            " ",
+                            pw(TOTAL, "country")),
+                        React.createElement("span", null,
+                            "\u0435\u0449\u0451 ",
+                            Math.max(0, TOTAL - stats.countries))))),
                 selMode && (React.createElement("div", { className: "list-tools sel-bar" },
                     React.createElement("span", { className: "sel-info" }, selList.length < 2
                         ? "Выберите ещё поездку"
@@ -19606,7 +19554,7 @@ function AtlasApp() {
                                 setEditing({ a3, id, back: "list" });
                                 setSheet("edit");
                                 setListPlace(true); // вернёмся в ленту на эту же поездку (42.71)
-                            }, keepPlace: listPlace, onPlaced: () => setListPlace(false), onDone: (a3, id) => editTrip(a3, id, { plan: false }), box: box, mode: listMode, since: profile.since, wishCount: wish.length, onFilters: openFilters, focus: listFocus, onMergeSel: (list) => setMerge({ a3: list[0].a3, list: list.map((x) => x.t) }), onRouteSel: routeOfTrips }),
+                            }, keepPlace: listPlace, onPlaced: () => setListPlace(false), onDone: (a3, id) => editTrip(a3, id, { plan: false }), box: box, mode: listMode, onFilters: openFilters, focus: listFocus, onMergeSel: (list) => setMerge({ a3: list[0].a3, list: list.map((x) => x.t) }), onRouteSel: routeOfTrips }),
                         React.createElement(MergeSheet, { open: !!merge, onClose: () => setMerge(null), box: box, a3: merge === null || merge === void 0 ? void 0 : merge.a3, list: (merge === null || merge === void 0 ? void 0 : merge.list) || [], onMerge: (ids, opt) => doMerge(merge.a3, ids, opt) }),
                         React.createElement(TripPickSheet, { open: !!pickFor, onClose: () => setPickFor(null), box: box, title: "\u041E\u0431\u044A\u0435\u0434\u0438\u043D\u0438\u0442\u044C \u0441\u2026", visits: visits, near: pickFor, exclude: pickFor ? [pickFor.t.id] : [], mark: (x) => (x.a3 === (pickFor === null || pickFor === void 0 ? void 0 : pickFor.a3) ? "объединить" : "в маршрут"), onPick: (x) => {
                                 const near = pickFor;
@@ -19921,12 +19869,6 @@ body > div{max-width:100%;}
 .big{display:flex; align-items:baseline; gap:9px; flex:1 1 100%; min-width:0;}
 .num{font-family:Georgia,serif; font-size:40px; line-height:1; color:var(--gold);}
 .den{font-size:12px; color:var(--dim); line-height:1.4; min-width:0;}
-.bars{flex:1 1 100%; display:flex; flex-direction:column; gap:5px; min-width:0;}
-.bar-row{display:flex; align-items:center; gap:10px; font-size:12px; color:var(--dim); min-width:0;}
-.bar-name{flex:none; width:108px; white-space:nowrap;}
-.bar-track{flex:1 1 0; min-width:0; height:11px; background:var(--track); border-radius:8px; overflow:hidden;}
-.bar-fill{display:block; height:100%; border-radius:8px; background:var(--gold);}
-.bar-val{width:46px; text-align:right; flex:none; font-variant-numeric:tabular-nums;}
 .big-fl{font-size:28px;}
 .sel-name.is-plan{color:var(--blue);}
 .sel-name{font-size:16px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
@@ -19976,8 +19918,6 @@ body > div{max-width:100%;}
 .sheet .search{margin:0; border-top:1px solid var(--line);}
 .sheet-list{flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:0 0 22px;}
 .sheet-body{padding:0 16px 22px; overflow-y:auto;}
-.sheet-list .bars{padding:0;}
-.flip-side .bars{flex:1 1 auto; display:flex; flex-direction:column; justify-content:space-around; padding:2px 0;}
 .sheet-list .group{padding:0 16px;}
 .sheet-list .focus-empty{padding:0 16px;}
 .hotel{margin-top:9px;}
@@ -20001,9 +19941,6 @@ body > div{max-width:100%;}
 .stats-min b{flex:none; font-family:Georgia,serif; font-size:16px; font-weight:400; color:var(--gold);}
 .stats-min span{flex:1 1 auto; min-width:0; font-size:12px; color:var(--dim); text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .stats-min em{flex:none; font-style:normal; font-size:11px; color:var(--gold);}
-.flip-foot{flex:none; display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:10px;}
-.flip-foot .flip-hint{margin:0; padding:0; text-align:left;}
-
 /* панель фильтра и поиска плавает внизу шторки, над меню — под большим пальцем.
    Шторка сдвигается вверх при открытой клавиатуре, панель едет вместе с ней */
 .list-tools{position:fixed; left:12px; right:12px; bottom:10px; z-index:6; display:flex; align-items:center; gap:10px;
@@ -20754,23 +20691,6 @@ body > div{max-width:100%;}
 @media (prefers-reduced-motion: reduce){
   .reveal, .reveal *{transition:none !important;}
 }
-.flip{margin-top:10px; perspective:1200px; cursor:pointer;}
-.flip-in{position:relative; height:266px; transform-style:preserve-3d;
-  transition:transform .55s cubic-bezier(.3,.8,.3,1);}
-.flip.on .flip-in{transform:rotateY(180deg);}
-.flip-side{position:absolute; inset:0; display:flex; flex-direction:column;
-  padding:14px; border-radius:16px; border:1px solid var(--line); background:var(--el);
-  backface-visibility:hidden; -webkit-backface-visibility:hidden;}
-.flip-side.back{transform:rotateY(180deg);}
-.flip-top{flex:none; display:flex; align-items:baseline; gap:8px; margin-bottom:10px; min-width:0;}
-.flip-top b{font-family:Georgia,serif; font-size:17px; font-weight:400; color:var(--gold);}
-.flip-top span{font-size:11px; color:var(--dim);}
-.flip-hint{flex:none; margin-top:8px; padding-top:0; font-size:11px; color:var(--dim); opacity:.7; text-align:center;}
-.cubes{flex:1 1 auto; display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); grid-auto-rows:1fr; gap:8px; padding:2px 0;}
-.cubes > div{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; padding:6px 3px; background:var(--field); border:1px solid var(--line);
-  border-radius:12px; text-align:center; min-width:0;}
-.cubes b{display:block; font-family:Georgia,serif; font-size:17px; font-weight:400; line-height:1; color:var(--gold);}
-.cubes span{display:block; font-size:11px; line-height:1.15; color:var(--dim); text-align:center;}
 .list-head{padding:0 16px 6px; position:sticky; top:0; z-index:2; background:var(--sheet);}
 .sheet{transition:transform .22s cubic-bezier(.22,.7,.3,1), bottom .2s ease, max-height .2s ease;}
 .seg{display:flex; gap:5px; padding:3px; background:var(--field); border:1px solid var(--line); border-radius:12px;}
@@ -21058,8 +20978,6 @@ body > div{max-width:100%;}
 @media (max-width:360px){
   .root{padding:10px;}
   .num{font-size:34px;}
-  .bar-name{width:60px; font-size:11px;}
-  .bar-val{width:38px; font-size:11px;}
   .when{flex-direction:column;}
   .brand{font-size:20px;}
 }
@@ -21125,7 +21043,6 @@ body > div{max-width:100%;}
   .lock{padding:8px 6px; max-width:270px;}
   .pad{max-width:210px; gap:7px;}
   .key{max-height:48px; border-radius:12px; font-size:17px;}
-  .flip-in{height:230px;}
   .globe-controls{padding:2px 10px 10px;}
 
   /* разворот лёжа: не лезем под шапку и ужимаем рисунки по высоте */
@@ -21832,6 +21749,22 @@ button, input, select, textarea{font-family:inherit;}
 /* 42.73: заголовок группы (год, страна, транспорт…) прилипает под шапкой списка, пока листаем его поездки;
    следующая группа выталкивает его вверх (липкость — в пределах своей группы .grp) */
 .grp-head{position:sticky; top:var(--lh, 0px); z-index:1;}
+
+/* 42.74: сводка над лентой — «N поездок всего», ниже % мира · страны · города · планы и полоса мира */
+.sum-card{margin-top:10px; padding:14px 16px 12px; border-radius:16px; border:1px solid var(--line); background:var(--el);}
+.sum-top{display:flex; align-items:baseline; gap:8px; margin-bottom:10px;}
+.sum-top b{font-family:Georgia,serif; font-size:19px; font-weight:400; color:var(--gold);}
+.sum-top span{font-size:12px; color:var(--dim);}
+.sum-nums{display:flex;}
+.sum-nums > div{flex:1 1 0; min-width:0; display:flex; flex-direction:column; align-items:center; gap:3px; border-left:1px solid var(--line);}
+.sum-nums > div:first-child{border-left:0;}
+.sum-nums b{font-family:Georgia,serif; font-size:24px; font-weight:400; line-height:1.05; color:var(--gold);}
+.sum-nums .plan b{color:#8fc0f0;}
+.sum-nums span{font-size:11px; color:var(--dim); white-space:nowrap;}
+.sum-bar{position:relative; height:6px; margin:12px 2px 6px; border-radius:3px; background:var(--track); overflow:hidden;}
+.sum-bar i{position:absolute; left:0; top:0; bottom:0; border-radius:3px; background:linear-gradient(90deg,#d9a53c,#f3d27c);}
+.sum-cap{display:flex; justify-content:space-between; padding:0 2px; font-size:11px; color:var(--dim);}
+.root.light .sum-nums .plan b{color:#3d7fc0;}
 `;
 const __b = document.getElementById('boot');
 if (__b)
