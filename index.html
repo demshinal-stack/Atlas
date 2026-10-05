@@ -2955,7 +2955,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "42.75";
+const APP_VERSION = "42.77";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -6260,7 +6260,7 @@ const NOW = new Date();
 /* годы для выбора: пять лет вперёд для планов и шестьдесят назад */
 const YEARS_AHEAD = 5;
 const YEARS = Array.from({ length: 60 + YEARS_AHEAD }, (_, i) => NOW.getFullYear() + YEARS_AHEAD - i);
-function Sheet({ open, onClose, title, children, box, back = null }) {
+function Sheet({ open, onClose, title, children, box, back = null, tools = null }) {
     const [shown, setShown] = useState(false);
     const [shift, setShift] = useState(0);
     const [kb, setKb] = useState(0);
@@ -6369,6 +6369,7 @@ function Sheet({ open, onClose, title, children, box, back = null }) {
                 React.createElement("span", null)),
             React.createElement("div", { className: "sheet-head", ...pull },
                 React.createElement("h2", null, title),
+                tools,
                 React.createElement("button", { className: "sheet-x", onClick: close, "aria-label": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C" }, "\u2715")),
             children(close))));
 }
@@ -8281,6 +8282,25 @@ const FX_PASTEL = ["#ff9ab4", "#a9d6ff", "#ffe6a3", "#a8ecd0", "#cdb8ff", "#ffc9
 /* эффекты: n — название, c — цвет повода (кромка в ленте), p — частицы:
    t — вид, k — сколько (на карточку 390×420), m — движение, s — размер [от, до] в точках */
 const FX = {
+    hearts: { n: "Сердечки", c: "#ff6f91", p: [
+            { t: "heart", k: 14, col: ["#ff8fab", "#ffb3c7", "#ff6f91", "#ffc2d1"], m: "rise", s: [5, 9], g: 1 },
+            { t: "spark", k: 5, col: ["#ffc2d1"], m: "twinkle", s: [1.8, 3] }
+        ] },
+    rings: { n: "Золотые колечки", c: "#e8b84b", p: [
+            { t: "ring", k: 9, col: FX_GOLD, m: "float", s: [10, 15] },
+            { t: "heart", k: 5, col: ["#ffb3c7", "#ff9ab4"], m: "rise", s: [3.5, 5.5] },
+            { t: "dot", k: 22, col: FX_GOLD, m: "twinkle", s: [0.6, 1.3] }
+        ] },
+    balloons: { n: "Шарики", c: "#ffb3c7", p: [
+            { t: "balloon", k: 9, col: FX_PASTEL, m: "rise", s: [6, 9.5] },
+            { t: "confetti", k: 10, col: FX_PASTEL, m: "fall", s: [1.3, 2.2] }
+        ] },
+    romantic: { n: "Романтический вечер", c: "#ff8fab", p: [
+            { t: "glow", k: 6, col: ["#ffbe6e", "#ffb3c7"], m: "flicker", s: [1.6, 2.4] },
+            { t: "heart", k: 10, col: ["#ff8fab", "#ffc2d1"], m: "float", s: [4.5, 7.5], g: 1 },
+            { t: "petal", k: 6, col: ["#ff9ab4", "#ffc2d1"], m: "fall", s: [2.6, 4] },
+            { t: "spark", k: 4, col: FX_GOLD, m: "twinkle", s: [1.8, 3] }
+        ] },
     waltz: { n: "Лепестковый вальс", c: "#ff8fab", p: [
             { t: "petal", k: 18, col: ["#ffc2d1", "#ff9ab4", "#ffd6e0"], m: "fall", s: [3, 5.5] },
             { t: "spark", k: 6, col: FX_GOLD, m: "twinkle", s: [2, 3.5] }
@@ -8319,14 +8339,16 @@ const FX = {
         ] },
     snowlights: { n: "Снег и огоньки", c: "#a8ecd0", p: [
             { t: "light", k: 12, col: ["#ff8fab", "#f2c96b", "#78c8ff", "#78dcaa"], m: "blink", s: [1.6, 2] },
-            { t: "flake", k: 40, col: ["#ffffff"], m: "fall", s: [0.8, 1.8] }
+            { t: "crystal", k: 16, col: ["#ffffff", "#dcecff"], m: "fall", s: [3, 5] },
+            { t: "flake", k: 18, col: ["#ffffff"], m: "fall", s: [0.7, 1.4] }
         ] },
     silent: { n: "Звезда в снегу", c: "#ffe6a3", p: [
             { t: "star", k: 1, col: FX_GOLD, m: "pulse", s: [9, 9] },
             { t: "flake", k: 34, col: ["#ffffff"], m: "fall", s: [0.8, 1.8] }
         ] },
     salute: { n: "Праздничный салют", c: "#ff8fab", p: [
-            { t: "burst", k: 3, col: ["#ff8fab", "#78c8ff", "#f2c96b", "#cdb8ff"], m: "burst", s: [16, 28] }
+            { t: "burst", k: 5, col: ["#ff8fab", "#78c8ff", "#f2c96b", "#cdb8ff"], m: "burst", s: [16, 28] },
+            { t: "spark", k: 8, col: ["#fff1c4", "#ffd6e0", "#cfe6ff"], m: "twinkle", s: [1.6, 2.8] }
         ] },
     starfall: { n: "Звездопад", c: "#cdb8ff", p: [
             { t: "dot", k: 45, col: ["#c8d4ff", "#ffffff"], m: "twinkle", s: [0.5, 1.2] },
@@ -8366,22 +8388,38 @@ const FX = {
             { t: "spark", k: 10, col: FX_GOLD, m: "twinkle", s: [2, 4] }
         ] },
 };
-const FX_OCC_IDS = ["waltz", "glow", "orbs", "cburst", "dawn", "rise", "breeze", "candle", "goldburst", "snowlights", "silent"];
-const FX_UNI_IDS = ["salute", "starfall", "sakura", "spores", "aurora", "embers", "bubbles", "confetti", "rainbow", "leaves", "snow", "gold"];
+const FX_OCC_IDS = ["hearts", "rings", "glow", "balloons", "cburst", "salute", "rise", "breeze", "romantic", "goldburst", "snowlights", "silent"];
+const FX_UNI_IDS = ["waltz", "orbs", "dawn", "candle", "starfall", "sakura", "spores", "aurora", "embers", "bubbles", "confetti", "rainbow", "leaves", "snow", "gold"];
 /* поводы по умолчанию — список можно менять в настройках */
 const OCC_DEFAULT = [
-    { e: "💍", n: "Свадебное путешествие", fx: "waltz" },
+    { e: "💍", n: "Свадебное путешествие", fx: "hearts" },
+    { e: "💒", n: "Свадьба", fx: "rings" },
     { e: "❤️", n: "Годовщина свадьбы", fx: "glow" },
-    { e: "🎂", n: "День рождения", fx: "orbs" },
+    { e: "🎂", n: "День рождения", fx: "balloons" },
     { e: "🎓", n: "Выпускной", fx: "cburst" },
-    { e: "📜", n: "Защита диплома", fx: "dawn" },
+    { e: "📜", n: "Защита диплома", fx: "salute" },
     { e: "🚀", n: "Повышение на работе", fx: "rise" },
     { e: "🌅", n: "Романтическое путешествие", fx: "breeze" },
-    { e: "🥂", n: "Выходные вдвоём", fx: "candle" },
+    { e: "🥂", n: "Выходные вдвоём", fx: "romantic" },
     { e: "🎆", n: "Юбилей", fx: "goldburst" },
     { e: "🎄", n: "Новый год", fx: "snowlights" },
     { e: "⭐", n: "Рождество", fx: "silent" },
 ];
+/* 42.76: поменялись эффекты стандартных поводов и добавилась «Свадьба» — сохранённый список подтягиваем один раз:
+   повод со старым стандартным эффектом получает новый, «Свадьба» встаёт после свадебного путешествия */
+const OCC_V = 2;
+const OCC_OLD_FX = { "Свадебное путешествие": "waltz", "День рождения": "orbs", "Защита диплома": "dawn", "Выходные вдвоём": "candle" };
+function occUpgrade(list) {
+    if (!Array.isArray(list))
+        return list;
+    const def = Object.fromEntries(OCC_DEFAULT.map((o) => [o.n, o]));
+    const next = list.map((o) => (o && OCC_OLD_FX[o.n] && o.fx === OCC_OLD_FX[o.n] ? { ...o, fx: def[o.n].fx } : o));
+    if (!next.some((o) => o && o.n === "Свадьба")) {
+        const at = next.findIndex((o) => o && o.n === "Свадебное путешествие");
+        next.splice(at < 0 ? 0 : at + 1, 0, def["Свадьба"]);
+    }
+    return next;
+}
 const occList = (list) => (Array.isArray(list) ? list : OCC_DEFAULT).filter((o) => o && o.n);
 const fxColor = (sp) => { var _d; return ((_d = FX[sp === null || sp === void 0 ? void 0 : sp.fx]) === null || _d === void 0 ? void 0 : _d.c) || "#e8b84b"; };
 /* ---------- частицы ---------- */
@@ -8409,7 +8447,7 @@ function fxMake(id, w, h, { seed = 1, zone = null, scale = 1 } = {}) {
         for (let i = 0; i < n; i++) {
             const s = (sp.s[0] + R() * (sp.s[1] - sp.s[0])) * scale;
             out.push({
-                t: sp.t, m: sp.m, s, i, n,
+                t: sp.t, m: sp.m, s, i, n, g: sp.g,
                 col: sp.col[Math.floor(R() * sp.col.length)],
                 x: x0 + R() * zw, y: R() * h, x0, zw,
                 ph: R() * Math.PI * 2,
@@ -8468,6 +8506,10 @@ function fxDraw(c, parts, w, h, t) {
                 y = wrap(p.y - t * 16 * p.sp, -15, H);
                 x = p.x + sw * 8;
                 break;
+            case "float":
+                y = wrap(p.y - t * 7 * p.sp, -15, H);
+                x = p.x + sw * 12;
+                break;
             case "twinkle":
                 a = 0.25 + 0.75 * Math.abs(Math.sin(t * 1.4 * p.sp + p.ph));
                 break;
@@ -8521,6 +8563,8 @@ function fxDraw(c, parts, w, h, t) {
             }
             case "heart": {
                 const s = p.s;
+                if (p.g)
+                    fxBlob(c, x, y + s * 0.5, s * 1.8, p.col, 0.35 * a);
                 c.globalAlpha = 0.8 * a;
                 c.fillStyle = p.col;
                 c.beginPath();
@@ -8530,6 +8574,78 @@ function fxDraw(c, parts, w, h, t) {
                 c.bezierCurveTo(x, y + s * 0.8, x + s * 0.5, y + s * 0.6, x + s * 0.5, y + s * 0.3);
                 c.bezierCurveTo(x + s * 0.5, y, x, y, x, y + s * 0.3);
                 c.fill();
+                break;
+            }
+            case "balloon": {
+                // шарик на ниточке: нитка качается чуть позже шарика
+                const s = p.s;
+                const sw2 = Math.sin(t * p.sp - 0.6 + p.ph);
+                c.globalAlpha = 0.5;
+                c.strokeStyle = "#e8eef5";
+                c.lineWidth = 0.8;
+                c.beginPath();
+                c.moveTo(x, y + s * 1.18);
+                c.quadraticCurveTo(x + sw2 * s * 0.6, y + s * 2, x - sw2 * s * 0.3, y + s * 3.1);
+                c.stroke();
+                c.globalAlpha = 0.9;
+                c.fillStyle = p.col;
+                c.beginPath();
+                c.moveTo(x - s * 0.16, y + s * 1.24);
+                c.lineTo(x + s * 0.16, y + s * 1.24);
+                c.lineTo(x, y + s * 1.08);
+                c.fill();
+                const g = c.createRadialGradient(x - s * 0.35, y - s * 0.45, s * 0.08, x, y, s * 1.15);
+                g.addColorStop(0, "#ffffff");
+                g.addColorStop(0.3, p.col);
+                g.addColorStop(1, p.col);
+                c.fillStyle = g;
+                c.beginPath();
+                c.ellipse(x, y, s, s * 1.15, 0, 0, 7);
+                c.fill();
+                break;
+            }
+            case "ring": {
+                // два сцепленных золотых колечка, медленно поворачиваются
+                const s = p.s;
+                c.translate(x, y);
+                c.rotate(Math.sin(t * 0.5 * p.sp + p.ph) * 0.4);
+                c.scale(0.55 + 0.45 * Math.abs(Math.cos(t * 0.7 * p.sp + p.ph)), 1);
+                const g = c.createLinearGradient(-s, -s, s, s);
+                g.addColorStop(0, "#fff1c0");
+                g.addColorStop(0.5, "#e8b84b");
+                g.addColorStop(1, "#b9862a");
+                c.globalAlpha = 0.95;
+                c.strokeStyle = g;
+                c.lineWidth = Math.max(1.2, s * 0.22);
+                c.beginPath();
+                c.arc(-s * 0.38, 0, s * 0.62, 0, 7);
+                c.stroke();
+                c.beginPath();
+                c.arc(s * 0.38, 0, s * 0.62, 0, 7);
+                c.stroke();
+                break;
+            }
+            case "crystal": {
+                // снежинка: шесть лучей с веточками, медленно вращается
+                const s = p.s;
+                c.translate(x, y);
+                c.rotate(rot * 0.4);
+                fxBlob(c, 0, 0, s * 1.6, "rgba(150,190,240,.5)", 0.5);
+                c.globalAlpha = 0.9;
+                c.strokeStyle = p.col;
+                c.lineWidth = Math.max(0.7, s * 0.12);
+                c.lineCap = "round";
+                for (let k = 0; k < 6; k++) {
+                    c.rotate(Math.PI / 3);
+                    c.beginPath();
+                    c.moveTo(0, 0);
+                    c.lineTo(0, -s);
+                    c.moveTo(0, -s * 0.55);
+                    c.lineTo(-s * 0.25, -s * 0.78);
+                    c.moveTo(0, -s * 0.55);
+                    c.lineTo(s * 0.25, -s * 0.78);
+                    c.stroke();
+                }
                 break;
             }
             case "orb": {
@@ -8722,7 +8838,11 @@ function FxCanvas({ fx, anim = false, zone = null, scale = 1, seed = 1, classNam
             cv.getContext("2d").setTransform(dpr, 0, 0, dpr, 0, 0);
             parts = fxMake(fx, w, h, { seed, zone, scale });
         };
+        let vis = true;
         const frame = (now) => {
+            raf = 0;
+            if (!vis)
+                return;
             if (!document.hidden)
                 fxDraw(cv.getContext("2d"), parts, w, h, (now - t0) / 1000);
             raf = requestAnimationFrame(frame);
@@ -8732,6 +8852,15 @@ function FxCanvas({ fx, anim = false, zone = null, scale = 1, seed = 1, classNam
             fxDraw(cv.getContext("2d"), parts, w, h, 0.6);
         else
             raf = requestAnimationFrame(frame);
+        /* вне экрана цикл стоит — в длинной ленте анимируются только видимые строки */
+        const io = !still && typeof IntersectionObserver !== "undefined"
+            ? new IntersectionObserver((es) => {
+                vis = es[es.length - 1].isIntersecting;
+                if (vis && !raf)
+                    raf = requestAnimationFrame(frame);
+            })
+            : null;
+        io === null || io === void 0 ? void 0 : io.observe(cv);
         const ro = typeof ResizeObserver !== "undefined"
             ? new ResizeObserver(() => {
                 setup();
@@ -8743,6 +8872,7 @@ function FxCanvas({ fx, anim = false, zone = null, scale = 1, seed = 1, classNam
         return () => {
             cancelAnimationFrame(raf);
             ro === null || ro === void 0 ? void 0 : ro.disconnect();
+            io === null || io === void 0 ? void 0 : io.disconnect();
         };
     }, [fx, anim, zone && zone.join(), scale, seed]);
     return React.createElement("canvas", { ref: ref, className: "fx-cv " + className, "aria-hidden": "true" });
@@ -8768,6 +8898,14 @@ function SpecialBlock({ sp, onChange, occasions }) {
     const on = !!sp;
     // уже особенная поездка открывается свёрнутой: строка-сводка, касание — раскрыть; переключатель — снять
     const [open, setOpen] = useState(false);
+    const chipsRef = useRef(null);
+    // выбранный повод в ленте чипов виден сразу, без ручной прокрутки
+    useEffect(() => {
+        const box = chipsRef.current;
+        const el = box === null || box === void 0 ? void 0 : box.querySelector("[data-on]");
+        if (box && el)
+            box.scrollLeft = Math.max(0, el.offsetLeft - box.clientWidth / 2 + el.offsetWidth / 2);
+    }, [open, sp === null || sp === void 0 ? void 0 : sp.o]);
     const turnOn = () => {
         var _d, _e, _f;
         onChange({ o: ((_d = list[0]) === null || _d === void 0 ? void 0 : _d.n) || "Особенная поездка", e: ((_e = list[0]) === null || _e === void 0 ? void 0 : _e.e) || "✨", fx: ((_f = list[0]) === null || _f === void 0 ? void 0 : _f.fx) || "gold" });
@@ -8797,7 +8935,7 @@ function SpecialBlock({ sp, onChange, occasions }) {
                     const hit = list.find((o) => o.n.toLowerCase() === v.trim().toLowerCase());
                     onChange({ ...sp, o: v, e: hit ? hit.e : sp.e && list.some((o) => o.e === sp.e) ? "✨" : sp.e || "✨", fx: hit ? hit.fx : sp.fx });
                 }, autoComplete: "off", autoCorrect: "off", "data-lpignore": "true" }),
-            React.createElement("div", { className: "sp-chips" }, list.map((o) => (React.createElement("button", { key: o.n, className: "sp-chip" + (sp.o === o.n ? " on" : ""), onClick: () => onChange({ o: o.n, e: o.e, fx: o.fx }) },
+            React.createElement("div", { className: "sp-chips", ref: chipsRef }, list.map((o) => (React.createElement("button", { key: o.n, "data-on": sp.o === o.n ? 1 : undefined, className: "sp-chip" + (sp.o === o.n ? " on" : ""), onClick: () => onChange({ o: o.n, e: o.e, fx: o.fx }) },
                 o.e,
                 " ",
                 o.n)))),
@@ -17409,7 +17547,31 @@ function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, fx
             parts.push(place[0]);
         return parts.join(" · ");
     };
-    return (React.createElement(Sheet, { open: open, onClose: onClose, title: "\u041C\u043E\u0438 \u043F\u043E\u0435\u0437\u0434\u043A\u0438", box: box }, () => {
+    /* 42.77: фильтр и поиск — в шапке шторки; при поиске заголовок уступает место полю */
+    const modeName = (mode === "year"
+        ? "по годам"
+        : mode === "country"
+            ? "по странам"
+            : mode === "region"
+                ? "по регионам"
+                : mode === "move"
+                    ? "по транспорту"
+                    : "по частям света");
+    const headTitle = searchOn ? (React.createElement("input", { className: "list-find", value: q, placeholder: "\u041F\u043E\u0438\u0441\u043A \u043F\u043E \u0437\u0430\u043F\u0438\u0441\u044F\u043C", autoFocus: true, onChange: (e) => setQ(e.target.value), autoComplete: "off", autoCorrect: "off", spellCheck: "false" })) : (React.createElement(React.Fragment, null,
+        "\u041C\u043E\u0438 \u043F\u043E\u0435\u0437\u0434\u043A\u0438",
+        React.createElement("small", { className: "mode-hint" }, modeName)));
+    const headTools = selMode ? null : (React.createElement(React.Fragment, null,
+        React.createElement("button", { className: "filter-icon head-tool", onClick: onFilters, "aria-label": "\u0424\u0438\u043B\u044C\u0442\u0440\u044B" },
+            React.createElement("svg", { viewBox: "0 0 24 24", width: "17", height: "17" },
+                React.createElement("path", { d: "M4 7h16M7 12h10M10 17h4", fill: "none", stroke: "currentColor", strokeWidth: "1.9", strokeLinecap: "round" }))),
+        React.createElement("button", { className: "filter-icon head-tool" + (searchOn ? " on" : ""), "aria-label": searchOn ? "Закрыть поиск" : "Поиск", onClick: () => {
+                if (searchOn)
+                    setQ("");
+                setSearchOn((v) => !v);
+            } }, searchOn ? (React.createElement("span", { className: "find-x" }, "\u2715")) : (React.createElement("svg", { viewBox: "0 0 24 24", width: "17", height: "17" },
+            React.createElement("circle", { cx: "11", cy: "11", r: "6.4", fill: "none", stroke: "currentColor", strokeWidth: "1.9" }),
+            React.createElement("path", { d: "M16 16l4.5 4.5", stroke: "currentColor", strokeWidth: "1.9", strokeLinecap: "round" }))))));
+    return (React.createElement(Sheet, { open: open, onClose: onClose, title: headTitle, tools: headTools, box: box }, () => {
         var _d;
         return (React.createElement("div", { className: "sheet-list", ref: listRef, onScroll: onListScroll },
             React.createElement("div", { className: "list-head" },
@@ -17471,27 +17633,7 @@ function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, fx
                                 onMergeSel === null || onMergeSel === void 0 ? void 0 : onMergeSel(list);
                             else
                                 onRouteSel === null || onRouteSel === void 0 ? void 0 : onRouteSel(list);
-                        } }, selCountries.length > 1 ? "🧭 Собрать в маршрут" : "Объединить"))),
-                React.createElement("div", { className: "list-tools", style: selMode ? { display: "none" } : undefined },
-                    React.createElement("button", { className: "filter-icon", onClick: onFilters, "aria-label": "\u0424\u0438\u043B\u044C\u0442\u0440\u044B" },
-                        React.createElement("svg", { viewBox: "0 0 24 24", width: "17", height: "17" },
-                            React.createElement("path", { d: "M4 7h16M7 12h10M10 17h4", fill: "none", stroke: "currentColor", strokeWidth: "1.9", strokeLinecap: "round" }))),
-                    searchOn ? (React.createElement("input", { className: "list-find", value: q, placeholder: "\u041F\u043E\u0438\u0441\u043A \u043F\u043E \u0437\u0430\u043F\u0438\u0441\u044F\u043C", autoFocus: true, onChange: (e) => setQ(e.target.value), autoComplete: "off", autoCorrect: "off", spellCheck: "false" })) : (React.createElement("span", { className: "mode-hint" }, mode === "year"
-                        ? "По годам"
-                        : mode === "country"
-                            ? "По странам"
-                            : mode === "region"
-                                ? "По регионам"
-                                : mode === "move"
-                                    ? "По транспорту"
-                                    : "По частям света")),
-                    React.createElement("button", { className: "filter-icon" + (searchOn ? " on" : ""), "aria-label": searchOn ? "Закрыть поиск" : "Поиск", onClick: () => {
-                            if (searchOn)
-                                setQ("");
-                            setSearchOn((v) => !v);
-                        } }, searchOn ? (React.createElement("span", { className: "find-x" }, "\u2715")) : (React.createElement("svg", { viewBox: "0 0 24 24", width: "17", height: "17" },
-                        React.createElement("circle", { cx: "11", cy: "11", r: "6.4", fill: "none", stroke: "currentColor", strokeWidth: "1.9" }),
-                        React.createElement("path", { d: "M16 16l4.5 4.5", stroke: "currentColor", strokeWidth: "1.9", strokeLinecap: "round" })))))),
+                        } }, selCountries.length > 1 ? "🧭 Собрать в маршрут" : "Объединить")))),
             found.length === 0 && (React.createElement("p", { className: "focus-empty pad16" }, all.length
                 ? "Ничего не нашлось."
                 : "Пока пусто. Нажмите «Добавить поездку».")),
@@ -17543,7 +17685,7 @@ function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, fx
                                         else
                                             onPick(row.a3, row.t.id);
                                     }, "aria-label": selMode ? "Выбрать поездку" : "Открыть поездку" },
-                                    row.t.sp && fxShow && FX[row.t.sp.fx] && (React.createElement(FxCanvas, { fx: row.t.sp.fx, zone: [0.63, 0.85], scale: 1.15, seed: row.idx + 3, className: "fx-strip" })),
+                                    row.t.sp && fxShow && FX[row.t.sp.fx] && (React.createElement(FxCanvas, { fx: row.t.sp.fx, anim: true, zone: [0.63, 0.85], scale: 1.15, seed: row.idx + 3, className: "fx-strip" })),
                                     selMode && (React.createElement("span", { className: "sel-ck" + (sel.has(row.a3 + "|" + row.t.id) ? " on" : "") }, sel.has(row.a3 + "|" + row.t.id) ? "✓" : "")),
                                     React.createElement("span", { className: "fl" + (asRoute(row) ? " fl-route" : "") }, asRoute(row) && routeFacts(row.t.route).countries.length > 3 ? (React.createElement("span", { className: "rt-ic" }, "\uD83E\uDDED") // флаги уже в заголовке цепочкой (42.68)
                                     ) : asRoute(row) ? ([...new Set(row.t.route.stops.filter((x) => x.tr !== 2 && x.a3).map((x) => x.a3))]
@@ -17621,6 +17763,7 @@ const SETTINGS_DEFAULT = {
     notify: false, // уведомления о предстоящих поездках при открытии (42.50)
     notifyLog: {}, // какой поездке когда уже напомнили: { ключ: "гггг-м-д" }
     fxShow: true, // эффекты особенных поездок на карточках и в ленте (42.75)
+    occV: 0, // версия стандартных поводов, под которую мигрирован свой список
     occasions: null, // поводы особенных поездок; null — стандартный список
 };
 /* настройки: читаем при запуске, меняем по одному полю, сохраняем целиком.
@@ -17659,6 +17802,8 @@ function useSettings() {
             patch.fxShow = st.fxShow;
         if (Array.isArray(st.occasions) || st.occasions === null)
             patch.occasions = st.occasions;
+        if (typeof st.occV === "number")
+            patch.occV = st.occV;
         /* до 40.5 ночь была включена по умолчанию и сохранялась у всех;
            теперь по умолчанию выключена — берём сохранённое, только если его меняли руками */
         if (st.nightSet === true && typeof st.night === "boolean") {
@@ -18505,6 +18650,11 @@ function AtlasApp() {
     const { settings, putSettings, adoptSettings } = useSettings();
     const { cityPins, theme, photoQuality, spinStart, mapView, night } = settings;
     const setMapView = useCallback((v) => putSettings({ mapView: v }), [putSettings]);
+    /* 42.76: свой список поводов подтягивает новые стандартные эффекты и «Свадьбу» — один раз */
+    useEffect(() => {
+        if (Array.isArray(settings.occasions) && settings.occV !== OCC_V)
+            putSettings({ occasions: occUpgrade(settings.occasions), occV: OCC_V });
+    }, [settings.occasions, settings.occV]);
     const [spinning, setSpinning] = useState(false);
     const [mapPage, setMapPage] = useState(0);
     const [booksFrom, setBooksFrom] = useState("");
@@ -19371,7 +19521,7 @@ function AtlasApp() {
         // особенная поездка (42.75): повод и эффект; новый повод — в список поводов настроек
         const sp = res.sp || undefined;
         if (sp && sp.o && !occList(settings.occasions).some((o) => o.n.toLowerCase() === sp.o.toLowerCase()))
-            putSettings({ occasions: [...occList(settings.occasions), { e: sp.e || "✨", n: sp.o, fx: sp.fx }] });
+            putSettings({ occasions: [...occList(settings.occasions), { e: sp.e || "✨", n: sp.o, fx: sp.fx }], occV: OCC_V });
         const meId = ((_d = profileRef.current) === null || _d === void 0 ? void 0 : _d.deviceId) || ME;
         const now = Date.now();
         const uniq = (a) => [...new Set(a.filter(Boolean))];
@@ -20115,7 +20265,7 @@ function AtlasApp() {
                             }, open: sheet === "settings", onClose: () => setSheet("profile"), box: box, theme: theme, onTheme: setTheme, quality: photoQuality, onQuality: (v) => {
                                 setPhotoQuality(v);
                                 setSheet("photomode");
-                            }, cityPins: cityPins, onToggleCityPins: setCityPins, spinStart: spinStart, onToggleSpin: setSpinStart, mapView: mapView, onMapView: setMapView, night: night, onToggleNight: setNight, notify: !!settings.notify, notifyState: notifyState, fxShow: settings.fxShow !== false, onFxShow: (v) => putSettings({ fxShow: v }), occasions: settings.occasions, onOccasions: (list) => putSettings({ occasions: list }), onToggleNotify: toggleNotify, geoCount: ((_e = geo === null || geo === void 0 ? void 0 : geo.features) === null || _e === void 0 ? void 0 : _e.length) || 0, onReloadGeo: reloadGeo, offline: booksSaved, busy: booksBusy, progress: booksProgress, offlineAt: booksAt, onToggleOffline: () => (booksSaved ? dropBooks() : keepBooks()), booksSize: booksSize, booksCounts: {
+                            }, cityPins: cityPins, onToggleCityPins: setCityPins, spinStart: spinStart, onToggleSpin: setSpinStart, mapView: mapView, onMapView: setMapView, night: night, onToggleNight: setNight, notify: !!settings.notify, notifyState: notifyState, fxShow: settings.fxShow !== false, onFxShow: (v) => putSettings({ fxShow: v }), occasions: settings.occasions, onOccasions: (list) => putSettings({ occasions: list, occV: OCC_V }), onToggleNotify: toggleNotify, geoCount: ((_e = geo === null || geo === void 0 ? void 0 : geo.features) === null || _e === void 0 ? void 0 : _e.length) || 0, onReloadGeo: reloadGeo, offline: booksSaved, busy: booksBusy, progress: booksProgress, offlineAt: booksAt, onToggleOffline: () => (booksSaved ? dropBooks() : keepBooks()), booksSize: booksSize, booksCounts: {
                                 cities: CITIES.length,
                                 hotels: Object.values(HOTELS_BY_CITY).reduce((n, v) => n + v.length, 0),
                                 sights: SIGHTS.length,
@@ -20581,7 +20731,9 @@ body > div{max-width:100%;}
 .list-find{flex:1 1 auto; min-width:0; height:44px; padding:0 12px; border-radius:12px; border:1px solid var(--gold); background:var(--field); color:var(--ink); font-size:13px; font-family:inherit; outline:none; appearance:none; -webkit-appearance:none;}
 .filter-icon.on{border-color:var(--gold); color:var(--gold);}
 .find-x{font-size:14px;}
-.list-tools .mode-hint{flex:1 1 auto; min-width:0; padding:0; font-size:13px; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.sheet-head .mode-hint{display:block; padding:0; margin-top:1px; font-size:12px; font-weight:400; color:var(--dim);}
+.sheet-head .head-tool{border-radius:50%; color:var(--gold);}
+.sheet-head .list-find{display:block; width:100%; box-sizing:border-box; border-radius:22px; font-size:16px; padding:0 16px;}
 
 .rep{margin-bottom:16px; padding:14px; border-radius:16px; border:1px solid var(--line); background:var(--el);}
 .rep > b{display:block; font-size:14px; font-weight:600;}
@@ -22398,13 +22550,14 @@ button, input, select, textarea{font-family:inherit;}
 
 /* 42.75: особенные поездки — частицы без фона */
 .fx-cv{display:block; width:100%; height:100%; pointer-events:none;}
-.sheet-back{position:absolute; left:0; right:0; top:0; height:min(440px,62%); z-index:0; pointer-events:none; opacity:.6; border-radius:inherit; overflow:hidden;
-  -webkit-mask-image:linear-gradient(180deg,#000 55%,transparent 100%); mask-image:linear-gradient(180deg,#000 55%,transparent 100%);}
+.sheet-back{position:absolute; left:0; right:0; top:0; bottom:4%; z-index:0; pointer-events:none; opacity:.6; border-radius:inherit; overflow:hidden;
+  -webkit-mask-image:linear-gradient(180deg,#000 0%,#000 58%,rgba(0,0,0,.45) 78%,transparent 100%); mask-image:linear-gradient(180deg,#000 0%,#000 58%,rgba(0,0,0,.45) 78%,transparent 100%);}
 .sheet-back + .sheet-grab, .sheet-back ~ .sheet-head, .sheet-back ~ .sheet-body{position:relative; z-index:1;}
 .sp-badge{display:inline-flex; align-items:center; gap:5px; margin-left:8px; padding:2px 10px; border-radius:99px; font-size:12px; font-weight:400;
   border:1px solid var(--fxc); color:var(--ink); background:rgba(15,31,47,.45); vertical-align:2px; white-space:nowrap;}
 .trip-main{position:relative; overflow:hidden; isolation:isolate;}
-.trip-item.sp{box-shadow:inset 3px 0 0 var(--fxc);}
+.trip-item.sp{position:relative;}
+.trip-item.sp::before{content:""; position:absolute; left:0; top:25%; height:50%; width:3px; border-radius:0 3px 3px 0; background:var(--fxc); z-index:2; pointer-events:none;}
 .trip-main .fx-strip{position:absolute; inset:0; z-index:0; opacity:.75;
   -webkit-mask-image:linear-gradient(90deg,transparent 61%,#000 68%,#000 79%,transparent 87%); mask-image:linear-gradient(90deg,transparent 61%,#000 68%,#000 79%,transparent 87%);}
 .trip-main > :not(.fx-strip){position:relative; z-index:1;}
@@ -22418,8 +22571,10 @@ button, input, select, textarea{font-family:inherit;}
 .fx-sub{margin:10px 0 6px; font-size:12px; color:var(--dim);}
 .fx-sub:first-child{margin-top:0;}
 .sp-input{width:100%; box-sizing:border-box; padding:10px 12px; border-radius:12px; border:1px solid var(--line); background:var(--el); color:var(--ink); font-size:15px;}
-.sp-chips{display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;}
-.sp-chip{padding:5px 10px; border-radius:99px; border:1px solid var(--line); background:none; color:var(--ink); font-size:12.5px; cursor:pointer;}
+.sp-chips{display:flex; flex-wrap:nowrap; gap:6px; margin:8px -12px 0; padding:0 12px; overflow-x:auto; scrollbar-width:none; overscroll-behavior-x:contain;
+  -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 12px,#000 calc(100% - 28px),transparent); mask-image:linear-gradient(90deg,transparent 0,#000 12px,#000 calc(100% - 28px),transparent);}
+.sp-chips::-webkit-scrollbar{display:none;}
+.sp-chip{flex:none; white-space:nowrap; padding:4px 10px; border-radius:99px; border:1px solid var(--line); background:none; color:var(--ink); font-size:12.5px; cursor:pointer;}
 .sp-chip.on{border-color:var(--gold); color:var(--gold); background:rgba(232,184,75,.1);}
 .sp-fx{display:flex; align-items:center; gap:10px; width:100%; margin-top:12px; padding:8px; border-radius:12px; border:1px solid var(--line); background:var(--el); color:var(--ink); cursor:pointer; text-align:left;}
 .sp-fx-prev, .occ-prev{flex:none; border-radius:9px; overflow:hidden; background:#132436; box-shadow:inset 0 0 0 1px var(--fxc, var(--line));}
