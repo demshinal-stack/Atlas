@@ -2959,7 +2959,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "42.71";
+const APP_VERSION = "42.73";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -7447,9 +7447,9 @@ const routeCountries = (r) => [...new Set(((r === null || r === void 0 ? void 0 
     .join(" · ");
 const routeText = (r) => { var _d, _e; return [(_d = r === null || r === void 0 ? void 0 : r.start) === null || _d === void 0 ? void 0 : _d.name, ...((r === null || r === void 0 ? void 0 : r.stops) || []).map((s) => s.name), (_e = r === null || r === void 0 ? void 0 : r.start) === null || _e === void 0 ? void 0 : _e.name].filter(Boolean).join(" → "); };
 /* строка маршрута в ленте (42.68): длинный путь не перечисляем, а обобщаем —
-   «✈️🚗 · 4 страны · 11 городов · 18 дней» (город старта не пишем — 42.69); в группе страны — что было здесь:
+   «✈️🚗 · 4 страны · 11 городов» (город старта не пишем — 42.69, дней не пишем — 42.72); в группе страны — что было здесь:
    «здесь 2 города из 11: Дубай, Абу-Даби». Городов всего до трёх — просто перечисляем */
-function routeFacts(route, t) {
+function routeFacts(route) {
     const stops = ((route === null || route === void 0 ? void 0 : route.stops) || []).filter((s) => s.tr !== 2 && s.a3);
     const cities = [];
     stops.forEach((s) => !s.country && s.name && !cities.some((c) => c.name === s.name) && cities.push({ name: s.name, a3: s.a3 }));
@@ -7458,15 +7458,12 @@ function routeFacts(route, t) {
     const countries = [...new Set(chain)];
     const moves = [];
     ((route === null || route === void 0 ? void 0 : route.legs) || []).forEach((l) => (l === null || l === void 0 ? void 0 : l.k) && MOVE_ICON[l.k] && !moves.includes(MOVE_ICON[l.k]) && moves.push(MOVE_ICON[l.k]));
-    const a = dParts(t === null || t === void 0 ? void 0 : t.from);
-    const b = dParts(t === null || t === void 0 ? void 0 : t.to);
-    const days = a && b ? Math.round((Date.UTC(b.y, b.m - 1, b.d) - Date.UTC(a.y, a.m - 1, a.d)) / 864e5) + 1 : 0;
     const head = moves.join("");
-    return { cities, chain, countries, days, head };
+    return { cities, chain, countries, head };
 }
 const cutList = (names, n = 3) => (names.length > n ? names.slice(0, n).join(", ") + "…" : names.join(", "));
 /* весь маршрут — лента «по годам» */
-function routeSumAll(route, t, withDays = true) {
+function routeSumAll(route, t) {
     const f = routeFacts(route, t);
     const parts = [f.head];
     if (f.cities.length <= 3)
@@ -7476,8 +7473,6 @@ function routeSumAll(route, t, withDays = true) {
             parts.push(np(f.countries.length, "country"));
         parts.push(np(f.cities.length, "city"));
     }
-    if (withDays && f.days > 1)
-        parts.push(np(f.days, "day"));
     return parts.filter(Boolean).join(" · ");
 }
 /* часть маршрута в группе страны */
@@ -16613,6 +16608,31 @@ function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, si
         return () => cancelAnimationFrame(raf);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open]);
+    /* заголовки групп прилипают под шапкой списка (42.73): высоту шапки (она сворачивается при прокрутке)
+       отдаём в CSS как --lh — с неё начинается место прилипания */
+    useEffect(() => {
+        if (!open)
+            return;
+        let ro = null;
+        let raf = 0;
+        const hook = () => {
+            const box = listRef.current;
+            const head = box === null || box === void 0 ? void 0 : box.querySelector(".list-head");
+            if (!box || !head)
+                return (raf = requestAnimationFrame(hook));
+            const set = () => box.style.setProperty("--lh", head.offsetHeight + "px");
+            set();
+            if (typeof ResizeObserver !== "undefined") {
+                ro = new ResizeObserver(set);
+                ro.observe(head);
+            }
+        };
+        hook();
+        return () => {
+            cancelAnimationFrame(raf);
+            ro === null || ro === void 0 ? void 0 : ro.disconnect();
+        };
+    }, [open]);
     /* пришли с главного экрана: плавно доезжаем до группы выбранного региона */
     useEffect(() => {
         if (!open || !(focus === null || focus === void 0 ? void 0 : focus.k))
@@ -16964,14 +16984,14 @@ function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, si
                                             onPick(row.a3, row.t.id);
                                     }, "aria-label": selMode ? "Выбрать поездку" : "Открыть поездку" },
                                     selMode && (React.createElement("span", { className: "sel-ck" + (sel.has(row.a3 + "|" + row.t.id) ? " on" : "") }, sel.has(row.a3 + "|" + row.t.id) ? "✓" : "")),
-                                    React.createElement("span", { className: "fl" + (asRoute(row) ? " fl-route" : "") }, asRoute(row) && routeFacts(row.t.route, row.t).countries.length > 3 ? (React.createElement("span", { className: "rt-ic" }, "\uD83E\uDDED") // флаги уже в заголовке цепочкой (42.68)
+                                    React.createElement("span", { className: "fl" + (asRoute(row) ? " fl-route" : "") }, asRoute(row) && routeFacts(row.t.route).countries.length > 3 ? (React.createElement("span", { className: "rt-ic" }, "\uD83E\uDDED") // флаги уже в заголовке цепочкой (42.68)
                                     ) : asRoute(row) ? ([...new Set(row.t.route.stops.filter((x) => x.tr !== 2 && x.a3).map((x) => x.a3))]
                                         .slice(0, 3)
                                         .map((a3) => React.createElement(Flg, { key: a3, a3: a3 }))) : (React.createElement(Flg, { a3: row.a3, a2: row.c.a2 }))),
                                     React.createElement("span", { className: "trip-body" },
                                         React.createElement("span", { className: "trip-title" }, asRoute(row) ? ((() => {
                                             // больше трёх стран — названия не влезут: флаги по порядку пути (42.68)
-                                            const f = routeFacts(row.t.route, row.t);
+                                            const f = routeFacts(row.t.route);
                                             return f.countries.length > 3 ? (React.createElement("span", { className: "rt-chain" }, f.chain.map((a3, i) => (React.createElement(React.Fragment, { key: i },
                                                 i > 0 && React.createElement("i", null, "\u203A"),
                                                 React.createElement(Flg, { a3: a3 })))))) : (routeCountries(row.t.route));
@@ -16989,13 +17009,13 @@ function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, si
                                             asRoute(row)
                                                 ? (() => {
                                                     // много стран — флаги в заголовке и 🧭 слева, без повтора значка
-                                                    const many = routeFacts(row.t.route, row.t).countries.length > 3;
+                                                    const many = routeFacts(row.t.route).countries.length > 3;
                                                     return `${many ? "" : "🧭 "}${routeSumAll(row.t.route, row.t)}`;
                                                 })()
                                                 : row.t.route && mode === "country"
                                                     ? (() => {
                                                         // города уже в заголовке: «маршрут · ✈️🚗 · 9 городов» (если он шире страны)
-                                                        const f = routeFacts(row.t.route, row.t);
+                                                        const f = routeFacts(row.t.route);
                                                         const all = f.cities.length > f.cities.filter((c) => c.a3 === row.a3).length;
                                                         return ["🧭 маршрут", f.head, all ? `${np(f.cities.length, "city")} в маршруте` : ""].filter(Boolean).join(" · ");
                                                     })()
@@ -20756,7 +20776,7 @@ body > div{max-width:100%;}
 .seg{display:flex; gap:5px; padding:3px; background:var(--field); border:1px solid var(--line); border-radius:12px;}
 
 .grp{margin-top:6px;}
-.grp-head{display:flex; align-items:center; gap:9px; width:100%; min-height:44px; padding:9px 16px; background:none; border:0; color:var(--dim); font-size:12px; text-align:left; cursor:pointer;}
+.grp-head{display:flex; align-items:center; gap:9px; width:100%; min-height:44px; padding:9px 16px; background:var(--sheet); border:0; color:var(--dim); font-size:12px; text-align:left; cursor:pointer;}
 .grp-name{flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--ink); font-size:13px; font-weight:500;}
 .grp-count{flex:none; padding:2px 8px; border-radius:999px; background:var(--el2); font-size:11px;}
 .grp-chev{flex:none; font-size:11px; color:var(--gold);}
@@ -21809,6 +21829,9 @@ button, input, select, textarea{font-family:inherit;}
 /* 42.71: строка, на которую вернулись из карточки поездки, коротко подсвечивается */
 .trip-item.back-here{animation:backHere 1.4s ease-out;}
 @keyframes backHere{0%,35%{background:rgba(232,184,75,.16);} 100%{background:transparent;}}
+/* 42.73: заголовок группы (год, страна, транспорт…) прилипает под шапкой списка, пока листаем его поездки;
+   следующая группа выталкивает его вверх (липкость — в пределах своей группы .grp) */
+.grp-head{position:sticky; top:var(--lh, 0px); z-index:1;}
 `;
 const __b = document.getElementById('boot');
 if (__b)
