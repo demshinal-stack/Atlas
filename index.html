@@ -2942,7 +2942,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "42.64";
+const APP_VERSION = "42.65";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -15499,6 +15499,44 @@ function conqData(visits) {
 }
 /* с какой страны начать (42.60): с самой покорённой — первой в списке */
 const conqFirst = (rows) => rows[0] || null;
+/* города, где были (42.65): по регионам страны, в каждом — города с числом поездок.
+   Регион города — по его точке (как и при подсчёте покорения); не нашёлся — группа без региона */
+const CQ_CREG = {};
+function cqCityReg(a3, c) {
+    const k = a3 + "|" + c;
+    if (!(k in CQ_CREG))
+        CQ_CREG[k] = [...tripRegionKeys(a3, { cities: [c] })][0] || null;
+    return CQ_CREG[k];
+}
+function cqCities(visits, a3) {
+    const cnt = new Map();
+    const tripsOf = new Map(); // город → номера поездок: у региона поездка с двумя его городами — одна
+    (visits[a3] || []).forEach((t, i) => {
+        if (t.plan)
+            return;
+        new Set(t.cities || []).forEach((c) => {
+            cnt.set(c, (cnt.get(c) || 0) + 1);
+            if (!tripsOf.has(c))
+                tripsOf.set(c, []);
+            tripsOf.get(c).push(i);
+        });
+    });
+    const byN = (a, b) => b.n - a.n || a.c.localeCompare(b.c, "ru");
+    const all = [...cnt].map(([c, n]) => ({ c, n })).sort(byN);
+    const groups = new Map();
+    all.forEach((x) => {
+        var _d;
+        const key = REG.ready && REG.big.has(a3) ? cqCityReg(a3, x.c) : null;
+        if (!groups.has(key))
+            groups.set(key, { key, name: key ? ((_d = regionByKey(key)) === null || _d === void 0 ? void 0 : _d.properties.n) || "" : "Без региона", trips: new Set(), cities: [] });
+        const g = groups.get(key);
+        tripsOf.get(x.c).forEach((i) => g.trips.add(i));
+        g.cities.push(x);
+    });
+    groups.forEach((g) => (g.n = g.trips.size));
+    const regs = [...groups.values()].sort((a, b) => !a.key - !b.key || b.n - a.n || a.name.localeCompare(b.name, "ru"));
+    return { all, regs };
+}
 /* карта страны: равновеликая коническая проекция по центру «тела» страны, у США — Аляска и
    Гавайи сбоку. Во весь экран карту можно повернуть до ±45°, чтобы вытянутая страна легла вдоль
    длинной стороны окна. Из углов, дающих не меньше 97% лучшего размера, берём самый малый.
@@ -15748,6 +15786,8 @@ function ConquestWin({ visits, a3: a30, onClose, geo = null }) {
     const rows = useMemo(() => conqData(visits), [visits]);
     const [a3, setA3] = useState(a30 || ((_d = conqFirst(rows)) === null || _d === void 0 ? void 0 : _d.a3) || null);
     const [sel, setSel] = useState(null);
+    const [open, setOpen] = useState(null); // страна, у которой раскрыты города (42.65)
+    const [stuck, setStuck] = useState(false); // строка раскрытой страны ушла за верх списка
     const [turn, setTurn] = useState({}); // выбор «север вверху / крупнее» по странам
     const wide = useWide();
     // карта рисуется под настоящий размер места (а не 360×260): вытянутые страны крупнее
@@ -15773,6 +15813,49 @@ function ConquestWin({ visits, a3: a30, onClose, geo = null }) {
     }, [wide, rows.length]);
     const row = rows.find((r) => r.a3 === a3) || conqFirst(rows);
     useEffect(() => setSel(null), [a3]);
+    const cities = useMemo(() => (row ? cqCities(visits, row.a3) : null), [visits, row === null || row === void 0 ? void 0 : row.a3]);
+    const pickA3 = (k) => {
+        if (k === a3)
+            return setOpen((o) => (o === k ? null : o)); // касание выбранной — свернуть
+        setOpen(null);
+        setA3(k);
+    };
+    const toggleOpen = (k) => {
+        if (k !== a3) {
+            setA3(k);
+            setOpen(k);
+        }
+        else
+            setOpen((o) => (o === k ? null : k));
+    };
+    // касание покорённого региона на карте — раскрыть страну и прокрутить к региону в списке
+    const pickReg = (k) => {
+        setSel(k);
+        if (k && (row === null || row === void 0 ? void 0 : row.done.has(k)))
+            setOpen(row.a3);
+    };
+    const onListScroll = () => {
+        const box = listRef.current;
+        const top = box === null || box === void 0 ? void 0 : box.querySelector(".cq-item.open .cq-row");
+        setStuck(!!(top && box && top.offsetTop + top.offsetHeight - box.offsetTop < box.scrollTop + 4));
+    };
+    useEffect(() => {
+        const box = listRef.current;
+        if (!box)
+            return;
+        const el = sel && box.querySelector(".cq-rg.sel");
+        if (el) {
+            const y = el.offsetTop - box.offsetTop;
+            if (y < box.scrollTop + 30 || y + el.offsetHeight > box.scrollTop + box.clientHeight)
+                box.scrollTop = y - 36;
+        }
+        else if (open && open === a3) {
+            const it = box.querySelector(".cq-item.open");
+            if (it)
+                box.scrollTop = it.offsetTop - box.offsetTop - 4;
+        }
+        onListScroll();
+    }, [sel, open]);
     // выбранная страна видна в списке
     const listRef = useRef(null);
     useEffect(() => {
@@ -15800,30 +15883,69 @@ function ConquestWin({ visits, a3: a30, onClose, geo = null }) {
                     row.n,
                     " \u0438\u0437 ",
                     row.total),
-                React.createElement("em", null, selF ? `${selF.properties.n}${row.done.has(sel) ? " — были" : " — ещё нет"}` : "касание региона — его название")),
+                React.createElement("em", null, selF
+                    ? `${selF.properties.n}${row.done.has(sel) ? " — были" : " — ещё нет"}${(() => {
+                        const g = cities === null || cities === void 0 ? void 0 : cities.regs.find((x) => x.key === sel);
+                        return g ? " · " + np(g.cities.length, "city") : "";
+                    })()}`
+                    : (cities === null || cities === void 0 ? void 0 : cities.all.length)
+                        ? `${np(cities.all.length, "city")} · ${np(row.trips, "trip")}`
+                        : "касание региона — его название")),
             React.createElement("b", { className: "cq-big " + cqMetal(row.pct) },
                 row.pct,
                 "%")),
         React.createElement("div", { className: "cq-svgbox", ref: boxRef },
-            React.createElement(ConquestMap, { a3: row.a3, done: row.done, sel: sel, onSel: setSel, w: size[0], h: size[1], turn: turn[row.a3] || "auto", geo: geo, onTurn: (v) => setTurn((t) => ({ ...t, [row.a3]: v })) }))));
-    const list = (React.createElement("div", { className: "ag-list cq-list", ref: listRef }, rows.map((r) => {
-        var _d;
-        return (React.createElement("button", { key: r.a3, className: "ag-row cq-row" + (r.a3 === row.a3 ? " on" : ""), onClick: () => setA3(r.a3) },
-            React.createElement("i", { className: "cq-rflag" },
-                React.createElement(Flg, { a3: r.a3 })),
-            React.createElement("span", null,
-                React.createElement("b", null, ((_d = BY_A3[r.a3]) === null || _d === void 0 ? void 0 : _d.name) || r.a3),
-                React.createElement("em", null,
-                    r.n,
-                    " \u0438\u0437 ",
-                    r.total,
-                    " ",
-                    cqOf(r.total)),
-                React.createElement(CqBar, { pct: r.pct })),
-            React.createElement("u", { className: "cq-big " + cqMetal(r.pct) },
-                r.pct,
-                "%")));
-    })));
+            React.createElement(ConquestMap, { a3: row.a3, done: row.done, sel: sel, onSel: pickReg, w: size[0], h: size[1], turn: turn[row.a3] || "auto", geo: geo, onTurn: (v) => setTurn((t) => ({ ...t, [row.a3]: v })) }))));
+    const preview = (r) => {
+        const cs = r.a3 === row.a3 && cities ? cities.all : cqCities(visits, r.a3).all;
+        if (!cs.length)
+            return null;
+        const head = cs.slice(0, 3).map((x) => x.c).join(", ");
+        return { head: cs.length > 3 ? head + "…" : head, more: cs.length > 3 ? `ещё ${cs.length - 3}` : "" };
+    };
+    const list = (React.createElement("div", { className: "ag-list cq-list", ref: listRef, onScroll: onListScroll },
+        open === row.a3 && stuck && (React.createElement("div", { className: "cq-stick" },
+            React.createElement("button", { onClick: () => setOpen(null) },
+                React.createElement("i", { className: "cq-rflag" },
+                    React.createElement(Flg, { a3: row.a3 })),
+                React.createElement("b", null, name),
+                React.createElement("span", null, "\u0421\u0432\u0435\u0440\u043D\u0443\u0442\u044C \u25B4")))),
+        rows.map((r) => {
+            var _d;
+            const on = r.a3 === row.a3;
+            const isOpen = on && open === r.a3;
+            const pv = !isOpen && preview(r);
+            return (React.createElement("div", { key: r.a3, className: "cq-item" + (on ? " on" : "") + (isOpen ? " open" : "") },
+                React.createElement("button", { className: "ag-row cq-row" + (on ? " on" : ""), onClick: () => pickA3(r.a3) },
+                    React.createElement("i", { className: "cq-rflag" },
+                        React.createElement(Flg, { a3: r.a3 })),
+                    React.createElement("span", null,
+                        React.createElement("b", null, ((_d = BY_A3[r.a3]) === null || _d === void 0 ? void 0 : _d.name) || r.a3),
+                        React.createElement("em", null,
+                            r.n,
+                            " \u0438\u0437 ",
+                            r.total,
+                            " ",
+                            cqOf(r.total),
+                            r.cities ? ` · ${np(r.cities, "city")}` : ""),
+                        React.createElement(CqBar, { pct: r.pct })),
+                    React.createElement("u", { className: "cq-big " + cqMetal(r.pct) },
+                        r.pct,
+                        "%")),
+                pv && (React.createElement("button", { className: "cq-more", onClick: () => toggleOpen(r.a3) },
+                    React.createElement("em", null, pv.head),
+                    React.createElement("span", null, pv.more ? pv.more + " ▾" : "▾"))),
+                isOpen && (React.createElement("div", { className: "cq-regs" },
+                    cities.regs.map((g) => (React.createElement("div", { key: g.key || "-", className: "cq-rg" + (g.key && g.key === sel ? " sel" : ""), onClick: () => g.key && setSel(sel === g.key ? null : g.key) },
+                        React.createElement("div", { className: "cq-rn" },
+                            React.createElement("span", null, g.name),
+                            React.createElement("em", null, np(g.n, "trip"))),
+                        React.createElement("div", { className: "cq-cs" }, g.cities.map((x) => (React.createElement("span", { key: x.c, className: "cq-cc" },
+                            x.c,
+                            " ",
+                            React.createElement("u", null, x.n)))))))),
+                    React.createElement("button", { className: "cq-fold", onClick: () => setOpen(null) }, "\u0421\u0432\u0435\u0440\u043D\u0443\u0442\u044C \u25B4")))));
+        })));
     if (wide)
         return (React.createElement("div", { className: "pg-wide", onClick: onClose },
             React.createElement("div", { className: "pg-panel", onClick: (e) => e.stopPropagation() },
@@ -21533,6 +21655,34 @@ button, input, select, textarea{font-family:inherit;}
 .root.light .cq-nb{fill:rgba(47,111,174,.04); stroke:rgba(47,111,174,.3);}
 .root.light .cq-halo path{opacity:.35;}
 @media (prefers-reduced-motion: reduce){ .cq-sheen{display:none;} }
+
+/* 42.65: города, где были, — раскрываются у страны в списке покорения */
+.cq-item{flex:none; border:1px solid var(--line); border-radius:12px; background:var(--field); overflow:hidden;}
+.cq-item.on{border-color:var(--gold);}
+.cq-item .cq-row{width:100%; border:0; border-radius:0; background:none;}
+.cq-more{display:flex; align-items:center; gap:8px; width:100%; padding:0 12px 8px 42px; border:0; background:none;
+  color:var(--dim); font-size:11.5px; text-align:left; cursor:pointer;}
+.cq-more em{flex:1 1 auto; min-width:0; font-style:normal; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.cq-more span{flex:none; color:var(--gold); font-weight:600;}
+.cq-regs{display:flex; flex-direction:column;}
+.cq-rg{padding:6px 12px 6px 42px; border-top:1px solid var(--line); cursor:pointer;}
+.cq-rg.sel{background:rgba(232,184,75,.1);}
+.cq-rn{display:flex; justify-content:space-between; gap:8px; font-size:11px; color:var(--dim); margin-bottom:4px;}
+.cq-rn em{font-style:normal; flex:none;}
+.cq-rg.sel .cq-rn span{color:var(--gold);}
+.cq-cs{display:flex; flex-wrap:wrap; gap:4px;}
+.cq-cc{display:inline-flex; align-items:center; gap:5px; padding:2px 9px; border-radius:99px; border:1px solid var(--line);
+  background:rgba(255,255,255,.03); font-size:12px; color:var(--ink);}
+.cq-cc u{text-decoration:none; color:var(--gold); font-size:11px; font-weight:600;}
+.cq-fold{align-self:flex-end; padding:6px 12px 8px; border:0; background:none; color:var(--gold); font-size:12px; cursor:pointer;}
+/* тонкая полоса раскрытой страны, когда её строка ушла за верх списка */
+.cq-stick{position:sticky; top:0; height:0; z-index:3; margin-bottom:-6px;}
+.cq-stick button{position:absolute; left:0; right:0; top:0; display:flex; align-items:center; gap:8px; height:30px;
+  padding:0 12px; border:1px solid var(--gold); border-radius:10px; background:var(--panel, #112133); color:var(--ink);
+  font-size:12.5px; cursor:pointer; box-shadow:0 4px 10px rgba(0,0,0,.35);}
+.cq-stick .cq-rflag{font-size:15px;}
+.cq-stick b{flex:1 1 auto; text-align:left; font-weight:500;}
+.cq-stick span{color:var(--gold); font-size:12px;}
 `;
 const __b = document.getElementById('boot');
 if (__b)
