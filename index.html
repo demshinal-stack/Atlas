@@ -2942,7 +2942,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "42.68";
+const APP_VERSION = "42.69";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -7429,34 +7429,10 @@ const routeCountries = (r) => [...new Set(((r === null || r === void 0 ? void 0 
     .map((a3) => { var _d; return ((_d = BY_A3[a3]) === null || _d === void 0 ? void 0 : _d.name) || a3; })
     .join(" · ");
 const routeText = (r) => { var _d, _e; return [(_d = r === null || r === void 0 ? void 0 : r.start) === null || _d === void 0 ? void 0 : _d.name, ...((r === null || r === void 0 ? void 0 : r.stops) || []).map((s) => s.name), (_e = r === null || r === void 0 ? void 0 : r.start) === null || _e === void 0 ? void 0 : _e.name].filter(Boolean).join(" → "); };
-/* «из Москвы» (42.68): родительный падеж для названия города старта — по окончанию;
-   название из нескольких слов не склоняем: «из г. Нижний Новгород» */
-function cityFrom(name) {
-    const n = String(name || "").trim();
-    if (!n)
-        return "";
-    if (/\s/.test(n))
-        return `из г. ${n}`;
-    const low = n.slice(-1).toLowerCase();
-    const pre = n.slice(-2, -1).toLowerCase();
-    let g = n;
-    if (low === "а")
-        g = n.slice(0, -1) + ("гкхжшщч".includes(pre) ? "и" : "ы");
-    else if (low === "я")
-        g = n.slice(0, -1) + "и";
-    else if (low === "й")
-        g = n.slice(0, -1) + "я";
-    else if (low === "ь")
-        g = n.slice(0, -1) + "и";
-    else if ("бвгджзклмнпрстфхцчшщ".includes(low))
-        g = n + "а";
-    return `из ${g}`;
-}
 /* строка маршрута в ленте (42.68): длинный путь не перечисляем, а обобщаем —
-   «из Москвы ✈️🚗 · 4 страны · 11 городов · 18 дней»; в группе страны — что было здесь:
+   «✈️🚗 · 4 страны · 11 городов · 18 дней» (город старта не пишем — 42.69); в группе страны — что было здесь:
    «здесь 2 города из 11: Дубай, Абу-Даби». Городов всего до трёх — просто перечисляем */
 function routeFacts(route, t) {
-    var _d;
     const stops = ((route === null || route === void 0 ? void 0 : route.stops) || []).filter((s) => s.tr !== 2 && s.a3);
     const cities = [];
     stops.forEach((s) => !s.country && s.name && !cities.some((c) => c.name === s.name) && cities.push({ name: s.name, a3: s.a3 }));
@@ -7468,8 +7444,7 @@ function routeFacts(route, t) {
     const a = dParts(t === null || t === void 0 ? void 0 : t.from);
     const b = dParts(t === null || t === void 0 ? void 0 : t.to);
     const days = a && b ? Math.round((Date.UTC(b.y, b.m - 1, b.d) - Date.UTC(a.y, a.m - 1, a.d)) / 864e5) + 1 : 0;
-    const from = ((_d = route === null || route === void 0 ? void 0 : route.start) === null || _d === void 0 ? void 0 : _d.name) ? cityFrom(route.start.name) : "";
-    const head = [from, moves.join("")].filter(Boolean).join(" ");
+    const head = moves.join("");
     return { cities, chain, countries, days, head };
 }
 const cutList = (names, n = 3) => (names.length > n ? names.slice(0, n).join(", ") + "…" : names.join(", "));
