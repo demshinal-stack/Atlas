@@ -2955,7 +2955,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "42.74";
+const APP_VERSION = "42.75";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -6260,7 +6260,7 @@ const NOW = new Date();
 /* годы для выбора: пять лет вперёд для планов и шестьдесят назад */
 const YEARS_AHEAD = 5;
 const YEARS = Array.from({ length: 60 + YEARS_AHEAD }, (_, i) => NOW.getFullYear() + YEARS_AHEAD - i);
-function Sheet({ open, onClose, title, children, box }) {
+function Sheet({ open, onClose, title, children, box, back = null }) {
     const [shown, setShown] = useState(false);
     const [shift, setShift] = useState(0);
     const [kb, setKb] = useState(0);
@@ -6364,6 +6364,7 @@ function Sheet({ open, onClose, title, children, box }) {
                         ? `calc(100% - ${kb + 12}px - env(safe-area-inset-top) - 8px)`
                         : undefined,
                 } },
+            back && React.createElement("div", { className: "sheet-back" }, back),
             React.createElement("div", { className: "sheet-grab", ...pull },
                 React.createElement("span", null)),
             React.createElement("div", { className: "sheet-head", ...pull },
@@ -7858,7 +7859,7 @@ function PlacePick({ visits = {}, onPick, onClose, all = false, placeholder = "�
         })))));
 }
 /* единая карточка поездки */
-function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onRemove, onMergeWith, mode, quality, since, people = [], meId = ME }) {
+function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onRemove, onMergeWith, mode, quality, since, people = [], meId = ME, occasions = null, fxShow = true }) {
     const totalPhotos = useMemo(() => {
         let k = 0;
         Object.values(visits).forEach((arr) => arr.forEach((t) => (k += (t.photos || []).length)));
@@ -7895,6 +7896,7 @@ function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onR
     }, [addWho]);
     const srcKey = initial ? initial.key || `${initial.a3}:${initial.id}` : "new";
     useEffect(() => {
+        var _d;
         if (!open) {
             setR(null);
             setJr(null);
@@ -7930,10 +7932,14 @@ function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onR
                 });
             });
             const t0 = (initial.src || []).map(({ a3, id }) => (visits[a3] || []).find((x) => x.id === id)).find(Boolean);
-            j = { r: r0, members, photos, owner, who: (t0 === null || t0 === void 0 ? void 0 : t0.who) || [], left: (t0 === null || t0 === void 0 ? void 0 : t0.left) || [], by: (t0 === null || t0 === void 0 ? void 0 : t0.by) || "", orig: null, plain: false, src: initial.src || [] };
+            j = { r: r0, members, photos, owner, who: (t0 === null || t0 === void 0 ? void 0 : t0.who) || [], left: (t0 === null || t0 === void 0 ? void 0 : t0.left) || [], by: (t0 === null || t0 === void 0 ? void 0 : t0.by) || "", orig: null, plain: false, src: initial.src || [], sp: (t0 === null || t0 === void 0 ? void 0 : t0.sp) || null };
         }
-        else if (initial === null || initial === void 0 ? void 0 : initial.a3)
+        else if (initial === null || initial === void 0 ? void 0 : initial.a3) {
             j = journeyOf(visits, initial.a3, initial.id, homePt);
+            // особенная поездка (42.75): повод и эффект — с открытой поездки (у маршрута — общие)
+            if (j)
+                j.sp = ((_d = (visits[initial.a3] || []).find((x) => x.id === initial.id)) === null || _d === void 0 ? void 0 : _d.sp) || null;
+        }
         if (j) {
             setR(j.r);
             setJr(j);
@@ -7955,6 +7961,7 @@ function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onR
                 by: "",
                 orig: null,
                 plain: false,
+                sp: null,
             });
             origKey.current = "";
             planTouched.current = false;
@@ -8116,10 +8123,16 @@ function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onR
             by: jr.by,
             photos: jr.photos,
             owner: jr.owner,
+            sp: jr.sp && (jr.sp.o || "").trim() ? { ...jr.sp, o: jr.sp.o.trim() } : null,
         });
         close();
     };
-    return (React.createElement(Sheet, { open: open, onClose: onClose, box: box, title: title }, (close) => {
+    return (React.createElement(Sheet, { open: open, onClose: onClose, box: box, title: jr.sp ? (React.createElement(React.Fragment, null,
+            title,
+            React.createElement("span", { className: "sp-badge", style: { "--fxc": fxColor(jr.sp) } },
+                jr.sp.e || "✨",
+                " ",
+                jr.sp.o))) : (title), back: jr.sp && fxShow && FX[jr.sp.fx] ? React.createElement(FxCanvas, { fx: jr.sp.fx, anim: true, scale: 1.25, seed: 7 }) : null }, (close) => {
         var _d, _e, _f, _h, _j, _k;
         return (React.createElement("div", { className: "sheet-body rt-body jr-body" }, !stops.length ? (React.createElement(PlacePick, { visits: visits, all: true, onPick: (x) => addPlace(x) })) : (React.createElement(React.Fragment, null,
             !pathOpen ? (React.createElement("button", { className: "rt-start in rt-metro", onClick: () => setPathOpen(true), "aria-label": routeText(r) },
@@ -8188,6 +8201,7 @@ function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onR
                     React.createElement("em", null, r.plan ? "Поездка впереди — в статистику не попадёт" : "Включится само, если выбрать будущую дату")),
                 React.createElement("span", { className: "switch" + (r.plan ? " on" : "") },
                     React.createElement("i", null)))),
+            r.y && !editWhen && (React.createElement(SpecialBlock, { sp: jr.sp, occasions: occasions, onChange: (sp) => setJr((j) => ({ ...j, sp })) })),
             !editWhen && (React.createElement("div", { className: "step" },
                 React.createElement("p", { className: "step-title" }, "\u041A\u0442\u043E \u0435\u0437\u0434\u0438\u043B"),
                 React.createElement("div", { className: "city-chips" },
@@ -8255,6 +8269,592 @@ function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onR
                         React.createElement("path", { d: "M5 12.5l4.5 4.5L19 7.5", fill: "none", stroke: "currentColor", strokeWidth: "2.2", strokeLinecap: "round", strokeLinejoin: "round" })),
                     React.createElement("span", null, "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C"))))))));
     }));
+}
+/* Атлас · 14d · «Особенная поездка» (42.75): повод (свадебное путешествие, юбилей…) и эффект —
+   только частицы на тёмном фоне, без картинок: лепестки, шары, конфетти, искры, снег, огоньки.
+   В карточке поездки частицы движутся, в ленте — неподвижный кадр в зоне между текстом и месяцем.
+   Поездка хранит sp: { o: повод, e: значок, fx: код эффекта }. Список поводов — в настройках
+   (settings.occasions, null — стандартный), показ эффектов — settings.fxShow.
+   Части собираются по номерам в один файл (tools/rebuild.sh) и видят друг друга напрямую. */
+const FX_GOLD = ["#f2c96b", "#ffe2a0"];
+const FX_PASTEL = ["#ff9ab4", "#a9d6ff", "#ffe6a3", "#a8ecd0", "#cdb8ff", "#ffc9a8"];
+/* эффекты: n — название, c — цвет повода (кромка в ленте), p — частицы:
+   t — вид, k — сколько (на карточку 390×420), m — движение, s — размер [от, до] в точках */
+const FX = {
+    waltz: { n: "Лепестковый вальс", c: "#ff8fab", p: [
+            { t: "petal", k: 18, col: ["#ffc2d1", "#ff9ab4", "#ffd6e0"], m: "fall", s: [3, 5.5] },
+            { t: "spark", k: 6, col: FX_GOLD, m: "twinkle", s: [2, 3.5] }
+        ] },
+    glow: { n: "Тёплое сияние", c: "#ff6f91", p: [
+            { t: "heart", k: 10, col: ["#ff9ab4", "#ffc2d1", "#f6a5c0"], m: "rise", s: [5, 9] },
+            { t: "dot", k: 30, col: FX_GOLD, m: "twinkle", s: [0.6, 1.4] }
+        ] },
+    orbs: { n: "Пастельные шары", c: "#ffb3c7", p: [
+            { t: "orb", k: 9, col: FX_PASTEL, m: "rise", s: [5, 10] },
+            { t: "confetti", k: 22, col: FX_PASTEL, m: "fall", s: [1.4, 2.4] }
+        ] },
+    cburst: { n: "Залп конфетти", c: "#a9d6ff", p: [
+            { t: "confetti", k: 60, col: FX_PASTEL, m: "fountain", s: [1.3, 2.4] },
+            { t: "spark", k: 4, col: FX_GOLD, m: "twinkle", s: [2, 3] }
+        ] },
+    dawn: { n: "Золотой рассвет", c: "#f2c96b", p: [
+            { t: "dot", k: 36, col: FX_GOLD, m: "rise", s: [0.7, 1.6] },
+            { t: "spark", k: 7, col: FX_GOLD, m: "twinkle", s: [2, 4] }
+        ] },
+    rise: { n: "Восходящие искры", c: "#cdb8ff", p: [
+            { t: "streak", k: 14, col: ["#cdb8ff", "#a8ecd0", "#f2c96b"], m: "diag", s: [10, 22] },
+            { t: "spark", k: 5, col: FX_GOLD, m: "twinkle", s: [2, 3] }
+        ] },
+    breeze: { n: "Закатный бриз", c: "#ffc9a8", p: [
+            { t: "heart", k: 8, col: ["#ffb3c7", "#ffc9a8"], m: "rise", s: [4, 7] },
+            { t: "bokeh", k: 7, col: ["#ffc48a", "#ffd9a0"], m: "drift", s: [4, 9] }
+        ] },
+    candle: { n: "Боке при свечах", c: "#ffb38a", p: [
+            { t: "bokeh", k: 14, col: ["#ffc48a", "#ffd9a0", "#ffb3a0"], m: "drift", s: [4, 11] },
+            { t: "glow", k: 4, col: ["#ffbe6e"], m: "flicker", s: [1.6, 2.4] }
+        ] },
+    goldburst: { n: "Золотой салют", c: "#e8b84b", p: [
+            { t: "burst", k: 2, col: ["#f2c96b", "#e8a93a"], m: "burst", s: [18, 30] },
+            { t: "spark", k: 6, col: FX_GOLD, m: "twinkle", s: [2, 3] }
+        ] },
+    snowlights: { n: "Снег и огоньки", c: "#a8ecd0", p: [
+            { t: "light", k: 12, col: ["#ff8fab", "#f2c96b", "#78c8ff", "#78dcaa"], m: "blink", s: [1.6, 2] },
+            { t: "flake", k: 40, col: ["#ffffff"], m: "fall", s: [0.8, 1.8] }
+        ] },
+    silent: { n: "Звезда в снегу", c: "#ffe6a3", p: [
+            { t: "star", k: 1, col: FX_GOLD, m: "pulse", s: [9, 9] },
+            { t: "flake", k: 34, col: ["#ffffff"], m: "fall", s: [0.8, 1.8] }
+        ] },
+    salute: { n: "Праздничный салют", c: "#ff8fab", p: [
+            { t: "burst", k: 3, col: ["#ff8fab", "#78c8ff", "#f2c96b", "#cdb8ff"], m: "burst", s: [16, 28] }
+        ] },
+    starfall: { n: "Звездопад", c: "#cdb8ff", p: [
+            { t: "dot", k: 45, col: ["#c8d4ff", "#ffffff"], m: "twinkle", s: [0.5, 1.2] },
+            { t: "streak", k: 2, col: ["#dcd2ff"], m: "shoot", s: [24, 40] }
+        ] },
+    sakura: { n: "Сакура", c: "#ffb3c7", p: [
+            { t: "petal", k: 20, col: ["#ffd6e4", "#ffa8c6", "#ffc2d6"], m: "wind", s: [2.6, 4.2] }
+        ] },
+    spores: { n: "Светящиеся споры", c: "#a8ecd0", p: [
+            { t: "glow", k: 16, col: ["#50dcbe", "#aa8cff", "#6ebeff"], m: "rise", s: [1.2, 2.4] }
+        ] },
+    aurora: { n: "Северное сияние", c: "#a8ecd0", p: [
+            { t: "ribbon", k: 3, col: ["#78e6b4", "#be9eff", "#8cd2ff"], m: "wave", s: [26, 36] },
+            { t: "dot", k: 24, col: ["#ffffff"], m: "twinkle", s: [0.5, 1] }
+        ] },
+    embers: { n: "Тёплые огоньки", c: "#ffb38a", p: [
+            { t: "glow", k: 12, col: ["#ffa050", "#ffc070"], m: "rise", s: [1.6, 2.6] }
+        ] },
+    bubbles: { n: "Мыльные пузыри", c: "#a9d6ff", p: [
+            { t: "bubble", k: 12, col: ["#a9d6ff"], m: "rise", s: [5, 12] }
+        ] },
+    confetti: { n: "Конфетти", c: "#ffe6a3", p: [
+            { t: "confetti", k: 60, col: FX_PASTEL, m: "fall", s: [1.4, 2.6] }
+        ] },
+    rainbow: { n: "Радужное сияние", c: "#cdb8ff", p: [
+            { t: "blob", k: 5, col: FX_PASTEL, m: "drift", s: [40, 70] },
+            { t: "spark", k: 6, col: ["#cdb8ff"], m: "twinkle", s: [2, 3] }
+        ] },
+    leaves: { n: "Листопад", c: "#ffb38a", p: [
+            { t: "petal", k: 14, col: ["#ffcf8a", "#ffb38a", "#f0886a", "#e8b84b"], m: "fall", s: [3.5, 5.5] }
+        ] },
+    snow: { n: "Снегопад", c: "#a9d6ff", p: [
+            { t: "flake", k: 60, col: ["#ffffff"], m: "fall", s: [0.8, 2.2] }
+        ] },
+    gold: { n: "Золотые искры", c: "#e8b84b", p: [
+            { t: "dot", k: 45, col: FX_GOLD, m: "rise", s: [0.6, 1.5] },
+            { t: "spark", k: 10, col: FX_GOLD, m: "twinkle", s: [2, 4] }
+        ] },
+};
+const FX_OCC_IDS = ["waltz", "glow", "orbs", "cburst", "dawn", "rise", "breeze", "candle", "goldburst", "snowlights", "silent"];
+const FX_UNI_IDS = ["salute", "starfall", "sakura", "spores", "aurora", "embers", "bubbles", "confetti", "rainbow", "leaves", "snow", "gold"];
+/* поводы по умолчанию — список можно менять в настройках */
+const OCC_DEFAULT = [
+    { e: "💍", n: "Свадебное путешествие", fx: "waltz" },
+    { e: "❤️", n: "Годовщина свадьбы", fx: "glow" },
+    { e: "🎂", n: "День рождения", fx: "orbs" },
+    { e: "🎓", n: "Выпускной", fx: "cburst" },
+    { e: "📜", n: "Защита диплома", fx: "dawn" },
+    { e: "🚀", n: "Повышение на работе", fx: "rise" },
+    { e: "🌅", n: "Романтическое путешествие", fx: "breeze" },
+    { e: "🥂", n: "Выходные вдвоём", fx: "candle" },
+    { e: "🎆", n: "Юбилей", fx: "goldburst" },
+    { e: "🎄", n: "Новый год", fx: "snowlights" },
+    { e: "⭐", n: "Рождество", fx: "silent" },
+];
+const occList = (list) => (Array.isArray(list) ? list : OCC_DEFAULT).filter((o) => o && o.n);
+const fxColor = (sp) => { var _d; return ((_d = FX[sp === null || sp === void 0 ? void 0 : sp.fx]) === null || _d === void 0 ? void 0 : _d.c) || "#e8b84b"; };
+/* ---------- частицы ---------- */
+function fxRand(seed) {
+    let s = Math.abs(Math.floor(seed)) % 2147483646 || 1;
+    return () => {
+        s = (s * 16807) % 2147483647;
+        return (s - 1) / 2147483646;
+    };
+}
+/* zone — по ширине доля [от, до], где живут частицы (лента: между текстом и месяцем) */
+function fxMake(id, w, h, { seed = 1, zone = null, scale = 1 } = {}) {
+    const fx = FX[id];
+    if (!fx)
+        return [];
+    const R = fxRand(seed * 7919 + id.length * 104729);
+    const x0 = zone ? zone[0] * w : 0;
+    const zw = zone ? (zone[1] - zone[0]) * w : w;
+    // плотность: на карточке — по площади; в маленьких окошках (лента, превью) гуще, иначе 1–2 частицы
+    const area = Math.max(0.35, Math.min(1.6, ((zw * h) / (390 * 420)) * (zw * h < 40000 ? 6 : 1)));
+    const out = [];
+    fx.p.forEach((sp) => {
+        const many = sp.m === "burst" || sp.m === "pulse" || sp.t === "ribbon" || sp.t === "light";
+        const n = many ? sp.k : Math.max(3, Math.round(sp.k * area));
+        for (let i = 0; i < n; i++) {
+            const s = (sp.s[0] + R() * (sp.s[1] - sp.s[0])) * scale;
+            out.push({
+                t: sp.t, m: sp.m, s, i, n,
+                col: sp.col[Math.floor(R() * sp.col.length)],
+                x: x0 + R() * zw, y: R() * h, x0, zw,
+                ph: R() * Math.PI * 2,
+                sp: 0.6 + R() * 0.8,
+                rot: R() * Math.PI * 2,
+                vr: (R() - 0.5) * 2,
+                life: R(),
+            });
+        }
+    });
+    return out;
+}
+function fxBlob(c, x, y, r, col, a) {
+    const g = c.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, col);
+    g.addColorStop(1, "rgba(0,0,0,0)");
+    c.globalAlpha = a;
+    c.fillStyle = g;
+    c.beginPath();
+    c.arc(x, y, r, 0, 7);
+    c.fill();
+}
+function fxSpark(c, x, y, r, col, a) {
+    fxBlob(c, x, y, r * 2.4, col, a * 0.55);
+    c.globalAlpha = a;
+    c.fillStyle = "#fff";
+    c.beginPath();
+    c.moveTo(x, y - r);
+    c.quadraticCurveTo(x, y, x + r * 0.9, y);
+    c.quadraticCurveTo(x, y, x, y + r);
+    c.quadraticCurveTo(x, y, x - r * 0.9, y);
+    c.quadraticCurveTo(x, y, x, y - r);
+    c.fill();
+}
+/* один кадр: t — секунды от начала (в ленте 0 — неподвижный кадр) */
+function fxDraw(c, parts, w, h, t) {
+    c.clearRect(0, 0, w, h);
+    const wrap = (v, a, len) => a + ((((v - a) % len) + len) % len);
+    parts.forEach((p) => {
+        let x = p.x;
+        let y = p.y;
+        let a = 1;
+        let rot = p.rot + p.vr * t;
+        const sw = Math.sin(t * p.sp + p.ph);
+        const H = h + 30;
+        switch (p.m) {
+            case "fall":
+                y = wrap(p.y + t * 18 * p.sp, -15, H);
+                x = p.x + sw * 10;
+                break;
+            case "wind":
+                y = wrap(p.y + t * 14 * p.sp, -15, H);
+                x = wrap(p.x + t * 16 * p.sp + sw * 8, p.x0 - 15, p.zw + 30);
+                break;
+            case "rise":
+                y = wrap(p.y - t * 16 * p.sp, -15, H);
+                x = p.x + sw * 8;
+                break;
+            case "twinkle":
+                a = 0.25 + 0.75 * Math.abs(Math.sin(t * 1.4 * p.sp + p.ph));
+                break;
+            case "flicker":
+                a = 0.7 + 0.3 * Math.sin(t * 9 * p.sp + p.ph) * Math.sin(t * 3.1 + p.ph);
+                break;
+            case "drift":
+                x = p.x + Math.sin(t * 0.25 * p.sp + p.ph) * 18;
+                y = p.y + Math.cos(t * 0.2 * p.sp + p.ph) * 12;
+                a = 0.7 + 0.3 * sw;
+                break;
+            case "diag": {
+                const d = t * 40 * p.sp;
+                x = wrap(p.x + d * 0.6, p.x0 - 30, p.zw + 60);
+                y = wrap(p.y - d, -30, h + 60);
+                break;
+            }
+            case "fountain": {
+                const T = 2.6 + p.sp, q = (((t / T + p.life) % 1) + 1) % 1, tt = q * T;
+                const ang = -Math.PI / 2 + (p.ph / Math.PI - 1) * 0.55, v = h * (0.9 + p.sp * 0.35);
+                x = p.x0 + p.zw / 2 + Math.cos(ang) * v * tt * 0.6;
+                y = h + 10 + Math.sin(ang) * v * tt + 0.5 * (h * 0.9) * tt * tt;
+                break;
+            }
+            case "blink":
+                a = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(t * 2.2 + p.i * 1.7));
+                break;
+            case "pulse":
+                a = 0.85 + 0.15 * Math.sin(t * 1.6);
+                break;
+            default: break;
+        }
+        c.save();
+        c.globalAlpha = 1;
+        switch (p.t) {
+            case "petal": {
+                c.translate(x, y);
+                c.rotate(rot);
+                c.scale(1, 0.55 + 0.45 * Math.abs(Math.cos(t * 1.3 * p.sp + p.ph)));
+                c.globalAlpha = 0.85 * a;
+                c.fillStyle = p.col;
+                c.beginPath();
+                c.ellipse(0, 0, p.s * 1.5, p.s * 0.85, 0, 0, 7);
+                c.fill();
+                c.globalAlpha = 0.35 * a;
+                c.fillStyle = "#fff";
+                c.beginPath();
+                c.ellipse(-p.s * 0.4, -p.s * 0.2, p.s * 0.5, p.s * 0.18, 0, 0, 7);
+                c.fill();
+                break;
+            }
+            case "heart": {
+                const s = p.s;
+                c.globalAlpha = 0.8 * a;
+                c.fillStyle = p.col;
+                c.beginPath();
+                c.moveTo(x, y + s * 0.3);
+                c.bezierCurveTo(x, y, x - s * 0.5, y, x - s * 0.5, y + s * 0.3);
+                c.bezierCurveTo(x - s * 0.5, y + s * 0.6, x, y + s * 0.8, x, y + s);
+                c.bezierCurveTo(x, y + s * 0.8, x + s * 0.5, y + s * 0.6, x + s * 0.5, y + s * 0.3);
+                c.bezierCurveTo(x + s * 0.5, y, x, y, x, y + s * 0.3);
+                c.fill();
+                break;
+            }
+            case "orb": {
+                const g = c.createRadialGradient(x - p.s * 0.35, y - p.s * 0.4, p.s * 0.08, x, y, p.s);
+                g.addColorStop(0, "#ffffff");
+                g.addColorStop(0.35, p.col);
+                g.addColorStop(1, p.col);
+                c.globalAlpha = 0.85;
+                c.fillStyle = g;
+                c.beginPath();
+                c.arc(x, y, p.s, 0, 7);
+                c.fill();
+                break;
+            }
+            case "confetti":
+                c.translate(x, y);
+                c.rotate(rot * 2);
+                c.scale(1, Math.cos(t * 4 * p.sp + p.ph));
+                c.globalAlpha = 0.9;
+                c.fillStyle = p.col;
+                c.fillRect(-p.s, -p.s * 0.45, p.s * 2, p.s * 0.9);
+                break;
+            case "spark":
+                fxSpark(c, x, y, p.s, p.col, a);
+                break;
+            case "dot":
+                c.globalAlpha = 0.85 * a;
+                c.fillStyle = p.col;
+                c.beginPath();
+                c.arc(x, y, p.s, 0, 7);
+                c.fill();
+                break;
+            case "flake":
+                fxBlob(c, x, y, p.s * 3, "rgba(150,185,235,.6)", 0.6);
+                c.globalAlpha = 0.9;
+                c.fillStyle = "#fff";
+                c.beginPath();
+                c.arc(x, y, p.s, 0, 7);
+                c.fill();
+                break;
+            case "streak": {
+                let ang = -Math.PI / 4;
+                let L = p.s;
+                if (p.m === "shoot") {
+                    const T = 3.2 + p.sp * 2, q = (((t / T + p.life) % 1) + 1) % 1;
+                    if (q > 0.3) {
+                        c.restore();
+                        return;
+                    }
+                    ang = Math.PI * 0.2;
+                    x = p.x0 + p.zw * (0.1 + (p.i * 0.37) % 0.6) + q * 3.3 * p.zw * 0.5;
+                    y = h * (0.1 + (p.i * 0.23) % 0.3) + q * 3.3 * h * 0.3;
+                    a = 1 - q / 0.3;
+                    L = p.s;
+                }
+                const xb = x - Math.cos(ang) * L, yb = y - Math.sin(ang) * L;
+                const g = c.createLinearGradient(xb, yb, x, y);
+                g.addColorStop(0, "rgba(255,255,255,0)");
+                g.addColorStop(1, p.col);
+                c.globalAlpha = 0.9 * a;
+                c.strokeStyle = g;
+                c.lineWidth = Math.max(1, p.s / 12);
+                c.lineCap = "round";
+                c.beginPath();
+                c.moveTo(xb, yb);
+                c.lineTo(x, y);
+                c.stroke();
+                fxBlob(c, x, y, 3, "#fff", 0.8 * a);
+                break;
+            }
+            case "bokeh":
+                c.globalAlpha = 0.16 * a;
+                c.fillStyle = p.col;
+                c.beginPath();
+                c.arc(x, y, p.s, 0, 7);
+                c.fill();
+                c.globalAlpha = 0.28 * a;
+                c.strokeStyle = p.col;
+                c.lineWidth = Math.max(0.8, p.s * 0.1);
+                c.stroke();
+                break;
+            case "glow":
+                fxBlob(c, x, y, p.s * 4.5, p.col, 0.7 * a);
+                c.globalAlpha = a;
+                c.fillStyle = "#fffaf0";
+                c.beginPath();
+                c.arc(x, y, p.s * 0.8, 0, 7);
+                c.fill();
+                break;
+            case "bubble": {
+                const g = c.createRadialGradient(x, y, p.s * 0.6, x, y, p.s);
+                g.addColorStop(0, "rgba(255,255,255,0)");
+                g.addColorStop(0.85, "rgba(240,160,215,.35)");
+                g.addColorStop(1, "rgba(130,210,230,.7)");
+                c.fillStyle = g;
+                c.beginPath();
+                c.arc(x, y, p.s, 0, 7);
+                c.fill();
+                c.globalAlpha = 0.8;
+                c.fillStyle = "#fff";
+                c.beginPath();
+                c.ellipse(x - p.s * 0.4, y - p.s * 0.45, p.s * 0.22, p.s * 0.1, -0.6, 0, 7);
+                c.fill();
+                break;
+            }
+            case "burst": {
+                // залп: раскрывается за 2 с, гаснет, затем появляется в другом месте
+                const T = 2.6 + p.i * 0.7, q = (((t / T + p.life) % 1) + 1) % 1;
+                const cyc = Math.floor((t / T + p.life) || 0);
+                const RR = fxRand(p.i * 977 + cyc * 131 + 7);
+                const bx = p.x0 + p.zw * (0.15 + RR() * 0.7), by = h * (0.15 + RR() * 0.5);
+                const r = p.s * (0.25 + 0.75 * (1 - Math.pow(1 - Math.min(1, q / 0.55), 3)));
+                const al = q < 0.55 ? 1 : Math.max(0, 1 - (q - 0.55) / 0.45);
+                for (let ring = 0; ring < 2; ring++) {
+                    const rr = r * (0.6 + ring * 0.4), n = 14 + ring * 6;
+                    for (let k = 0; k < n; k++) {
+                        const an = (k / n) * Math.PI * 2 + ring * 0.2;
+                        const px = bx + Math.cos(an) * rr, py = by + Math.sin(an) * rr + q * q * 6;
+                        fxBlob(c, px, py, 3.2, p.col, 0.7 * al);
+                        c.globalAlpha = al;
+                        c.fillStyle = "#fff6dc";
+                        c.beginPath();
+                        c.arc(px, py, 0.9, 0, 7);
+                        c.fill();
+                    }
+                }
+                break;
+            }
+            case "light": {
+                const lx = p.x0 + ((p.i + 0.5) / p.n) * p.zw;
+                const ly = h * 0.07 + Math.sin(((p.i + 0.5) / p.n) * Math.PI) * h * 0.1;
+                fxBlob(c, lx, ly, p.s * 5, p.col, 0.8 * a);
+                c.globalAlpha = a;
+                c.fillStyle = "#fff";
+                c.beginPath();
+                c.arc(lx, ly, p.s * 0.7, 0, 7);
+                c.fill();
+                break;
+            }
+            case "star": {
+                const sx = p.x0 + p.zw * 0.5, sy = h * 0.24;
+                fxBlob(c, sx, sy, p.s * 7, "rgba(255,226,160,.9)", 0.45 * a);
+                fxSpark(c, sx, sy, p.s * (0.9 + 0.1 * a), p.col, 1);
+                break;
+            }
+            case "ribbon": {
+                c.globalAlpha = 0.22;
+                c.fillStyle = p.col;
+                c.filter = "blur(6px)";
+                const yy = h * (0.18 + p.i * 0.12);
+                c.beginPath();
+                c.moveTo(p.x0, yy);
+                for (let xx = 0; xx <= p.zw; xx += 8)
+                    c.lineTo(p.x0 + xx, yy + Math.sin(xx / 40 + t * 0.5 + p.i) * 12);
+                for (let xx = p.zw; xx >= 0; xx -= 8)
+                    c.lineTo(p.x0 + xx, yy - p.s + Math.sin(xx / 30 + t * 0.4 + p.i * 1.3) * 10);
+                c.fill();
+                c.filter = "none";
+                break;
+            }
+            case "blob":
+                fxBlob(c, x, y, p.s, p.col, 0.22);
+                break;
+            default: break;
+        }
+        c.restore();
+    });
+    c.globalAlpha = 1;
+}
+/* холст с частицами: anim — движутся (карточка), иначе один неподвижный кадр (лента, превью) */
+function FxCanvas({ fx, anim = false, zone = null, scale = 1, seed = 1, className = "" }) {
+    const ref = useRef(null);
+    useEffect(() => {
+        const cv = ref.current;
+        if (!cv || !FX[fx])
+            return;
+        let parts = [];
+        let raf = 0;
+        let w = 0;
+        let h = 0;
+        const t0 = performance.now();
+        const still = !anim || (typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches);
+        const setup = () => {
+            const r = cv.getBoundingClientRect();
+            w = Math.max(1, Math.round(r.width));
+            h = Math.max(1, Math.round(r.height));
+            const dpr = Math.min(2, window.devicePixelRatio || 1);
+            cv.width = Math.round(w * dpr);
+            cv.height = Math.round(h * dpr);
+            cv.getContext("2d").setTransform(dpr, 0, 0, dpr, 0, 0);
+            parts = fxMake(fx, w, h, { seed, zone, scale });
+        };
+        const frame = (now) => {
+            if (!document.hidden)
+                fxDraw(cv.getContext("2d"), parts, w, h, (now - t0) / 1000);
+            raf = requestAnimationFrame(frame);
+        };
+        setup();
+        if (still)
+            fxDraw(cv.getContext("2d"), parts, w, h, 0.6);
+        else
+            raf = requestAnimationFrame(frame);
+        const ro = typeof ResizeObserver !== "undefined"
+            ? new ResizeObserver(() => {
+                setup();
+                if (still)
+                    fxDraw(cv.getContext("2d"), parts, w, h, 0.6);
+            })
+            : null;
+        ro === null || ro === void 0 ? void 0 : ro.observe(cv);
+        return () => {
+            cancelAnimationFrame(raf);
+            ro === null || ro === void 0 ? void 0 : ro.disconnect();
+        };
+    }, [fx, anim, zone && zone.join(), scale, seed]);
+    return React.createElement("canvas", { ref: ref, className: "fx-cv " + className, "aria-hidden": "true" });
+}
+/* плитка эффекта для выбора: тёмный фон, неподвижный кадр, название */
+function FxTile({ id, on, onPick }) {
+    return (React.createElement("button", { className: "fx-tile" + (on ? " on" : ""), onClick: () => onPick(id), style: { "--fxc": FX[id].c } },
+        React.createElement(FxCanvas, { fx: id, seed: 3 }),
+        React.createElement("span", null, FX[id].n)));
+}
+function FxPicker({ value, onPick }) {
+    return (React.createElement(React.Fragment, null,
+        React.createElement("p", { className: "fx-sub" }, "\u0414\u043B\u044F \u043F\u043E\u0432\u043E\u0434\u043E\u0432"),
+        React.createElement("div", { className: "fx-grid" }, FX_OCC_IDS.map((id) => (React.createElement(FxTile, { key: id, id: id, on: value === id, onPick: onPick })))),
+        React.createElement("p", { className: "fx-sub" }, "\u0423\u043D\u0438\u0432\u0435\u0440\u0441\u0430\u043B\u044C\u043D\u044B\u0435"),
+        React.createElement("div", { className: "fx-grid" }, FX_UNI_IDS.map((id) => (React.createElement(FxTile, { key: id, id: id, on: value === id, onPick: onPick }))))));
+}
+/* блок «✨ Особенная поездка» в карточке поездки */
+function SpecialBlock({ sp, onChange, occasions }) {
+    var _d, _e;
+    const list = occList(occasions);
+    const [pickFx, setPickFx] = useState(false);
+    const on = !!sp;
+    // уже особенная поездка открывается свёрнутой: строка-сводка, касание — раскрыть; переключатель — снять
+    const [open, setOpen] = useState(false);
+    const turnOn = () => {
+        var _d, _e, _f;
+        onChange({ o: ((_d = list[0]) === null || _d === void 0 ? void 0 : _d.n) || "Особенная поездка", e: ((_e = list[0]) === null || _e === void 0 ? void 0 : _e.e) || "✨", fx: ((_f = list[0]) === null || _f === void 0 ? void 0 : _f.fx) || "gold" });
+        setOpen(true);
+    };
+    return (React.createElement("div", { className: "sp-block" + (on ? " on" : ""), style: on ? { "--fxc": fxColor(sp) } : undefined },
+        React.createElement("button", { className: "approx-row plan-row sp-row", onClick: () => (on ? setOpen((v) => !v) : turnOn()) },
+            React.createElement("span", null,
+                "\u2728 \u041E\u0441\u043E\u0431\u0435\u043D\u043D\u0430\u044F \u043F\u043E\u0435\u0437\u0434\u043A\u0430",
+                React.createElement("em", null,
+                    on ? `${sp.e || "✨"} ${sp.o || ""} · ${((_d = FX[sp.fx]) === null || _d === void 0 ? void 0 : _d.n) || ""}` : "Повод и праздничный эффект на карточке",
+                    on && React.createElement("i", { className: "sp-more" }, open ? " · свернуть ▴" : " · изменить ›"))),
+            React.createElement("span", { className: "switch" + (on ? " on" : ""), onClick: (e) => {
+                    e.stopPropagation();
+                    if (on) {
+                        onChange(null);
+                        setOpen(false);
+                    }
+                    else
+                        turnOn();
+                } },
+                React.createElement("i", null))),
+        on && open && (React.createElement("div", { className: "sp-body" },
+            React.createElement("p", { className: "fx-sub" }, "\u041F\u043E\u0432\u043E\u0434"),
+            React.createElement("input", { className: "sp-input", value: sp.o || "", placeholder: "\u041D\u0430\u043F\u0440\u0438\u043C\u0435\u0440, \u0441\u0432\u0430\u0434\u0435\u0431\u043D\u043E\u0435 \u043F\u0443\u0442\u0435\u0448\u0435\u0441\u0442\u0432\u0438\u0435", onChange: (e) => {
+                    const v = e.target.value;
+                    const hit = list.find((o) => o.n.toLowerCase() === v.trim().toLowerCase());
+                    onChange({ ...sp, o: v, e: hit ? hit.e : sp.e && list.some((o) => o.e === sp.e) ? "✨" : sp.e || "✨", fx: hit ? hit.fx : sp.fx });
+                }, autoComplete: "off", autoCorrect: "off", "data-lpignore": "true" }),
+            React.createElement("div", { className: "sp-chips" }, list.map((o) => (React.createElement("button", { key: o.n, className: "sp-chip" + (sp.o === o.n ? " on" : ""), onClick: () => onChange({ o: o.n, e: o.e, fx: o.fx }) },
+                o.e,
+                " ",
+                o.n)))),
+            React.createElement("button", { className: "sp-fx", onClick: () => setPickFx((v) => !v) },
+                React.createElement("span", { className: "sp-fx-prev" },
+                    React.createElement(FxCanvas, { fx: sp.fx, seed: 5 })),
+                React.createElement("span", { className: "sp-fx-t" },
+                    "\u042D\u0444\u0444\u0435\u043A\u0442",
+                    React.createElement("b", null, ((_e = FX[sp.fx]) === null || _e === void 0 ? void 0 : _e.n) || "—")),
+                React.createElement("em", null, pickFx ? "свернуть ▴" : "выбрать ›")),
+            pickFx && (React.createElement(FxPicker, { value: sp.fx, onPick: (id) => {
+                    onChange({ ...sp, fx: id });
+                    setPickFx(false);
+                } }))))));
+}
+/* настройки: список поводов — переименовать, сменить эффект, переставить, удалить, добавить */
+function OccasionsSetup({ list: raw, onChange }) {
+    const list = occList(raw);
+    const [edit, setEdit] = useState(-1);
+    const put = (next) => onChange(next);
+    const move = (i, d) => {
+        const j = i + d;
+        if (j < 0 || j >= list.length)
+            return;
+        const next = list.slice();
+        [next[i], next[j]] = [next[j], next[i]];
+        put(next);
+        setEdit(edit === i ? j : edit);
+    };
+    return (React.createElement("div", { className: "occ-list" },
+        list.map((o, i) => {
+            var _d, _e;
+            return (React.createElement("div", { key: i, className: "occ-row" + (edit === i ? " open" : "") },
+                React.createElement("div", { className: "occ-top" },
+                    React.createElement("button", { className: "occ-main", onClick: () => setEdit(edit === i ? -1 : i) },
+                        React.createElement("span", { className: "occ-prev", style: { "--fxc": (_d = FX[o.fx]) === null || _d === void 0 ? void 0 : _d.c } },
+                            React.createElement(FxCanvas, { fx: o.fx, seed: i + 2 })),
+                        React.createElement("span", { className: "occ-n" },
+                            React.createElement("b", null,
+                                o.e,
+                                " ",
+                                o.n),
+                            React.createElement("em", null, ((_e = FX[o.fx]) === null || _e === void 0 ? void 0 : _e.n) || "без эффекта"))),
+                    React.createElement("button", { className: "occ-btn", onClick: () => move(i, -1), disabled: !i, "aria-label": "\u0412\u044B\u0448\u0435" }, "\u25B2"),
+                    React.createElement("button", { className: "occ-btn", onClick: () => move(i, 1), disabled: i === list.length - 1, "aria-label": "\u041D\u0438\u0436\u0435" }, "\u25BC"),
+                    React.createElement("button", { className: "occ-btn del", onClick: () => { put(list.filter((_, k) => k !== i)); setEdit(-1); }, "aria-label": "\u0423\u0434\u0430\u043B\u0438\u0442\u044C" }, "\u2715")),
+                edit === i && (React.createElement("div", { className: "occ-edit" },
+                    React.createElement("div", { className: "occ-names" },
+                        React.createElement("input", { className: "sp-input occ-e", value: o.e, maxLength: 4, onChange: (e) => put(list.map((x, k) => (k === i ? { ...x, e: e.target.value } : x))), "aria-label": "\u0417\u043D\u0430\u0447\u043E\u043A" }),
+                        React.createElement("input", { className: "sp-input", value: o.n, onChange: (e) => put(list.map((x, k) => (k === i ? { ...x, n: e.target.value } : x))), "aria-label": "\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u043F\u043E\u0432\u043E\u0434\u0430" })),
+                    React.createElement(FxPicker, { value: o.fx, onPick: (id) => put(list.map((x, k) => (k === i ? { ...x, fx: id } : x))) })))));
+        }),
+        React.createElement("button", { className: "occ-add", onClick: () => {
+                put([...list, { e: "✨", n: "Новый повод", fx: "gold" }]);
+                setEdit(list.length);
+            } }, "\uFF0B \u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0441\u0432\u043E\u0439 \u043F\u043E\u0432\u043E\u0434"),
+        Array.isArray(raw) && (React.createElement("button", { className: "link-btn occ-reset", onClick: () => { put(null); setEdit(-1); } }, "\u0412\u0435\u0440\u043D\u0443\u0442\u044C \u0441\u0442\u0430\u043D\u0434\u0430\u0440\u0442\u043D\u044B\u0435"))));
 }
 /* Атлас · 15 · профиль, настройки, курсы валют, страна, режим снимков.
    Части собираются по номерам в один файл (tools/rebuild.sh) и видят друг друга напрямую. */
@@ -8607,7 +9207,7 @@ function DataTools({ home, depGaps, onFillDeparture, regionGaps, onFillRegions, 
                 } })),
         React.createElement(Ask, { ask: ask, onClose: () => setAsk(null), box: box })));
 }
-function SettingsSheet({ reportsCfg, onReportsCfg, open, onClose, box, theme, onTheme, quality, onQuality, cityPins, onToggleCityPins, spinStart, onToggleSpin, mapView, onMapView, night, onToggleNight, notify = false, notifyState = "none", onToggleNotify, geoCount, onReloadGeo, offline, busy, progress, offlineAt, onToggleOffline, booksSize, booksCounts, hasPin, faceAvailable, faceOn, onSetPin, onDropPin, onLock, onFace, home, depGaps, onFillDeparture, regionGaps, onFillRegions, doubles, onDoubles, onRestore, restoreMsg, onExport, onImport, }) {
+function SettingsSheet({ reportsCfg, onReportsCfg, open, onClose, box, theme, onTheme, quality, onQuality, cityPins, onToggleCityPins, spinStart, onToggleSpin, mapView, onMapView, night, onToggleNight, notify = false, notifyState = "none", onToggleNotify, fxShow = true, onFxShow, occasions = null, onOccasions, geoCount, onReloadGeo, offline, busy, progress, offlineAt, onToggleOffline, booksSize, booksCounts, hasPin, faceAvailable, faceOn, onSetPin, onDropPin, onLock, onFace, home, depGaps, onFillDeparture, regionGaps, onFillRegions, doubles, onDoubles, onRestore, restoreMsg, onExport, onImport, }) {
     const where = store.kind() === "idb"
         ? "база браузера"
         : store.kind() === "ls"
@@ -8659,6 +9259,15 @@ function SettingsSheet({ reportsCfg, onReportsCfg, open, onClose, box, theme, on
                                 : "Выключены")),
                 React.createElement("span", { className: "switch" + (notify && notifyState === "granted" ? " on" : "") },
                     React.createElement("i", null))),
+            React.createElement("p", { className: "step-title" }, "\u041E\u0441\u043E\u0431\u0435\u043D\u043D\u044B\u0435 \u043F\u043E\u0435\u0437\u0434\u043A\u0438"),
+            React.createElement("button", { className: "switch-row", onClick: () => onFxShow === null || onFxShow === void 0 ? void 0 : onFxShow(!fxShow) },
+                React.createElement("span", { className: "switch-text" },
+                    "\u042D\u0444\u0444\u0435\u043A\u0442\u044B \u043D\u0430 \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0430\u0445",
+                    React.createElement("em", null, fxShow ? "Частицы у особенных поездок: в карточке — движутся, в ленте — неподвижно" : "Выключены — повод виден, частиц нет")),
+                React.createElement("span", { className: "switch" + (fxShow ? " on" : "") },
+                    React.createElement("i", null))),
+            React.createElement("p", { className: "hint small" }, "\u041F\u043E\u0432\u043E\u0434\u044B \u2014 \u043F\u043E\u0434\u0441\u043A\u0430\u0437\u043A\u0438 \u0432 \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0435 \u043F\u043E\u0435\u0437\u0434\u043A\u0438. \u041A\u0430\u0441\u0430\u043D\u0438\u0435 \u2014 \u043F\u0435\u0440\u0435\u0438\u043C\u0435\u043D\u043E\u0432\u0430\u0442\u044C \u0438 \u0432\u044B\u0431\u0440\u0430\u0442\u044C \u044D\u0444\u0444\u0435\u043A\u0442."),
+            React.createElement(OccasionsSetup, { list: occasions, onChange: onOccasions }),
             React.createElement("p", { className: "step-title" }, "\u041E\u0442\u0447\u0451\u0442\u044B"),
             React.createElement("p", { className: "hint small" }, "\u0413\u0430\u043B\u043E\u0447\u043A\u0430 \u2014 \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0442\u044C \u043E\u0442\u0447\u0451\u0442, \u0441\u0442\u0440\u0435\u043B\u043A\u0438 \u2014 \u043F\u043E\u043C\u0435\u043D\u044F\u0442\u044C \u043F\u043E\u0440\u044F\u0434\u043E\u043A \u043D\u0430 \u044D\u043A\u0440\u0430\u043D\u0435 \u043E\u0442\u0447\u0451\u0442\u043E\u0432."),
             React.createElement(ReportsSetup, { cfg: reportsCfg, onChange: onReportsCfg }),
@@ -16485,7 +17094,7 @@ function FiltersSheet({ open, onClose, box, target, years, yearFilter, onYear, m
         years.length === 0 && (React.createElement("p", { className: "focus-empty" }, "\u0424\u0438\u043B\u044C\u0442\u0440 \u043F\u043E\u044F\u0432\u0438\u0442\u0441\u044F, \u043A\u043E\u0433\u0434\u0430 \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u0435 \u043F\u0435\u0440\u0432\u0443\u044E \u043F\u043E\u0435\u0437\u0434\u043A\u0443."))))))));
 }
 /* шторка: все поездки — свёртка групп, поиск */
-function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, onFilters, focus = null, onMergeSel, onRouteSel, keepPlace = false, onPlaced }) {
+function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, fxShow = true, onFilters, focus = null, onMergeSel, onRouteSel, keepPlace = false, onPlaced }) {
     const [q, setQ] = useState("");
     const [searchOn, setSearchOn] = useState(false);
     const [closed, setClosed] = useState({});
@@ -16906,7 +17515,10 @@ function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, on
                         React.createElement("span", { className: "grp-chev" }, hidden ? "▾" : "▴")),
                     !hidden &&
                         rows.map((r0) => ({ rows: [r0] })).map((run) => {
-                            const one = (row) => (React.createElement("div", { key: key + row.a3 + row.idx, "data-k": row.a3 + "|" + row.t.id, className: "trip-item" + (row.t.plan ? " is-plan" : "") + (flash === row.a3 + "|" + row.t.id ? " back-here" : "") },
+                            const one = (row) => (React.createElement("div", { key: key + row.a3 + row.idx, "data-k": row.a3 + "|" + row.t.id, className: "trip-item" +
+                                    (row.t.plan ? " is-plan" : "") +
+                                    (flash === row.a3 + "|" + row.t.id ? " back-here" : "") +
+                                    (row.t.sp && fxShow ? " sp" : ""), style: row.t.sp && fxShow ? { "--fxc": fxColor(row.t.sp) } : undefined },
                                 React.createElement("button", { className: "trip-main" + (selMode && sel.has(row.a3 + "|" + row.t.id) ? " sel" : ""), ...pressProps(row), onClick: (e) => {
                                         if (press.current.fired) {
                                             press.current.fired = false;
@@ -16931,6 +17543,7 @@ function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, on
                                         else
                                             onPick(row.a3, row.t.id);
                                     }, "aria-label": selMode ? "Выбрать поездку" : "Открыть поездку" },
+                                    row.t.sp && fxShow && FX[row.t.sp.fx] && (React.createElement(FxCanvas, { fx: row.t.sp.fx, zone: [0.63, 0.85], scale: 1.15, seed: row.idx + 3, className: "fx-strip" })),
                                     selMode && (React.createElement("span", { className: "sel-ck" + (sel.has(row.a3 + "|" + row.t.id) ? " on" : "") }, sel.has(row.a3 + "|" + row.t.id) ? "✓" : "")),
                                     React.createElement("span", { className: "fl" + (asRoute(row) ? " fl-route" : "") }, asRoute(row) && routeFacts(row.t.route).countries.length > 3 ? (React.createElement("span", { className: "rt-ic" }, "\uD83E\uDDED") // флаги уже в заголовке цепочкой (42.68)
                                     ) : asRoute(row) ? ([...new Set(row.t.route.stops.filter((x) => x.tr !== 2 && x.a3).map((x) => x.a3))]
@@ -16947,6 +17560,11 @@ function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, on
                                         // страна — в заголовке группы, дата — справа: в строке города (42.70)
                                         [...(row.t.cities || []), ...(row.t.regions || [])].join(", ") || row.c.name) : (row.c.name)),
                                         React.createElement("span", { className: "trip-sub" },
+                                            row.t.sp && (React.createElement("i", { className: "sp-tag" },
+                                                row.t.sp.e || "✨",
+                                                " ",
+                                                row.t.sp.o,
+                                                " · ")),
                                             row.t.move && !row.t.route && (React.createElement("i", { className: "trip-move" },
                                                 mode === "move" ? "" : MOVE_ICON[row.t.move] || "",
                                                 (row.t.air || []).length
@@ -17002,6 +17620,8 @@ const SETTINGS_DEFAULT = {
     nightSet: false, // включали/выключали вручную
     notify: false, // уведомления о предстоящих поездках при открытии (42.50)
     notifyLog: {}, // какой поездке когда уже напомнили: { ключ: "гггг-м-д" }
+    fxShow: true, // эффекты особенных поездок на карточках и в ленте (42.75)
+    occasions: null, // поводы особенных поездок; null — стандартный список
 };
 /* настройки: читаем при запуске, меняем по одному полю, сохраняем целиком.
    Раньше каждое поле сохранялось своим кодом из своих копий значений —
@@ -17035,6 +17655,10 @@ function useSettings() {
             patch.notify = st.notify;
         if (st.notifyLog && typeof st.notifyLog === "object")
             patch.notifyLog = st.notifyLog;
+        if (typeof st.fxShow === "boolean")
+            patch.fxShow = st.fxShow;
+        if (Array.isArray(st.occasions) || st.occasions === null)
+            patch.occasions = st.occasions;
         /* до 40.5 ночь была включена по умолчанию и сохранялась у всех;
            теперь по умолчанию выключена — берём сохранённое, только если его меняли руками */
         if (st.nightSet === true && typeof st.night === "boolean") {
@@ -18696,6 +19320,7 @@ function AtlasApp() {
                 by: (base === null || base === void 0 ? void 0 : base.by) || meId,
                 who: common ? common.who : (base === null || base === void 0 ? void 0 : base.who) || whoDefault,
                 ...(common ? { left: common.left || [] } : {}),
+                ...(common && "sp" in common ? { sp: common.sp } : {}),
                 y: route.y,
                 m: route.m || null,
                 y2: route.approx ? route.y2 || route.y : null,
@@ -18743,6 +19368,10 @@ function AtlasApp() {
     const saveJourney = (res) => {
         var _d;
         const { r, touched, members, orig, plain, src = [], who, left, photos = [], owner = {} } = res;
+        // особенная поездка (42.75): повод и эффект; новый повод — в список поводов настроек
+        const sp = res.sp || undefined;
+        if (sp && sp.o && !occList(settings.occasions).some((o) => o.n.toLowerCase() === sp.o.toLowerCase()))
+            putSettings({ occasions: [...occList(settings.occasions), { e: sp.e || "✨", n: sp.o, fx: sp.fx }] });
         const meId = ((_d = profileRef.current) === null || _d === void 0 ? void 0 : _d.deviceId) || ME;
         const now = Date.now();
         const uniq = (a) => [...new Set(a.filter(Boolean))];
@@ -18758,7 +19387,7 @@ function AtlasApp() {
         // старая обычная поездка, путь не трогали — остаётся как была, меняются даты, люди, фото
         if (plain && orig && !touched && !src.length) {
             const next = { ...visits };
-            next[orig.a3] = (next[orig.a3] || []).map((t) => t.id === orig.id ? { ...t, ...dates, who, left, photos, at: now } : t);
+            next[orig.a3] = (next[orig.a3] || []).map((t) => t.id === orig.id ? { ...t, ...dates, who, left, photos, sp, at: now } : t);
             save(next);
             return;
         }
@@ -18793,6 +19422,7 @@ function AtlasApp() {
                 who,
                 left,
                 photos: photos.filter((p) => !goneA3.has(owner[p.id])),
+                sp,
                 at: now,
             };
             if (!base)
@@ -18838,7 +19468,7 @@ function AtlasApp() {
             taken.add(ph.id);
         });
         const src2 = plain && orig ? [...src, orig] : src;
-        const run = () => applyRoute(route, src2, visits, { who, left, photosBy, taken });
+        const run = () => applyRoute(route, src2, visits, { who, left, photosBy, taken, sp });
         if (src.length)
             withUndo(src.length === 1 ? "Поездка вошла в путь" : `Собрано в одну поездку: ${np(src.length, "trip")}`, run);
         else
@@ -19462,8 +20092,8 @@ function AtlasApp() {
                                 setSheet(null);
                                 pickCountry(a3);
                             } }),
-                        React.createElement(JourneySheet, { open: sheet === "add", onClose: () => setSheet(null), box: box, initial: null, visits: visits, homePt: homePt, onSave: saveJourney, mode: "add", quality: photoQuality, since: profile.since, people: profile.people || [], meId: profile.deviceId || ME }),
-                        React.createElement(JourneySheet, { open: sheet === "edit" && !!editTripObj, onClose: () => setSheet((editing === null || editing === void 0 ? void 0 : editing.back) || null), box: box, initial: editTripObj ? { a3: editing.a3, id: editing.id, key: editing.a3 + ":" + editing.id } : null, visits: visits, homePt: homePt, onSave: saveJourney, onRemove: removeMany, onMergeWith: (a3, t) => setPickFor({ a3, t }), mode: "edit", quality: photoQuality, since: profile.since, people: profile.people || [], meId: profile.deviceId || ME }),
+                        React.createElement(JourneySheet, { open: sheet === "add", onClose: () => setSheet(null), box: box, initial: null, visits: visits, homePt: homePt, onSave: saveJourney, mode: "add", quality: photoQuality, since: profile.since, people: profile.people || [], meId: profile.deviceId || ME, occasions: settings.occasions, fxShow: settings.fxShow !== false }),
+                        React.createElement(JourneySheet, { open: sheet === "edit" && !!editTripObj, onClose: () => setSheet((editing === null || editing === void 0 ? void 0 : editing.back) || null), box: box, initial: editTripObj ? { a3: editing.a3, id: editing.id, key: editing.a3 + ":" + editing.id } : null, visits: visits, homePt: homePt, onSave: saveJourney, onRemove: removeMany, onMergeWith: (a3, t) => setPickFor({ a3, t }), mode: "edit", quality: photoQuality, since: profile.since, people: profile.people || [], meId: profile.deviceId || ME, occasions: settings.occasions, fxShow: settings.fxShow !== false }),
                         React.createElement(ProfileSheet, { open: sheet === "profile", onClose: () => setSheet(null), box: box, avatar: profile.avatar, name: profile.name, onName: async (v) => {
                                 const prof = { ...profile, name: v };
                                 await saveProfile(prof);
@@ -19485,7 +20115,7 @@ function AtlasApp() {
                             }, open: sheet === "settings", onClose: () => setSheet("profile"), box: box, theme: theme, onTheme: setTheme, quality: photoQuality, onQuality: (v) => {
                                 setPhotoQuality(v);
                                 setSheet("photomode");
-                            }, cityPins: cityPins, onToggleCityPins: setCityPins, spinStart: spinStart, onToggleSpin: setSpinStart, mapView: mapView, onMapView: setMapView, night: night, onToggleNight: setNight, notify: !!settings.notify, notifyState: notifyState, onToggleNotify: toggleNotify, geoCount: ((_e = geo === null || geo === void 0 ? void 0 : geo.features) === null || _e === void 0 ? void 0 : _e.length) || 0, onReloadGeo: reloadGeo, offline: booksSaved, busy: booksBusy, progress: booksProgress, offlineAt: booksAt, onToggleOffline: () => (booksSaved ? dropBooks() : keepBooks()), booksSize: booksSize, booksCounts: {
+                            }, cityPins: cityPins, onToggleCityPins: setCityPins, spinStart: spinStart, onToggleSpin: setSpinStart, mapView: mapView, onMapView: setMapView, night: night, onToggleNight: setNight, notify: !!settings.notify, notifyState: notifyState, fxShow: settings.fxShow !== false, onFxShow: (v) => putSettings({ fxShow: v }), occasions: settings.occasions, onOccasions: (list) => putSettings({ occasions: list }), onToggleNotify: toggleNotify, geoCount: ((_e = geo === null || geo === void 0 ? void 0 : geo.features) === null || _e === void 0 ? void 0 : _e.length) || 0, onReloadGeo: reloadGeo, offline: booksSaved, busy: booksBusy, progress: booksProgress, offlineAt: booksAt, onToggleOffline: () => (booksSaved ? dropBooks() : keepBooks()), booksSize: booksSize, booksCounts: {
                                 cities: CITIES.length,
                                 hotels: Object.values(HOTELS_BY_CITY).reduce((n, v) => n + v.length, 0),
                                 sights: SIGHTS.length,
@@ -19554,7 +20184,7 @@ function AtlasApp() {
                                 setEditing({ a3, id, back: "list" });
                                 setSheet("edit");
                                 setListPlace(true); // вернёмся в ленту на эту же поездку (42.71)
-                            }, keepPlace: listPlace, onPlaced: () => setListPlace(false), onDone: (a3, id) => editTrip(a3, id, { plan: false }), box: box, mode: listMode, onFilters: openFilters, focus: listFocus, onMergeSel: (list) => setMerge({ a3: list[0].a3, list: list.map((x) => x.t) }), onRouteSel: routeOfTrips }),
+                            }, fxShow: settings.fxShow !== false, keepPlace: listPlace, onPlaced: () => setListPlace(false), onDone: (a3, id) => editTrip(a3, id, { plan: false }), box: box, mode: listMode, onFilters: openFilters, focus: listFocus, onMergeSel: (list) => setMerge({ a3: list[0].a3, list: list.map((x) => x.t) }), onRouteSel: routeOfTrips }),
                         React.createElement(MergeSheet, { open: !!merge, onClose: () => setMerge(null), box: box, a3: merge === null || merge === void 0 ? void 0 : merge.a3, list: (merge === null || merge === void 0 ? void 0 : merge.list) || [], onMerge: (ids, opt) => doMerge(merge.a3, ids, opt) }),
                         React.createElement(TripPickSheet, { open: !!pickFor, onClose: () => setPickFor(null), box: box, title: "\u041E\u0431\u044A\u0435\u0434\u0438\u043D\u0438\u0442\u044C \u0441\u2026", visits: visits, near: pickFor, exclude: pickFor ? [pickFor.t.id] : [], mark: (x) => (x.a3 === (pickFor === null || pickFor === void 0 ? void 0 : pickFor.a3) ? "объединить" : "в маршрут"), onPick: (x) => {
                                 const near = pickFor;
@@ -19568,7 +20198,7 @@ function AtlasApp() {
                                 setRoutesFind(false);
                                 collectRoute(c);
                             }, onDismiss: (c) => dismissRoute(c.key) }),
-                        React.createElement(JourneySheet, { open: !!routeEdit, onClose: () => setRouteEdit(null), box: box, initial: routeEdit ? { route: routeEdit.route, src: routeEdit.src || [], key: "r:" + (((_f = routeEdit.route) === null || _f === void 0 ? void 0 : _f.id) || "") } : null, visits: visits, homePt: homePt, onSave: saveJourney, mode: "collect", quality: photoQuality, since: profile.since, people: profile.people || [], meId: profile.deviceId || ME }),
+                        React.createElement(JourneySheet, { open: !!routeEdit, onClose: () => setRouteEdit(null), box: box, initial: routeEdit ? { route: routeEdit.route, src: routeEdit.src || [], key: "r:" + (((_f = routeEdit.route) === null || _f === void 0 ? void 0 : _f.id) || "") } : null, visits: visits, homePt: homePt, onSave: saveJourney, mode: "collect", quality: photoQuality, since: profile.since, people: profile.people || [], meId: profile.deviceId || ME, occasions: settings.occasions, fxShow: settings.fxShow !== false }),
                         undo && (React.createElement("div", { className: "undo-toast", style: box ? { left: box.left + 14, width: box.width - 28 } : undefined },
                             React.createElement("span", { className: "undo-ring" }),
                             React.createElement("b", null, undo.text),
@@ -21765,6 +22395,61 @@ button, input, select, textarea{font-family:inherit;}
 .sum-bar i{position:absolute; left:0; top:0; bottom:0; border-radius:3px; background:linear-gradient(90deg,#d9a53c,#f3d27c);}
 .sum-cap{display:flex; justify-content:space-between; padding:0 2px; font-size:11px; color:var(--dim);}
 .root.light .sum-nums .plan b{color:#3d7fc0;}
+
+/* 42.75: особенные поездки — частицы без фона */
+.fx-cv{display:block; width:100%; height:100%; pointer-events:none;}
+.sheet-back{position:absolute; left:0; right:0; top:0; height:min(440px,62%); z-index:0; pointer-events:none; opacity:.6; border-radius:inherit; overflow:hidden;
+  -webkit-mask-image:linear-gradient(180deg,#000 55%,transparent 100%); mask-image:linear-gradient(180deg,#000 55%,transparent 100%);}
+.sheet-back + .sheet-grab, .sheet-back ~ .sheet-head, .sheet-back ~ .sheet-body{position:relative; z-index:1;}
+.sp-badge{display:inline-flex; align-items:center; gap:5px; margin-left:8px; padding:2px 10px; border-radius:99px; font-size:12px; font-weight:400;
+  border:1px solid var(--fxc); color:var(--ink); background:rgba(15,31,47,.45); vertical-align:2px; white-space:nowrap;}
+.trip-main{position:relative; overflow:hidden; isolation:isolate;}
+.trip-item.sp{box-shadow:inset 3px 0 0 var(--fxc);}
+.trip-main .fx-strip{position:absolute; inset:0; z-index:0; opacity:.75;
+  -webkit-mask-image:linear-gradient(90deg,transparent 61%,#000 68%,#000 79%,transparent 87%); mask-image:linear-gradient(90deg,transparent 61%,#000 68%,#000 79%,transparent 87%);}
+.trip-main > :not(.fx-strip){position:relative; z-index:1;}
+.trip-item.sp .trip-body{flex:0 1 50%; max-width:50%;}
+.trip-item.sp .trip-when{margin-left:auto;}
+.sp-tag{font-style:normal; color:#e3c98a;}
+.root.light .sp-tag{color:#a0703a;}
+.sp-block{margin-top:8px;}
+.sp-block.on .sp-row{border-color:var(--fxc);}
+.sp-body{margin-top:8px; padding:12px; border-radius:14px; border:1px solid var(--line); background:var(--field);}
+.fx-sub{margin:10px 0 6px; font-size:12px; color:var(--dim);}
+.fx-sub:first-child{margin-top:0;}
+.sp-input{width:100%; box-sizing:border-box; padding:10px 12px; border-radius:12px; border:1px solid var(--line); background:var(--el); color:var(--ink); font-size:15px;}
+.sp-chips{display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;}
+.sp-chip{padding:5px 10px; border-radius:99px; border:1px solid var(--line); background:none; color:var(--ink); font-size:12.5px; cursor:pointer;}
+.sp-chip.on{border-color:var(--gold); color:var(--gold); background:rgba(232,184,75,.1);}
+.sp-fx{display:flex; align-items:center; gap:10px; width:100%; margin-top:12px; padding:8px; border-radius:12px; border:1px solid var(--line); background:var(--el); color:var(--ink); cursor:pointer; text-align:left;}
+.sp-fx-prev, .occ-prev{flex:none; border-radius:9px; overflow:hidden; background:#132436; box-shadow:inset 0 0 0 1px var(--fxc, var(--line));}
+.sp-fx-prev{width:64px; height:42px;}
+.sp-fx-t{flex:1 1 auto; display:flex; flex-direction:column; font-size:12px; color:var(--dim);}
+.sp-fx-t b{font-size:14.5px; font-weight:500; color:var(--ink);}
+.sp-fx em{font-style:normal; font-size:12px; color:var(--gold);}
+.fx-grid{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:7px;}
+.fx-tile{position:relative; height:62px; padding:0; border-radius:11px; border:2px solid transparent; overflow:hidden; background:#132436; cursor:pointer;}
+.fx-tile.on{border-color:var(--gold);}
+.fx-tile .fx-cv{position:absolute; inset:0;}
+.fx-tile span{position:absolute; left:0; right:0; bottom:0; padding:3px 5px; font-size:10.5px; color:#fff; text-align:left; background:linear-gradient(transparent,rgba(5,12,20,.85));}
+.occ-list{display:flex; flex-direction:column; gap:6px; margin-bottom:12px;}
+.occ-row{border:1px solid var(--line); border-radius:14px; background:var(--field); overflow:hidden;}
+.occ-row.open{border-color:var(--gold);}
+.occ-top{display:flex; align-items:center; gap:4px; padding:6px 6px 6px 8px;}
+.occ-main{flex:1 1 auto; min-width:0; display:flex; align-items:center; gap:10px; padding:0; border:0; background:none; color:var(--ink); text-align:left; cursor:pointer;}
+.occ-prev{width:52px; height:34px;}
+.occ-n{display:flex; flex-direction:column; min-width:0;}
+.occ-n b{font-size:14px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.occ-n em{font-style:normal; font-size:11.5px; color:var(--dim);}
+.occ-btn{flex:none; width:30px; height:30px; border-radius:8px; border:0; background:none; color:var(--dim); font-size:12px; cursor:pointer;}
+.occ-btn:disabled{opacity:.25;}
+.occ-btn.del{color:#d06a55;}
+.occ-edit{padding:4px 10px 12px;}
+.occ-names{display:flex; gap:6px; margin-bottom:6px;}
+.occ-names .occ-e{flex:none; width:56px; text-align:center;}
+.occ-add{padding:11px; border-radius:12px; border:1px dashed var(--line); background:none; color:var(--gold); font-size:14px; cursor:pointer;}
+.occ-reset{align-self:center;}
+.sp-more{font-style:normal; color:var(--gold);}
 `;
 const __b = document.getElementById('boot');
 if (__b)
