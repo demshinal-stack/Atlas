@@ -2957,7 +2957,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "42.79";
+const APP_VERSION = "42.80";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -7872,6 +7872,12 @@ function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onR
     const [jr, setJr] = useState(null); // who, left, by, photos, owner, members, orig, plain
     const [editWhen, setEditWhen] = useState(false);
     const [pathOpen, setPathOpen] = useState(true);
+    // шторка «Особенная поездка» поверх карточки (42.80)
+    const [spOpen, setSpOpen] = useState(false);
+    useEffect(() => {
+        if (!open)
+            setSpOpen(false);
+    }, [open]);
     const [adding, setAdding] = useState(false);
     const [airFor, setAirFor] = useState(null);
     const [hotFor, setHotFor] = useState(null);
@@ -8130,143 +8136,145 @@ function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onR
         });
         close();
     };
-    return (React.createElement(Sheet, { open: open, onClose: onClose, box: box, title: title, back: jr.sp && fxShow && FX[jr.sp.fx] ? React.createElement(FxCanvas, { fx: jr.sp.fx, anim: true, scale: 1.25, seed: 7 }) : null }, (close) => {
-        var _d, _e, _f, _h, _j, _k;
-        return (React.createElement("div", { className: "sheet-body rt-body jr-body" }, !stops.length ? (React.createElement(PlacePick, { visits: visits, all: true, onPick: (x) => addPlace(x) })) : (React.createElement(React.Fragment, null,
-            !pathOpen ? (React.createElement("button", { className: "rt-start in rt-metro", onClick: () => setPathOpen(true), "aria-label": routeText(r) },
-                React.createElement("span", { className: "rt-metro-h" },
-                    React.createElement("span", null, "\uD83E\uDDED \u041F\u0443\u0442\u044C"),
-                    React.createElement("em", null, "\u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u203A")),
-                React.createElement(MoveSnake, { j: routeJourney(r, ((_d = r.start) === null || _d === void 0 ? void 0 : _d.name) || "Дом"), delay: 0.4, anim: true, tight: true }))) : (React.createElement("div", { className: "jr-path" },
-                React.createElement("p", { className: "step-title rt-title" }, "\u041F\u0443\u0442\u044C"),
-                React.createElement("div", { className: "rt-stop home" },
-                    React.createElement("i", { className: "rt-dot home" }),
-                    React.createElement("b", null,
-                        ((_e = r.start) === null || _e === void 0 ? void 0 : _e.name) || "не указано",
-                        React.createElement("em", null, ((_f = r.start) === null || _f === void 0 ? void 0 : _f.a3) ? ((_h = BY_A3[r.start.a3]) === null || _h === void 0 ? void 0 : _h.name) || "" : "дом")),
-                    React.createElement("button", { className: "link-btn", onClick: () => setPickStart(!pickStart) }, "\u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C")),
-                pickStart && (React.createElement(CityPointPicker, { placeholder: "\u041E\u0442\u043A\u0443\u0434\u0430 \u0432\u044B\u0435\u0437\u0436\u0430\u043B\u0438", onClose: () => setPickStart(false), onPick: (c) => {
-                        patch({ start: { name: c.name, a3: c.a3, lat: c.lat, lon: c.lon } });
-                        setPickStart(false);
-                    } })),
-                stops.map((s, i) => {
-                    var _d, _e;
-                    const tw = trWords(r, i);
-                    return (React.createElement(React.Fragment, { key: "s" + i },
-                        legRow(i),
-                        React.createElement("div", { className: "rt-stop" + (s.tr ? " tr" : "") },
-                            React.createElement("i", { className: "rt-dot" + (s.tr === 2 ? " air" : s.tr === 1 ? " out" : "") }),
-                            React.createElement("b", null,
-                                s.name,
-                                React.createElement("em", null,
-                                    s.country ? (cityState(s.a3) ? (_d = BY_A3[s.a3]) === null || _d === void 0 ? void 0 : _d.name : "вся страна") : ((_e = BY_A3[s.a3]) === null || _e === void 0 ? void 0 : _e.name) || s.a3,
-                                    s.tr === 2 ? ` · ${tw.out}, страна не засчитается` : s.tr === 1 ? ` · ${tw.tag}` : "")),
-                            React.createElement("span", { className: "rt-tools" },
-                                stops.length > 1 && (React.createElement(React.Fragment, null,
-                                    React.createElement("button", { onClick: () => move(i, -1), disabled: !i, "aria-label": "\u0412\u044B\u0448\u0435" }, "\u2191"),
-                                    React.createElement("button", { onClick: () => move(i, 1), disabled: i === stops.length - 1, "aria-label": "\u041D\u0438\u0436\u0435" }, "\u2193"))),
-                                React.createElement("button", { onClick: () => drop(i), "aria-label": "\u0423\u0431\u0440\u0430\u0442\u044C \u0442\u043E\u0447\u043A\u0443" }, "\u2715"))),
-                        stops.length > 1 && (React.createElement("div", { className: "rt-trrow" },
-                            React.createElement("button", { className: "rt-tr", onClick: () => setStop(i, { tr: s.tr ? 0 : 1 }) },
-                                React.createElement("span", { className: "switch" + (s.tr ? " on" : "") },
-                                    React.createElement("i", null)),
-                                tw.on),
-                            s.tr > 0 && (React.createElement("span", { className: "rt-out" },
-                                React.createElement("button", { className: s.tr === 1 ? "on" : "", onClick: () => setStop(i, { tr: 1 }) }, tw.in),
-                                React.createElement("button", { className: s.tr === 2 ? "on" : "", onClick: () => setStop(i, { tr: 2 }) }, tw.out)))))));
-                }),
-                legRow(r.legs.length - 1, true),
-                React.createElement("div", { className: "rt-stop home" },
-                    React.createElement("i", { className: "rt-dot home" }),
-                    React.createElement("b", null,
-                        ((_j = r.start) === null || _j === void 0 ? void 0 : _j.name) || "дом",
-                        React.createElement("em", null, "\u0432\u0435\u0440\u043D\u0443\u043B\u0438\u0441\u044C \u0434\u043E\u043C\u043E\u0439"))),
-                adding ? (React.createElement(PlacePick, { visits: visits, placeholder: "\u0415\u0449\u0451 \u0442\u043E\u0447\u043A\u0430: \u0433\u043E\u0440\u043E\u0434 \u0438\u043B\u0438 \u0441\u0442\u0440\u0430\u043D\u0430", onClose: () => setAdding(false), onPick: (x) => {
-                        addPlace(x);
-                        setAdding(false);
-                    } })) : (React.createElement("button", { className: "link-btn rt-add", onClick: () => setAdding(true) }, "\uFF0B \u0435\u0449\u0451 \u0442\u043E\u0447\u043A\u0430 \u2014 \u0433\u043E\u0440\u043E\u0434 \u0438\u043B\u0438 \u0441\u0442\u0440\u0430\u043D\u0430")),
-                pickTrip ? (React.createElement(TripInlinePick, { visits: visits, at: r.from || r.y ? tripAt(r) : Date.now(), exclude: [...extra.map((x) => x.id), ...Object.values(jr.members), ...(jr.src || []).map((x) => x.id)], onPick: addTrip, onClose: () => setPickTrip(false) })) : (React.createElement("button", { className: "link-btn rt-add rt-add-trip", onClick: () => setPickTrip(true) }, "\uFF0B \u0443\u0436\u0435 \u0437\u0430\u043F\u0438\u0441\u0430\u043D\u043D\u0430\u044F \u043F\u043E\u0435\u0437\u0434\u043A\u0430")))),
-            editWhen ? (React.createElement("div", { className: "step" },
-                React.createElement("p", { className: "step-title" }, "\u041A\u043E\u0433\u0434\u0430 \u044D\u0442\u043E \u0431\u044B\u043B\u043E"),
-                React.createElement(WhenPicker, { y: r.y, m: r.m, y2: r.y2, approx: r.approx, from: r.from, to: r.to, since: since, onChange: (p) => patch(p) }),
-                React.createElement("button", { className: "cta slim", onClick: () => r.y && setEditWhen(false) }, "\u0413\u043E\u0442\u043E\u0432\u043E"))) : (React.createElement(Done, { label: "\u041A\u043E\u0433\u0434\u0430", value: r.y ? tripLabel(r) : "", onEdit: () => setEditWhen(true) })),
-            r.y && !editWhen && (React.createElement("button", { className: "approx-row plan-row", onClick: () => {
-                    planTouched.current = true;
-                    patch({ plan: !r.plan });
-                } },
-                React.createElement("span", null,
-                    "\u042D\u0442\u043E \u043F\u043B\u0430\u043D\u044B",
-                    React.createElement("em", null, r.plan ? "Поездка впереди — в статистику не попадёт" : "Включится само, если выбрать будущую дату")),
-                React.createElement("span", { className: "switch" + (r.plan ? " on" : "") },
-                    React.createElement("i", null)))),
-            r.y && !editWhen && (React.createElement(SpecialBlock, { sp: jr.sp, occasions: occasions, onAddOccasion: onAddOccasion, onChange: (sp) => setJr((j) => ({ ...j, sp })) })),
-            !editWhen && (React.createElement("div", { className: "step" },
-                React.createElement("p", { className: "step-title" }, "\u041A\u0442\u043E \u0435\u0437\u0434\u0438\u043B"),
-                React.createElement("div", { className: "city-chips" },
-                    React.createElement("span", { className: "city-chip me-chip" + (jr.who.includes(ME) ? " who-on" : " who-off") },
-                        "\u042F",
-                        React.createElement("button", { onClick: () => setJr((j) => j.who.includes(ME)
-                                ? { ...j, who: j.who.filter((x) => x !== ME), left: [...new Set([...(j.left || []), meId])] }
-                                : { ...j, who: [ME, ...j.who], left: (j.left || []).filter((x) => x !== meId) }) }, jr.who.includes(ME) ? "✕" : "＋"))),
-                othersOf(whoD).length > 0 && (React.createElement("div", { className: "city-chips" }, othersOf(whoD).map((n) => {
-                    const p = people.find((x) => x.id === n || x.name === n);
-                    return (React.createElement("span", { key: n, className: "city-chip who-on" },
-                        p ? p.name : n,
-                        p && React.createElement("i", null, p.role),
-                        React.createElement("button", { onClick: () => setJr((j) => ({ ...j, who: j.who.filter((x) => x !== n) })) }, "\u2715")));
-                }))),
-                people.length === 0 && !jr.who.length && !addWho && (React.createElement("p", { className: "hint small" }, "\u041F\u043E\u043A\u0430 \u043D\u0438\u043A\u043E\u0433\u043E \u043D\u0435\u0442. \u0414\u043E\u0431\u0430\u0432\u044C\u0442\u0435 \u0443\u0447\u0430\u0441\u0442\u043D\u0438\u043A\u0430 \u2014 \u043E\u043D \u0441\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u0441\u044F \u0432 \u043F\u0440\u043E\u0444\u0438\u043B\u0435 \u0438 \u0432 \u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0438\u0439 \u0440\u0430\u0437 \u0431\u0443\u0434\u0435\u0442 \u0432\u044B\u0431\u0438\u0440\u0430\u0442\u044C\u0441\u044F \u043D\u0430\u0436\u0430\u0442\u0438\u0435\u043C.")),
-                addWho ? (React.createElement("div", { ref: whoBox },
-                    React.createElement(Suggest, { placeholder: "\u041D\u0430\u0447\u043D\u0438\u0442\u0435 \u0432\u0432\u043E\u0434\u0438\u0442\u044C \u0438\u043C\u044F", pool: people.filter((p) => !jr.who.includes(p.id)).map((p) => p.name), exclude: [], allowCustom: false, onAdd: (name) => {
-                            const p = people.find((x) => x.name === name);
-                            setJr((j) => ({ ...j, who: [...j.who, p ? p.id : name] }));
-                            setAddWho(false);
-                        } }))) : (React.createElement("button", { className: "link-btn", onClick: () => setAddWho(true) }, "\uFF0B \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0443\u0447\u0430\u0441\u0442\u043D\u0438\u043A\u0430")))),
-            !editWhen && countries.length > 0 && (React.createElement(PhotoBlock, { box: box, country: BY_A3[countries[0]], more: countries.map((a3) => { var _d; return ((_d = BY_A3[a3]) === null || _d === void 0 ? void 0 : _d.name) || a3; }), trip: { photos: jr.photos, cities: allCities, hotels: allHotels }, onChange: (p) => p.photos && setJr((j) => ({ ...j, photos: p.photos })), quality: quality, totalPhotos: totalPhotos })),
-            !editWhen && !pathOpen && allHotels.length > 0 && (React.createElement("div", { className: "step" },
-                React.createElement("p", { className: "step-title" }, "\u0413\u0434\u0435 \u0436\u0438\u043B\u0438"),
-                React.createElement("div", { className: "htl-list" }, allHotels.map((h, k) => (React.createElement("div", { key: k, className: "htl-li" },
-                    React.createElement("span", { className: "htl-ic" }, "\uD83C\uDFE8"),
-                    React.createElement("span", { className: "htl-t" },
-                        React.createElement("b", null, h.name),
-                        React.createElement("em", null,
-                            h.city || title,
-                            h.note ? ` · ${h.note}` : "")),
-                    h.stars ? React.createElement("span", { className: "htl-st" }, "★".repeat(h.stars)) : null)))))),
-            React.createElement(Ask, { ask: ask, onClose: () => setAsk(null), box: box }),
-            mode === "edit" && foreign && (React.createElement("p", { className: "hint small trip-author" },
-                "\u0410\u0432\u0442\u043E\u0440 \u0437\u0430\u043F\u0438\u0441\u0438: ",
-                ((_k = (people || []).find((c) => c.link === jr.by)) === null || _k === void 0 ? void 0 : _k.name) || "член семьи",
-                ". \u0423\u0434\u0430\u043B\u0438\u0442\u044C \u0435\u0451 \u0434\u043B\u044F \u0432\u0441\u0435\u0445 \u043C\u043E\u0436\u0435\u0442 \u0442\u043E\u043B\u044C\u043A\u043E \u0430\u0432\u0442\u043E\u0440, \u0432\u044B \u043C\u043E\u0436\u0435\u0442\u0435 \u0441\u043A\u0440\u044B\u0442\u044C \u0435\u0451 \u0443 \u0441\u0435\u0431\u044F.")),
-            !editWhen && (React.createElement("div", { className: "edit-actions" },
-                mode === "edit" && onMergeWith && jr.plain && jr.orig && (React.createElement("button", { className: "act merge", "aria-label": "\u041E\u0431\u044A\u0435\u0434\u0438\u043D\u0438\u0442\u044C \u0441 \u0434\u0440\u0443\u0433\u043E\u0439 \u043F\u043E\u0435\u0437\u0434\u043A\u043E\u0439", onClick: () => {
-                        const t = (visits[jr.orig.a3] || []).find((x) => x.id === jr.orig.id);
-                        if (t) {
-                            close();
-                            onMergeWith(jr.orig.a3, t);
-                        }
+    return (React.createElement(React.Fragment, null,
+        React.createElement(Sheet, { open: open, onClose: onClose, box: box, title: title, back: jr.sp && fxShow && FX[jr.sp.fx] ? React.createElement(FxCanvas, { fx: jr.sp.fx, anim: true, scale: 1.25, seed: 7 }) : null }, (close) => {
+            var _d, _e, _f, _h, _j, _k;
+            return (React.createElement("div", { className: "sheet-body rt-body jr-body" }, !stops.length ? (React.createElement(PlacePick, { visits: visits, all: true, onPick: (x) => addPlace(x) })) : (React.createElement(React.Fragment, null,
+                !pathOpen ? (React.createElement("button", { className: "rt-start in rt-metro", onClick: () => setPathOpen(true), "aria-label": routeText(r) },
+                    React.createElement("span", { className: "rt-metro-h" },
+                        React.createElement("span", null, "\uD83E\uDDED \u041F\u0443\u0442\u044C"),
+                        React.createElement("em", null, "\u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u203A")),
+                    React.createElement(MoveSnake, { j: routeJourney(r, ((_d = r.start) === null || _d === void 0 ? void 0 : _d.name) || "Дом"), delay: 0.4, anim: true, tight: true }))) : (React.createElement("div", { className: "jr-path" },
+                    React.createElement("p", { className: "step-title rt-title" }, "\u041F\u0443\u0442\u044C"),
+                    React.createElement("div", { className: "rt-stop home" },
+                        React.createElement("i", { className: "rt-dot home" }),
+                        React.createElement("b", null,
+                            ((_e = r.start) === null || _e === void 0 ? void 0 : _e.name) || "не указано",
+                            React.createElement("em", null, ((_f = r.start) === null || _f === void 0 ? void 0 : _f.a3) ? ((_h = BY_A3[r.start.a3]) === null || _h === void 0 ? void 0 : _h.name) || "" : "дом")),
+                        React.createElement("button", { className: "link-btn", onClick: () => setPickStart(!pickStart) }, "\u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C")),
+                    pickStart && (React.createElement(CityPointPicker, { placeholder: "\u041E\u0442\u043A\u0443\u0434\u0430 \u0432\u044B\u0435\u0437\u0436\u0430\u043B\u0438", onClose: () => setPickStart(false), onPick: (c) => {
+                            patch({ start: { name: c.name, a3: c.a3, lat: c.lat, lon: c.lon } });
+                            setPickStart(false);
+                        } })),
+                    stops.map((s, i) => {
+                        var _d, _e;
+                        const tw = trWords(r, i);
+                        return (React.createElement(React.Fragment, { key: "s" + i },
+                            legRow(i),
+                            React.createElement("div", { className: "rt-stop" + (s.tr ? " tr" : "") },
+                                React.createElement("i", { className: "rt-dot" + (s.tr === 2 ? " air" : s.tr === 1 ? " out" : "") }),
+                                React.createElement("b", null,
+                                    s.name,
+                                    React.createElement("em", null,
+                                        s.country ? (cityState(s.a3) ? (_d = BY_A3[s.a3]) === null || _d === void 0 ? void 0 : _d.name : "вся страна") : ((_e = BY_A3[s.a3]) === null || _e === void 0 ? void 0 : _e.name) || s.a3,
+                                        s.tr === 2 ? ` · ${tw.out}, страна не засчитается` : s.tr === 1 ? ` · ${tw.tag}` : "")),
+                                React.createElement("span", { className: "rt-tools" },
+                                    stops.length > 1 && (React.createElement(React.Fragment, null,
+                                        React.createElement("button", { onClick: () => move(i, -1), disabled: !i, "aria-label": "\u0412\u044B\u0448\u0435" }, "\u2191"),
+                                        React.createElement("button", { onClick: () => move(i, 1), disabled: i === stops.length - 1, "aria-label": "\u041D\u0438\u0436\u0435" }, "\u2193"))),
+                                    React.createElement("button", { onClick: () => drop(i), "aria-label": "\u0423\u0431\u0440\u0430\u0442\u044C \u0442\u043E\u0447\u043A\u0443" }, "\u2715"))),
+                            stops.length > 1 && (React.createElement("div", { className: "rt-trrow" },
+                                React.createElement("button", { className: "rt-tr", onClick: () => setStop(i, { tr: s.tr ? 0 : 1 }) },
+                                    React.createElement("span", { className: "switch" + (s.tr ? " on" : "") },
+                                        React.createElement("i", null)),
+                                    tw.on),
+                                s.tr > 0 && (React.createElement("span", { className: "rt-out" },
+                                    React.createElement("button", { className: s.tr === 1 ? "on" : "", onClick: () => setStop(i, { tr: 1 }) }, tw.in),
+                                    React.createElement("button", { className: s.tr === 2 ? "on" : "", onClick: () => setStop(i, { tr: 2 }) }, tw.out)))))));
+                    }),
+                    legRow(r.legs.length - 1, true),
+                    React.createElement("div", { className: "rt-stop home" },
+                        React.createElement("i", { className: "rt-dot home" }),
+                        React.createElement("b", null,
+                            ((_j = r.start) === null || _j === void 0 ? void 0 : _j.name) || "дом",
+                            React.createElement("em", null, "\u0432\u0435\u0440\u043D\u0443\u043B\u0438\u0441\u044C \u0434\u043E\u043C\u043E\u0439"))),
+                    adding ? (React.createElement(PlacePick, { visits: visits, placeholder: "\u0415\u0449\u0451 \u0442\u043E\u0447\u043A\u0430: \u0433\u043E\u0440\u043E\u0434 \u0438\u043B\u0438 \u0441\u0442\u0440\u0430\u043D\u0430", onClose: () => setAdding(false), onPick: (x) => {
+                            addPlace(x);
+                            setAdding(false);
+                        } })) : (React.createElement("button", { className: "link-btn rt-add", onClick: () => setAdding(true) }, "\uFF0B \u0435\u0449\u0451 \u0442\u043E\u0447\u043A\u0430 \u2014 \u0433\u043E\u0440\u043E\u0434 \u0438\u043B\u0438 \u0441\u0442\u0440\u0430\u043D\u0430")),
+                    pickTrip ? (React.createElement(TripInlinePick, { visits: visits, at: r.from || r.y ? tripAt(r) : Date.now(), exclude: [...extra.map((x) => x.id), ...Object.values(jr.members), ...(jr.src || []).map((x) => x.id)], onPick: addTrip, onClose: () => setPickTrip(false) })) : (React.createElement("button", { className: "link-btn rt-add rt-add-trip", onClick: () => setPickTrip(true) }, "\uFF0B \u0443\u0436\u0435 \u0437\u0430\u043F\u0438\u0441\u0430\u043D\u043D\u0430\u044F \u043F\u043E\u0435\u0437\u0434\u043A\u0430")))),
+                editWhen ? (React.createElement("div", { className: "step" },
+                    React.createElement("p", { className: "step-title" }, "\u041A\u043E\u0433\u0434\u0430 \u044D\u0442\u043E \u0431\u044B\u043B\u043E"),
+                    React.createElement(WhenPicker, { y: r.y, m: r.m, y2: r.y2, approx: r.approx, from: r.from, to: r.to, since: since, onChange: (p) => patch(p) }),
+                    React.createElement("button", { className: "cta slim", onClick: () => r.y && setEditWhen(false) }, "\u0413\u043E\u0442\u043E\u0432\u043E"))) : (React.createElement(Done, { label: "\u041A\u043E\u0433\u0434\u0430", value: r.y ? tripLabel(r) : "", onEdit: () => setEditWhen(true) })),
+                r.y && !editWhen && (React.createElement("button", { className: "approx-row plan-row", onClick: () => {
+                        planTouched.current = true;
+                        patch({ plan: !r.plan });
                     } },
-                    React.createElement("svg", { viewBox: "0 0 24 24", width: "22", height: "22" },
-                        React.createElement("path", { d: "M6 4v5a6 6 0 0 0 6 6h0a6 6 0 0 1 6 6v0M18 4v5a6 6 0 0 1-3 5.2", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round" }),
-                        React.createElement("path", { d: "M3 7l3-3 3 3M15 7l3-3 3 3", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round" })))),
-                mode === "edit" && onRemove && Object.keys(jr.members).length > 0 && (React.createElement("button", { className: "act del", "aria-label": "\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u043F\u043E\u0435\u0437\u0434\u043A\u0443", onClick: () => setAsk({
-                        title: foreign ? "Скрыть поездку у себя?" : "Удалить поездку?",
-                        text: `${title}, ${tripLabel(r)}${jr.photos.length ? ` · снимков: ${jr.photos.length}` : ""}. ${foreign
-                            ? "Поездку добавил другой член семьи: у вас она исчезнет, у остальных останется."
-                            : "Отменить будет нельзя; у семьи поездка тоже удалится при следующем обмене."}`,
-                        yes: foreign ? "Скрыть" : "Удалить",
-                        onYes: () => {
-                            onRemove(Object.entries(jr.members).map(([a3, id]) => ({ a3, id })));
-                            close();
-                        },
-                    }) },
-                    React.createElement("svg", { viewBox: "0 0 24 24", width: "22", height: "22" },
-                        React.createElement("path", { d: "M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round" })))),
-                React.createElement("button", { className: "act ok", disabled: !ready, onClick: () => save(close), "aria-label": "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C" },
-                    React.createElement("svg", { viewBox: "0 0 24 24", width: "24", height: "24" },
-                        React.createElement("path", { d: "M5 12.5l4.5 4.5L19 7.5", fill: "none", stroke: "currentColor", strokeWidth: "2.2", strokeLinecap: "round", strokeLinejoin: "round" })),
-                    React.createElement("span", null, "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C"))))))));
-    }));
+                    React.createElement("span", null,
+                        "\u042D\u0442\u043E \u043F\u043B\u0430\u043D\u044B",
+                        React.createElement("em", null, r.plan ? "Поездка впереди — в статистику не попадёт" : "Включится само, если выбрать будущую дату")),
+                    React.createElement("span", { className: "switch" + (r.plan ? " on" : "") },
+                        React.createElement("i", null)))),
+                r.y && !editWhen && (React.createElement(SpecialBlock, { sp: jr.sp, occasions: occasions, onOpen: () => setSpOpen(true), onChange: (sp) => setJr((j) => ({ ...j, sp })) })),
+                !editWhen && (React.createElement("div", { className: "step" },
+                    React.createElement("p", { className: "step-title" }, "\u041A\u0442\u043E \u0435\u0437\u0434\u0438\u043B"),
+                    React.createElement("div", { className: "city-chips" },
+                        React.createElement("span", { className: "city-chip me-chip" + (jr.who.includes(ME) ? " who-on" : " who-off") },
+                            "\u042F",
+                            React.createElement("button", { onClick: () => setJr((j) => j.who.includes(ME)
+                                    ? { ...j, who: j.who.filter((x) => x !== ME), left: [...new Set([...(j.left || []), meId])] }
+                                    : { ...j, who: [ME, ...j.who], left: (j.left || []).filter((x) => x !== meId) }) }, jr.who.includes(ME) ? "✕" : "＋"))),
+                    othersOf(whoD).length > 0 && (React.createElement("div", { className: "city-chips" }, othersOf(whoD).map((n) => {
+                        const p = people.find((x) => x.id === n || x.name === n);
+                        return (React.createElement("span", { key: n, className: "city-chip who-on" },
+                            p ? p.name : n,
+                            p && React.createElement("i", null, p.role),
+                            React.createElement("button", { onClick: () => setJr((j) => ({ ...j, who: j.who.filter((x) => x !== n) })) }, "\u2715")));
+                    }))),
+                    people.length === 0 && !jr.who.length && !addWho && (React.createElement("p", { className: "hint small" }, "\u041F\u043E\u043A\u0430 \u043D\u0438\u043A\u043E\u0433\u043E \u043D\u0435\u0442. \u0414\u043E\u0431\u0430\u0432\u044C\u0442\u0435 \u0443\u0447\u0430\u0441\u0442\u043D\u0438\u043A\u0430 \u2014 \u043E\u043D \u0441\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u0441\u044F \u0432 \u043F\u0440\u043E\u0444\u0438\u043B\u0435 \u0438 \u0432 \u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0438\u0439 \u0440\u0430\u0437 \u0431\u0443\u0434\u0435\u0442 \u0432\u044B\u0431\u0438\u0440\u0430\u0442\u044C\u0441\u044F \u043D\u0430\u0436\u0430\u0442\u0438\u0435\u043C.")),
+                    addWho ? (React.createElement("div", { ref: whoBox },
+                        React.createElement(Suggest, { placeholder: "\u041D\u0430\u0447\u043D\u0438\u0442\u0435 \u0432\u0432\u043E\u0434\u0438\u0442\u044C \u0438\u043C\u044F", pool: people.filter((p) => !jr.who.includes(p.id)).map((p) => p.name), exclude: [], allowCustom: false, onAdd: (name) => {
+                                const p = people.find((x) => x.name === name);
+                                setJr((j) => ({ ...j, who: [...j.who, p ? p.id : name] }));
+                                setAddWho(false);
+                            } }))) : (React.createElement("button", { className: "link-btn", onClick: () => setAddWho(true) }, "\uFF0B \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0443\u0447\u0430\u0441\u0442\u043D\u0438\u043A\u0430")))),
+                !editWhen && countries.length > 0 && (React.createElement(PhotoBlock, { box: box, country: BY_A3[countries[0]], more: countries.map((a3) => { var _d; return ((_d = BY_A3[a3]) === null || _d === void 0 ? void 0 : _d.name) || a3; }), trip: { photos: jr.photos, cities: allCities, hotels: allHotels }, onChange: (p) => p.photos && setJr((j) => ({ ...j, photos: p.photos })), quality: quality, totalPhotos: totalPhotos })),
+                !editWhen && !pathOpen && allHotels.length > 0 && (React.createElement("div", { className: "step" },
+                    React.createElement("p", { className: "step-title" }, "\u0413\u0434\u0435 \u0436\u0438\u043B\u0438"),
+                    React.createElement("div", { className: "htl-list" }, allHotels.map((h, k) => (React.createElement("div", { key: k, className: "htl-li" },
+                        React.createElement("span", { className: "htl-ic" }, "\uD83C\uDFE8"),
+                        React.createElement("span", { className: "htl-t" },
+                            React.createElement("b", null, h.name),
+                            React.createElement("em", null,
+                                h.city || title,
+                                h.note ? ` · ${h.note}` : "")),
+                        h.stars ? React.createElement("span", { className: "htl-st" }, "★".repeat(h.stars)) : null)))))),
+                React.createElement(Ask, { ask: ask, onClose: () => setAsk(null), box: box }),
+                mode === "edit" && foreign && (React.createElement("p", { className: "hint small trip-author" },
+                    "\u0410\u0432\u0442\u043E\u0440 \u0437\u0430\u043F\u0438\u0441\u0438: ",
+                    ((_k = (people || []).find((c) => c.link === jr.by)) === null || _k === void 0 ? void 0 : _k.name) || "член семьи",
+                    ". \u0423\u0434\u0430\u043B\u0438\u0442\u044C \u0435\u0451 \u0434\u043B\u044F \u0432\u0441\u0435\u0445 \u043C\u043E\u0436\u0435\u0442 \u0442\u043E\u043B\u044C\u043A\u043E \u0430\u0432\u0442\u043E\u0440, \u0432\u044B \u043C\u043E\u0436\u0435\u0442\u0435 \u0441\u043A\u0440\u044B\u0442\u044C \u0435\u0451 \u0443 \u0441\u0435\u0431\u044F.")),
+                !editWhen && (React.createElement("div", { className: "edit-actions" },
+                    mode === "edit" && onMergeWith && jr.plain && jr.orig && (React.createElement("button", { className: "act merge", "aria-label": "\u041E\u0431\u044A\u0435\u0434\u0438\u043D\u0438\u0442\u044C \u0441 \u0434\u0440\u0443\u0433\u043E\u0439 \u043F\u043E\u0435\u0437\u0434\u043A\u043E\u0439", onClick: () => {
+                            const t = (visits[jr.orig.a3] || []).find((x) => x.id === jr.orig.id);
+                            if (t) {
+                                close();
+                                onMergeWith(jr.orig.a3, t);
+                            }
+                        } },
+                        React.createElement("svg", { viewBox: "0 0 24 24", width: "22", height: "22" },
+                            React.createElement("path", { d: "M6 4v5a6 6 0 0 0 6 6h0a6 6 0 0 1 6 6v0M18 4v5a6 6 0 0 1-3 5.2", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round" }),
+                            React.createElement("path", { d: "M3 7l3-3 3 3M15 7l3-3 3 3", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round" })))),
+                    mode === "edit" && onRemove && Object.keys(jr.members).length > 0 && (React.createElement("button", { className: "act del", "aria-label": "\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u043F\u043E\u0435\u0437\u0434\u043A\u0443", onClick: () => setAsk({
+                            title: foreign ? "Скрыть поездку у себя?" : "Удалить поездку?",
+                            text: `${title}, ${tripLabel(r)}${jr.photos.length ? ` · снимков: ${jr.photos.length}` : ""}. ${foreign
+                                ? "Поездку добавил другой член семьи: у вас она исчезнет, у остальных останется."
+                                : "Отменить будет нельзя; у семьи поездка тоже удалится при следующем обмене."}`,
+                            yes: foreign ? "Скрыть" : "Удалить",
+                            onYes: () => {
+                                onRemove(Object.entries(jr.members).map(([a3, id]) => ({ a3, id })));
+                                close();
+                            },
+                        }) },
+                        React.createElement("svg", { viewBox: "0 0 24 24", width: "22", height: "22" },
+                            React.createElement("path", { d: "M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round" })))),
+                    React.createElement("button", { className: "act ok", disabled: !ready, onClick: () => save(close), "aria-label": "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C" },
+                        React.createElement("svg", { viewBox: "0 0 24 24", width: "24", height: "24" },
+                            React.createElement("path", { d: "M5 12.5l4.5 4.5L19 7.5", fill: "none", stroke: "currentColor", strokeWidth: "2.2", strokeLinecap: "round", strokeLinejoin: "round" })),
+                        React.createElement("span", null, "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C"))))))));
+        }),
+        React.createElement(SpecialSheet, { open: spOpen, onClose: () => setSpOpen(false), box: box, sp: jr.sp, onChange: (sp) => setJr((j) => ({ ...j, sp })), occasions: occasions, onAddOccasion: onAddOccasion, fxShow: fxShow })));
 }
 /* Атлас · 14d · «Особенная поездка» (42.75): повод (свадебное путешествие, юбилей…) и эффект —
    только частицы на тёмном фоне, без картинок: лепестки, шары, конфетти, искры, снег, огоньки.
@@ -8955,71 +8963,71 @@ function OccasionNew({ list, onAdd, onCancel }) {
             React.createElement("button", { className: "link-btn", onClick: onCancel }, "\u041E\u0442\u043C\u0435\u043D\u0430"),
             React.createElement("button", { className: "btn-main occ-new-ok", disabled: !ok, onClick: () => ok && onAdd({ e: e.trim() || "✨", n: name, fx }) }, "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C"))));
 }
-/* блок «✨ Особенная поездка» в карточке поездки (42.78): повод — раскрывающийся вниз список,
-   эффект ставится по поводу и меняется плашкой; в конце списка — «Свой повод» */
-function SpecialBlock({ sp, onChange, occasions, onAddOccasion }) {
+/* строка «✨ Особенная поездка» в карточке (42.80): касание — шторка снизу с поводом и эффектом;
+   переключатель включает (сразу открывая шторку) и снимает */
+function SpecialBlock({ sp, onChange, occasions, onOpen }) {
     var _d;
     const list = occList(occasions);
     const on = !!sp;
-    // уже особенная поездка открывается свёрнутой: строка-сводка, касание — раскрыть; переключатель — снять
-    const [open, setOpen] = useState(false);
-    const [menu, setMenu] = useState(false);
-    const [adding, setAdding] = useState(false);
     const turnOn = () => {
         var _d, _e, _f, _h;
         onChange({ o: ((_d = list[0]) === null || _d === void 0 ? void 0 : _d.n) || "Особенная поездка", e: ((_e = list[0]) === null || _e === void 0 ? void 0 : _e.e) || "✨", fx: (_h = (_f = list[0]) === null || _f === void 0 ? void 0 : _f.fx) !== null && _h !== void 0 ? _h : "gold" });
-        setOpen(true);
-    };
-    // повод поездки, которого нет в списке (удалили из настроек или пришёл от семьи) — показываем первым
-    const items = on && sp.o && !list.some((o) => occSame(o.n, sp.o)) ? [{ e: sp.e || "✨", n: sp.o, fx: sp.fx }, ...list] : list;
-    const pick = (o) => {
-        onChange({ o: o.n, e: o.e || "✨", fx: o.fx || "" });
-        setMenu(false);
+        onOpen === null || onOpen === void 0 ? void 0 : onOpen();
     };
     return (React.createElement("div", { className: "sp-block" + (on ? " on" : ""), style: on ? { "--fxc": fxColor(sp) } : undefined },
-        React.createElement("button", { className: "approx-row plan-row sp-row", onClick: () => (on ? setOpen((v) => !v) : turnOn()) },
+        React.createElement("button", { className: "approx-row plan-row sp-row", onClick: () => (on ? onOpen === null || onOpen === void 0 ? void 0 : onOpen() : turnOn()) },
             React.createElement("span", null,
                 "\u2728 \u041E\u0441\u043E\u0431\u0435\u043D\u043D\u0430\u044F \u043F\u043E\u0435\u0437\u0434\u043A\u0430",
                 React.createElement("em", null,
                     on ? `${sp.e || "✨"} ${sp.o || ""} · ${((_d = FX[sp.fx]) === null || _d === void 0 ? void 0 : _d.n) || "без эффекта"}` : "Повод и праздничный эффект на карточке",
-                    on && React.createElement("i", { className: "sp-more" }, open ? " · свернуть ▴" : " · изменить ›"))),
+                    on && React.createElement("i", { className: "sp-more" }, " \u00B7 \u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u203A"))),
             React.createElement("span", { className: "switch" + (on ? " on" : ""), onClick: (e) => {
                     e.stopPropagation();
-                    if (on) {
+                    if (on)
                         onChange(null);
-                        setOpen(false);
-                        setMenu(false);
-                        setAdding(false);
-                    }
                     else
                         turnOn();
                 } },
-                React.createElement("i", null))),
-        on && open && (React.createElement("div", { className: "sp-body" },
-            React.createElement("p", { className: "fx-sub" }, "\u041F\u043E\u0432\u043E\u0434"),
-            React.createElement("button", { className: "sp-sel" + (menu ? " open" : ""), onClick: () => { setMenu((v) => !v); setAdding(false); }, "aria-expanded": menu },
-                React.createElement("span", { className: "sp-sel-e" }, sp.e || "✨"),
-                React.createElement("span", { className: "sp-sel-n" }, sp.o || "Выберите повод"),
-                React.createElement(PickIcon, { up: menu })),
-            menu && (React.createElement("div", { className: "sp-menu", role: "listbox" },
-                items.map((o) => {
-                    var _d;
-                    const cur = occSame(o.n, sp.o);
-                    return (React.createElement("button", { key: o.n, role: "option", "aria-selected": cur, className: "sp-opt" + (cur ? " on" : ""), onClick: () => pick(o) },
-                        React.createElement("span", { className: "sp-sel-e" }, o.e || "✨"),
-                        React.createElement("span", { className: "sp-opt-n" },
-                            o.n,
-                            React.createElement("em", null, ((_d = FX[o.fx]) === null || _d === void 0 ? void 0 : _d.n) || "без эффекта")),
-                        React.createElement("span", { className: "sp-opt-ck" }, cur ? "✓" : "")));
-                }),
-                adding ? (React.createElement(OccasionNew, { list: items, onCancel: () => setAdding(false), onAdd: (o) => {
-                        onAddOccasion === null || onAddOccasion === void 0 ? void 0 : onAddOccasion(o);
-                        setAdding(false);
-                        pick(o);
-                    } })) : (React.createElement("button", { className: "sp-opt sp-opt-add", onClick: () => setAdding(true) },
-                    React.createElement("span", { className: "sp-sel-e" }, "\uFF0B"),
-                    React.createElement("span", { className: "sp-opt-n" }, "\u0421\u0432\u043E\u0439 \u043F\u043E\u0432\u043E\u0434"))))),
-            React.createElement(FxField, { value: sp.fx, onPick: (id) => onChange({ ...sp, fx: id }) })))));
+                React.createElement("i", null)))));
+}
+/* шторка «Особенная поездка»: поводы строками с галочкой (как «Фильтры»), свой повод,
+   плашка эффекта; эффект на фоне шапки — сразу видно, как будет */
+function SpecialSheet({ open, onClose, box, sp, onChange, occasions, onAddOccasion, fxShow = true }) {
+    const list = occList(occasions);
+    const [adding, setAdding] = useState(false);
+    useEffect(() => {
+        if (!open)
+            setAdding(false);
+    }, [open]);
+    const on = !!sp;
+    // повод поездки, которого нет в списке (удалили из настроек или пришёл от семьи) — первым
+    const items = on && sp.o && !list.some((o) => occSame(o.n, sp.o)) ? [{ e: sp.e || "✨", n: sp.o, fx: sp.fx }, ...list] : list;
+    const pick = (o) => onChange({ o: o.n, e: o.e || "✨", fx: o.fx || "" });
+    return (React.createElement(Sheet, { open: open, onClose: onClose, box: box, title: "\u041E\u0441\u043E\u0431\u0435\u043D\u043D\u0430\u044F \u043F\u043E\u0435\u0437\u0434\u043A\u0430", back: on && fxShow && FX[sp.fx] ? React.createElement(FxCanvas, { fx: sp.fx, anim: true, scale: 1.25, seed: 11 }) : null }, (close) => (React.createElement("div", { className: "sheet-body sp-sheet", style: on ? { "--fxc": fxColor(sp) } : undefined },
+        React.createElement("p", { className: "step-title" }, "\u041F\u043E\u0432\u043E\u0434"),
+        items.map((o) => {
+            var _d;
+            const cur = on && occSame(o.n, sp.o);
+            return (React.createElement("button", { key: o.n, className: "switch-row sp-opt" + (cur ? " picked" : ""), onClick: () => pick(o) },
+                React.createElement("span", { className: "sp-sel-e" }, o.e || "✨"),
+                React.createElement("span", { className: "switch-text" },
+                    o.n,
+                    React.createElement("em", null, ((_d = FX[o.fx]) === null || _d === void 0 ? void 0 : _d.n) || "без эффекта")),
+                React.createElement("span", { className: "step-pen" }, cur ? "✓" : "")));
+        }),
+        adding ? (React.createElement(OccasionNew, { list: items, onCancel: () => setAdding(false), onAdd: (o) => {
+                onAddOccasion === null || onAddOccasion === void 0 ? void 0 : onAddOccasion(o);
+                setAdding(false);
+                pick(o);
+            } })) : (React.createElement("button", { className: "occ-add sp-add", onClick: () => setAdding(true) }, "\uFF0B \u0421\u0432\u043E\u0439 \u043F\u043E\u0432\u043E\u0434")),
+        on && (React.createElement(React.Fragment, null,
+            React.createElement("p", { className: "step-title" }, "\u042D\u0444\u0444\u0435\u043A\u0442"),
+            React.createElement(FxField, { value: sp.fx, onPick: (id) => onChange({ ...sp, fx: id }) }))),
+        React.createElement("button", { className: "btn-main sp-done", onClick: close }, "\u0413\u043E\u0442\u043E\u0432\u043E"),
+        on && (React.createElement("button", { className: "link-btn sp-off", onClick: () => {
+                onChange(null);
+                close();
+            } }, "\u0421\u0434\u0435\u043B\u0430\u0442\u044C \u043E\u0431\u044B\u0447\u043D\u043E\u0439 \u043F\u043E\u0435\u0437\u0434\u043A\u043E\u0439"))))));
 }
 /* настройки: список поводов — переименовать, сменить эффект, переставить, удалить, добавить */
 function OccasionsSetup({ list: raw, onChange }) {
@@ -22683,24 +22691,21 @@ button, input, select, textarea{font-family:inherit;}
 .root.light .sp-tag{color:#a0703a;}
 .sp-block{margin-top:8px;}
 .sp-block.on .sp-row{border-color:var(--fxc);}
-.sp-body{margin-top:8px; padding:12px; border-radius:14px; border:1px solid var(--line); background:var(--field);}
 .fx-sub{margin:10px 0 6px; font-size:12px; color:var(--dim);}
 .fx-sub:first-child{margin-top:0;}
 .sp-input{width:100%; box-sizing:border-box; padding:10px 12px; border-radius:12px; border:1px solid var(--line); background:var(--el); color:var(--ink); font-size:16px;}
-.sp-sel{display:flex; align-items:center; gap:10px; width:100%; padding:10px 12px; border-radius:12px; border:1px solid var(--line); background:var(--el); color:var(--ink); font-size:16px; font-family:inherit; text-align:left; cursor:pointer;}
-.sp-sel.open{border-color:var(--gold); border-radius:12px 12px 0 0;}
 .sp-sel-e{flex:none; width:24px; text-align:center;}
-.sp-sel-n{flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .pick-ic{flex:none; color:var(--gold); transition:transform .2s;}
 .pick-ic.up{transform:rotate(180deg);}
-.sp-menu{border:1px solid var(--gold); border-top:0; border-radius:0 0 12px 12px; background:var(--el); overflow:hidden;}
-.sp-opt{display:flex; align-items:center; gap:10px; width:100%; min-height:46px; padding:6px 12px; border:0; border-top:1px solid var(--line); background:none; color:var(--ink); font-size:15px; font-family:inherit; text-align:left; cursor:pointer;}
-.sp-opt.on{background:rgba(232,184,75,.08);}
-.sp-opt-n{flex:1 1 auto; min-width:0; display:flex; flex-direction:column;}
-.sp-opt-n em{font-style:normal; font-size:11.5px; color:var(--dim);}
-.sp-opt-ck{flex:none; width:18px; color:var(--gold); text-align:center;}
-.sp-opt-add{color:var(--gold);}
-.occ-new{padding:10px 12px 12px; border-top:1px solid var(--line);}
+/* шторка «Особенная поездка» (42.80): поводы — строки как в «Фильтрах», выбранный — только галочкой */
+.sheet .sp-opt{margin-bottom:6px; padding:8px 12px;}
+.sheet .sp-opt.picked{border-color:var(--line);}
+.sp-opt .sp-sel-e{font-size:18px;}
+.sp-add{width:100%; margin:2px 0 4px;}
+.sp-sheet > .occ-new{margin:4px 0 8px; border:1px solid var(--gold); border-radius:14px; background:var(--field);}
+.sp-done{position:sticky; bottom:8px; z-index:2; width:100%; margin-top:18px; box-shadow:0 8px 24px var(--shadow);}
+.sp-off{display:block; margin:14px auto 4px;}
+.occ-new{padding:10px 12px 12px;}
 .occ-list > .occ-new{border:1px solid var(--gold); border-radius:14px; background:var(--field);}
 .occ-hint{display:flex; justify-content:space-between; gap:8px; margin:0 2px; font-size:11.5px; color:var(--dim);}
 .occ-hint.bad{color:#d06a55;}
