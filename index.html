@@ -2942,7 +2942,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "42.66";
+const APP_VERSION = "42.67";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -15786,8 +15786,7 @@ function ConquestWin({ visits, a3: a30, onClose, geo = null }) {
     const rows = useMemo(() => conqData(visits), [visits]);
     const [a3, setA3] = useState(a30 || ((_d = conqFirst(rows)) === null || _d === void 0 ? void 0 : _d.a3) || null);
     const [sel, setSel] = useState(null);
-    const [open, setOpen] = useState(null); // страна, у которой раскрыты города (42.65)
-    const [stuck, setStuck] = useState(false); // строка раскрытой страны ушла за верх списка
+    const [open, setOpen] = useState(null); // страна, чья страница регионов открыта вместо списка (42.67)
     const [turn, setTurn] = useState({}); // выбор «север вверху / крупнее» по странам
     const wide = useWide();
     // карта рисуется под настоящий размер места (а не 360×260): вытянутые страны крупнее
@@ -15814,72 +15813,57 @@ function ConquestWin({ visits, a3: a30, onClose, geo = null }) {
     const row = rows.find((r) => r.a3 === a3) || conqFirst(rows);
     useEffect(() => setSel(null), [a3]);
     const cities = useMemo(() => (row ? cqCities(visits, row.a3) : null), [visits, row === null || row === void 0 ? void 0 : row.a3]);
+    // страница страны (42.67, как «Настройки» iPhone): касание страны в списке открывает её
+    // страницу — неподвижная шапка «‹ Страны» и прокручиваемые регионы с городами
+    const isOpen = !!row && open === row.a3;
+    const regRows = useMemo(() => {
+        if (!row || !cities)
+            return { done: [], not: [] };
+        const byName = (a, b) => a.name.localeCompare(b.name, "ru");
+        const done = [];
+        const not = [];
+        cqFeats(row.a3).forEach((f) => {
+            const k = f.properties.key;
+            if (!row.done.has(k))
+                return not.push({ key: k, name: f.properties.n });
+            const g = cities.regs.find((x) => x.key === k);
+            done.push({ key: k, name: f.properties.n, n: g ? g.n : 0, cs: g ? g.cities : [] });
+        });
+        done.sort((a, b) => b.n - a.n || byName(a, b));
+        const loose = cities.regs.find((x) => !x.key); // города, чей регион не нашёлся
+        if (loose)
+            done.push({ key: null, name: loose.name, n: loose.n, cs: loose.cities });
+        return { done, not: not.sort(byName) };
+    }, [row, cities]);
     const pickA3 = (k) => {
-        if (k === a3)
-            return setOpen((o) => (o === k ? null : o)); // касание выбранной — свернуть
-        setOpen(null);
         setA3(k);
+        setOpen(k);
     };
-    const toggleOpen = (k) => {
-        if (k !== a3) {
-            setA3(k);
-            setOpen(k);
-        }
-        else
-            setOpen((o) => (o === k ? null : k));
-    };
-    // касание покорённого региона на карте — раскрыть страну и прокрутить к региону в списке
+    // касание региона на карте — открыть страницу страны и прокрутить к региону
     const pickReg = (k) => {
         setSel(k);
-        if (k && (row === null || row === void 0 ? void 0 : row.done.has(k)))
+        if (k && row)
             setOpen(row.a3);
     };
-    // полоса стоит над списком отдельной строкой (42.66): список под неё не заезжает. Когда она
-    // появляется или исчезает, верх списка сдвигается — прокрутку поправляем, чтобы строки не прыгали
-    const boxTop = useRef(null);
-    const onListScroll = () => {
-        const box = listRef.current;
-        const top = box === null || box === void 0 ? void 0 : box.querySelector(".cq-item.open .cq-row");
-        if (!box)
-            return;
-        boxTop.current = box.getBoundingClientRect().top;
-        setStuck(!!(top && top.getBoundingClientRect().bottom < boxTop.current + 4));
-    };
-    React.useLayoutEffect(() => {
-        const box = listRef.current;
-        if (!box || boxTop.current == null)
-            return;
-        const d = box.getBoundingClientRect().top - boxTop.current;
-        if (d)
-            box.scrollTop += d;
-        boxTop.current = box.getBoundingClientRect().top;
-    }, [stuck]);
-    useEffect(() => {
-        const box = listRef.current;
-        if (!box)
-            return;
-        const el = sel && box.querySelector(".cq-rg.sel");
-        if (el) {
-            const y = el.offsetTop - box.offsetTop;
-            if (y < box.scrollTop + 30 || y + el.offsetHeight > box.scrollTop + box.clientHeight)
-                box.scrollTop = y - 36;
-        }
-        else if (open && open === a3) {
-            const it = box.querySelector(".cq-item.open");
-            if (it)
-                box.scrollTop = it.offsetTop - box.offsetTop - 4;
-        }
-        onListScroll();
-    }, [sel, open]);
-    // выбранная страна видна в списке
     const listRef = useRef(null);
+    const pageRef = useRef(null);
+    useEffect(() => {
+        const box = pageRef.current;
+        const el = sel && (box === null || box === void 0 ? void 0 : box.querySelector(".cq-rr.sel"));
+        if (!el)
+            return;
+        const y = el.offsetTop - box.offsetTop;
+        if (y < box.scrollTop || y + el.offsetHeight > box.scrollTop + box.clientHeight)
+            box.scrollTop = Math.max(0, y - (box.clientHeight - el.offsetHeight) / 2);
+    }, [sel, isOpen]);
+    // выбранная страна видна в списке (и после возврата со страницы страны)
     useEffect(() => {
         var _d;
         const el = (_d = listRef.current) === null || _d === void 0 ? void 0 : _d.querySelector(".cq-row.on");
         const box = listRef.current;
-        if (el && box && (el.offsetTop < box.scrollTop || el.offsetTop + el.offsetHeight > box.scrollTop + box.clientHeight))
+        if (el && box && (el.offsetTop - box.offsetTop < box.scrollTop || el.offsetTop - box.offsetTop + el.offsetHeight > box.scrollTop + box.clientHeight))
             box.scrollTop = el.offsetTop - box.offsetTop - 8;
-    }, [a3, wide]);
+    }, [a3, wide, isOpen]);
     if (!row)
         return (React.createElement("div", { className: "zoom-layer pg-layer", onClick: onClose },
             React.createElement("div", { className: "zoom-box", onClick: (e) => e.stopPropagation() },
@@ -15911,55 +15895,47 @@ function ConquestWin({ visits, a3: a30, onClose, geo = null }) {
                 "%")),
         React.createElement("div", { className: "cq-svgbox", ref: boxRef },
             React.createElement(ConquestMap, { a3: row.a3, done: row.done, sel: sel, onSel: pickReg, w: size[0], h: size[1], turn: turn[row.a3] || "auto", geo: geo, onTurn: (v) => setTurn((t) => ({ ...t, [row.a3]: v })) }))));
-    const preview = (r) => {
-        const cs = r.a3 === row.a3 && cities ? cities.all : cqCities(visits, r.a3).all;
-        if (!cs.length)
-            return null;
-        const head = cs.slice(0, 3).map((x) => x.c).join(", ");
-        return { head: cs.length > 3 ? head + "…" : head, more: cs.length > 3 ? `ещё ${cs.length - 3}` : "" };
-    };
-    const list = (React.createElement(React.Fragment, null,
-        open === row.a3 && stuck && (React.createElement("button", { className: "cq-stick", onClick: () => setOpen(null) },
+    const rr = (g, no = false) => (React.createElement("button", { key: g.key || "-", className: "cq-rr" + (no ? " no" : "") + (g.key && g.key === sel ? " sel" : ""), onClick: () => g.key && setSel(sel === g.key ? null : g.key) },
+        React.createElement("i", { className: "cq-rd" + (g.key ? "" : " loose") }),
+        React.createElement("span", null,
+            React.createElement("b", null, g.name),
+            !no && React.createElement("em", null, g.cs.length ? g.cs.map((x) => x.c).join(", ") : "города не указаны")),
+        !no && g.n > 0 && React.createElement("u", null, np(g.n, "trip"))));
+    const list = isOpen ? (React.createElement("div", { className: "cq-page", key: row.a3 },
+        React.createElement("div", { className: "cq-nav" },
+            React.createElement("button", { className: "cq-back", onClick: () => (setOpen(null), setSel(null)) }, "\u2039 \u0421\u0442\u0440\u0430\u043D\u044B"),
+            React.createElement("b", null,
+                React.createElement(Flg, { a3: row.a3 }),
+                " ",
+                name),
+            React.createElement("u", { className: "cq-big " + cqMetal(row.pct) },
+                row.pct,
+                "%")),
+        React.createElement("div", { className: "ag-list cq-plist", ref: pageRef },
+            regRows.done.map((g) => rr(g)),
+            regRows.not.length > 0 && React.createElement("div", { className: "cq-sect" },
+                "\u0415\u0449\u0451 \u043D\u0435 \u0431\u044B\u043B\u0438 \u00B7 ",
+                regRows.not.length),
+            regRows.not.map((g) => rr(g, true))))) : (React.createElement("div", { className: "ag-list cq-list", ref: listRef }, rows.map((r) => {
+        var _d;
+        return (React.createElement("button", { key: r.a3, className: "ag-row cq-row" + (r.a3 === row.a3 ? " on" : ""), onClick: () => pickA3(r.a3) },
             React.createElement("i", { className: "cq-rflag" },
-                React.createElement(Flg, { a3: row.a3 })),
-            React.createElement("b", null, name),
-            React.createElement("span", null, "\u0421\u0432\u0435\u0440\u043D\u0443\u0442\u044C \u25B4"))),
-        React.createElement("div", { className: "ag-list cq-list", ref: listRef, onScroll: onListScroll }, rows.map((r) => {
-            var _d;
-            const on = r.a3 === row.a3;
-            const isOpen = on && open === r.a3;
-            const pv = !isOpen && preview(r);
-            return (React.createElement("div", { key: r.a3, className: "cq-item" + (on ? " on" : "") + (isOpen ? " open" : "") },
-                React.createElement("button", { className: "ag-row cq-row" + (on ? " on" : ""), onClick: () => pickA3(r.a3) },
-                    React.createElement("i", { className: "cq-rflag" },
-                        React.createElement(Flg, { a3: r.a3 })),
-                    React.createElement("span", null,
-                        React.createElement("b", null, ((_d = BY_A3[r.a3]) === null || _d === void 0 ? void 0 : _d.name) || r.a3),
-                        React.createElement("em", null,
-                            r.n,
-                            " \u0438\u0437 ",
-                            r.total,
-                            " ",
-                            cqOf(r.total),
-                            r.cities ? ` · ${np(r.cities, "city")}` : ""),
-                        React.createElement(CqBar, { pct: r.pct })),
-                    React.createElement("u", { className: "cq-big " + cqMetal(r.pct) },
-                        r.pct,
-                        "%")),
-                pv && (React.createElement("button", { className: "cq-more", onClick: () => toggleOpen(r.a3) },
-                    React.createElement("em", null, pv.head),
-                    React.createElement("span", null, pv.more ? pv.more + " ▾" : "▾"))),
-                isOpen && (React.createElement("div", { className: "cq-regs" },
-                    cities.regs.map((g) => (React.createElement("div", { key: g.key || "-", className: "cq-rg" + (g.key && g.key === sel ? " sel" : ""), onClick: () => g.key && setSel(sel === g.key ? null : g.key) },
-                        React.createElement("div", { className: "cq-rn" },
-                            React.createElement("span", null, g.name),
-                            React.createElement("em", null, np(g.n, "trip"))),
-                        React.createElement("div", { className: "cq-cs" }, g.cities.map((x) => (React.createElement("span", { key: x.c, className: "cq-cc" },
-                            x.c,
-                            " ",
-                            React.createElement("u", null, x.n)))))))),
-                    React.createElement("button", { className: "cq-fold", onClick: () => setOpen(null) }, "\u0421\u0432\u0435\u0440\u043D\u0443\u0442\u044C \u25B4")))));
-        }))));
+                React.createElement(Flg, { a3: r.a3 })),
+            React.createElement("span", null,
+                React.createElement("b", null, ((_d = BY_A3[r.a3]) === null || _d === void 0 ? void 0 : _d.name) || r.a3),
+                React.createElement("em", null,
+                    r.n,
+                    " \u0438\u0437 ",
+                    r.total,
+                    " ",
+                    cqOf(r.total),
+                    r.cities ? ` · ${np(r.cities, "city")}` : ""),
+                React.createElement(CqBar, { pct: r.pct })),
+            React.createElement("u", { className: "cq-big " + cqMetal(r.pct) },
+                r.pct,
+                "%"),
+            React.createElement("i", { className: "cq-chev" }, "\u203A")));
+    })));
     if (wide)
         return (React.createElement("div", { className: "pg-wide", onClick: onClose },
             React.createElement("div", { className: "pg-panel", onClick: (e) => e.stopPropagation() },
@@ -21670,31 +21646,29 @@ button, input, select, textarea{font-family:inherit;}
 .root.light .cq-halo path{opacity:.35;}
 @media (prefers-reduced-motion: reduce){ .cq-sheen{display:none;} }
 
-/* 42.65: города, где были, — раскрываются у страны в списке покорения */
-.cq-item{flex:none; border:1px solid var(--line); border-radius:12px; background:var(--field); overflow:hidden;}
-.cq-item.on{border-color:var(--gold);}
-.cq-item .cq-row{width:100%; border:0; border-radius:0; background:none;}
-.cq-more{display:flex; align-items:center; gap:8px; width:100%; padding:0 12px 8px 42px; border:0; background:none;
-  color:var(--dim); font-size:11.5px; text-align:left; cursor:pointer;}
-.cq-more em{flex:1 1 auto; min-width:0; font-style:normal; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
-.cq-more span{flex:none; color:var(--gold); font-weight:600;}
-.cq-regs{display:flex; flex-direction:column;}
-.cq-rg{padding:6px 12px 6px 42px; border-top:1px solid var(--line); cursor:pointer;}
-.cq-rg.sel{background:rgba(232,184,75,.1);}
-.cq-rn{display:flex; justify-content:space-between; gap:8px; font-size:11px; color:var(--dim); margin-bottom:4px;}
-.cq-rn em{font-style:normal; flex:none;}
-.cq-rg.sel .cq-rn span{color:var(--gold);}
-.cq-cs{display:flex; flex-wrap:wrap; gap:4px;}
-.cq-cc{display:inline-flex; align-items:center; gap:5px; padding:2px 9px; border-radius:99px; border:1px solid var(--line);
-  background:rgba(255,255,255,.03); font-size:12px; color:var(--ink);}
-.cq-cc u{text-decoration:none; color:var(--gold); font-size:11px; font-weight:600;}
-.cq-fold{align-self:flex-end; padding:6px 12px 8px; border:0; background:none; color:var(--gold); font-size:12px; cursor:pointer;}
-/* тонкая полоса раскрытой страны (42.66): отдельной строкой над списком, а не поверх него */
-.cq-stick{flex:none; display:flex; align-items:center; gap:8px; height:32px; padding:0 12px; border:1px solid var(--gold);
-  border-radius:10px; background:var(--field); color:var(--ink); font-size:12.5px; cursor:pointer;}
-.cq-stick .cq-rflag{font-size:15px;}
-.cq-stick b{flex:1 1 auto; text-align:left; font-weight:500;}
-.cq-stick span{color:var(--gold); font-size:12px;}
+/* 42.67: страница страны в «Покорении» — шапка «‹ Страны» стоит, регионы с городами прокручиваются */
+.cq-chev{flex:none; font-style:normal; font-size:18px; color:var(--dim); margin-left:-4px;}
+.cq-page{flex:1 1 auto; min-height:0; display:flex; flex-direction:column; gap:8px; animation:cqIn .22s ease-out;}
+@keyframes cqIn{from{opacity:0; transform:translateX(24px);} to{opacity:1; transform:none;}}
+.cq-nav{flex:none; display:flex; align-items:center; gap:10px; padding:0 2px 8px; border-bottom:1px solid var(--line);}
+.cq-back{flex:none; padding:4px 2px; border:0; background:none; color:var(--gold); font-size:13px; cursor:pointer; white-space:nowrap;}
+.cq-nav b{flex:1 1 auto; min-width:0; font-size:14px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.cq-nav b .own-flag{width:18px; height:12px; border-radius:2px; object-fit:cover;}
+.cq-nav u{flex:none; text-decoration:none; font-size:17px;}
+.cq-plist{gap:4px;}
+.cq-rr{flex:none; display:flex; align-items:center; gap:10px; padding:7px 10px; border-radius:11px; border:1px solid transparent;
+  background:var(--field); color:var(--ink); text-align:left; cursor:pointer;}
+.cq-rr span{flex:1 1 auto; min-width:0; display:flex; flex-direction:column; gap:1px;}
+.cq-rr b{font-size:13px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.cq-rr em{font-style:normal; font-size:11.5px; color:var(--dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.cq-rr u{flex:none; text-decoration:none; font-size:11.5px; color:var(--dim);}
+.cq-rd{flex:none; width:9px; height:9px; border-radius:3px; background:var(--gold);}
+.cq-rd.loose{background:none; border:1px dashed var(--gold);}
+.cq-rr.no .cq-rd{background:var(--track);}
+.cq-rr.no b{font-weight:400; color:var(--dim);}
+.cq-rr.sel{border-color:var(--gold); background:rgba(232,184,75,.1);}
+.cq-rr.sel b{color:var(--gold);}
+.cq-sect{flex:none; margin:8px 4px 2px; font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--dim);}
 `;
 const __b = document.getElementById('boot');
 if (__b)
