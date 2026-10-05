@@ -2957,7 +2957,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "42.80";
+const APP_VERSION = "42.81";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -7889,6 +7889,10 @@ function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onR
     const [ask, setAsk] = useState(null);
     const planTouched = useRef(false);
     const origKey = useRef("");
+    /* открытая поездка без правок — внизу только «Удалить»; «Сохранить» появляется после первой правки (42.81).
+       Снимок берём, когда карточка собралась; сравниваем путь и данные поездки целиком */
+    const base = useRef(null);
+    const snap = (a, b) => JSON.stringify([a, b]);
     const whoBox = useRef(null);
     useEffect(() => {
         if (!addWho)
@@ -7906,6 +7910,7 @@ function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onR
     const srcKey = initial ? initial.key || `${initial.a3}:${initial.id}` : "new";
     useEffect(() => {
         var _d;
+        base.current = null;
         if (!open) {
             setR(null);
             setJr(null);
@@ -7952,6 +7957,7 @@ function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onR
         if (j) {
             setR(j.r);
             setJr(j);
+            base.current = snap(j.r, j);
             origKey.current = pathKey(j.r);
             planTouched.current = true;
             setPathOpen(!!(initial === null || initial === void 0 ? void 0 : initial.route) || !(j.r.stops || []).length);
@@ -7979,6 +7985,7 @@ function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onR
         // строим один раз: иначе правки затираются при каждой перерисовке
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, srcKey]);
+    const dirty = mode !== "edit" || base.current === null || (!!r && !!jr && snap(r, jr) !== base.current);
     const patch = (p) => setR((d) => {
         const next = { ...d, ...p };
         if (!planTouched.current && ("y" in p || "m" in p || "from" in p)) {
@@ -8269,10 +8276,10 @@ function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onR
                         }) },
                         React.createElement("svg", { viewBox: "0 0 24 24", width: "22", height: "22" },
                             React.createElement("path", { d: "M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round" })))),
-                    React.createElement("button", { className: "act ok", disabled: !ready, onClick: () => save(close), "aria-label": "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C" },
+                    dirty && (React.createElement("button", { className: "act ok", disabled: !ready, onClick: () => save(close), "aria-label": "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C" },
                         React.createElement("svg", { viewBox: "0 0 24 24", width: "24", height: "24" },
                             React.createElement("path", { d: "M5 12.5l4.5 4.5L19 7.5", fill: "none", stroke: "currentColor", strokeWidth: "2.2", strokeLinecap: "round", strokeLinejoin: "round" })),
-                        React.createElement("span", null, "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C"))))))));
+                        React.createElement("span", null, "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C")))))))));
         }),
         React.createElement(SpecialSheet, { open: spOpen, onClose: () => setSpOpen(false), box: box, sp: jr.sp, onChange: (sp) => setJr((j) => ({ ...j, sp })), occasions: occasions, onAddOccasion: onAddOccasion, fxShow: fxShow })));
 }
