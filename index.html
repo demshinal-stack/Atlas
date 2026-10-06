@@ -2957,7 +2957,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "42.88";
+const APP_VERSION = "42.89";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -7942,6 +7942,9 @@ function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onR
     const [pathOpen, setPathOpen] = useState(true);
     // шторка «Особенная поездка» поверх карточки (42.80)
     const [spOpen, setSpOpen] = useState(false);
+    // перетаскивание точки направления вбок (42.89)
+    const [drag, setDrag] = useState(null);
+    const dragRef = useRef(null);
     useEffect(() => {
         if (!open)
             setSpOpen(false);
@@ -8096,6 +8099,9 @@ function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onR
             setStop: (i, p) => onDir(k, (D) => pathStop(D, i, p)),
             setHotel: (i, j, p) => onDir(k, (D) => pathHotel(D, i, j, p)),
             move: (i, dir) => onDir(k, (D) => pathMove(D, i, dir)),
+            // влево — на ствол (своё направление из дома), вправо — продолжение предыдущего направления
+            shiftL: (i) => (i > 0 ? () => setR((d) => ({ ...d, dirs: fanSplit(d.dirs, k, i) })) : null),
+            shiftR: (i) => (i === 0 && k > 0 ? () => setR((d) => ({ ...d, dirs: fanJoin(d.dirs, k) })) : null),
             drop: (i) => setR((d) => {
                 const D2 = pathDrop(d.dirs[k], i);
                 // последняя точка направления — убираем всё направление
@@ -8230,6 +8236,7 @@ function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onR
     const fanEditor = () => (React.createElement("div", { className: "jr-path fan-tree" },
         React.createElement("p", { className: "step-title rt-title" }, "\u041F\u0443\u0442\u044C"),
         homeTile,
+        stops.length > 1 && React.createElement("p", { className: "hint small fan-hint" }, "\u0422\u043E\u0447\u043A\u0443 \u043C\u043E\u0436\u043D\u043E \u043F\u043E\u0442\u044F\u043D\u0443\u0442\u044C: \u0432\u043B\u0435\u0432\u043E \u2014 \u0441\u0432\u043E\u0451 \u043D\u0430\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u0435 \u0438\u0437 \u0434\u043E\u043C\u0430, \u0432\u043F\u0440\u0430\u0432\u043E \u2014 \u043F\u0440\u043E\u0434\u043E\u043B\u0436\u0435\u043D\u0438\u0435 \u043F\u0440\u0435\u0434\u044B\u0434\u0443\u0449\u0435\u0433\u043E."),
         r.dirs.map((D, k) => {
             var _e, _h;
             const P = dirP(k);
@@ -8252,13 +8259,57 @@ function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onR
                 addDir(x);
                 setAdding(false);
             } })) : (React.createElement("button", { className: "link-btn rt-add", onClick: () => setAdding("dir") }, "\uFF0B \u043D\u0430\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u0435"))));
+    /* точку направления тянут вбок (42.89): влево — на ствол, вправо — к предыдущему направлению */
+    const dragProps = (key, onL, onR) => ({
+        onPointerDown: (e) => {
+            if (e.target.closest("button"))
+                return;
+            dragRef.current = { key, x: e.clientX, y: e.clientY, on: false, id: e.pointerId };
+        },
+        onPointerMove: (e) => {
+            const g = dragRef.current;
+            if (!g || g.key !== key)
+                return;
+            const dx = e.clientX - g.x;
+            const dy = e.clientY - g.y;
+            if (!g.on) {
+                if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx))
+                    return (dragRef.current = null); // это прокрутка
+                if (Math.abs(dx) < 10)
+                    return;
+                g.on = true;
+                try {
+                    e.currentTarget.setPointerCapture(g.id);
+                }
+                catch { }
+            }
+            // в сторону, куда сдвинуть нельзя, — тянется туго
+            setDrag({ key, dx: dx < 0 ? (onL ? dx : dx / 4) : onR ? dx : dx / 4 });
+        },
+        onPointerUp: (e) => {
+            const g = dragRef.current;
+            dragRef.current = null;
+            setDrag(null);
+            if (!g || !g.on)
+                return;
+            const dx = e.clientX - g.x;
+            if (dx < -44 && onL)
+                onL();
+            else if (dx > 44 && onR)
+                onR();
+        },
+        onPointerCancel: () => {
+            dragRef.current = null;
+            setDrag(null);
+        },
+    });
     /* плитки точек пути с перегонами перед ними: цепочка или направление веера */
     const stopTiles = (P) => P.stops.map((s, i) => {
         var _e, _h;
         const tw = trWords(P, i);
         return (React.createElement(React.Fragment, { key: "s" + P.key + i },
             legRow(i, false, P),
-            React.createElement("div", { className: "rt-stop" + (s.tr ? " tr" : "") },
+            React.createElement("div", { className: "rt-stop" + (s.tr ? " tr" : "") + (P.shiftL ? " fan-drag" : "") + ((drag === null || drag === void 0 ? void 0 : drag.key) === P.key + i ? " moving" : ""), style: (drag === null || drag === void 0 ? void 0 : drag.key) === P.key + i ? { transform: `translateX(${Math.max(-56, Math.min(56, drag.dx))}px)` } : undefined, ...(P.shiftL ? dragProps(P.key + i, P.shiftL(i), P.shiftR(i)) : {}) },
                 React.createElement("i", { className: "rt-dot" + (s.tr === 2 ? " air" : s.tr === 1 ? " out" : "") }),
                 React.createElement("b", null,
                     s.name,
@@ -8269,6 +8320,7 @@ function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onR
                     P.stops.length > 1 && (React.createElement(React.Fragment, null,
                         React.createElement("button", { onClick: () => P.move(i, -1), disabled: !i, "aria-label": "\u0412\u044B\u0448\u0435" }, "\u2191"),
                         React.createElement("button", { onClick: () => P.move(i, 1), disabled: i === P.stops.length - 1, "aria-label": "\u041D\u0438\u0436\u0435" }, "\u2193"))),
+                    P.shiftL && (P.shiftL(i) || P.shiftR(i)) && (React.createElement("button", { className: "fan-shift", onClick: () => (P.shiftL(i) || P.shiftR(i))(), "aria-label": P.shiftL(i) ? "Отдельно из дома" : "Продолжение предыдущего" }, P.shiftL(i) ? "⇤" : "⇥")),
                     React.createElement("button", { onClick: () => P.drop(i), "aria-label": "\u0423\u0431\u0440\u0430\u0442\u044C \u0442\u043E\u0447\u043A\u0443" }, "\u2715"))),
             P.stops.length > 1 && (React.createElement("div", { className: "rt-trrow" },
                 React.createElement("button", { className: "rt-tr", onClick: () => P.setStop(i, { tr: s.tr ? 0 : 1 }) },
@@ -9338,6 +9390,34 @@ function fanToLinear(dirs) {
     const back = last ? last.legs[last.stops.length] || last.legs[0] || {} : {};
     legs.push({ k: back.k || null, air: [...(back.air || [])] });
     return { stops, legs };
+}
+/* точку — на ствол: с неё начинается своё направление из дома (хвост направления уходит с ней) */
+function fanSplit(dirs, k, i) {
+    var _e;
+    const D = dirs[k];
+    if (!D || i <= 0 || i >= D.stops.length)
+        return dirs;
+    const back = D.legs[D.stops.length] || D.legs[0] || { k: null, air: [] };
+    const copy = (L) => ({ k: (L === null || L === void 0 ? void 0 : L.k) || null, air: [...((L === null || L === void 0 ? void 0 : L.air) || [])] });
+    const head = { stops: D.stops.slice(0, i), legs: [...D.legs.slice(0, i).map(copy), copy(back)] };
+    // новый луч: до точки — тем же транспортом, каким к ней ехали (или как в начале направления)
+    const go = ((_e = D.legs[i]) === null || _e === void 0 ? void 0 : _e.k) ? D.legs[i] : D.legs[0];
+    const tail = { stops: D.stops.slice(i).map((s, n) => (n ? s : { ...s, tr: 0 })), legs: [copy(go), ...D.legs.slice(i + 1, D.stops.length).map(copy), copy(go)] };
+    return [...dirs.slice(0, k), head, tail, ...dirs.slice(k + 1)];
+}
+/* направление — продолжением предыдущего: из его последней точки, а не из дома */
+function fanJoin(dirs, k) {
+    if (k <= 0 || !dirs[k] || !dirs[k - 1])
+        return dirs;
+    const A = dirs[k - 1];
+    const B = dirs[k];
+    const copy = (L) => ({ k: (L === null || L === void 0 ? void 0 : L.k) || null, air: [...((L === null || L === void 0 ? void 0 : L.air) || [])] });
+    const back = A.legs[A.stops.length] || A.legs[0] || { k: null, air: [] };
+    const joined = {
+        stops: [...A.stops, ...B.stops],
+        legs: [...A.legs.slice(0, A.stops.length).map(copy), ...B.legs.slice(0, B.stops.length).map(copy), copy(back)],
+    };
+    return [...dirs.slice(0, k - 1), joined, ...dirs.slice(k + 1)];
 }
 /* собрать веер из сохранённых поездок (по fan.id) */
 function fanOf(visits, fanId) {
@@ -23413,6 +23493,12 @@ button, input, select, textarea{font-family:inherit;}
 .fan-add{margin:6px 0 0 4px; font-size:13px;}
 .fan-metro .fan-mark{font-style:normal; color:var(--gold);}
 .fan-when em{font-style:normal; color:var(--gold);}
+
+/* 42.89: точку направления тянут вбок — на ствол или к предыдущему направлению */
+.rt-stop.fan-drag{touch-action:pan-y; transition:transform .18s ease;}
+.rt-stop.fan-drag.moving{transition:none; border-color:var(--gold); box-shadow:0 6px 18px var(--shadow);}
+.rt-tools .fan-shift{color:var(--gold);}
+.fan-hint{margin:6px 2px 0;}
 `;
 const __b = document.getElementById('boot');
 if (__b)
