@@ -2957,7 +2957,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "42.94";
+const APP_VERSION = "42.95";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -17269,10 +17269,13 @@ function ConquestMap({ a3, done, sel = null, onSel, w = 320, h = 220, turn = nul
                 React.createElement("text", { x: w - 30 + Math.sin(rad) * 25, y: 32 - Math.cos(rad) * 25 }, "\u0421"))) : (React.createElement("text", { className: "cq-turn", x: w - 30, y: 33 }, "\u2922"))))));
 }
 /* карточка в отчётах: фишки стран, карта, процент */
-function ConquestCard({ visits, onOpen, geo = null }) {
+function ConquestCard({ visits, onOpen, geo = null, a3: a3Ctl, onPick }) {
     var _e;
     const rows = useMemo(() => conqData(visits), [visits]);
-    const [a3, setA3] = useState(null);
+    const [a3Own, setA3Own] = useState(null);
+    // выбранная страна может храниться снаружи — тогда «во весь экран» откроет именно её (42.95)
+    const a3 = a3Ctl !== undefined ? a3Ctl : a3Own;
+    const setA3 = (k) => (onPick ? onPick(k) : setA3Own(k));
     const row = rows.find((r) => r.a3 === a3) || conqFirst(rows);
     if (!row)
         return React.createElement("p", { className: "hint small" }, "\u041F\u043E\u043A\u043E\u0440\u0435\u043D\u0438\u0435 \u043F\u043E\u044F\u0432\u0438\u0442\u0441\u044F, \u043A\u043E\u0433\u0434\u0430 \u043F\u043E\u0431\u044B\u0432\u0430\u0435\u0442\u0435 \u0432 \u0441\u0442\u0440\u0430\u043D\u0435, \u0440\u0430\u0437\u0431\u0438\u0442\u043E\u0439 \u043D\u0430 \u0440\u0435\u0433\u0438\u043E\u043D\u044B: \u0420\u043E\u0441\u0441\u0438\u044F, \u0413\u0440\u0443\u0437\u0438\u044F, \u0421\u0428\u0410, \u041A\u0438\u0442\u0430\u0439 \u0438 \u0434\u0440\u0443\u0433\u0438\u0435.");
@@ -17326,7 +17329,8 @@ function ConquestWin({ visits, a3: a30, onClose, geo = null }) {
     const rows = useMemo(() => conqData(visits), [visits]);
     const [a3, setA3] = useState(a30 || ((_e = conqFirst(rows)) === null || _e === void 0 ? void 0 : _e.a3) || null);
     const [sel, setSel] = useState(null);
-    const [open, setOpen] = useState(null); // страна, чья страница регионов открыта вместо списка (42.67)
+    // страна, чья страница регионов открыта вместо списка (42.67); пришли с выбранной страной — сразу её страница (42.95)
+    const [open, setOpen] = useState(a30 || null);
     const [turn, setTurn] = useState({}); // выбор «север вверху / крупнее» по странам
     const wide = useWide();
     // карта рисуется под настоящий размер места (а не 360×260): вытянутые страны крупнее
@@ -17526,6 +17530,8 @@ function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], o
     const soloR = useMemo(() => soloData(visits, people), [visits, people]);
     const crewR = useMemo(() => crewReport(visits, people, crew.map((p) => p.id), homePoint), [visits, people, crew, homePoint, meName]);
     const [openCrew, setOpenCrew] = useState(null);
+    // страна, выбранная в ленте «Покорения страны» — её и откроет полноэкранный режим (42.95)
+    const [cqA3, setCqA3] = useState(null);
     const [cmp, setCmp] = useState([]);
     const [side, setSide] = useState(0);
     // выбираем любых двоих: новое имя вытесняет то, что выбрали раньше
@@ -17801,10 +17807,10 @@ function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], o
                     React.createElement("b", null, "\u0427\u0430\u0441\u0442\u0438 \u0441\u0432\u0435\u0442\u0430 \u043B\u0435\u043F\u0435\u0441\u0442\u043A\u0430\u043C\u0438"),
                     React.createElement("em", null, "\u0443 \u043A\u043E\u0433\u043E \u043A\u0430\u043A\u043E\u0439 \u043F\u0435\u0440\u0435\u043A\u043E\u0441"),
                     React.createElement(RadarChart, { rows: crewR.rows })))),
-            React.createElement(Reveal, { rid: "conquest", className: "rep cq-rep", zoomable: false, onFull: () => onConquest === null || onConquest === void 0 ? void 0 : onConquest(null) },
+            React.createElement(Reveal, { rid: "conquest", className: "rep cq-rep", zoomable: false, onFull: () => { var _e; return onConquest === null || onConquest === void 0 ? void 0 : onConquest(cqA3 || ((_e = conqFirst(conqData(visits))) === null || _e === void 0 ? void 0 : _e.a3) || null); } },
                 React.createElement("b", null, "\u041F\u043E\u043A\u043E\u0440\u0435\u043D\u0438\u0435 \u0441\u0442\u0440\u0430\u043D\u044B"),
                 React.createElement("em", null, "\u0432 \u0441\u043A\u043E\u043B\u044C\u043A\u0438\u0445 \u0440\u0435\u0433\u0438\u043E\u043D\u0430\u0445 \u0441\u0442\u0440\u0430\u043D\u044B \u0432\u044B \u0431\u044B\u043B\u0438"),
-                React.createElement(ConquestCard, { visits: visits, geo: geo, onOpen: (a3) => onConquest === null || onConquest === void 0 ? void 0 : onConquest(a3) })),
+                React.createElement(ConquestCard, { visits: visits, geo: geo, a3: cqA3, onPick: setCqA3, onOpen: (a3) => onConquest === null || onConquest === void 0 ? void 0 : onConquest(a3) })),
             React.createElement(Reveal, { rid: "calendar", className: "rep", zoomable: false, onFull: () => onCalendar === null || onCalendar === void 0 ? void 0 : onCalendar() },
                 React.createElement("b", null, "\u041A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u044C \u043F\u043E\u0435\u0437\u0434\u043E\u043A"),
                 React.createElement("em", null, "\u0433\u043E\u0434 \u0438 \u043C\u0435\u0441\u044F\u0446, \u044F\u0440\u0447\u0435 \u2014 \u0434\u043E\u043B\u044C\u0448\u0435"),
