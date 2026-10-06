@@ -2957,7 +2957,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "42.90";
+const APP_VERSION = "42.91";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -18141,11 +18141,9 @@ function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, on
         };
         found.forEach((row) => {
             if (mode === "year") {
-                push(row.t.plan
-                    ? "Планы"
-                    : row.t.approx && row.t.y2 && row.t.y2 !== row.t.y
-                        ? `${row.t.y}–${row.t.y2}`
-                        : String(row.t.y), row);
+                // период лет без точной даты (и веер «лучами» за несколько лет) — не по годам, а отдельно в самом низу (42.91)
+                const span = row.t.fan ? row.t.fan.y2 && row.t.fan.y2 !== row.t.fan.y1 : row.t.approx && row.t.y2 && row.t.y2 !== row.t.y;
+                push(row.t.plan ? "Планы" : span ? "≈" : String(row.t.y), row);
             }
             else if (mode === "country") {
                 push(row.c.name, row);
@@ -18168,7 +18166,7 @@ function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, on
         });
         const list = [...map.entries()];
         if (mode === "year")
-            list.sort((a, b) => a[0] === "Планы" ? -1 : b[0] === "Планы" ? 1 : parseInt(b[0], 10) - parseInt(a[0], 10));
+            list.sort((a, b) => a[0] === "Планы" ? -1 : b[0] === "Планы" ? 1 : a[0] === "≈" ? 1 : b[0] === "≈" ? -1 : parseInt(b[0], 10) - parseInt(a[0], 10));
         else if (mode === "country")
             list.sort((a, b) => a[0].localeCompare(b[0], "ru"));
         else if (mode === "move") {
@@ -18395,9 +18393,11 @@ function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, on
                                     : `${MOVE_ICON[key]} ${((_e = MOVE_KINDS.find((m) => m.id === key)) === null || _e === void 0 ? void 0 : _e.name) || key}`
                             : mode === "region"
                                 ? groupRegionLabel(key)
-                                : key.includes("–")
-                                    ? `${key} · точная дата неизвестна`
-                                    : key),
+                                : key === "≈"
+                                    ? "Точная дата неизвестна · период лет"
+                                    : key.includes("–")
+                                        ? `${key} · точная дата неизвестна`
+                                        : key),
                         React.createElement("span", { className: "grp-count" }, rows.reduce((n, r) => n + (r.fanHead ? r.fanHead.n : 1), 0)),
                         React.createElement("span", { className: "grp-chev" }, hidden ? "▾" : "▴")),
                     !hidden &&
