@@ -2957,7 +2957,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "42.92";
+const APP_VERSION = "42.93";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -9446,7 +9446,6 @@ function fanOf(visits, fanId) {
    сумма квадратов отклонений наименьшая). Пересадка/проездом — излом на полпути, дальше
    к городу назначения (не назад). Длина лучей одинаковая — расстояния не важны. */
 function fanLayout(start, dirs) {
-    const Q = Math.PI / 4;
     const slots = dirs.length > 8 ? 16 : 8;
     const step = (Math.PI * 2) / slots;
     const first = dirs.map((d, i) => {
@@ -9468,16 +9467,24 @@ function fanLayout(start, dirs) {
                 continue;
             used.add(o);
             acc.push(o);
-            go(i + 1, used, acc, cost + fanAdiff(first[i], o * step) ** 2);
+            // соседние лучи без зазора — небольшой штраф: если география позволяет, лучи расходятся шире
+            const adj = used.has((o + 1) % slots) || used.has((o + slots - 1) % slots) ? 0.12 : 0;
+            go(i + 1, used, acc, cost + fanAdiff(first[i], o * step) ** 2 + adj);
             acc.pop();
             used.delete(o);
         }
     };
     if (dirs.length <= slots)
         go(0, new Set(), [], 0);
-    const lines = dirs.map((d, i) => {
+    /* лучи не должны сходиться (42.93): после пересадки линия поворачивает только в свою сторону,
+       и только если соседний сектор свободен; иначе — прямо. Остались сближения — луч выпрямляем */
+    const usedO = new Set(best ? best.acc : dirs.map((_d, i) => i));
+    const build = (d, i, straight) => {
         var _e, _h, _j;
-        const t1 = (best ? best.acc[i] : i) * step;
+        const o = best ? best.acc[i] : i;
+        const t1 = o * step;
+        const freeL = !usedO.has((o + 1) % slots);
+        const freeR = !usedO.has((o + slots - 1) % slots);
         const pts = [[0, 0]];
         const mids = [];
         const n = d.stops.length;
@@ -9487,10 +9494,16 @@ function fanLayout(start, dirs) {
         let dirT = t1;
         d.stops.forEach((s, j) => {
             if (j > 0) {
-                const prev = d.stops[j - 1];
-                const t = fanAz(prev, s);
-                let tt = t == null ? dirT : Math.round(t / Q) * Q;
-                if (fanAdiff(tt, t1) > Math.PI / 2 + 0.01)
+                const t = fanAz(d.stops[j - 1], s);
+                let tt = t == null ? t1 : Math.round(t / step) * step;
+                const side = Math.atan2(Math.sin(tt - t1), Math.cos(tt - t1));
+                if (straight || Math.abs(side) < 0.01)
+                    tt = t1;
+                else if (side > 0 && side < step + 0.01 && freeL)
+                    tt = t1 + step;
+                else if (side < 0 && -side < step + 0.01 && freeR)
+                    tt = t1 - step;
+                else
                     tt = t1;
                 dirT = tt;
             }
@@ -9509,7 +9522,40 @@ function fanLayout(start, dirs) {
             k: L.k,
             hotel: ((_j = (((_h = d.stops[n - 1]) === null || _h === void 0 ? void 0 : _h.hotels) || [])[0]) === null || _j === void 0 ? void 0 : _j.name) || "",
         };
-    });
+    };
+    const lines = dirs.map((d, i) => build(d, i, false));
+    // точки луча (без самого центра) — для проверки сближений
+    const samples = (l) => {
+        const out = [];
+        l.pts.slice(1).forEach((p, j) => {
+            const a = l.pts[j];
+            for (let t = 0; t <= 1.0001; t += 0.1) {
+                const x = a[0] + (p[0] - a[0]) * t;
+                const y = a[1] + (p[1] - a[1]) * t;
+                if (Math.hypot(x, y) > 0.25)
+                    out.push([x, y]);
+            }
+        });
+        return out;
+    };
+    const near = (A, B) => A.some(([x, y]) => B.some(([u, v]) => Math.hypot(x - u, y - v) < 0.2));
+    for (let pass = 0; pass < 3; pass++) {
+        let changed = false;
+        for (let i = 0; i < lines.length; i++)
+            for (let j = i + 1; j < lines.length; j++)
+                if (near(samples(lines[i]), samples(lines[j]))) {
+                    // выпрямляем тот луч, что изгибается; оба изогнуты — второй
+                    const bentI = lines[i].pts.length > 2;
+                    const k = lines[j].pts.length > 2 ? j : bentI ? i : j;
+                    const st = build(dirs[k], k, true);
+                    if (JSON.stringify(st.pts) !== JSON.stringify(lines[k].pts)) {
+                        lines[k] = st;
+                        changed = true;
+                    }
+                }
+        if (!changed)
+            break;
+    }
     const used = new Set(best ? best.acc : []);
     const free = [...Array(slots).keys()].filter((o) => !used.has(o)).sort((a, b) => fanAdiff(a * step, Math.PI / 2) - fanAdiff(b * step, Math.PI / 2))[0];
     return { lines, homeU: free == null ? [0, 1] : [Math.cos(free * step), Math.sin(free * step)] };
