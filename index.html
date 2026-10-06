@@ -2957,7 +2957,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "42.89";
+const APP_VERSION = "42.90";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -8449,7 +8449,7 @@ function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onR
                         "\u0410\u0432\u0442\u043E\u0440 \u0437\u0430\u043F\u0438\u0441\u0438: ",
                         ((_o = (people || []).find((c) => c.link === jr.by)) === null || _o === void 0 ? void 0 : _o.name) || "член семьи",
                         ". \u0423\u0434\u0430\u043B\u0438\u0442\u044C \u0435\u0451 \u0434\u043B\u044F \u0432\u0441\u0435\u0445 \u043C\u043E\u0436\u0435\u0442 \u0442\u043E\u043B\u044C\u043A\u043E \u0430\u0432\u0442\u043E\u0440, \u0432\u044B \u043C\u043E\u0436\u0435\u0442\u0435 \u0441\u043A\u0440\u044B\u0442\u044C \u0435\u0451 \u0443 \u0441\u0435\u0431\u044F.")),
-                    whenOk && (React.createElement("div", { className: "edit-actions" },
+                    (React.createElement("div", { className: "edit-actions" },
                         mode === "edit" && onMergeWith && jr.plain && jr.orig && (React.createElement("button", { className: "act merge", "aria-label": "\u041E\u0431\u044A\u0435\u0434\u0438\u043D\u0438\u0442\u044C \u0441 \u0434\u0440\u0443\u0433\u043E\u0439 \u043F\u043E\u0435\u0437\u0434\u043A\u043E\u0439", onClick: () => {
                                 const t = (visits[jr.orig.a3] || []).find((x) => x.id === jr.orig.id);
                                 if (t) {
