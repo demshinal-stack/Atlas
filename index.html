@@ -2957,7 +2957,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "42.83";
+const APP_VERSION = "42.84";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -6262,7 +6262,7 @@ const NOW = new Date();
 /* годы для выбора: пять лет вперёд для планов и шестьдесят назад */
 const YEARS_AHEAD = 5;
 const YEARS = Array.from({ length: 60 + YEARS_AHEAD }, (_, i) => NOW.getFullYear() + YEARS_AHEAD - i);
-function Sheet({ open, onClose, title, children, box, back = null, deco = null, tools = null, noX = false }) {
+function Sheet({ open, onClose, title, children, box, back = null, tools = null, noX = false }) {
     const [shown, setShown] = useState(false);
     const [shift, setShift] = useState(0);
     const [kb, setKb] = useState(0);
@@ -6367,7 +6367,6 @@ function Sheet({ open, onClose, title, children, box, back = null, deco = null, 
                         : undefined,
                 } },
             back && React.createElement("div", { className: "sheet-back" }, back),
-            deco && React.createElement("div", { className: "sheet-deco" }, deco),
             React.createElement("div", { className: "sheet-grab", ...pull },
                 React.createElement("span", null)),
             React.createElement("div", { className: "sheet-head", ...pull },
@@ -7863,8 +7862,10 @@ function PlacePick({ visits = {}, onPick, onClose, all = false, placeholder = "�
         })))));
 }
 /* единая карточка поездки */
-function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onRemove, onMergeWith, mode, quality, since, people = [], meId = ME, occasions = null, onAddOccasion = null, fxShow = true }) {
-    var _d;
+/* золотой домик — член семьи (42.84) */
+const HomeIcon = () => (React.createElement("svg", { className: "home-ic", viewBox: "0 0 24 24", width: "14", height: "14", "aria-label": "\u0441\u0435\u043C\u044C\u044F" },
+    React.createElement("path", { d: "M3.5 11.2 12 4l8.5 7.2V20a1 1 0 0 1-1 1h-5v-6h-5v6h-5a1 1 0 0 1-1-1z", fill: "currentColor" })));
+function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onRemove, onMergeWith, mode, quality, since, people = [], meId = ME, family = null, occasions = null, onAddOccasion = null, fxShow = true }) {
     const totalPhotos = useMemo(() => {
         let k = 0;
         Object.values(visits).forEach((arr) => arr.forEach((t) => (k += (t.photos || []).length)));
@@ -8074,6 +8075,8 @@ function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onR
     const allHotels = stops.flatMap((s) => (s.tr === 2 ? [] : (s.hotels || []).map((h) => ({ ...h, city: s.name }))));
     const foreign = jr.by && jr.by !== ME && jr.by !== meId;
     const whoD = { who: jr.who };
+    // номера членов семьи (основные и прежние) — у них в «Кто ездил» золотой домик
+    const famIds = new Set(((family === null || family === void 0 ? void 0 : family.members) || []).flatMap((m) => [m.id, ...(m.aka || [])]));
     const legRow = (i, last) => {
         var _d, _e;
         const L = r.legs[i] || {};
@@ -8146,7 +8149,7 @@ function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onR
         close();
     };
     return (React.createElement(React.Fragment, null,
-        React.createElement(Sheet, { open: open, onClose: onClose, box: box, title: title, back: jr.sp && fxShow && FX[jr.sp.fx] ? React.createElement(FxCanvas, { fx: jr.sp.fx, anim: true, scale: 1.25, seed: 7 }) : null, deco: jr.sp && fxShow && ((_d = FX[jr.sp.fx]) === null || _d === void 0 ? void 0 : _d.tree) ? React.createElement(FxTree, null) : null }, (close) => {
+        React.createElement(Sheet, { open: open, onClose: onClose, box: box, title: title, back: jr.sp && fxShow && FX[jr.sp.fx] ? React.createElement(FxCanvas, { fx: jr.sp.fx, anim: true, scale: 1.25, seed: 7 }) : null }, (close) => {
             var _d, _e, _f, _h, _j, _k;
             return (React.createElement("div", { className: "sheet-body rt-body jr-body" }, !stops.length ? (React.createElement(PlacePick, { visits: visits, all: true, onPick: (x) => addPlace(x) })) : (React.createElement(React.Fragment, null,
                 !pathOpen ? (React.createElement("button", { className: "rt-start in rt-metro", onClick: () => setPathOpen(true), "aria-label": routeText(r) },
@@ -8218,19 +8221,28 @@ function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onR
                 r.y && !editWhen && (React.createElement(SpecialBlock, { sp: jr.sp, occasions: occasions, onOpen: () => setSpOpen(true), onChange: (sp) => setJr((j) => ({ ...j, sp })) })),
                 !editWhen && (React.createElement("div", { className: "step" },
                     React.createElement("p", { className: "step-title" }, "\u041A\u0442\u043E \u0435\u0437\u0434\u0438\u043B"),
-                    React.createElement("div", { className: "city-chips" },
-                        React.createElement("span", { className: "city-chip me-chip" + (jr.who.includes(ME) ? " who-on" : " who-off") },
-                            "\u042F",
-                            React.createElement("button", { onClick: () => setJr((j) => j.who.includes(ME)
+                    React.createElement("div", { className: "htl-list who-list" },
+                        React.createElement("div", { className: "htl-li who-li" + (jr.who.includes(ME) ? "" : " off") },
+                            React.createElement("span", { className: "who-ava" }, "\u042F"),
+                            React.createElement("span", { className: "htl-t" },
+                                React.createElement("b", null, "\u042F"),
+                                !jr.who.includes(ME) && React.createElement("em", null, "\u043D\u0435 \u0435\u0437\u0434\u0438\u043B(\u0430)")),
+                            React.createElement("button", { className: "who-x", "aria-label": jr.who.includes(ME) ? "Я не ездил" : "Я ездил", onClick: () => setJr((j) => j.who.includes(ME)
                                     ? { ...j, who: j.who.filter((x) => x !== ME), left: [...new Set([...(j.left || []), meId])] }
-                                    : { ...j, who: [ME, ...j.who], left: (j.left || []).filter((x) => x !== meId) }) }, jr.who.includes(ME) ? "✕" : "＋"))),
-                    othersOf(whoD).length > 0 && (React.createElement("div", { className: "city-chips" }, othersOf(whoD).map((n) => {
-                        const p = people.find((x) => x.id === n || x.name === n);
-                        return (React.createElement("span", { key: n, className: "city-chip who-on" },
-                            p ? p.name : n,
-                            p && React.createElement("i", null, p.role),
-                            React.createElement("button", { onClick: () => setJr((j) => ({ ...j, who: j.who.filter((x) => x !== n) })) }, "\u2715")));
-                    }))),
+                                    : { ...j, who: [ME, ...j.who], left: (j.left || []).filter((x) => x !== meId) }) }, jr.who.includes(ME) ? "✕" : "＋")),
+                        othersOf(whoD).map((n) => {
+                            const p = people.find((x) => x.id === n || x.name === n);
+                            const fam = !!(p === null || p === void 0 ? void 0 : p.link) && famIds.has(p.link);
+                            const name = p ? p.name : n;
+                            return (React.createElement("div", { key: n, className: "htl-li who-li" },
+                                React.createElement("span", { className: "who-ava" }, (name || "?").trim().charAt(0).toUpperCase()),
+                                React.createElement("span", { className: "htl-t" },
+                                    React.createElement("b", null,
+                                        name,
+                                        fam && React.createElement(HomeIcon, null)),
+                                    (p === null || p === void 0 ? void 0 : p.role) ? React.createElement("em", null, p.role) : null),
+                                React.createElement("button", { className: "who-x", "aria-label": "Убрать: " + name, onClick: () => setJr((j) => ({ ...j, who: j.who.filter((x) => x !== n) })) }, "\u2715")));
+                        })),
                     people.length === 0 && !jr.who.length && !addWho && (React.createElement("p", { className: "hint small" }, "\u041F\u043E\u043A\u0430 \u043D\u0438\u043A\u043E\u0433\u043E \u043D\u0435\u0442. \u0414\u043E\u0431\u0430\u0432\u044C\u0442\u0435 \u0443\u0447\u0430\u0441\u0442\u043D\u0438\u043A\u0430 \u2014 \u043E\u043D \u0441\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u0441\u044F \u0432 \u043F\u0440\u043E\u0444\u0438\u043B\u0435 \u0438 \u0432 \u0441\u043B\u0435\u0434\u0443\u044E\u0449\u0438\u0439 \u0440\u0430\u0437 \u0431\u0443\u0434\u0435\u0442 \u0432\u044B\u0431\u0438\u0440\u0430\u0442\u044C\u0441\u044F \u043D\u0430\u0436\u0430\u0442\u0438\u0435\u043C.")),
                     addWho ? (React.createElement("div", { ref: whoBox },
                         React.createElement(Suggest, { placeholder: "\u041D\u0430\u0447\u043D\u0438\u0442\u0435 \u0432\u0432\u043E\u0434\u0438\u0442\u044C \u0438\u043C\u044F", pool: people.filter((p) => !jr.who.includes(p.id)).map((p) => p.name), exclude: [], allowCustom: false, onAdd: (name) => {
@@ -8351,7 +8363,12 @@ const FX = {
             { t: "burst", k: 2, col: ["#f2c96b", "#e8a93a"], m: "burst", s: [18, 30] },
             { t: "spark", k: 6, col: FX_GOLD, m: "twinkle", s: [2, 3] }
         ] },
-    snowlights: { n: "Снег и огоньки", c: "#a8ecd0", tree: 1, p: [
+    firs: { n: "Ёлочки и снег", c: "#78dcaa", p: [
+            { t: "fir", k: 12, col: ["#6cc995", "#4fae7d", "#8fdcae"], m: "fall", s: [4.5, 7.5] },
+            { t: "crystal", k: 10, col: ["#ffffff", "#dcecff"], m: "fall", s: [3, 5] },
+            { t: "flake", k: 22, col: ["#ffffff"], m: "fall", s: [0.7, 1.4] }
+        ] },
+    snowlights: { n: "Снег и огоньки", c: "#a8ecd0", p: [
             { t: "light", k: 12, col: ["#ff8fab", "#f2c96b", "#78c8ff", "#78dcaa"], m: "blink", s: [1.6, 2] },
             { t: "crystal", k: 16, col: ["#ffffff", "#dcecff"], m: "fall", s: [3, 5] },
             { t: "flake", k: 18, col: ["#ffffff"], m: "fall", s: [0.7, 1.4] }
@@ -8375,7 +8392,7 @@ const FX = {
             { t: "glow", k: 16, col: ["#50dcbe", "#aa8cff", "#6ebeff"], m: "rise", s: [1.2, 2.4] }
         ] },
     aurora: { n: "Северное сияние", c: "#a8ecd0", p: [
-            { t: "ribbon", k: 3, col: ["#78e6b4", "#be9eff", "#8cd2ff"], m: "wave", s: [26, 36] },
+            { t: "bokeh", k: 12, col: ["#78e6b4", "#be9eff", "#8cd2ff"], m: "drift", s: [3, 7] },
             { t: "dot", k: 24, col: ["#ffffff"], m: "twinkle", s: [0.5, 1] }
         ] },
     embers: { n: "Тёплые огоньки", c: "#ffb38a", p: [
@@ -8388,7 +8405,7 @@ const FX = {
             { t: "confetti", k: 60, col: FX_PASTEL, m: "fall", s: [1.4, 2.6] }
         ] },
     rainbow: { n: "Радужное сияние", c: "#cdb8ff", p: [
-            { t: "blob", k: 5, col: FX_PASTEL, m: "drift", s: [40, 70] },
+            { t: "bokeh", k: 12, col: FX_PASTEL, m: "drift", s: [3, 8] },
             { t: "spark", k: 6, col: ["#cdb8ff"], m: "twinkle", s: [2, 3] }
         ] },
     leaves: { n: "Листопад", c: "#ffb38a", p: [
@@ -8402,7 +8419,7 @@ const FX = {
             { t: "spark", k: 10, col: FX_GOLD, m: "twinkle", s: [2, 4] }
         ] },
 };
-const FX_OCC_IDS = ["hearts", "rings", "glow", "balloons", "cburst", "salute", "rise", "breeze", "romantic", "goldburst", "snowlights", "silent"];
+const FX_OCC_IDS = ["hearts", "rings", "glow", "balloons", "cburst", "salute", "rise", "breeze", "romantic", "goldburst", "firs", "snowlights", "silent"];
 const FX_UNI_IDS = ["waltz", "orbs", "dawn", "candle", "starfall", "sakura", "spores", "aurora", "embers", "bubbles", "confetti", "rainbow", "leaves", "snow", "gold"];
 /* поводы по умолчанию — список можно менять в настройках */
 const OCC_DEFAULT = [
@@ -8416,18 +8433,25 @@ const OCC_DEFAULT = [
     { e: "🌅", n: "Романтическое путешествие", fx: "breeze" },
     { e: "🥂", n: "Выходные вдвоём", fx: "romantic" },
     { e: "🎆", n: "Юбилей", fx: "goldburst" },
-    { e: "🎄", n: "Новый год", fx: "snowlights" },
+    { e: "🎄", n: "Новый год", fx: "firs" },
     { e: "⭐", n: "Рождество", fx: "silent" },
 ];
 /* 42.76: поменялись эффекты стандартных поводов и добавилась «Свадьба» — сохранённый список подтягиваем один раз:
    повод со старым стандартным эффектом получает новый, «Свадьба» встаёт после свадебного путешествия */
-const OCC_V = 2;
-const OCC_OLD_FX = { "Свадебное путешествие": "waltz", "День рождения": "orbs", "Защита диплома": "dawn", "Выходные вдвоём": "candle" };
+const OCC_V = 3;
+/* прежние стандартные эффекты поводов: такой у повода в своём списке — меняем на новый стандартный */
+const OCC_OLD_FX = {
+    "Свадебное путешествие": ["waltz"],
+    "День рождения": ["orbs"],
+    "Защита диплома": ["dawn"],
+    "Выходные вдвоём": ["candle"],
+    "Новый год": ["snowlights"], // 42.84: по умолчанию «Ёлочки и снег», «Снег и огоньки» — на выбор
+};
 function occUpgrade(list) {
     if (!Array.isArray(list))
         return list;
     const def = Object.fromEntries(OCC_DEFAULT.map((o) => [o.n, o]));
-    const next = list.map((o) => (o && OCC_OLD_FX[o.n] && o.fx === OCC_OLD_FX[o.n] ? { ...o, fx: def[o.n].fx } : o));
+    const next = list.map((o) => (o && (OCC_OLD_FX[o.n] || []).includes(o.fx) ? { ...o, fx: def[o.n].fx } : o));
     if (!next.some((o) => o && o.n === "Свадьба")) {
         const at = next.findIndex((o) => o && o.n === "Свадебное путешествие");
         next.splice(at < 0 ? 0 : at + 1, 0, def["Свадьба"]);
@@ -8475,10 +8499,7 @@ function fxMake(id, w, h, { seed = 1, zone = null, scale = 1 } = {}) {
     const area = Math.max(0.35, Math.min(1.6, ((zw * h) / (390 * 420)) * (zw * h < 40000 ? 6 : 1)));
     const out = [];
     fx.p.forEach((sp) => {
-        // «Новый год» в ленте: гирлянду-строку не рисуем — там ёлочка (42.83)
-        if (zone && fx.tree && sp.t === "light")
-            return;
-        const many = sp.m === "burst" || sp.m === "pulse" || sp.t === "ribbon" || sp.t === "light";
+        const many = sp.m === "burst" || sp.m === "pulse" || sp.t === "light";
         const n = many ? sp.k : Math.max(3, Math.round(sp.k * area));
         for (let i = 0; i < n; i++) {
             const s = (sp.s[0] + R() * (sp.s[1] - sp.s[0])) * scale;
@@ -8519,10 +8540,8 @@ function fxSpark(c, x, y, r, col, a) {
     c.fill();
 }
 /* один кадр: t — секунды от начала (в ленте 0 — неподвижный кадр) */
-function fxDraw(c, parts, w, h, t, under = null) {
+function fxDraw(c, parts, w, h, t) {
     c.clearRect(0, 0, w, h);
-    if (under)
-        under(c, t);
     const wrap = (v, a, len) => a + ((((v - a) % len) + len) % len);
     parts.forEach((p) => {
         let x = p.x;
@@ -8661,6 +8680,32 @@ function fxDraw(c, parts, w, h, t, under = null) {
                 c.beginPath();
                 c.arc(s * 0.38, 0, s * 0.62, 0, 7);
                 c.stroke();
+                break;
+            }
+            case "fir": {
+                // ёлочка: три яруса, ствол, золотая точка-звезда; покачивается
+                const s = p.s;
+                c.translate(x, y);
+                c.rotate(Math.sin(rot) * 0.25);
+                c.globalAlpha = 0.9;
+                c.fillStyle = p.col;
+                for (let k = 0; k < 3; k++) {
+                    const ty = -s * 1.1 + k * s * 0.62;
+                    const tw = s * (0.42 + k * 0.26);
+                    c.beginPath();
+                    c.moveTo(0, ty);
+                    c.lineTo(tw, ty + s * 0.78);
+                    c.lineTo(-tw, ty + s * 0.78);
+                    c.closePath();
+                    c.fill();
+                }
+                c.fillStyle = "#8a5a3c";
+                c.fillRect(-s * 0.1, s * 0.84, s * 0.2, s * 0.26);
+                fxBlob(c, 0, -s * 1.15, s * 0.7, "rgba(255,220,140,.9)", 0.6);
+                c.fillStyle = "#ffe7a6";
+                c.beginPath();
+                c.arc(0, -s * 1.15, s * 0.16, 0, 7);
+                c.fill();
                 break;
             }
             case "crystal": {
@@ -8829,24 +8874,6 @@ function fxDraw(c, parts, w, h, t, under = null) {
                 fxSpark(c, sx, sy, p.s * (0.9 + 0.1 * a), p.col, 1);
                 break;
             }
-            case "ribbon": {
-                c.globalAlpha = 0.22;
-                c.fillStyle = p.col;
-                c.filter = "blur(6px)";
-                const yy = h * (0.18 + p.i * 0.12);
-                c.beginPath();
-                c.moveTo(p.x0, yy);
-                for (let xx = 0; xx <= p.zw; xx += 8)
-                    c.lineTo(p.x0 + xx, yy + Math.sin(xx / 40 + t * 0.5 + p.i) * 12);
-                for (let xx = p.zw; xx >= 0; xx -= 8)
-                    c.lineTo(p.x0 + xx, yy - p.s + Math.sin(xx / 30 + t * 0.4 + p.i * 1.3) * 10);
-                c.fill();
-                c.filter = "none";
-                break;
-            }
-            case "blob":
-                fxBlob(c, x, y, p.s, p.col, 0.22);
-                break;
             default: break;
         }
         c.restore();
@@ -8876,22 +8903,18 @@ function FxCanvas({ fx, anim = false, zone = null, scale = 1, seed = 1, classNam
             cv.getContext("2d").setTransform(dpr, 0, 0, dpr, 0, 0);
             parts = fxMake(fx, w, h, { seed, zone, scale });
         };
-        // «Новый год» в строке ленты: ёлочка посередине зоны частиц, под ними
-        const under = FX[fx].tree && zone
-            ? (c, t) => fxTree(c, { cx: w * (zone[0] + zone[1]) / 2, top: h * 0.12, bot: h * 0.92, bw: Math.min(h * 0.72, w * 0.14), small: true }, t)
-            : null;
         let vis = true;
         const frame = (now) => {
             raf = 0;
             if (!vis)
                 return;
             if (!document.hidden)
-                fxDraw(cv.getContext("2d"), parts, w, h, (now - t0) / 1000, under);
+                fxDraw(cv.getContext("2d"), parts, w, h, (now - t0) / 1000);
             raf = requestAnimationFrame(frame);
         };
         setup();
         if (still)
-            fxDraw(cv.getContext("2d"), parts, w, h, 0.6, under);
+            fxDraw(cv.getContext("2d"), parts, w, h, 0.6);
         else
             raf = requestAnimationFrame(frame);
         /* вне экрана цикл стоит — в длинной ленте анимируются только видимые строки */
@@ -8907,7 +8930,7 @@ function FxCanvas({ fx, anim = false, zone = null, scale = 1, seed = 1, classNam
             ? new ResizeObserver(() => {
                 setup();
                 if (still)
-                    fxDraw(cv.getContext("2d"), parts, w, h, 0.6, under);
+                    fxDraw(cv.getContext("2d"), parts, w, h, 0.6);
             })
             : null;
         ro === null || ro === void 0 ? void 0 : ro.observe(cv);
@@ -8918,156 +8941,6 @@ function FxCanvas({ fx, anim = false, zone = null, scale = 1, seed = 1, classNam
         };
     }, [fx, anim, zone && zone.join(), scale, seed]);
     return React.createElement("canvas", { ref: ref, className: "fx-cv " + className, "aria-hidden": "true" });
-}
-/* ёлка «Нового года» (42.82): ярусы мягким силуэтом, провисающие гирлянды, шары, звезда.
-   small — ёлочка в строке ленты (силуэт + спираль огоньков). Огоньки мерцают от t */
-const FX_LIGHTS = ["255,214,120", "255,120,120", "140,200,255", "180,255,170", "255,170,230"];
-function fxTree(c, { cx, top, bot, bw, small = false }, t = 0.6) {
-    const glow = (x, y, r, rgb, a) => {
-        const g = c.createRadialGradient(x, y, 0, x, y, r);
-        g.addColorStop(0, `rgba(${rgb},${a})`);
-        g.addColorStop(1, `rgba(${rgb},0)`);
-        c.fillStyle = g;
-        c.beginPath();
-        c.arc(x, y, r, 0, 7);
-        c.fill();
-    };
-    const bulb = (x, y, i, k = 1) => {
-        const rgb = FX_LIGHTS[i % FX_LIGHTS.length];
-        const a = 0.55 + 0.45 * Math.sin(t * 2.2 + i * 1.7);
-        glow(x, y, 5.5 * k, rgb, 0.55 * a);
-        c.fillStyle = `rgba(${rgb},${0.6 + 0.4 * a})`;
-        c.beginPath();
-        c.arc(x, y, 1.5 * k, 0, 7);
-        c.fill();
-    };
-    const star = (x, y, r) => {
-        glow(x, y, r * 4, "255,220,140", 0.45 + 0.1 * Math.sin(t * 1.5));
-        c.fillStyle = "#ffe7a6";
-        c.beginPath();
-        for (let i = 0; i < 10; i++) {
-            const an = -Math.PI / 2 + (i * Math.PI) / 5;
-            const rr = i % 2 ? r * 0.45 : r;
-            c.lineTo(x + Math.cos(an) * rr, y + Math.sin(an) * rr);
-        }
-        c.closePath();
-        c.fill();
-    };
-    if (small) {
-        c.save();
-        c.globalAlpha = 0.5;
-        const g = c.createLinearGradient(0, top, 0, bot);
-        g.addColorStop(0, "#4fa47f");
-        g.addColorStop(1, "#1d4a3a");
-        c.fillStyle = g;
-        c.beginPath();
-        c.moveTo(cx, top);
-        c.lineTo(cx + bw / 2, bot);
-        c.quadraticCurveTo(cx, bot + bw * 0.08, cx - bw / 2, bot);
-        c.closePath();
-        c.fill();
-        c.restore();
-        for (let i = 0, n = 0; i < 120; i += 3, n++) {
-            const q = i / 120;
-            const an = q * 3 * Math.PI * 2;
-            if (Math.cos(an) < -0.15)
-                continue;
-            bulb(cx + Math.sin(an) * (bw / 2) * q, top + (bot - top) * q + Math.cos(an) * 1.5, n, 0.55);
-        }
-        star(cx, top - 1, 5);
-        return;
-    }
-    const tiers = 4;
-    const R = fxRand(11);
-    const balls = ["232,93,106", "242,201,107", "124,195,255", "199,156,255"];
-    for (let i = 0; i < tiers; i++) {
-        const y0 = top + (bot - top) * (i / tiers) * 0.85;
-        const y1 = top + (bot - top) * ((i + 1) / tiers);
-        const half = (bw / 2) * ((i + 1) / tiers);
-        const g = c.createLinearGradient(0, y0, 0, y1);
-        g.addColorStop(0, "rgba(80,165,120,.55)");
-        g.addColorStop(1, "rgba(28,80,58,.6)");
-        c.fillStyle = g;
-        c.beginPath();
-        c.moveTo(cx, y0);
-        c.quadraticCurveTo(cx + half * 0.5, y1 - (y1 - y0) * 0.35, cx + half, y1);
-        c.quadraticCurveTo(cx, y1 - 10, cx - half, y1);
-        c.quadraticCurveTo(cx - half * 0.5, y1 - (y1 - y0) * 0.35, cx, y0);
-        c.fill();
-        c.strokeStyle = "rgba(160,230,190,.18)";
-        c.lineWidth = 1;
-        c.stroke();
-        // шары: место постоянное (своё зерно), блик сверху слева
-        for (let j = 0; j < i + 2; j++) {
-            const x = cx + (R() - 0.5) * half * 1.3;
-            const y = y1 - (y1 - y0) * (0.25 + R() * 0.3);
-            const rgb = balls[(i + j) % 4];
-            const gg = c.createRadialGradient(x - 1.5, y - 1.5, 0, x, y, 5);
-            gg.addColorStop(0, "rgba(255,255,255,.8)");
-            gg.addColorStop(0.3, `rgba(${rgb},.8)`);
-            gg.addColorStop(1, `rgba(${rgb},0)`);
-            c.fillStyle = gg;
-            c.beginPath();
-            c.arc(x, y, 5, 0, 7);
-            c.fill();
-        }
-        // гирлянда провисает вдоль нижнего края яруса
-        for (let j = 0; j <= 14; j++) {
-            const q = j / 14;
-            bulb(cx - half * 0.9 + half * 1.8 * q, y1 - 6 + Math.sin(q * Math.PI) * 8 - (y1 - y0) * 0.12, j + i * 3);
-        }
-    }
-    c.fillStyle = "rgba(120,80,50,.35)";
-    c.fillRect(cx - 7, bot, 14, 14);
-    star(cx, top, 10);
-}
-/* ёлка в нижнем правом углу карточки «Нового года»: свой слой, не затухает вместе с частицами */
-function FxTree({ anim = true }) {
-    const ref = useRef(null);
-    useEffect(() => {
-        const cv = ref.current;
-        if (!cv)
-            return;
-        let raf = 0;
-        let w = 0;
-        let h = 0;
-        const t0 = performance.now();
-        const still = !anim || (typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches);
-        const draw = (t) => {
-            const c = cv.getContext("2d");
-            c.clearRect(0, 0, w, h);
-            fxTree(c, { cx: w * 0.64, top: 14, bot: h - 16, bw: w * 0.98 }, t);
-        };
-        const setup = () => {
-            const r = cv.getBoundingClientRect();
-            w = Math.max(1, Math.round(r.width));
-            h = Math.max(1, Math.round(r.height));
-            const dpr = Math.min(2, window.devicePixelRatio || 1);
-            cv.width = Math.round(w * dpr);
-            cv.height = Math.round(h * dpr);
-            cv.getContext("2d").setTransform(dpr, 0, 0, dpr, 0, 0);
-            draw(0.6);
-        };
-        // огоньки мигают неспешно — хватает ~20 кадров в секунду
-        let last = 0;
-        const frame = (now) => {
-            raf = requestAnimationFrame(frame);
-            if (document.hidden || now - last < 50)
-                return;
-            last = now;
-            draw((now - t0) / 1000);
-        };
-        setup();
-        if (!still)
-            raf = requestAnimationFrame(frame);
-        const ro = typeof ResizeObserver !== "undefined" ? new ResizeObserver(setup) : null;
-        ro === null || ro === void 0 ? void 0 : ro.observe(cv);
-        return () => {
-            cancelAnimationFrame(raf);
-            ro === null || ro === void 0 ? void 0 : ro.disconnect();
-        };
-    }, [anim]);
-    return React.createElement("canvas", { ref: ref, className: "fx-cv", "aria-hidden": "true" });
 }
 /* плитка эффекта для выбора: тёмный фон, неподвижный кадр, название */
 function FxTile({ id, on, onPick }) {
@@ -17482,7 +17355,7 @@ function FiltersSheet({ open, onClose, box, target, years, yearFilter, onYear, m
         years.length === 0 && (React.createElement("p", { className: "focus-empty" }, "\u0424\u0438\u043B\u044C\u0442\u0440 \u043F\u043E\u044F\u0432\u0438\u0442\u0441\u044F, \u043A\u043E\u0433\u0434\u0430 \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u0435 \u043F\u0435\u0440\u0432\u0443\u044E \u043F\u043E\u0435\u0437\u0434\u043A\u0443."))))))));
 }
 /* шторка: все поездки — свёртка групп, поиск */
-function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, fxShow = true, onFilters, focus = null, onMergeSel, onRouteSel, keepPlace = false, onPlaced }) {
+function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, onFilters, focus = null, onMergeSel, onRouteSel, keepPlace = false, onPlaced }) {
     const [q, setQ] = useState("");
     const [searchOn, setSearchOn] = useState(false);
     const [closed, setClosed] = useState({});
@@ -17939,7 +17812,7 @@ function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, fx
                             const one = (row) => (React.createElement("div", { key: key + row.a3 + row.idx, "data-k": row.a3 + "|" + row.t.id, className: "trip-item" +
                                     (row.t.plan ? " is-plan" : "") +
                                     (flash === row.a3 + "|" + row.t.id ? " back-here" : "") +
-                                    (row.t.sp && fxShow ? " sp" : ""), style: row.t.sp && fxShow ? { "--fxc": fxColor(row.t.sp) } : undefined },
+                                    (row.t.sp ? " sp" : ""), style: row.t.sp ? { "--fxc": fxColor(row.t.sp) } : undefined },
                                 React.createElement("button", { className: "trip-main" + (selMode && sel.has(row.a3 + "|" + row.t.id) ? " sel" : ""), ...pressProps(row), onClick: (e) => {
                                         if (press.current.fired) {
                                             press.current.fired = false;
@@ -17964,7 +17837,6 @@ function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, fx
                                         else
                                             onPick(row.a3, row.t.id);
                                     }, "aria-label": selMode ? "Выбрать поездку" : "Открыть поездку" },
-                                    row.t.sp && fxShow && FX[row.t.sp.fx] && (React.createElement(FxCanvas, { fx: row.t.sp.fx, anim: true, zone: [0.63, 0.85], scale: 1.15, seed: row.idx + 3, className: "fx-strip" })),
                                     selMode && (React.createElement("span", { className: "sel-ck" + (sel.has(row.a3 + "|" + row.t.id) ? " on" : "") }, sel.has(row.a3 + "|" + row.t.id) ? "✓" : "")),
                                     React.createElement("span", { className: "fl" + (asRoute(row) ? " fl-route" : "") }, asRoute(row) && routeFacts(row.t.route).countries.length > 3 ? (React.createElement("span", { className: "rt-ic" }, "\uD83E\uDDED") // флаги уже в заголовке цепочкой (42.68)
                                     ) : asRoute(row) ? ([...new Set(row.t.route.stops.filter((x) => x.tr !== 2 && x.a3).map((x) => x.a3))]
@@ -17981,9 +17853,6 @@ function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, fx
                                         // страна — в заголовке группы, дата — справа: в строке города (42.70)
                                         [...(row.t.cities || []), ...(row.t.regions || [])].join(", ") || row.c.name) : (row.c.name)),
                                         React.createElement("span", { className: "trip-sub" },
-                                            row.t.sp && (React.createElement("i", { className: "sp-tag", title: row.t.sp.o },
-                                                row.t.sp.e || "✨",
-                                                " ")),
                                             row.t.move && !row.t.route && (React.createElement("i", { className: "trip-move" },
                                                 mode === "move" ? "" : MOVE_ICON[row.t.move] || "",
                                                 (row.t.air || []).length
@@ -20534,8 +20403,8 @@ function AtlasApp() {
                                 setSheet(null);
                                 pickCountry(a3);
                             } }),
-                        React.createElement(JourneySheet, { open: sheet === "add", onClose: () => setSheet(null), box: box, initial: null, visits: visits, homePt: homePt, onSave: saveJourney, mode: "add", quality: photoQuality, since: profile.since, people: profile.people || [], meId: profile.deviceId || ME, occasions: settings.occasions, onAddOccasion: addOccasion, fxShow: settings.fxShow !== false }),
-                        React.createElement(JourneySheet, { open: sheet === "edit" && !!editTripObj, onClose: () => setSheet((editing === null || editing === void 0 ? void 0 : editing.back) || null), box: box, initial: editTripObj ? { a3: editing.a3, id: editing.id, key: editing.a3 + ":" + editing.id } : null, visits: visits, homePt: homePt, onSave: saveJourney, onRemove: removeMany, onMergeWith: (a3, t) => setPickFor({ a3, t }), mode: "edit", quality: photoQuality, since: profile.since, people: profile.people || [], meId: profile.deviceId || ME, occasions: settings.occasions, onAddOccasion: addOccasion, fxShow: settings.fxShow !== false }),
+                        React.createElement(JourneySheet, { open: sheet === "add", onClose: () => setSheet(null), box: box, initial: null, visits: visits, homePt: homePt, onSave: saveJourney, mode: "add", quality: photoQuality, since: profile.since, people: profile.people || [], meId: profile.deviceId || ME, family: profile.family || null, occasions: settings.occasions, onAddOccasion: addOccasion, fxShow: settings.fxShow !== false }),
+                        React.createElement(JourneySheet, { open: sheet === "edit" && !!editTripObj, onClose: () => setSheet((editing === null || editing === void 0 ? void 0 : editing.back) || null), box: box, initial: editTripObj ? { a3: editing.a3, id: editing.id, key: editing.a3 + ":" + editing.id } : null, visits: visits, homePt: homePt, onSave: saveJourney, onRemove: removeMany, onMergeWith: (a3, t) => setPickFor({ a3, t }), mode: "edit", quality: photoQuality, since: profile.since, people: profile.people || [], meId: profile.deviceId || ME, family: profile.family || null, occasions: settings.occasions, onAddOccasion: addOccasion, fxShow: settings.fxShow !== false }),
                         React.createElement(ProfileSheet, { open: sheet === "profile", onClose: () => setSheet(null), box: box, avatar: profile.avatar, name: profile.name, onName: async (v) => {
                                 const prof = { ...profile, name: v };
                                 await saveProfile(prof);
@@ -20626,7 +20495,7 @@ function AtlasApp() {
                                 setEditing({ a3, id, back: "list" });
                                 setSheet("edit");
                                 setListPlace(true); // вернёмся в ленту на эту же поездку (42.71)
-                            }, fxShow: settings.fxShow !== false, keepPlace: listPlace, onPlaced: () => setListPlace(false), onDone: (a3, id) => editTrip(a3, id, { plan: false }), box: box, mode: listMode, onFilters: openFilters, focus: listFocus, onMergeSel: (list) => setMerge({ a3: list[0].a3, list: list.map((x) => x.t) }), onRouteSel: routeOfTrips }),
+                            }, keepPlace: listPlace, onPlaced: () => setListPlace(false), onDone: (a3, id) => editTrip(a3, id, { plan: false }), box: box, mode: listMode, onFilters: openFilters, focus: listFocus, onMergeSel: (list) => setMerge({ a3: list[0].a3, list: list.map((x) => x.t) }), onRouteSel: routeOfTrips }),
                         React.createElement(MergeSheet, { open: !!merge, onClose: () => setMerge(null), box: box, a3: merge === null || merge === void 0 ? void 0 : merge.a3, list: (merge === null || merge === void 0 ? void 0 : merge.list) || [], onMerge: (ids, opt) => doMerge(merge.a3, ids, opt) }),
                         React.createElement(TripPickSheet, { open: !!pickFor, onClose: () => setPickFor(null), box: box, title: "\u041E\u0431\u044A\u0435\u0434\u0438\u043D\u0438\u0442\u044C \u0441\u2026", visits: visits, near: pickFor, exclude: pickFor ? [pickFor.t.id] : [], mark: (x) => (x.a3 === (pickFor === null || pickFor === void 0 ? void 0 : pickFor.a3) ? "объединить" : "в маршрут"), onPick: (x) => {
                                 const near = pickFor;
@@ -20640,7 +20509,7 @@ function AtlasApp() {
                                 setRoutesFind(false);
                                 collectRoute(c);
                             }, onDismiss: (c) => dismissRoute(c.key) }),
-                        React.createElement(JourneySheet, { open: !!routeEdit, onClose: () => setRouteEdit(null), box: box, initial: routeEdit ? { route: routeEdit.route, src: routeEdit.src || [], key: "r:" + (((_f = routeEdit.route) === null || _f === void 0 ? void 0 : _f.id) || "") } : null, visits: visits, homePt: homePt, onSave: saveJourney, mode: "collect", quality: photoQuality, since: profile.since, people: profile.people || [], meId: profile.deviceId || ME, occasions: settings.occasions, onAddOccasion: addOccasion, fxShow: settings.fxShow !== false }),
+                        React.createElement(JourneySheet, { open: !!routeEdit, onClose: () => setRouteEdit(null), box: box, initial: routeEdit ? { route: routeEdit.route, src: routeEdit.src || [], key: "r:" + (((_f = routeEdit.route) === null || _f === void 0 ? void 0 : _f.id) || "") } : null, visits: visits, homePt: homePt, onSave: saveJourney, mode: "collect", quality: photoQuality, since: profile.since, people: profile.people || [], meId: profile.deviceId || ME, family: profile.family || null, occasions: settings.occasions, onAddOccasion: addOccasion, fxShow: settings.fxShow !== false }),
                         undo && (React.createElement("div", { className: "undo-toast", style: box ? { left: box.left + 14, width: box.width - 28 } : undefined },
                             React.createElement("span", { className: "undo-ring" }),
                             React.createElement("b", null, undo.text),
@@ -20867,7 +20736,7 @@ body > div{max-width:100%;}
 .root div, .root section, .root header, .root footer{min-width:0;}
 .sheet, .sheet *{max-width:100%;}
 .sheet-body, .sheet-list{overflow-x:hidden;}
-.city-list, .city-chips, .hotel-rows{max-width:100%;}
+.city-list, .hotel-rows{max-width:100%;}
 .root select, .root input{min-width:0;}
 .loading{padding:60px 0; text-align:center; color:var(--dim);}
 .lock{width:100%; max-width:300px; min-height:100%; margin:0 auto; padding:24px 6px;
@@ -21966,9 +21835,6 @@ body > div{max-width:100%;}
 .person-new{margin-bottom:6px;}
 .person-add{display:flex; align-items:center; gap:8px; margin-bottom:6px; min-width:0;}
 .person-add .name-input{flex:1 1 auto; min-width:0; margin:0;}
-.city-chip i{font-style:normal; font-size:11px; color:var(--dim);}
-.city-chip.who-on{border-color:var(--gold);}
-.city-chip.who-on i,.city-chip.who-on button{color:var(--gold);}
 .opt-role{float:right; font-style:normal; font-size:11px; color:var(--dim);}
 .hint.small.days{margin:2px 2px 10px; color:var(--gold);}
 .hotel-card{margin-bottom:9px; padding:10px 11px; background:var(--el); border:1px solid var(--line); border-radius:12px;}
@@ -21982,9 +21848,6 @@ body > div{max-width:100%;}
 .sheet .star{background:none; border:0; padding:1px; font-size:14px; color:var(--track); cursor:pointer;}
 .sheet .star.on{color:var(--gold);}
 .cities{margin-top:12px; position:relative;}
-.city-chips{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px;}
-.city-chip{display:inline-flex; align-items:center; gap:7px; padding:7px 10px; background:var(--el2); border:1px solid var(--line); border-radius:999px; font-size:13px;}
-.city-chip button{background:none; border:0; color:var(--dim); font-size:12px; padding:0; cursor:pointer;}
 .city-list{margin-top:6px; background:var(--el2); border:1px solid var(--line); border-radius:12px; overflow:hidden; max-height:210px; overflow-y:auto;}
 .city-opt{width:100%; text-align:left; padding:11px 13px; background:none; border:0; border-bottom:1px solid rgba(34,56,77,.6); color:var(--ink); font-size:14px; cursor:pointer;}
 .city-opt.add{color:var(--gold);}
@@ -22161,8 +22024,8 @@ button, input, select, textarea{font-family:inherit;}
 .zoom-x::after, .tf-clear::after, .crew-globe::after, .rs-check::after{content:""; position:absolute; inset:-10px;}
 .rs-arrow::after{content:""; position:absolute; inset:-7px -3px;}
 .warn-do::after, .warn-add::after, .warn-skip::after, .cmp-chip::after, .person-invite::after, .dg-chip::after{content:""; position:absolute; inset:-9px -3px;}
-.city-chip button, .dep-chip button{position:relative; min-width:24px; min-height:24px; margin-right:-6px;}
-.city-chip button::after, .dep-chip button::after{content:""; position:absolute; inset:-10px -6px;}
+.dep-chip button{position:relative; min-width:24px; min-height:24px; margin-right:-6px;}
+.dep-chip button::after{content:""; position:absolute; inset:-10px -6px;}
 .ww-again::after{content:""; position:absolute; inset:-4px;}
 
 /* «Кто есть кто» после обмена */
@@ -22648,16 +22511,12 @@ button, input, select, textarea{font-family:inherit;}
 .sheet .link-btn.rt-hadd{display:block; margin:2px 0 0; min-height:0; padding:4px 0; font-size:12.5px; text-align:left;}
 .sheet .step-title.tt-row{display:flex; align-items:baseline; justify-content:space-between; gap:8px;}
 .sheet .link-btn.tt-link{margin:0; min-height:0; padding:0; font-size:12px;}
-.city-chip.ro{background:none;}
-.city-chip .cc-n{font-weight:400; font-size:11px; color:var(--dim);}
-.city-chip.small{padding:3px 8px; font-size:11.5px; margin-left:6px;}
 .reg-line{margin:10px 0 0; font-size:12.5px; color:var(--dim); line-height:1.6;}
 .hotel-grp{margin-bottom:6px;}
 .hotel-grp-t{margin:6px 0 6px; font-size:12px; color:var(--dim);}
 .hotel-city{display:flex; flex-wrap:wrap; align-items:center; gap:5px; margin-top:8px; font-size:11.5px; color:var(--dim);}
 .hotel-city button{padding:3px 9px; border-radius:999px; border:1px solid var(--line); background:none; color:var(--dim); font:inherit; font-size:11.5px; cursor:pointer;}
 .hotel-city button.on{border-color:var(--gold); color:var(--gold);}
-.sheet .city-chips + .step-title{margin-top:16px;}
 /* 42.30: маршрут в карточке поездки — схемой метро */
 .rt-start.rt-metro{display:block; text-align:left; padding:10px 12px 6px;}
 .rt-metro-h{display:flex; justify-content:space-between; align-items:baseline; font-size:13px; color:var(--ink); margin-bottom:2px;}
@@ -22678,6 +22537,12 @@ button, input, select, textarea{font-family:inherit;}
 .htl-t b{font-weight:500; font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .htl-t em{font-style:normal; font-size:12px; color:var(--dim); margin-top:2px;}
 .htl-st{flex:none; color:var(--gold); font-size:11px; letter-spacing:1px;}
+/* «Кто ездил» списком, как «Где жили» (42.84) */
+.who-list{margin-bottom:10px;}
+.who-li.off{opacity:.55;}
+.who-ava{flex:none; width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:var(--el2); color:var(--ink); font-size:13px; font-weight:600;}
+.home-ic{margin-left:6px; color:var(--gold); vertical-align:-2px;}
+.who-x{flex:none; width:32px; height:32px; border-radius:50%; border:0; background:none; color:var(--dim); font-size:13px; cursor:pointer;}
 .rt-hedit .hotel-note{flex:1 1 100%; margin-top:2px;}
 /* 42.37: глобус во весь экран — поверх правой панели (col-map липкий и сам себе слой) */
 .cols.is-full .col-map{z-index:90;}
@@ -22847,21 +22712,10 @@ button, input, select, textarea{font-family:inherit;}
 .sheet-back{position:absolute; left:0; right:0; top:0; bottom:4%; z-index:0; pointer-events:none; opacity:.6; border-radius:inherit; overflow:hidden;
   -webkit-mask-image:linear-gradient(180deg,#000 0%,#000 58%,rgba(0,0,0,.45) 78%,transparent 100%); mask-image:linear-gradient(180deg,#000 0%,#000 58%,rgba(0,0,0,.45) 78%,transparent 100%);}
 .sheet-back + .sheet-grab, .sheet-back ~ .sheet-head, .sheet-back ~ .sheet-body{position:relative; z-index:1;}
-/* ёлка «Нового года» (42.82): нижний правый угол шторки, над панелью «Удалить · Сохранить», не прокручивается */
-.sheet-deco{position:absolute; right:0; bottom:70px; width:62%; height:min(44%,340px); z-index:0; pointer-events:none; opacity:.9; overflow:hidden;}
-.sheet-deco ~ .sheet-grab, .sheet-deco ~ .sheet-head, .sheet-deco ~ .sheet-body{position:relative; z-index:1;}
 .trip-main{position:relative; overflow:hidden; isolation:isolate;}
 .trip-item.sp{position:relative;}
 .trip-item.sp::before{content:""; position:absolute; left:0; top:25%; height:50%; width:3px; border-radius:0 3px 3px 0; background:var(--fxc); z-index:2; pointer-events:none;}
-.trip-main .fx-strip{position:absolute; inset:0; z-index:0; opacity:.75;
-  -webkit-mask-image:linear-gradient(90deg,transparent 61%,#000 68%,#000 79%,transparent 87%); mask-image:linear-gradient(90deg,transparent 61%,#000 68%,#000 79%,transparent 87%);}
-.trip-main > :not(.fx-strip){position:relative; z-index:1;}
-.trip-item.sp .trip-body{flex:0 1 50%; max-width:50%;}
-.trip-item.sp .trip-when{margin-left:auto;}
-.sp-tag{font-style:normal; color:#e3c98a;}
-.root.light .sp-tag{color:#a0703a;}
 .sp-block{margin-top:8px;}
-.sp-block.on .sp-row{border-color:var(--fxc);}
 .fx-sub{margin:10px 0 6px; font-size:12px; color:var(--dim);}
 .fx-sub:first-child{margin-top:0;}
 .sp-input{width:100%; box-sizing:border-box; padding:10px 12px; border-radius:12px; border:1px solid var(--line); background:var(--el); color:var(--ink); font-size:16px;}
