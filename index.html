@@ -2957,7 +2957,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "42.93";
+const APP_VERSION = "42.94";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -9446,7 +9446,7 @@ function fanOf(visits, fanId) {
    сумма квадратов отклонений наименьшая). Пересадка/проездом — излом на полпути, дальше
    к городу назначения (не назад). Длина лучей одинаковая — расстояния не важны. */
 function fanLayout(start, dirs) {
-    const slots = dirs.length > 8 ? 16 : 8;
+    const slots = dirs.length > 16 ? 32 : dirs.length > 8 ? 16 : 8;
     const step = (Math.PI * 2) / slots;
     const first = dirs.map((d, i) => {
         const s0 = d.stops.find((s) => isFinite(s.lat)) || d.stops[0];
@@ -9474,8 +9474,44 @@ function fanLayout(start, dirs) {
             used.delete(o);
         }
     };
-    if (dirs.length <= slots)
+    // мало лучей — полный перебор; много — по кругу в порядке азимутов (динамика, мгновенно) (42.94)
+    if (dirs.length <= 5)
         go(0, new Set(), [], 0);
+    else {
+        const T = Math.PI * 2;
+        const ord = first.map((t, i) => [((t % T) + T) % T, i]).sort((a, b) => a[0] - b[0]);
+        const n = ord.length;
+        for (let s0 = 0; s0 < slots; s0++)
+            for (let r = 0; r < n; r++) {
+                // лучи по порядку с r-го, слоты по порядку с s0-го: каждому — свой, порядок сохраняется
+                const D = Array.from({ length: n + 1 }, () => new Array(slots + 1).fill(Infinity));
+                const W = Array.from({ length: n + 1 }, () => new Array(slots + 1).fill(-1));
+                for (let j = 0; j <= slots; j++)
+                    D[0][j] = 0;
+                for (let i = 1; i <= n; i++)
+                    for (let j = i; j <= slots; j++) {
+                        const keep = D[i][j - 1];
+                        const o = (s0 + j - 1) % slots;
+                        const take = D[i - 1][j - 1] + fanAdiff(ord[(r + i - 1) % n][0], o * step) ** 2;
+                        if (take <= keep) {
+                            D[i][j] = take;
+                            W[i][j] = 1;
+                        }
+                        else {
+                            D[i][j] = keep;
+                            W[i][j] = 0;
+                        }
+                    }
+                const cost = D[n][slots];
+                if (best && cost >= best.cost)
+                    continue;
+                const acc = new Array(n);
+                for (let i = n, j = slots; i > 0; j--)
+                    if (W[i][j] === 1)
+                        acc[ord[(r + i - 1) % n][1]] = (s0 + j - 1) % slots, i--;
+                best = { cost, acc };
+            }
+    }
     /* лучи не должны сходиться (42.93): после пересадки линия поворачивает только в свою сторону,
        и только если соседний сектор свободен; иначе — прямо. Остались сближения — луч выпрямляем */
     const usedO = new Set(best ? best.acc : dirs.map((_d, i) => i));
@@ -9507,7 +9543,8 @@ function fanLayout(start, dirs) {
                     tt = t1;
                 dirT = tt;
             }
-            const len = j === 0 ? (n > 1 ? 0.55 : 1) : seg;
+            // густой веер: лучи через один длиннее — подписи соседей не сталкиваются
+            const len = (j === 0 ? (n > 1 ? 0.55 : 1) : seg) * (slots > 8 && o % 2 ? 1.4 : 1);
             cur = [cur[0] + Math.cos(dirT) * len, cur[1] + Math.sin(dirT) * len];
             pts.push(cur);
             if (j < n - 1)
@@ -23545,6 +23582,8 @@ button, input, select, textarea{font-family:inherit;}
 .rt-stop.fan-drag.moving{transition:none; border-color:var(--gold); box-shadow:0 6px 18px var(--shadow);}
 .rt-tools .fan-shift{color:var(--gold);}
 .fan-hint{margin:6px 2px 0;}
+/* 42.94: подписи схемы «лучами» читаются поверх линий (густой веер) */
+.fan-star .mvs-n, .fan-star .mvs-d{paint-order:stroke; stroke:var(--el); stroke-width:3px; stroke-linejoin:round;}
 `;
 const __b = document.getElementById('boot');
 if (__b)
