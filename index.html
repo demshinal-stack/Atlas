@@ -2986,7 +2986,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "43.15";
+const APP_VERSION = "43.16";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -4905,6 +4905,30 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
             // большие страны с областями: страна светлым золотом, области — золотом
             const regs = state.current.regions;
             const champOf = (a3) => !!regs && REG.ready && REG.big.has(a3) && !(state.current.arcs || []).length;
+            // выбранное море (43.16): мягкое свечение воды ПОД сушей — суша закрывает край у берегов (контуры
+            // морей и суши из разных наборов не совпадают), а к открытым границам с соседними морями свечение
+            // плавно растворяется: условных прямых линий не видно. Без обводки; лёгкое «дыхание»
+            const seaSel = !state.current.isMap && state.current.sea;
+            if (seaSel) {
+                const parts = seaParts(seaSel);
+                ctx.save();
+                ctx.lineJoin = "round";
+                ctx.lineCap = "round";
+                const wave = 0.85 + 0.15 * Math.sin(Date.now() / 900);
+                [[4, 0.1]].forEach(([w, a]) => {
+                    ctx.beginPath();
+                    parts.forEach((F) => path(F));
+                    ctx.strokeStyle = lt ? `rgba(60,140,230,${a})` : `rgba(110,190,255,${a})`;
+                    ctx.lineWidth = w;
+                    ctx.stroke();
+                });
+                ctx.beginPath();
+                parts.forEach((F) => path(F));
+                ctx.fillStyle = lt ? `rgba(60,140,230,${0.3 * wave})` : `rgba(110,190,255,${0.36 * wave})`;
+                ctx.fill();
+                ctx.restore();
+                needDraw = true;
+            }
             g.features.forEach((f) => {
                 var _e;
                 if (f.id)
@@ -5219,24 +5243,9 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                 ctx.lineWidth = sel === c.a3 ? 1.5 : 0.9;
                 ctx.stroke();
             });
-            // моря и океаны (43.15): выбранное море подсвечено, как страна; океаны подписаны строго на воде
+            // океаны (43.15) подписаны строго на воде
             // (места надписей подобраны заранее — tools/ocean_place.py), буквы лежат на поверхности шара
             if (!state.current.isMap) {
-                const seaSel = state.current.sea;
-                if (seaSel)
-                    seaParts(seaSel).forEach((F) => {
-                        ctx.save();
-                        ctx.beginPath();
-                        path(F);
-                        ctx.fillStyle = lt ? "rgba(70,140,220,.25)" : "rgba(120,190,255,.24)";
-                        ctx.fill();
-                        ctx.shadowColor = "rgba(140,205,255,.9)";
-                        ctx.shadowBlur = 10;
-                        ctx.strokeStyle = lt ? "#2f7fd0" : "#cfe8ff";
-                        ctx.lineWidth = 1.6 * (0.75 + 0.25 * selPulse());
-                        ctx.stroke();
-                        ctx.restore();
-                    });
                 const R0 = proj.scale();
                 const ink = lt ? "rgba(48,96,150," : "rgba(160,200,238,";
                 const dest = (lo, la, brg, dist) => {
@@ -6047,7 +6056,8 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         if (!c)
             return;
         homed.current = true;
-        rot.current = [-c.lon, Math.max(-70, Math.min(70, -c.lat))];
+        // стартовый наклон не больше ±35° (43.16): глобус как обычно — полюс у края, а не в центре
+        rot.current = [-c.lon, Math.max(-35, Math.min(35, -c.lat))];
         requestDraw();
     }, [home, selected, requestDraw]);
     const stopTour = useCallback(() => {
@@ -6246,6 +6256,22 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                 }
             }
         }
+        // точка на воде и не в контуре страны — это море, даже у самого берега (43.16); мелкую островную
+        // страну по-прежнему можно выбрать касанием рядом с её точкой (12 px вместо 26)
+        if (!best && onSea && !isMap && proj.invert) {
+            const ll = proj.invert([px, py]);
+            if (ll && isFinite(ll[0]) && isFinite(ll[1]) && seen(ll[0], ll[1])) {
+                const nm = seaAt(ll);
+                const near = COUNTRIES.some((c) => {
+                    if (!seen(c.lon, c.lat) || !inPage(c.a3))
+                        return false;
+                    const q = proj([c.lon, c.lat]);
+                    return q && Math.hypot(q[0] - px, q[1] - py) < 12;
+                });
+                if (nm && !near)
+                    return onSea(nm);
+            }
+        }
         if (!best) {
             COUNTRIES.forEach((c) => {
                 if (!seen(c.lon, c.lat) || !inPage(c.a3))
@@ -6262,12 +6288,6 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         }
         if (best)
             onPick(best);
-        // мимо стран — по воде: море или океан (43.15)
-        else if (onSea && !isMap && proj.invert) {
-            const ll = proj.invert([px, py]);
-            if (ll && isFinite(ll[0]) && isFinite(ll[1]) && seen(ll[0], ll[1]))
-                onSea(seaAt(ll));
-        }
     };
     const dist = (ts) => Math.hypot(ts[0].clientX - ts[1].clientX, ts[0].clientY - ts[1].clientY);
     const onTouchStart = (e) => {
@@ -21648,7 +21668,11 @@ function AtlasApp() {
     const lastTrip = useMemo(() => {
         let best = null;
         Object.entries(visits).forEach(([a3, arr]) => {
+            if (isTerr(a3))
+                return; // стартовый вид — по стране, не по полюсу или Антарктиде (43.16)
             arr.forEach((t) => {
+                if (t.plan)
+                    return;
                 const rank = t.y * 100 + (t.m || 0);
                 if (!best || rank > best.rank)
                     best = { a3, rank };
@@ -21936,6 +21960,16 @@ function AtlasApp() {
         const [lon, lat] = d3.geoCentroid(f);
         return { lon, lat, id: "reg:" + selRegion, force: true };
     }, [selRegion, regReady]);
+    // выбрали море — шар поворачивается к нему, если оно далеко от центра (43.16)
+    const seaLook = useMemo(() => {
+        if (!selSea)
+            return null;
+        const parts = seaParts(selSea).map((f) => [d3.geoArea(f), f]).sort((x, y) => y[0] - x[0]);
+        if (!parts.length)
+            return null;
+        const [lon, lat] = d3.geoCentroid(parts[0][1]);
+        return { lon, lat, id: "sea:" + selSea };
+    }, [selSea]);
     const visitKey = useMemo(() => [...activeSet].sort().join(",") +
         "|" +
         yearFilter +
@@ -22028,7 +22062,7 @@ function AtlasApp() {
                                     setSelRegion(null);
                                     setSpinning(false);
                                 }
-                            }, selected: selected, full: false, noPlay: true, blinkOnly: true, glow: selGlow, pins: selPins, onToggleFull: () => setFull(true), visitKey: visitKey, home: lastTrip, marks: marks, regions: regionsOn, selRegion: selRegion, lookAt: cardLook && (!regLook || !selRegion) ? cardLook : regLook, light: light, playing: spinning, setPlaying: setSpinning, view: mapView, page: mapPage, setPage: setMapPage, isWish: isWish }),
+                            }, selected: selected, full: false, noPlay: true, blinkOnly: true, glow: selGlow, pins: selPins, onToggleFull: () => setFull(true), visitKey: visitKey, home: lastTrip, marks: marks, regions: regionsOn, selRegion: selRegion, lookAt: seaLook || (cardLook && (!regLook || !selRegion) ? cardLook : regLook), light: light, playing: spinning, setPlaying: setSpinning, view: mapView, page: mapPage, setPage: setMapPage, isWish: isWish }),
                         full && (React.createElement(Globe, { geo: geo, isOn: isOn, onPick: (a3, x) => {
                                 setSelected(BY_A3[a3] ? a3 : null);
                                 setSelRegion((x === null || x === void 0 ? void 0 : x.region) || null);
@@ -22039,7 +22073,7 @@ function AtlasApp() {
                                     setSelected(null);
                                     setSelRegion(null);
                                 }
-                            }, selected: selected, full: true, onToggleFull: () => setFull(false), flights: selected ? flights.filter((r) => r.a3 === selected) : flights, visitKey: visitKey, home: lastTrip, marks: marks, regions: regionsOn, selRegion: selRegion, lookAt: cardLook && (!regLook || !selRegion) ? cardLook : regLook, light: light, playing: fullSpin && !selected, setPlaying: (v) => {
+                            }, selected: selected, full: true, onToggleFull: () => setFull(false), flights: selected ? flights.filter((r) => r.a3 === selected) : flights, visitKey: visitKey, home: lastTrip, marks: marks, regions: regionsOn, selRegion: selRegion, lookAt: seaLook || (cardLook && (!regLook || !selRegion) ? cardLook : regLook), light: light, playing: fullSpin && !selected, setPlaying: (v) => {
                                 // «крутить» при выбранной стране — снимаем выбор и крутим дальше
                                 const on = typeof v === "function" ? v(fullSpin && !selected) : v;
                                 setFullSpin(on);
