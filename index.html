@@ -292,7 +292,7 @@ VU|VUT|Вануату|OC|-16.3|167.5
 /* справочники живут отдельно: на сервере, а по желанию — на устройстве */
 const K_BOOKS = "atlas:books";
 /* версия справочников: меняется, когда данные обновились на сервере */
-const BOOKS_VER = 30;
+const BOOKS_VER = 32;
 const BOOKS = [
     { id: "cities", file: "cities.txt", title: "Города" },
     { id: "regions", file: "regions.txt", title: "Регионы" },
@@ -350,6 +350,21 @@ const parseCities = (raw) => {
     });
     return out;
 };
+/* отели справочника: ключ «A3:Город» (43.05 — у городов-тёзок свои списки: Виктория на Сейшелах и в Канаде);
+   старые строки без страны («Город») — запасной вариант по одному названию */
+function hotelsFor(a3, city) {
+    if (!city)
+        return [];
+    if (a3 && HOTELS_BY_CITY[a3 + ":" + city])
+        return HOTELS_BY_CITY[a3 + ":" + city];
+    if (HOTELS_BY_CITY[city])
+        return HOTELS_BY_CITY[city];
+    if (a3)
+        return [];
+    // страна не известна (старая остановка без a3) — первый город с таким названием
+    const k = Object.keys(HOTELS_BY_CITY).find((x) => x.endsWith(":" + city));
+    return k ? HOTELS_BY_CITY[k] : [];
+}
 const parseHotels = (raw) => {
     const by = {};
     const cat = {};
@@ -2957,7 +2972,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "43.02";
+const APP_VERSION = "43.05";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -3390,7 +3405,7 @@ function hotelHome(a3, name) {
     if (HOTEL_HOME_SRC !== HOTELS_BY_CITY) {
         HOTEL_HOME_SRC = HOTELS_BY_CITY;
         HOTEL_HOME = {};
-        CITIES.forEach((c) => (HOTELS_BY_CITY[c.city] || []).forEach((h) => {
+        CITIES.forEach((c) => hotelsFor(c.a3, c.city).forEach((h) => {
             const k = c.a3 + "|" + h.name.toLowerCase();
             (HOTEL_HOME[k] = HOTEL_HOME[k] || []).push(c.city);
         }));
@@ -6993,12 +7008,45 @@ function WhenPicker({ y, m, y2, approx, since, from, to, onChange }) {
             React.createElement("span", { className: "switch" + (approx ? " on" : "") },
                 React.createElement("i", null)))));
 }
+/* поиск по словам (43.04): «kuredu island» найдёт «Kuredu Island Resort & Spa», «niva dhigali» —
+   «Niva Dhigali Maldives»; регистр, диакритика (Mövenpick, Malé) и знаки не важны, порядок слов тоже.
+   Ничего не нашлось целиком — показываем названия, где есть хоть одно значимое слово запроса */
+const sgNorm = (x) => String(x || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/ё/g, "е")
+    .replace(/[^a-zа-я0-9]+/g, " ")
+    .trim();
+const SG_STOP = new Set(["resort", "resorts", "island", "islands", "hotel", "maldives", "spa", "beach", "the", "and", "private", "villas", "by", "at", "отель"]);
+function sgFind(pool, exclude, q, max = 7) {
+    const words = sgNorm(q).split(" ").filter(Boolean);
+    const free = pool.filter((c) => !exclude.includes(c));
+    if (!words.length)
+        return free.slice(0, max);
+    const scored = [];
+    free.forEach((c, i) => {
+        const n = " " + sgNorm(c);
+        if (words.every((w) => n.includes(" " + w) || n.includes(w))) {
+            // начало названия и начала слов — выше
+            const pos = n.indexOf(" " + words[0]);
+            scored.push({ c, s: (pos === 0 ? 0 : pos > 0 ? 1 : 2) * 1e4 + i });
+        }
+    });
+    if (!scored.length) {
+        const key = words.filter((w) => w.length >= 4 && !SG_STOP.has(w));
+        free.forEach((c, i) => {
+            const n = sgNorm(c);
+            const hit = key.filter((w) => n.includes(w)).length;
+            if (hit)
+                scored.push({ c, s: (10 - hit) * 1e5 + i });
+        });
+    }
+    return scored.sort((a, b) => a.s - b.s).slice(0, max).map((x) => x.c);
+}
 function Suggest({ placeholder, pool, exclude, onAdd, allowCustom = true }) {
     const [q, setQ] = useState("");
-    const s = q.trim().toLowerCase();
-    const found = pool
-        .filter((c) => !exclude.includes(c) && (!s || c.toLowerCase().includes(s)))
-        .slice(0, 7);
+    const found = sgFind(pool, exclude, q);
     const custom = q.trim();
     const canCustom = allowCustom &&
         custom.length > 1 &&
@@ -7370,8 +7418,10 @@ function routeStopHotels(route, a3) {
     });
     return out;
 }
-/* отели, где уже жили: сначала в этом городе, потом справочник города, потом все */
-function hotelPool(visits, city) {
+/* отели, где уже жили: сначала в этом городе, потом справочник города; дальше (43.05) — справочник
+   других мест того же региона (атолла, области), ваши отели в этой стране, справочник всей страны,
+   и в конце — все отели, где вы когда-либо жили */
+function hotelPool(visits, city, a3 = "") {
     const out = [];
     const seen = new Set();
     const push = (n, cat) => {
@@ -7382,10 +7432,23 @@ function hotelPool(visits, city) {
                 HOTEL_CAT[n] = cat;
         }
     };
+    const A = a3 || (CITIES.find((c) => c.city === city) || {}).a3 || "";
     const all = Object.values(visits || {}).flatMap((arr) => arr || []);
     all.forEach((t) => (t.hotels || []).forEach((h) => (h.city === city || (!h.city && (t.cities || []).includes(city))) && push(h.name)));
     all.forEach((t) => { var _e; return (((_e = t.route) === null || _e === void 0 ? void 0 : _e.stops) || []).forEach((s) => s.name === city && (s.hotels || []).forEach((h) => push(h.name))); });
-    (HOTELS_BY_CITY[city] || []).forEach((h) => push(h.name, h.cat));
+    hotelsFor(A, city).forEach((h) => push(h.name, h.cat));
+    if (A) {
+        const near = CITIES.filter((c) => c.a3 === A && c.city !== city);
+        const rk = REG.ready && REG.big.has(A) ? cqCityReg(A, city) : null;
+        if (rk)
+            near.forEach((c) => cqCityReg(A, c.city) === rk && hotelsFor(A, c.city).forEach((h) => push(h.name, h.cat)));
+        ((visits === null || visits === void 0 ? void 0 : visits[A]) || []).forEach((t) => {
+            var _e;
+            (t.hotels || []).forEach((h) => push(h.name));
+            (((_e = t.route) === null || _e === void 0 ? void 0 : _e.stops) || []).forEach((s) => (s.hotels || []).forEach((h) => push(h.name)));
+        });
+        near.forEach((c) => hotelsFor(A, c.city).forEach((h) => push(h.name, h.cat)));
+    }
     all.forEach((t) => (t.hotels || []).forEach((h) => push(h.name)));
     return out;
 }
@@ -8289,7 +8352,7 @@ function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onR
                 React.createElement("p", { className: "rt-hpick-t" },
                     "\u041E\u0442\u0435\u043B\u044C \u00B7 ",
                     st.name),
-                React.createElement(Suggest, { placeholder: "\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u043E\u0442\u0435\u043B\u044F", pool: hotelPool(visits, st.name), exclude: hs.map((h) => h.name), onAdd: (name) => {
+                React.createElement(Suggest, { placeholder: "\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u043E\u0442\u0435\u043B\u044F", pool: hotelPool(visits, st.name, st.a3), exclude: hs.map((h) => h.name), onAdd: (name) => {
                         setStop(i, { hotels: [...hs, { name, stars: HOTEL_CAT[name] || 0, note: "" }] });
                         setHotFor(null);
                     } }),
@@ -17371,8 +17434,32 @@ function ConquestMap({ a3, done, sel = null, onSel, w = 320, h = 220, turn = nul
                 React.createElement("path", { d: "M0 -10 L5 5 L0 2 L-5 5 Z", transform: `translate(${w - 30},32) rotate(${north})` }),
                 React.createElement("text", { x: w - 30 + Math.sin(rad) * 25, y: 32 - Math.cos(rad) * 25 }, "\u0421"))) : (React.createElement("text", { className: "cq-turn", x: w - 30, y: 33 }, "\u2922"))))));
 }
+/* последняя страна, которую смотрели в «Покорении» (43.03) — в ленте или во весь экран; при следующем
+   входе в отчёты карточка показывает её. Хранится на устройстве; об изменении сообщаем событием */
+const CQ_LAST = "atlas:cqLast";
+function cqLastGet() {
+    try {
+        return localStorage.getItem(CQ_LAST) || null;
+    }
+    catch (e) {
+        return null;
+    }
+}
+function cqLastSet(a3) {
+    if (!a3)
+        return;
+    try {
+        if (localStorage.getItem(CQ_LAST) === a3)
+            return;
+        localStorage.setItem(CQ_LAST, a3);
+    }
+    catch (e) {
+        /* хранилище недоступно — помним только до перезапуска */
+    }
+    window.dispatchEvent(new CustomEvent("atlas:cqlast", { detail: a3 }));
+}
 /* карточка в отчётах: фишки стран, карта, процент */
-function ConquestCard({ visits, onOpen, geo = null, a3: a3Ctl, onPick }) {
+function ConquestCard({ visits, onOpen, onTrips, geo = null, a3: a3Ctl, onPick }) {
     var _e;
     const rows = useMemo(() => conqData(visits), [visits]);
     const [a3Own, setA3Own] = useState(null);
@@ -17386,7 +17473,7 @@ function ConquestCard({ visits, onOpen, geo = null, a3: a3Ctl, onPick }) {
     return (React.createElement("div", { className: "cq-card" },
         React.createElement(CqChips, { rows: rows, a3: row.a3, onPick: setA3 }),
         React.createElement("div", { className: "cq-mapbox", onClick: () => onOpen === null || onOpen === void 0 ? void 0 : onOpen(row.a3) },
-            React.createElement(ConquestMap, { a3: row.a3, done: row.done, w: 320, h: 200, geo: geo, turn: "auto" })),
+            React.createElement(ConquestMap, { a3: row.a3, done: row.done, w: 320, h: 200, geo: geo, turn: "auto", onSel: (k) => (k && row.done.has(k) && onTrips ? onTrips(row.a3, k) : onOpen === null || onOpen === void 0 ? void 0 : onOpen(row.a3)) })),
         React.createElement("div", { className: "cq-sum" },
             React.createElement("b", { className: "cq-pct cq-big " + cqMetal(row.pct) },
                 row.pct,
@@ -17398,7 +17485,12 @@ function ConquestCard({ visits, onOpen, geo = null, a3: a3Ctl, onPick }) {
                 " \u0438\u0437 ",
                 row.total,
                 row.total - row.n > 0 ? ` · осталось ${row.total - row.n}` : " — вся страна!")),
-        React.createElement(CqBar, { pct: row.pct })));
+        React.createElement(CqBar, { pct: row.pct }),
+        onTrips && row.trips > 0 && (React.createElement("button", { className: "mv-link cq-go", onClick: (e) => (e.stopPropagation(), onTrips(row.a3, null)) },
+            "\uD83E\uDDF3 \u041F\u043E\u0435\u0437\u0434\u043A\u0438 \u043F\u043E \u0440\u0435\u0433\u0438\u043E\u043D\u0430\u043C: ",
+            name,
+            " ",
+            React.createElement("b", null, "\u203A")))));
 }
 /* страны-фишки: выбранная всегда видна в ленте */
 function CqChips({ rows, a3, onPick }) {
@@ -17427,7 +17519,7 @@ function CqBar({ pct }) {
         React.createElement("i", { style: { width: `${pct}%` } })));
 }
 /* окно во весь экран — как другие отчёты: карта, под ней (или справа) страны списком */
-function ConquestWin({ visits, a3: a30, onClose, geo = null }) {
+function ConquestWin({ visits, a3: a30, onClose, onTrips, geo = null }) {
     var _e, _h;
     const rows = useMemo(() => conqData(visits), [visits]);
     const [a3, setA3] = useState(a30 || ((_e = conqFirst(rows)) === null || _e === void 0 ? void 0 : _e.a3) || null);
@@ -17459,6 +17551,7 @@ function ConquestWin({ visits, a3: a30, onClose, geo = null }) {
     }, [wide, rows.length]);
     const row = rows.find((r) => r.a3 === a3) || conqFirst(rows);
     useEffect(() => setSel(null), [a3]);
+    useEffect(() => cqLastSet(row === null || row === void 0 ? void 0 : row.a3), [row === null || row === void 0 ? void 0 : row.a3]); // запомнить, что смотрели во весь экран (43.03)
     const cities = useMemo(() => (row ? cqCities(visits, row.a3) : null), [visits, row === null || row === void 0 ? void 0 : row.a3]);
     // страница страны (42.67, как «Настройки» iPhone): касание страны в списке открывает её
     // страницу — неподвижная шапка «‹ Страны» и прокручиваемые регионы с городами
@@ -17542,12 +17635,22 @@ function ConquestWin({ visits, a3: a30, onClose, geo = null }) {
                 "%")),
         React.createElement("div", { className: "cq-svgbox", ref: boxRef },
             React.createElement(ConquestMap, { a3: row.a3, done: row.done, sel: sel, onSel: pickReg, w: size[0], h: size[1], turn: turn[row.a3] || "auto", geo: geo, onTurn: (v) => setTurn((t) => ({ ...t, [row.a3]: v })) }))));
-    const rr = (g, no = false) => (React.createElement("button", { key: g.key || "-", className: "cq-rr" + (no ? " no" : "") + (g.key && g.key === sel ? " sel" : ""), onClick: () => g.key && setSel(sel === g.key ? null : g.key) },
+    const rr = (g, no = false) => (React.createElement("button", { key: g.key || "-", className: "cq-rr" + (no ? " no" : "") + (g.key && g.key === sel ? " sel" : ""), onClick: () => {
+            // первое касание выделяет регион на карте, второе — к его поездкам (как на главном, 42.10);
+            // «без региона» — сразу к поездкам страны (43.03)
+            if (no)
+                return g.key && setSel(sel === g.key ? null : g.key);
+            if (onTrips && (!g.key || g.key === sel))
+                return onTrips(row.a3, g.key);
+            if (g.key)
+                setSel(g.key);
+        } },
         React.createElement("i", { className: "cq-rd" + (g.key ? "" : " loose") }),
         React.createElement("span", null,
             React.createElement("b", null, g.name),
             !no && React.createElement("em", null, g.cs.length ? g.cs.map((x) => x.c).join(", ") : "города не указаны")),
-        !no && g.n > 0 && React.createElement("u", null, np(g.n, "trip"))));
+        !no && g.n > 0 && React.createElement("u", null, np(g.n, "trip")),
+        !no && onTrips && (!g.key || g.key === sel) && React.createElement("i", { className: "cq-chev" }, "\u203A")));
     const list = isOpen ? (React.createElement("div", { className: "cq-page", key: row.a3 },
         React.createElement("div", { className: "cq-nav" },
             React.createElement("button", { className: "cq-back", onClick: () => (setOpen(null), setSel(null)) }, "\u2039 \u0421\u0442\u0440\u0430\u043D\u044B"),
@@ -17611,7 +17714,7 @@ const conqTags = (visits) => conqData(visits)
 /* Атлас · 22 · экран отчётов.
    Части собираются по номерам в один файл (tools/rebuild.sh) и видят друг друга напрямую. */
 /* шторка отчётов */
-function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], onOpenTrip, geo, home, onPerson, onFar, onAir, onSeason, onConts, onWorld, onOften, onSolo, onCalendar, onYears, onMoveTrips, onMoveWin, onConquest, focusRid = null, meName = "", repCfg = null }) {
+function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], onOpenTrip, geo, home, onPerson, onFar, onAir, onSeason, onConts, onWorld, onOften, onSolo, onCalendar, onYears, onMoveTrips, onMoveWin, onConquest, onConqTrips, focusRid = null, meName = "", repCfg = null }) {
     ME_NAME = meName;
     const r = useMemo(() => reportData(visits, since, people), [visits, since, people]);
     const crew = useMemo(() => travelerStats(visits, people), [visits, people, meName]);
@@ -17634,7 +17737,17 @@ function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], o
     const crewR = useMemo(() => crewReport(visits, people, crew.map((p) => p.id), homePoint), [visits, people, crew, homePoint, meName]);
     const [openCrew, setOpenCrew] = useState(null);
     // страна, выбранная в ленте «Покорения страны» — её и откроет полноэкранный режим (42.95)
-    const [cqA3, setCqA3] = useState(null);
+    // с 43.03 — последняя просмотренная страна (в ленте или во весь экран) помнится между входами
+    const [cqA3, setCqA3] = useState(() => cqLastGet());
+    useEffect(() => {
+        const on = (e) => setCqA3(e.detail || null);
+        window.addEventListener("atlas:cqlast", on);
+        return () => window.removeEventListener("atlas:cqlast", on);
+    }, []);
+    useEffect(() => {
+        if (open)
+            setCqA3(cqLastGet());
+    }, [open]);
     const [cmp, setCmp] = useState([]);
     const [side, setSide] = useState(0);
     // выбираем любых двоих: новое имя вытесняет то, что выбрали раньше
@@ -17913,7 +18026,7 @@ function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], o
             React.createElement(Reveal, { rid: "conquest", className: "rep cq-rep", zoomable: false, onFull: () => { var _e; return onConquest === null || onConquest === void 0 ? void 0 : onConquest(cqA3 || ((_e = conqFirst(conqData(visits))) === null || _e === void 0 ? void 0 : _e.a3) || null); } },
                 React.createElement("b", null, "\u041F\u043E\u043A\u043E\u0440\u0435\u043D\u0438\u0435 \u0441\u0442\u0440\u0430\u043D\u044B"),
                 React.createElement("em", null, "\u0432 \u0441\u043A\u043E\u043B\u044C\u043A\u0438\u0445 \u0440\u0435\u0433\u0438\u043E\u043D\u0430\u0445 \u0441\u0442\u0440\u0430\u043D\u044B \u0432\u044B \u0431\u044B\u043B\u0438"),
-                React.createElement(ConquestCard, { visits: visits, geo: geo, a3: cqA3, onPick: setCqA3, onOpen: (a3) => onConquest === null || onConquest === void 0 ? void 0 : onConquest(a3) })),
+                React.createElement(ConquestCard, { visits: visits, geo: geo, a3: cqA3, onPick: (k) => (setCqA3(k), cqLastSet(k)), onOpen: (a3) => onConquest === null || onConquest === void 0 ? void 0 : onConquest(a3), onTrips: onConqTrips })),
             React.createElement(Reveal, { rid: "calendar", className: "rep", zoomable: false, onFull: () => onCalendar === null || onCalendar === void 0 ? void 0 : onCalendar() },
                 React.createElement("b", null, "\u041A\u0430\u043B\u0435\u043D\u0434\u0430\u0440\u044C \u043F\u043E\u0435\u0437\u0434\u043E\u043A"),
                 React.createElement("em", null, "\u0433\u043E\u0434 \u0438 \u043C\u0435\u0441\u044F\u0446, \u044F\u0440\u0447\u0435 \u2014 \u0434\u043E\u043B\u044C\u0448\u0435"),
@@ -18237,7 +18350,7 @@ function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, on
     }, [open]);
     /* пришли с главного экрана: плавно доезжаем до группы выбранного региона */
     useEffect(() => {
-        if (!open || !(focus === null || focus === void 0 ? void 0 : focus.k))
+        if (!open || !((focus === null || focus === void 0 ? void 0 : focus.k) || (focus === null || focus === void 0 ? void 0 : focus.a3)))
             return;
         // сначала сворачиваем шапку со статистикой, чтобы список не прыгал по дороге,
         // затем сами ведём прокрутку кадр за кадром: плавно на любом телефоне (42.11)
@@ -18245,7 +18358,12 @@ function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, on
         let raf = 0;
         const where = () => {
             const box = listRef.current;
-            const g = box === null || box === void 0 ? void 0 : box.querySelector(`[data-g="${CSS.escape(focus.k)}"]`);
+            // регион по ключу; страна целиком (43.03, из «Покорения страны») — первая её группа:
+            // «без региона» (c|A3) или первый из регионов (A3|…)
+            const sel = focus.k
+                ? `[data-g="${CSS.escape(focus.k)}"]`
+                : `[data-g="${CSS.escape("c|" + focus.a3)}"], [data-g^="${CSS.escape(focus.a3 + "|")}"]`;
+            const g = box === null || box === void 0 ? void 0 : box.querySelector(sel);
             if (!box || !g)
                 return null;
             // заголовок группы встаёт сразу под закреплённой шапкой списка
@@ -19620,6 +19738,15 @@ function AtlasApp() {
     const [oftenWin, setOftenWin] = useState(false);
     const [soloWin, setSoloWin] = useState(false);
     const [conqWin, setConqWin] = useState(null); // { a3 } — окно «Покорение страны» (42.48)
+    /* из «Покорения страны» — к поездкам (43.03): разрез «По регионам», лента плавно доезжает до региона
+       (или до первой группы страны); «назад» из ленты возвращает в отчёты к этой карточке */
+    const conqTrips = (a3, k) => {
+        setConqWin(null);
+        setListMode("region");
+        setListFocus({ k: k || null, a3, n: Date.now() });
+        setListBack("conquest");
+        setSheet("list");
+    };
     // разбор обмена с родными: показываем, пока пользователь не решит
     const [sync, setSync] = useState(null);
     const [near, setNear] = useState(false);
@@ -19729,7 +19856,13 @@ function AtlasApp() {
     // куда доехать в списке поездок, если пришли с карточки региона на главном
     const [listFocus, setListFocus] = useState(null);
     // открыли «Поездки» из отчёта — крестик возвращает к этому отчёту
-    const [listBack, setListBack] = useState(null);
+    const [listBack, setListBack0] = useState(null);
+    // каждое новое «откуда пришли» гасит отложенный сброс от прошлого закрытия ленты (43.03)
+    const listBackGen = useRef(0);
+    const setListBack = (v) => {
+        listBackGen.current += 1;
+        setListBack0(v);
+    };
     useEffect(() => {
         // ушли из «Поездок» куда-то ещё — возврат к отчёту больше не нужен
         if (!["list", "edit", "filters", "reports"].includes(sheet))
@@ -21369,7 +21502,7 @@ function AtlasApp() {
                                 profileRef.current = next;
                                 await saveProfile(next);
                             } }),
-                        React.createElement(ReportsSheet, { open: sheet === "reports", onClose: () => setSheet(sheetBack === "profile" ? "profile" : null), box: box, visits: visits, since: profile.since, stats: stats, people: profile.people || [], home: profile.home || null, geo: geo, onPerson: setPerson, onFar: setFar, onAir: setAirWin, onSeason: () => setSeasonWin(true), onConts: () => setContsWin(true), onWorld: () => setWorldWin(true), onCalendar: () => setCalWin(true), onMoveWin: () => setMoveWin(true), onConquest: (a3) => setConqWin({ a3 }), onYears: () => setYearsWin(true), onMoveTrips: (k) => {
+                        React.createElement(ReportsSheet, { open: sheet === "reports", onClose: () => setSheet(sheetBack === "profile" ? "profile" : null), box: box, visits: visits, since: profile.since, stats: stats, people: profile.people || [], home: profile.home || null, geo: geo, onPerson: setPerson, onFar: setFar, onAir: setAirWin, onSeason: () => setSeasonWin(true), onConts: () => setContsWin(true), onWorld: () => setWorldWin(true), onCalendar: () => setCalWin(true), onMoveWin: () => setMoveWin(true), onConquest: (a3) => setConqWin({ a3 }), onConqTrips: conqTrips, onYears: () => setYearsWin(true), onMoveTrips: (k) => {
                                 // как с региона на главном: разрез «По транспорту» и доезд до нужной группы (42.18)
                                 setListMode("move");
                                 setListFocus({ k, n: Date.now() });
@@ -21394,7 +21527,8 @@ function AtlasApp() {
                         React.createElement(ListSheet, { visits: visits, stats: stats, open: sheet === "list", onClose: () => {
                                 setSheet(listBack ? "reports" : null);
                                 setListFocus(null);
-                                setTimeout(() => setListBack(null), 1500);
+                                const gen = listBackGen.current;
+                                setTimeout(() => gen === listBackGen.current && setListBack(null), 1500);
                             }, onPick: (a3, id) => {
                                 // правка поездки прямо из списка; на главный экран не уходим (42.5)
                                 setEditing({ a3, id, back: "list" });
@@ -21441,7 +21575,7 @@ function AtlasApp() {
                                 setSheet(null);
                             } })),
                         moveWin && React.createElement(MoveWin, { visits: visits, home: profile.home || null, onClose: () => setMoveWin(false) }),
-                        conqWin && React.createElement(ConquestWin, { visits: visits, geo: geo, a3: conqWin.a3, onClose: () => setConqWin(null) }),
+                        conqWin && React.createElement(ConquestWin, { visits: visits, geo: geo, a3: conqWin.a3, onClose: () => setConqWin(null), onTrips: conqTrips }),
                         contsWin && React.createElement(ContsWin, { visits: visits, geo: geo, onClose: () => setContsWin(false) }),
                         soloWin && (React.createElement(SoloWin, { visits: visits, people: profile.people || [], geo: geo, onClose: () => setSoloWin(false), mapProps: {
                                 isOn,
