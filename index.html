@@ -2986,7 +2986,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "43.16";
+const APP_VERSION = "43.17";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -6104,14 +6104,20 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         fly.current = { list: [], next: 0 };
     }, [flights]);
     /* автовращение: ровный ход без наездов */
+    /* 43.17: включили вращение (плей или ✕ «все страны») — сначала плавно в базовую точку
+       (последняя поездка, наклон не больше ±35°, без увеличения), потом вращение */
+    const wasPlay = useRef(playing);
     useEffect(() => {
         playRef.current = playing && !isMap;
+        const started = playing && !wasPlay.current;
+        wasPlay.current = playing;
         if (!playing || isMap) {
             cancelAnimationFrame(playRaf.current);
             return;
         }
         cancelAnimationFrame(anim.current);
-        const step = () => {
+        anim.current = null;
+        const spin = () => {
             try {
                 rot.current = [rot.current[0] + (spinStep || 0.7), rot.current[1]];
                 drawRef.current();
@@ -6119,9 +6125,36 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
             catch (e) {
                 /* один сбойный кадр не должен останавливать вращение */
             }
-            playRaf.current = requestAnimationFrame(step);
+            playRaf.current = requestAnimationFrame(spin);
         };
-        playRaf.current = requestAnimationFrame(step);
+        const c = started && home ? BY_A3[home] : null;
+        if (c) {
+            const from = rot.current.slice();
+            const to = [-c.lon, Math.max(-35, Math.min(35, -c.lat))];
+            let dLon = to[0] - from[0];
+            while (dLon > 180)
+                dLon -= 360;
+            while (dLon < -180)
+                dLon += 360;
+            const dLat = to[1] - from[1];
+            const z0 = zoom.current;
+            const far = Math.max(Math.abs(dLon), Math.abs(dLat));
+            if (far > 1 || Math.abs(z0 - 1) > 0.01) {
+                const dur = Math.min(1600, 600 + far * 6);
+                const t0 = Date.now();
+                const glide = () => {
+                    const p = Math.min(1, (Date.now() - t0) / dur);
+                    const e = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+                    rot.current = [from[0] + dLon * e, from[1] + dLat * e];
+                    zoom.current = z0 + (1 - z0) * e;
+                    drawRef.current();
+                    playRaf.current = requestAnimationFrame(p < 1 ? glide : spin);
+                };
+                playRaf.current = requestAnimationFrame(glide);
+                return () => cancelAnimationFrame(playRaf.current);
+            }
+        }
+        playRaf.current = requestAnimationFrame(spin);
         return () => cancelAnimationFrame(playRaf.current);
     }, [playing, spinStep]);
     const sens = () => 90 / Math.max(70, (size / 2 - 6) * zoom.current);
@@ -22062,7 +22095,17 @@ function AtlasApp() {
                                     setSelRegion(null);
                                     setSpinning(false);
                                 }
-                            }, selected: selected, full: false, noPlay: true, blinkOnly: true, glow: selGlow, pins: selPins, onToggleFull: () => setFull(true), visitKey: visitKey, home: lastTrip, marks: marks, regions: regionsOn, selRegion: selRegion, lookAt: seaLook || (cardLook && (!regLook || !selRegion) ? cardLook : regLook), light: light, playing: spinning, setPlaying: setSpinning, view: mapView, page: mapPage, setPage: setMapPage, isWish: isWish }),
+                            }, selected: selected, full: false, blinkOnly: true, glow: selGlow, pins: selPins, onToggleFull: () => setFull(true), visitKey: visitKey, home: lastTrip, marks: marks, regions: regionsOn, selRegion: selRegion, lookAt: seaLook || (cardLook && (!regLook || !selRegion) ? cardLook : regLook), light: light, playing: spinning, setPlaying: (v) => {
+                                // 43.17: плей = «все страны»: снимаем выбор, глобус едет в базовую точку и крутится
+                                // выбрана страна или море — ▶ всегда «все страны и крутить», а не «стоп»
+                                const on = (selected || selSea) && v !== false ? true : typeof v === "function" ? v(spinning) : v;
+                                if (on) {
+                                    setSelected(null);
+                                    setSelRegion(null);
+                                    setSelSea(null);
+                                }
+                                setSpinning(on);
+                            }, view: mapView, page: mapPage, setPage: setMapPage, isWish: isWish }),
                         full && (React.createElement(Globe, { geo: geo, isOn: isOn, onPick: (a3, x) => {
                                 setSelected(BY_A3[a3] ? a3 : null);
                                 setSelRegion((x === null || x === void 0 ? void 0 : x.region) || null);
@@ -22077,8 +22120,11 @@ function AtlasApp() {
                                 // «крутить» при выбранной стране — снимаем выбор и крутим дальше
                                 const on = typeof v === "function" ? v(fullSpin && !selected) : v;
                                 setFullSpin(on);
-                                if (on && selected)
+                                if (on) {
                                     setSelected(null);
+                                    setSelRegion(null);
+                                    setSelSea(null);
+                                }
                             }, spinStep: 0.18, view: mapView, page: mapPage, setPage: setMapPage, isWish: isWish }))),
                     React.createElement("div", { className: "col-side" },
                         overdue.length > 0 && (React.createElement("div", { className: "due" },
@@ -22125,7 +22171,8 @@ function AtlasApp() {
                                     React.createElement("span", { className: "fc-name" },
                                         React.createElement("b", null, selSea),
                                         React.createElement("em", null, seaSub(selSea) || "водное пространство"))),
-                                React.createElement("button", { className: "icon-btn fc-ico", onClick: () => setSelSea(null), "aria-label": "\u0421\u043D\u044F\u0442\u044C \u0432\u044B\u0431\u043E\u0440" },
+                                React.createElement("button", { className: "icon-btn fc-ico", onClick: () => { setSelSea(null); if (!full)
+                                        setSpinning(true); }, "aria-label": "\u0421\u043D\u044F\u0442\u044C \u0432\u044B\u0431\u043E\u0440" },
                                     React.createElement("i", { className: "act-ico" }, "\u2715"))),
                             seaText(selSea) && React.createElement("p", { className: "sea-tx" }, seaText(selSea)),
                             seaRows.length ? (React.createElement(React.Fragment, null,
@@ -24621,6 +24668,9 @@ button, input, select, textarea{font-family:inherit;}
 .sea-sec{margin:6px 2px 8px; font-size:12px; letter-spacing:.06em; text-transform:uppercase; color:var(--dim);}
 .sea-fl{font-size:22px; flex:none; margin-right:10px;}
 .sea-fl .own-flag{width:1.2em; height:auto; vertical-align:-2px; border-radius:2px;}
+/* 43.17: во весь экран кнопки ▶ и ✕ — в правом нижнем углу (и стоя, и лёжа) */
+.globe-full .globe-controls{position:absolute; left:auto; top:auto; right:calc(14px + env(safe-area-inset-right));
+  bottom:calc(14px + env(safe-area-inset-bottom)); padding:0; gap:8px; justify-content:flex-end; z-index:3;}
 `;
 const __b = document.getElementById('boot');
 if (__b)
