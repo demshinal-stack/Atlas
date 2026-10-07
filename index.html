@@ -2986,7 +2986,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "43.22";
+const APP_VERSION = "43.23";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -6133,14 +6133,30 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         playRef.current = false;
         setPlaying(false);
     }, []);
-    /* пояс флагов крутится сам, пока открыт полный экран */
+    /* пояс флагов крутится сам, пока открыт полный экран.
+       43.23: во весь экран это единственный цикл кадров — он же и поворачивает шар (раньше поворот шёл
+       отдельным циклом, и шар с самолётами чуть «дрожали» при неровных кадрах). Шаг — по сглаженной
+       длительности кадра: случайный долгий кадр не даёт рывка */
+    const spinRef = useRef(spinStep);
+    spinRef.current = spinStep;
+    const spinBusy = useRef(false); // идёт «доезд» в базовую точку — вращение ждёт
     useEffect(() => {
         if (!full)
             return;
         let raf2 = 0;
-        const step = () => {
-            belt.current += 0.006;
-            launchFlights(fly.current, state.current.flights, rot.current, playRef.current ? spinStep || 0.7 : 0);
+        let last = 0;
+        let avg = 16.7;
+        window.__fullRot = () => rot.current[0]; // для проверок
+        const step = (now) => {
+            const dt = last ? Math.min(100, now - last) : 16.7;
+            last = now;
+            avg += (dt - avg) * 0.1;
+            const k = avg / 16.7;
+            belt.current += 0.006 * k;
+            const d = playRef.current && !spinBusy.current ? (spinRef.current || 0.7) * k : 0;
+            if (d)
+                rot.current = [rot.current[0] + d, rot.current[1]];
+            launchFlights(fly.current, state.current.flights, rot.current, d);
             drawRef.current();
             raf2 = requestAnimationFrame(step);
         };
@@ -6188,14 +6204,19 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         anim.current = null;
         // 43.21: скорость — по времени, а не по кадрам (шаг задан для 60 кадров/с): если кадров меньше,
         // глобус не замедляется. Во весь экран кадры рисует свой цикл (пояс флагов) — здесь только поворот
+        // во весь экран поворачивает цикл пояса флагов (там же и рисует), здесь — только «доезд» в базу
         let last = 0;
+        let avg = 16.7;
         const spin = (now) => {
+            spinBusy.current = false;
+            if (state.current.full)
+                return;
             try {
                 const dt = last ? Math.min(100, now - last) : 16.7;
                 last = now;
-                rot.current = [rot.current[0] + (spinStep || 0.7) * (dt / 16.7), rot.current[1]];
-                if (!state.current.full)
-                    drawRef.current();
+                avg += (dt - avg) * 0.1;
+                rot.current = [rot.current[0] + (spinStep || 0.7) * (avg / 16.7), rot.current[1]];
+                drawRef.current();
             }
             catch (e) {
                 /* один сбойный кадр не должен останавливать вращение */
@@ -6217,16 +6238,21 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
             if (far > 1 || Math.abs(z0 - 1) > 0.01) {
                 const dur = Math.min(1600, 600 + far * 6);
                 const t0 = Date.now();
+                spinBusy.current = true;
                 const glide = () => {
                     const p = Math.min(1, (Date.now() - t0) / dur);
                     const e = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
                     rot.current = [from[0] + dLon * e, from[1] + dLat * e];
                     zoom.current = z0 + (1 - z0) * e;
-                    drawRef.current();
+                    if (!state.current.full)
+                        drawRef.current();
                     playRaf.current = requestAnimationFrame(p < 1 ? glide : spin);
                 };
                 playRaf.current = requestAnimationFrame(glide);
-                return () => cancelAnimationFrame(playRaf.current);
+                return () => {
+                    cancelAnimationFrame(playRaf.current);
+                    spinBusy.current = false;
+                };
             }
         }
         playRaf.current = requestAnimationFrame(spin);
