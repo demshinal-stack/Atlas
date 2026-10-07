@@ -2986,7 +2986,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "43.17";
+const APP_VERSION = "43.18";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -22044,13 +22044,8 @@ function AtlasApp() {
             return [];
         return [{ a3: c.a3, lon: c.lon, lat: c.lat, flag: c.a2 ? flag(c.a2) : "", img: OWN_FLAGS[c.a3] || null, code: c.a3 }];
     }, [selected, lookNonce]);
-    /* выбор снят (✕ в ленте стран) — глобус снова вращается сам */
-    const wasSel = useRef(selected);
-    useEffect(() => {
-        if (wasSel.current && !selected && !full)
-            setSpinning(true);
-        wasSel.current = selected;
-    }, [selected, full]);
+    /* 43.18: вращение («все страны») включают только ✕ в ленте и ▶ — не любое снятие выбора:
+       касание моря при выбранной стране тоже снимает выбор, но глобус должен встать к морю */
     const pickCountry = (a3) => {
         setHomeQ("");
         setSpinning(false); // выбрали страну — глобус останавливается (42.45)
@@ -22222,7 +22217,8 @@ function AtlasApp() {
                                         React.createElement("circle", { cx: "12", cy: "12", r: "8.5", fill: "none", stroke: "currentColor", strokeWidth: "1.6" }),
                                         React.createElement("path", { d: "M12 11v5.5", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round" }),
                                         React.createElement("circle", { cx: "12", cy: "7.9", r: "1.1", fill: "currentColor" }))),
-                                React.createElement("button", { className: "icon-btn fc-ico", onClick: () => setSelected(null), "aria-label": "\u0421\u043D\u044F\u0442\u044C \u0432\u044B\u0431\u043E\u0440" },
+                                React.createElement("button", { className: "icon-btn fc-ico", onClick: () => { setSelected(null); if (!full)
+                                        setSpinning(true); }, "aria-label": "\u0421\u043D\u044F\u0442\u044C \u0432\u044B\u0431\u043E\u0440" },
                                     React.createElement("i", { className: "act-ico" }, "\u2715"))),
                             shownCards.length ? (React.createElement("div", { className: "ag-frame fc-list", ref: (el) => {
                                     // сменили страну или область — лента снова с начала
@@ -24671,6 +24667,8 @@ button, input, select, textarea{font-family:inherit;}
 /* 43.17: во весь экран кнопки ▶ и ✕ — в правом нижнем углу (и стоя, и лёжа) */
 .globe-full .globe-controls{position:absolute; left:auto; top:auto; right:calc(14px + env(safe-area-inset-right));
   bottom:calc(14px + env(safe-area-inset-bottom)); padding:0; gap:8px; justify-content:flex-end; z-index:3;}
+/* 43.18: длинное название моря («Мозамбикский пролив») — в две строки, без многоточия */
+.sea-head .fc-name b{white-space:normal; overflow:visible; text-overflow:clip; line-height:1.15;}
 `;
 const __b = document.getElementById('boot');
 if (__b)
