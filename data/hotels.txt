@@ -528,3 +528,6 @@ MDV:Хаа-Дхаалу|Soneva Secret*5;Hondaafushi Island Resort*4
 MDV:Ханимаадху|Soneva Secret*5;Hondaafushi Island Resort*4
 CAN:Виктория|Fairmont Empress*5;Hotel Grand Pacific*4;Inn at Laurel Point*4;Magnolia Hotel & Spa*4;Oak Bay Beach Hotel*4;Abigail's Hotel*4;Chateau Victoria*3;Hotel Zed*3
 ISR:Мёртвое море|Isrotel Dead Sea*5;David Dead Sea Resort*5;Herods Dead Sea*5;Leonardo Plaza Dead Sea*4;Crowne Plaza Dead Sea*4;Daniel Dead Sea*4
+GRL:Нуук|Hotel Hans Egede*4;Hotel Nordbo*3;Hotel Aurora*3
+GRL:Илулиссат|Hotel Arctic*4;Hotel Icefiord*3;Ilulissat Hotel*3
+GRL:Кангерлуссуак|Hotel Kangerlussuaq*3
