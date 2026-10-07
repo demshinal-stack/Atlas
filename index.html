@@ -2972,7 +2972,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "43.05";
+const APP_VERSION = "43.06";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -8202,7 +8202,16 @@ function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onR
         // строим один раз: иначе правки затираются при каждой перерисовке
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, srcKey]);
-    const dirty = mode !== "edit" || base.current === null || (!!r && !!jr && snap(r, jr) !== base.current);
+    /* 43.06: «Сохранить», появившись, уже не прячется — даже если правку вернули назад (выбрали отель
+       и убрали его): так видно, что карточку трогали, и сохранить можно в любой момент */
+    const [touched, setTouched] = useState(false);
+    const differs = !!r && !!jr && base.current !== null && snap(r, jr) !== base.current;
+    useEffect(() => {
+        if (differs && !touched)
+            setTouched(true);
+    }, [differs, touched]);
+    useEffect(() => setTouched(false), [open, srcKey]);
+    const dirty = mode !== "edit" || base.current === null || touched || differs;
     const patch = (p) => setR((d) => {
         let next = { ...d, ...p };
         // «точную дату не помню»: путь — направлениями из одного города (42.86) и обратно цепочкой
