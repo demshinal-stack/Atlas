@@ -2957,7 +2957,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "43.01";
+const APP_VERSION = "43.02";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -17360,7 +17360,9 @@ function ConquestMap({ a3, done, sel = null, onSel, w = 320, h = 220, turn = nul
         env && gold.length > 0 && (React.createElement("g", { clipPath: `url(#${id("gold")})`, pointerEvents: "none" },
             React.createElement("rect", { className: "cq-sheen", x: -w * 0.5, y: "0", width: w * 0.5, height: h, fill: `url(#${id("sheen")})` },
                 React.createElement("animateTransform", { attributeName: "transform", type: "translate", values: `0 0;${w * 1.6} 0;${w * 1.6} 0`, keyTimes: "0;0.3;1", dur: "6s", begin: "1.2s", repeatCount: "indefinite" })))),
-        onTurn && (angle !== 0 || can) && (React.createElement("g", { className: "cq-north" + (angle ? " on" : ""), role: "button", "aria-label": angle ? "Север вверху" : "Повернуть крупнее", onClick: (e) => {
+        ((onTurn && (angle !== 0 || can)) || (!onTurn && angle !== 0)) && (React.createElement("g", { className: "cq-north" + (angle ? " on" : "") + (onTurn ? "" : " still"), role: onTurn ? "button" : undefined, pointerEvents: onTurn ? undefined : "none", "aria-label": angle ? "Север вверху" : "Повернуть крупнее", onClick: (e) => {
+                if (!onTurn)
+                    return;
                 e.stopPropagation();
                 onTurn(angle ? "north" : "turn");
             } },
@@ -17384,7 +17386,7 @@ function ConquestCard({ visits, onOpen, geo = null, a3: a3Ctl, onPick }) {
     return (React.createElement("div", { className: "cq-card" },
         React.createElement(CqChips, { rows: rows, a3: row.a3, onPick: setA3 }),
         React.createElement("div", { className: "cq-mapbox", onClick: () => onOpen === null || onOpen === void 0 ? void 0 : onOpen(row.a3) },
-            React.createElement(ConquestMap, { a3: row.a3, done: row.done, w: 320, h: 200, geo: geo })),
+            React.createElement(ConquestMap, { a3: row.a3, done: row.done, w: 320, h: 200, geo: geo, turn: "auto" })),
         React.createElement("div", { className: "cq-sum" },
             React.createElement("b", { className: "cq-pct cq-big " + cqMetal(row.pct) },
                 row.pct,
