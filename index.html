@@ -2972,7 +2972,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "43.06";
+const APP_VERSION = "43.07";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -8078,8 +8078,8 @@ function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onR
         Object.values(visits).forEach((arr) => arr.forEach((t) => (k += (t.photos || []).length)));
         return k;
     }, [visits]);
-    const [r, setR] = useState(null);
-    const [jr, setJr] = useState(null); // who, left, by, photos, owner, members, orig, plain
+    const [r, setR0] = useState(null);
+    const [jr, setJr0] = useState(null); // who, left, by, photos, owner, members, orig, plain
     const [editWhen, setEditWhen] = useState(false);
     const [pathOpen, setPathOpen] = useState(true);
     // шторка «Особенная поездка» поверх карточки (42.80)
@@ -8106,6 +8106,19 @@ function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onR
        Снимок берём, когда карточка собралась; сравниваем путь и данные поездки целиком */
     const base = useRef(null);
     const snap = (a, b) => JSON.stringify([a, b]);
+    /* 43.07: любая правка пути и данных поездки после открытия сама по себе включает «Сохранить» —
+       не полагаемся только на сравнение снимков. При сборке карточки base ещё пуст — это не правка */
+    const touchRef = useRef(false);
+    const setR = (v) => {
+        if (base.current !== null)
+            touchRef.current = true;
+        setR0(v);
+    };
+    const setJr = (v) => {
+        if (base.current !== null)
+            touchRef.current = true;
+        setJr0(v);
+    };
     const whoBox = useRef(null);
     useEffect(() => {
         if (!addWho)
@@ -8124,6 +8137,7 @@ function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onR
     useEffect(() => {
         var _e;
         base.current = null;
+        touchRef.current = false;
         if (!open) {
             setR(null);
             setJr(null);
@@ -8211,7 +8225,7 @@ function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onR
             setTouched(true);
     }, [differs, touched]);
     useEffect(() => setTouched(false), [open, srcKey]);
-    const dirty = mode !== "edit" || base.current === null || touched || differs;
+    const dirty = mode !== "edit" || base.current === null || touched || differs || touchRef.current;
     const patch = (p) => setR((d) => {
         let next = { ...d, ...p };
         // «точную дату не помню»: путь — направлениями из одного города (42.86) и обратно цепочкой
@@ -8584,7 +8598,7 @@ function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onR
                                     setJr((j) => ({ ...j, who: [...j.who, p ? p.id : name] }));
                                     setAddWho(false);
                                 } }))) : (React.createElement("button", { className: "link-btn", onClick: () => setAddWho(true) }, "\uFF0B \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0443\u0447\u0430\u0441\u0442\u043D\u0438\u043A\u0430")))),
-                    whenOk && countries.length > 0 && (React.createElement(PhotoBlock, { box: box, country: BY_A3[countries[0]], more: countries.map((a3) => { var _e; return ((_e = BY_A3[a3]) === null || _e === void 0 ? void 0 : _e.name) || a3; }), trip: { photos: jr.photos, cities: allCities, hotels: allHotels }, onChange: (p) => p.photos && setJr((j) => ({ ...j, photos: p.photos })), quality: quality, totalPhotos: totalPhotos })),
+                    whenOk && countries.length > 0 && (React.createElement(PhotoBlock, { box: box, country: BY_A3[countries[0]], more: countries.map((a3) => { var _e; return ((_e = BY_A3[a3]) === null || _e === void 0 ? void 0 : _e.name) || a3; }), trip: { photos: jr.photos, cities: allCities, hotels: allHotels }, onChange: (p) => p.photos && setJr0((j) => ({ ...j, photos: p.photos })), quality: quality, totalPhotos: totalPhotos })),
                     whenOk && !pathOpen && allHotels.length > 0 && (React.createElement("div", { className: "step" },
                         React.createElement("p", { className: "step-title" }, "\u0413\u0434\u0435 \u0436\u0438\u043B\u0438"),
                         React.createElement("div", { className: "htl-list" }, allHotels.map((h, k) => (React.createElement("div", { key: k, className: "htl-li" },
