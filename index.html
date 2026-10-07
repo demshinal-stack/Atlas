@@ -786,9 +786,12 @@ const planOverdue = (t) => {
     return (y < NOW.getFullYear() ||
         (y === NOW.getFullYear() && m < NOW.getMonth() + 1));
 };
-/* все годы, которых касается поездка: период тоже считается */
+/* поездка с периодом лет («2004–2015», точную дату не помню): была когда-то в эти годы — в статистику
+   по годам не входит, считается один раз за всё время (43.09) */
+const isSpan = (t) => !!t && !!t.approx && !!t.y && !!t.y2 && t.y2 > t.y;
+/* все годы, которых касается поездка; период лет — ни одного (43.09) */
 const yearsOf = (t) => {
-    if (!t)
+    if (!t || isSpan(t))
         return [];
     if (t.approx && t.y) {
         const to = t.y2 && t.y2 > t.y ? t.y2 : t.y;
@@ -2972,7 +2975,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "43.07";
+const APP_VERSION = "43.09";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -8078,8 +8081,8 @@ function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onR
         Object.values(visits).forEach((arr) => arr.forEach((t) => (k += (t.photos || []).length)));
         return k;
     }, [visits]);
-    const [r, setR0] = useState(null);
-    const [jr, setJr0] = useState(null); // who, left, by, photos, owner, members, orig, plain
+    const [r, setR] = useState(null);
+    const [jr, setJr] = useState(null); // who, left, by, photos, owner, members, orig, plain
     const [editWhen, setEditWhen] = useState(false);
     const [pathOpen, setPathOpen] = useState(true);
     // шторка «Особенная поездка» поверх карточки (42.80)
@@ -8102,23 +8105,7 @@ function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onR
     const [ask, setAsk] = useState(null);
     const planTouched = useRef(false);
     const origKey = useRef("");
-    /* открытая поездка без правок — внизу только «Удалить»; «Сохранить» появляется после первой правки (42.81).
-       Снимок берём, когда карточка собралась; сравниваем путь и данные поездки целиком */
-    const base = useRef(null);
-    const snap = (a, b) => JSON.stringify([a, b]);
-    /* 43.07: любая правка пути и данных поездки после открытия сама по себе включает «Сохранить» —
-       не полагаемся только на сравнение снимков. При сборке карточки base ещё пуст — это не правка */
-    const touchRef = useRef(false);
-    const setR = (v) => {
-        if (base.current !== null)
-            touchRef.current = true;
-        setR0(v);
-    };
-    const setJr = (v) => {
-        if (base.current !== null)
-            touchRef.current = true;
-        setJr0(v);
-    };
+    /* «Сохранить» видна всегда (43.08): логику появления после правок (42.81–43.07) убрали по просьбе автора */
     const whoBox = useRef(null);
     useEffect(() => {
         if (!addWho)
@@ -8136,8 +8123,6 @@ function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onR
     const srcKey = initial ? initial.key || `${initial.a3}:${initial.id}` : "new";
     useEffect(() => {
         var _e;
-        base.current = null;
-        touchRef.current = false;
         if (!open) {
             setR(null);
             setJr(null);
@@ -8186,7 +8171,6 @@ function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onR
         if (j) {
             setR(j.r);
             setJr(j);
-            base.current = snap(j.r, j);
             origKey.current = pathKey(j.r);
             planTouched.current = true;
             setPathOpen(!!(initial === null || initial === void 0 ? void 0 : initial.route) || !(j.r.dirs ? j.r.dirs.flatMap((d) => d.stops) : j.r.stops || []).length);
@@ -8216,16 +8200,6 @@ function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onR
         // строим один раз: иначе правки затираются при каждой перерисовке
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open, srcKey]);
-    /* 43.06: «Сохранить», появившись, уже не прячется — даже если правку вернули назад (выбрали отель
-       и убрали его): так видно, что карточку трогали, и сохранить можно в любой момент */
-    const [touched, setTouched] = useState(false);
-    const differs = !!r && !!jr && base.current !== null && snap(r, jr) !== base.current;
-    useEffect(() => {
-        if (differs && !touched)
-            setTouched(true);
-    }, [differs, touched]);
-    useEffect(() => setTouched(false), [open, srcKey]);
-    const dirty = mode !== "edit" || base.current === null || touched || differs || touchRef.current;
     const patch = (p) => setR((d) => {
         let next = { ...d, ...p };
         // «точную дату не помню»: путь — направлениями из одного города (42.86) и обратно цепочкой
@@ -8598,7 +8572,7 @@ function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onR
                                     setJr((j) => ({ ...j, who: [...j.who, p ? p.id : name] }));
                                     setAddWho(false);
                                 } }))) : (React.createElement("button", { className: "link-btn", onClick: () => setAddWho(true) }, "\uFF0B \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0443\u0447\u0430\u0441\u0442\u043D\u0438\u043A\u0430")))),
-                    whenOk && countries.length > 0 && (React.createElement(PhotoBlock, { box: box, country: BY_A3[countries[0]], more: countries.map((a3) => { var _e; return ((_e = BY_A3[a3]) === null || _e === void 0 ? void 0 : _e.name) || a3; }), trip: { photos: jr.photos, cities: allCities, hotels: allHotels }, onChange: (p) => p.photos && setJr0((j) => ({ ...j, photos: p.photos })), quality: quality, totalPhotos: totalPhotos })),
+                    whenOk && countries.length > 0 && (React.createElement(PhotoBlock, { box: box, country: BY_A3[countries[0]], more: countries.map((a3) => { var _e; return ((_e = BY_A3[a3]) === null || _e === void 0 ? void 0 : _e.name) || a3; }), trip: { photos: jr.photos, cities: allCities, hotels: allHotels }, onChange: (p) => p.photos && setJr((j) => ({ ...j, photos: p.photos })), quality: quality, totalPhotos: totalPhotos })),
                     whenOk && !pathOpen && allHotels.length > 0 && (React.createElement("div", { className: "step" },
                         React.createElement("p", { className: "step-title" }, "\u0413\u0434\u0435 \u0436\u0438\u043B\u0438"),
                         React.createElement("div", { className: "htl-list" }, allHotels.map((h, k) => (React.createElement("div", { key: k, className: "htl-li" },
@@ -8638,10 +8612,10 @@ function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onR
                             }) },
                             React.createElement("svg", { viewBox: "0 0 24 24", width: "22", height: "22" },
                                 React.createElement("path", { d: "M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round" })))),
-                        dirty && (React.createElement("button", { className: "act ok", disabled: !ready, onClick: () => save(close), "aria-label": "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C" },
+                        React.createElement("button", { className: "act ok", disabled: !ready, onClick: () => save(close), "aria-label": "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C" },
                             React.createElement("svg", { viewBox: "0 0 24 24", width: "24", height: "24" },
                                 React.createElement("path", { d: "M5 12.5l4.5 4.5L19 7.5", fill: "none", stroke: "currentColor", strokeWidth: "2.2", strokeLinecap: "round", strokeLinejoin: "round" })),
-                            React.createElement("span", null, "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C")))))))));
+                            React.createElement("span", null, "\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C"))))))));
         }),
         React.createElement(SpecialSheet, { open: spOpen, onClose: () => setSpOpen(false), box: box, sp: jr.sp, onChange: (sp) => setJr((j) => ({ ...j, sp })), occasions: occasions, onAddOccasion: onAddOccasion, fxShow: fxShow })));
 }
@@ -9468,9 +9442,11 @@ function OccasionsSetup({ list: raw, onChange }) {
 /* Атлас · 14e · поездки «лучами» (42.86).
    «Точную дату не помню»: путь — не цепочка, а направления из одного города. Каждое
    направление — обычный путь (перегоны, пересадки/проездом, отели) туда и обратно.
-   Хранение: каждое направление в каждый год периода — отдельная поездка-маршрут
-   (route.id = fanId.k.y, у поездок-стран поле fan = {id, k, n, y1, y2}); статистика,
-   отчёты и семья видят обычные поездки. Карточка собирает их обратно в один «веер».
+   Хранение (с 43.09): каждое направление — одна поездка-маршрут на весь период
+   (route.id = fanId.k, y = y1, y2 = y2, approx; у поездок-стран поле fan = {id, k, n, y1, y2}).
+   Период лет в статистику по годам не входит — «была когда-то», один раз за всё время.
+   До 43.09 направление записывалось отдельно на каждый год периода (fanId.k.y) — такие
+   записи при запуске сводятся в одну (fanCollapse). Карточка собирает их обратно в «веер».
    Части собираются по номерам (tools/rebuild.sh) и видят друг друга напрямую. */
 const FAN_DIRS = [
     ["→", "В"],
@@ -9503,8 +9479,9 @@ function fanCompass(start, dir) {
     const o = ((Math.round(t / (Math.PI / 4)) % 8) + 8) % 8;
     return { arrow: FAN_DIRS[o][0], word: FAN_DIRS[o][1] };
 }
-/* направление веера → путь одного года (обратно — тем же транспортом, что туда) */
-function fanDirRoute(fan, k, y) {
+/* направление веера → путь на весь период y1–y2 (обратно — тем же транспортом, что туда) */
+function fanDirRoute(fan, k, y1, y2 = y1) {
+    const y = y1;
     const d = fan.dirs[k];
     // перегон без транспорта — тем же, что до него (через пересадку обычно едут тем же)
     const legs = [];
@@ -9515,19 +9492,78 @@ function fanDirRoute(fan, k, y) {
     const back = legs[0] || { k: null, air: [] };
     legs.push({ k: back.k, air: [...back.air] });
     return {
-        id: `${fan.fanId}.${k}.${y}`,
+        id: `${fan.fanId}.${k}`,
         hv: 1,
         start: fan.start,
         stops: d.stops,
         legs,
         y,
         m: null,
-        y2: y,
+        y2: y2 > y ? y2 : y,
         approx: true,
         from: "",
         to: "",
         plan: !!fan.plan,
     };
+}
+/* до 43.09 направление веера хранилось отдельно на каждый год периода (id fanId.k.y.A3) —
+   сводим в одну поездку на весь период (id fanId.k.A3, y = y1, y2 = y2), снимки объединяем.
+   Возвращает null, если сводить нечего, иначе { visits, drop } — drop: id ушедших записей (в «надгробия») */
+function fanCollapse(visits) {
+    const groups = new Map();
+    Object.entries(visits || {}).forEach(([a3, arr]) => (arr || []).forEach((t) => {
+        const F = t.fan;
+        if (!F || !F.y2 || !F.y1 || F.y2 <= F.y1)
+            return;
+        const k = `${F.id}|${F.k}|${a3}`;
+        if (!groups.has(k))
+            groups.set(k, []);
+        groups.get(k).push(t);
+    }));
+    const drop = new Set();
+    const put = new Map(); // a3 → новые записи
+    groups.forEach((list, key) => {
+        const [fid, k, a3] = key.split("|");
+        const id = `${fid}.${k}.${a3}`;
+        const F = list[0].fan;
+        if (list.length === 1 && list[0].id === id && list[0].y === F.y1 && list[0].y2 === F.y2)
+            return;
+        const base = list.slice().sort((x, y) => (x.y || 0) - (y.y || 0))[0];
+        const photos = [];
+        const seen = new Set();
+        list.forEach((t) => (t.photos || []).forEach((ph) => !seen.has(ph.id) && (seen.add(ph.id), photos.push(ph))));
+        list.forEach((t) => t.id !== id && drop.add(t.id));
+        const t = {
+            ...base,
+            id,
+            y: F.y1,
+            y2: F.y2,
+            m: null,
+            approx: true,
+            photos,
+            route: base.route ? { ...base.route, id: `${fid}.${k}`, y: F.y1, y2: F.y2, approx: true } : base.route,
+            at: Date.now(),
+        };
+        if (!put.has(a3))
+            put.set(a3, []);
+        put.get(a3).push(t);
+    });
+    if (!put.size)
+        return null;
+    const gone = new Set();
+    groups.forEach((list, key) => {
+        const [fid, k, a3] = key.split("|");
+        if ((put.get(a3) || []).some((t) => t.id === `${fid}.${k}.${a3}`))
+            list.forEach((t) => gone.add(t.id));
+    });
+    const next = {};
+    Object.entries(visits).forEach(([a3, arr]) => {
+        const rest = (arr || []).filter((t) => !gone.has(t.id));
+        const add = put.get(a3) || [];
+        if (rest.length || add.length)
+            next[a3] = [...rest, ...add].sort((x, y) => (y.y || 0) - (x.y || 0) || (y.m || 0) - (x.m || 0));
+    });
+    return { visits: next, drop: [...drop] };
 }
 /* годы веера: «с» по «по»; одинаковые годы — один год */
 const fanYears = (r) => {
@@ -11003,7 +11039,7 @@ function crewReport(visits, people, order, home) {
         if (t.plan)
             return;
         const c = BY_A3[a3];
-        const y = yearsOf(t)[0] || t.y || null;
+        const y = isSpan(t) ? null : yearsOf(t)[0] || t.y || null; // период лет — «без года» (43.09)
         const ids = [...new Set((t.who || []).map((w) => who(w).id))];
         if (!ids.length)
             return;
@@ -11972,7 +12008,7 @@ function moveReport(visits, home) {
             const pk = by[t.move] ? t.move : "none";
             plans.n += 1;
             plans.by[pk] = (plans.by[pk] || 0) + 1;
-            if (t.y) {
+            if (t.y && !isSpan(t)) {
                 years[t.y] = years[t.y] || {};
                 years[t.y].plan = (years[t.y].plan || 0) + 1;
             }
@@ -11982,7 +12018,8 @@ function moveReport(visits, home) {
         const v = by[k];
         total += 1;
         v.n += 1;
-        if (t.y) {
+        if (t.y && !isSpan(t)) {
+            // период лет — без года (43.09)
             years[t.y] = years[t.y] || {};
             years[t.y][k] = (years[t.y][k] || 0) + 1;
         }
@@ -14375,7 +14412,10 @@ function reportData(visits, since, people) {
     const trips = [];
     const plans = [];
     Object.entries(visits || {}).forEach(([a3, arr]) => (arr || []).forEach((t) => (t.plan ? plans : trips).push({ a3, t })));
+    // период лет («точную дату не помню») — без года: в разбивку по годам не входит (43.09)
     const yearFrom = (t) => {
+        if (isSpan(t))
+            return null;
         const a = dParts(t.from);
         return a ? a.y : t.y;
     };
@@ -14395,20 +14435,19 @@ function reportData(visits, since, people) {
         (t.hotels || []).forEach((h) => (hotels[h.name] = (hotels[h.name] || 0) + 1));
         // вторая страна того же маршрута: путешествие уже посчитано, отмечаем только страну
         if (!once(t)) {
-            const y0 = t.approx ? t.y : yearFrom(t);
+            const y0 = yearFrom(t);
             if (y0 && (!firstSeen[a3] || y0 < firstSeen[a3]))
                 firstSeen[a3] = y0;
             return;
         }
         whoNames(t, people).forEach((w) => (who[w] = (who[w] || 0) + 1));
-        // неточный период: одну поездку размазываем поровну по его годам
+        // период лет: была когда-то — по годам не раскладываем (43.09; раньше делили поровну по годам)
+        if (isSpan(t))
+            return;
+        // известен только год («около 2018»): в этот год, но неточной
         if (t.approx && t.y) {
-            const to = t.y2 && t.y2 > t.y ? t.y2 : t.y;
-            const span = to - t.y + 1;
-            for (let y = t.y; y <= to; y++) {
-                years[y] = (years[y] || 0) + 1 / span;
-                vague[y] = (vague[y] || 0) + 1 / span;
-            }
+            years[t.y] = (years[t.y] || 0) + 1;
+            vague[t.y] = (vague[t.y] || 0) + 1;
             if (!firstSeen[a3] || t.y < firstSeen[a3])
                 firstSeen[a3] = t.y;
             return;
@@ -14955,8 +14994,8 @@ function worldData(visits) {
     // 2. страны, которых там нет, берём из поездок с примерным периодом
     Object.entries(visits || {}).forEach(([a3, arr]) => (arr || []).forEach((t) => {
         var _e;
-        if (t.plan || exact(t) || first[a3])
-            return;
+        if (t.plan || exact(t) || first[a3] || isSpan(t))
+            return; // период лет года открытия не даёт (43.09)
         const y = ((_e = dParts(t.from)) === null || _e === void 0 ? void 0 : _e.y) || t.y;
         if (y)
             put(a3, t, y);
@@ -15006,7 +15045,7 @@ function oftenData(visits) {
         var _e;
         if (t.plan)
             return;
-        const y = ((_e = dParts(t.from)) === null || _e === void 0 ? void 0 : _e.y) || t.y || null;
+        const y = isSpan(t) ? null : ((_e = dParts(t.from)) === null || _e === void 0 ? void 0 : _e.y) || t.y || null;
         const c = (countries[a3] = countries[a3] || { a3, n: 0, years: [], cities: {} });
         c.n += 1;
         if (y)
@@ -15085,7 +15124,7 @@ function soloData(visits, people) {
         (t.who || []).forEach((w) => rec.who.add(w));
         rec.trips.push({
             a3,
-            y: ((_e = dParts(t.from)) === null || _e === void 0 ? void 0 : _e.y) || t.y || null,
+            y: isSpan(t) ? null : ((_e = dParts(t.from)) === null || _e === void 0 ? void 0 : _e.y) || t.y || null,
             m: ((_h = dParts(t.from)) === null || _h === void 0 ? void 0 : _h.m) || t.m || null,
             city: (t.cities || [])[0] || "",
             who: t.who || [],
@@ -16576,7 +16615,7 @@ function tripRoutes(visits, home, year = null) {
         var _e;
         if (t.plan)
             return;
-        if (year && (((_e = dParts(t.from)) === null || _e === void 0 ? void 0 : _e.y) || t.y) !== year)
+        if (year && (isSpan(t) || (((_e = dParts(t.from)) === null || _e === void 0 ? void 0 : _e.y) || t.y) !== year))
             return;
         const from = depPoint(t, hm);
         const to = distPoint(a3, (t.cities || [])[0]);
@@ -16831,7 +16870,7 @@ function moveJourneys(visits, home, year) {
     Object.entries(visits || {}).forEach(([a3, arr]) => (arr || []).forEach((t) => {
         var _e, _h, _j;
         const a = dParts(t.from);
-        const y = a ? a.y : t.y;
+        const y = a ? a.y : isSpan(t) ? null : t.y;
         if (y !== year)
             return;
         if ((_h = (_e = t.route) === null || _e === void 0 ? void 0 : _e.stops) === null || _h === void 0 ? void 0 : _h.length) {
@@ -17188,7 +17227,7 @@ function conqData(visits) {
             return;
         const cities = new Set();
         trips.forEach((t) => (t.cities || []).forEach((c) => cities.add(c)));
-        const ys = trips.map((t) => t.y).filter(Boolean);
+        const ys = trips.filter((t) => !isSpan(t)).map((t) => t.y).filter(Boolean);
         out.push({
             a3,
             total: keys.length,
@@ -20648,17 +20687,20 @@ function AtlasApp() {
         const prev = new Map();
         Object.values(visits).forEach((arr) => (arr || []).forEach((t) => old.has(t.id) && prev.set(t.id, t)));
         const recs = [];
-        dirs.forEach((_d, k) => years.forEach((y) => {
-            const meta = { id: fanId, k, n: dirs.length, y1: years[0], y2: years[years.length - 1] };
-            const route = { ...fanDirRoute(fan, k, y), fan: meta };
+        // одно направление — одна поездка на весь период (43.09): «была когда-то», без разбивки по годам
+        const y1 = years[0];
+        const y2 = years[years.length - 1];
+        dirs.forEach((_d, k) => [0].forEach(() => {
+            const meta = { id: fanId, k, n: dirs.length, y1, y2 };
+            const route = { ...fanDirRoute(fan, k, y1, y2), fan: meta };
             routeMembers(route).forEach((mb, a3) => {
-                const id = `${fanId}.${k}.${y}.${a3}`;
+                const id = `${fanId}.${k}.${a3}`;
                 // откуда: ближайшая точка до этой страны, где выходили (не «только вокзал/аэропорт»), иначе дом
                 const at = route.stops.findIndex((s) => s.a3 === a3 && s.tr !== 2);
                 const from = route.stops.slice(0, Math.max(0, at)).reverse().find((s) => s.tr !== 2) || route.start;
                 if (from && from.name)
                     mb.dep = { a3: from.a3 || "", name: from.name, lat: from.lat, lon: from.lon };
-                const was = prev.get(id);
+                const was = prev.get(id) || [...prev.values()].find((x) => { var _e; return ((_e = x.fan) === null || _e === void 0 ? void 0 : _e.id) === fanId && x.fan.k === k; });
                 recs.push({
                     a3,
                     t: {
@@ -20667,9 +20709,9 @@ function AtlasApp() {
                         who,
                         left,
                         sp,
-                        y,
+                        y: y1,
                         m: null,
-                        y2: y,
+                        y2,
                         approx: true,
                         from: "",
                         to: "",
@@ -20706,6 +20748,18 @@ function AtlasApp() {
         Object.keys(next).forEach((a3) => next[a3].sort((x, y) => y.y - x.y || (y.m || 0) - (x.m || 0)));
         save(next);
     };
+    /* 43.09: старые поездки «лучами» (направление на каждый год периода) — в одну поездку на весь период.
+       И при запуске, и когда такие записи пришли от семьи со старой версии */
+    useEffect(() => {
+        if (!loaded.current)
+            return;
+        const res = fanCollapse(visits);
+        if (!res)
+            return;
+        res.drop.forEach((id) => (tombsRef.current = addTomb(tombsRef.current, id)));
+        save(res.visits);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [visits]);
     const saveJourney = (res0) => {
         var _e;
         let res = res0;
