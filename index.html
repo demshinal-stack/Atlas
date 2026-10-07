@@ -286,13 +286,20 @@ TO|TON|Тонга|OC|-21.2|-175.2
 TV|TUV|Тувалу|OC|-8.5|179.2
 VU|VUT|Вануату|OC|-16.3|167.5
 `.trim();
+/* территории (43.12): места для поездок, но не страны — в счёт «стран из 200» и разбивки по
+   частям света не входят. XP — свой код Северного полюса (флага нет — компас) */
+const TERR_RAW = `
+AQ|ATA|Антарктида|PL|-80.0|30.0
+GL|GRL|Гренландия|NA|72.0|-40.0
+XP|XNP|Северный полюс|PL|90.0|0.0
+`.trim();
 /* ================================================================== */
 /*  Города: A3|Город;Город;…  — по ним тоже ищется страна             */
 /* ================================================================== */
 /* справочники живут отдельно: на сервере, а по желанию — на устройстве */
 const K_BOOKS = "atlas:books";
 /* версия справочников: меняется, когда данные обновились на сервере */
-const BOOKS_VER = 32;
+const BOOKS_VER = 33;
 const BOOKS = [
     { id: "cities", file: "cities.txt", title: "Города" },
     { id: "regions", file: "regions.txt", title: "Регионы" },
@@ -619,14 +626,18 @@ const CONTINENTS = {
     NA: "Северная Америка",
     SA: "Южная Америка",
     OC: "Океания",
+    PL: "Полярные области", // только территории (43.12); в CONT_ORDER не входит
 };
 const CONT_ORDER = ["EU", "AS", "AF", "NA", "SA", "OC"];
-const COUNTRIES = RAW.split("\n").map((l) => {
+const parseCountry = (terr) => (l) => {
     const [a2, a3, name, cont, lat, lon] = l.split("|");
-    return { a2, a3, name, cont, lat: +lat, lon: +lon };
-});
+    return terr ? { a2, a3, name, cont, lat: +lat, lon: +lon, terr: true } : { a2, a3, name, cont, lat: +lat, lon: +lon };
+};
+const COUNTRIES = [...RAW.split("\n").map(parseCountry(false)), ...TERR_RAW.split("\n").map(parseCountry(true))];
 const BY_A3 = Object.fromEntries(COUNTRIES.map((c) => [c.a3, c]));
-const TOTAL = COUNTRIES.length;
+/* территория (Антарктида, Гренландия, Северный полюс), а не страна */
+const isTerr = (a3) => { var _e; return !!((_e = BY_A3[a3]) === null || _e === void 0 ? void 0 : _e.terr); };
+const TOTAL = COUNTRIES.filter((c) => !c.terr).length;
 const MONTHS = [
     "январь", "февраль", "март", "апрель", "май", "июнь",
     "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь",
@@ -649,7 +660,7 @@ function tripWhen(t) {
     return { m, y: t.y ? String(a ? a.y : t.y) : "" };
 }
 /* у Абхазии нет эмодзи-флага: буквы AB дали бы пустые квадраты */
-const FLAG_EMOJI = { AB: "🏳️" };
+const FLAG_EMOJI = { AB: "🏳️", XP: "🧭" };
 const flag = (a2) => {
     if (FLAG_EMOJI[a2])
         return FLAG_EMOJI[a2];
@@ -2975,7 +2986,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "43.11";
+const APP_VERSION = "43.12";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -3140,7 +3151,7 @@ const GEO_SOURCES = [
     "https://cdn.jsdelivr.net/npm/@geo-maps/countries-land-10km@0.6.0/map.geo.json",
 ];
 /* числовой ISO → alpha-3: наборы границ нумеруют страны по-разному */
-const NUM_A3_RAW = "004AFG008ALB012DZA020AND024AGO028ATG032ARG036AUS040AUT031AZE044BHS048BHR050BGD052BRB056BEL064BTN068BOL070BIH072BWA076BRA084BLZ090SLB096BRN100BGR104MMR108BDI112BLR116KHM120CMR124CAN132CPV140CAF144LKA148TCD152CHL156CHN158TWN170COL174COM178COG180COD188CRI191HRV192CUB196CYP203CZE204BEN208DNK212DMA214DOM218ECU222SLV226GNQ231ETH232ERI233EST242FJI246FIN250FRA262DJI266GAB268GEO270GMB275PSE276DEU288GHA296KIR300GRC320GTM324GIN328GUY332HTI336VAT340HND348HUN352ISL356IND360IDN364IRN368IRQ372IRL376ISR380ITA384CIV388JAM392JPN398KAZ400JOR404KEN408PRK410KOR414KWT417KGZ418LAO422LBN426LSO428LVA430LBR434LBY438LIE440LTU442LUX450MDG454MWI458MYS462MDV466MLI470MLT478MRT480MUS484MEX492MCO496MNG498MDA499MNE504MAR508MOZ512OMN516NAM520NRU524NPL528NLD548VUT554NZL558NIC562NER566NGA578NOR583FSM584MHL585PLW586PAK591PAN598PNG600PRY604PER608PHL616POL620PRT624GNB626TLS634QAT642ROU643RUS646RWA659KNA662LCA670VCT674SMR678STP682SAU686SEN688SRB690SYC694SLE702SGP703SVK704VNM705SVN706SOM710ZAF716ZWE724ESP728SSD729SDN740SUR748SWZ752SWE756CHE760SYR762TJK764THA768TGO776TON780TTO784ARE788TUN792TUR795TKM798TUV800UGA804UKR818EGY826GBR834TZA840USA854BFA858URY860UZB862VEN882WSM887YEM894ZMB383XKX";
+const NUM_A3_RAW = "010ATA304GRL004AFG008ALB012DZA020AND024AGO028ATG032ARG036AUS040AUT031AZE044BHS048BHR050BGD052BRB056BEL064BTN068BOL070BIH072BWA076BRA084BLZ090SLB096BRN100BGR104MMR108BDI112BLR116KHM120CMR124CAN132CPV140CAF144LKA148TCD152CHL156CHN158TWN170COL174COM178COG180COD188CRI191HRV192CUB196CYP203CZE204BEN208DNK212DMA214DOM218ECU222SLV226GNQ231ETH232ERI233EST242FJI246FIN250FRA262DJI266GAB268GEO270GMB275PSE276DEU288GHA296KIR300GRC320GTM324GIN328GUY332HTI336VAT340HND348HUN352ISL356IND360IDN364IRN368IRQ372IRL376ISR380ITA384CIV388JAM392JPN398KAZ400JOR404KEN408PRK410KOR414KWT417KGZ418LAO422LBN426LSO428LVA430LBR434LBY438LIE440LTU442LUX450MDG454MWI458MYS462MDV466MLI470MLT478MRT480MUS484MEX492MCO496MNG498MDA499MNE504MAR508MOZ512OMN516NAM520NRU524NPL528NLD548VUT554NZL558NIC562NER566NGA578NOR583FSM584MHL585PLW586PAK591PAN598PNG600PRY604PER608PHL616POL620PRT624GNB626TLS634QAT642ROU643RUS646RWA659KNA662LCA670VCT674SMR678STP682SAU686SEN688SRB690SYC694SLE702SGP703SVK704VNM705SVN706SOM710ZAF716ZWE724ESP728SSD729SDN740SUR748SWZ752SWE756CHE760SYR762TJK764THA768TGO776TON780TTO784ARE788TUN792TUR795TKM798TUV800UGA804UKR818EGY826GBR834TZA840USA854BFA858URY860UZB862VEN882WSM887YEM894ZMB383XKX";
 const NUM_TO_A3 = (() => {
     const m = {};
     for (let i = 0; i + 6 <= NUM_A3_RAW.length; i += 6) {
@@ -5059,6 +5070,42 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                 ctx.lineWidth = sel === c.a3 ? 1.5 : 0.9;
                 ctx.stroke();
             });
+            // полюса (43.12): метка-перекрестье и подпись, когда полюс повёрнут к нам
+            if (!state.current.isMap)
+                [
+                    [90, "Северный полюс"],
+                    [-90, "Южный полюс"],
+                ].forEach(([lat, label]) => {
+                    if (d3.geoDistance([0, lat], center) > Math.PI / 2 - 0.08)
+                        return;
+                    const q = proj([0, lat]);
+                    if (!q)
+                        return;
+                    const ink = lt ? "rgba(40,62,84,.85)" : "rgba(236,242,250,.9)";
+                    ctx.save();
+                    ctx.strokeStyle = ink;
+                    ctx.lineWidth = 1.2;
+                    ctx.beginPath();
+                    ctx.arc(q[0], q[1], 4, 0, Math.PI * 2);
+                    ctx.moveTo(q[0] - 8, q[1]);
+                    ctx.lineTo(q[0] - 5.5, q[1]);
+                    ctx.moveTo(q[0] + 5.5, q[1]);
+                    ctx.lineTo(q[0] + 8, q[1]);
+                    ctx.moveTo(q[0], q[1] - 8);
+                    ctx.lineTo(q[0], q[1] - 5.5);
+                    ctx.moveTo(q[0], q[1] + 5.5);
+                    ctx.lineTo(q[0], q[1] + 8);
+                    ctx.stroke();
+                    ctx.font = "600 10px system-ui, -apple-system, sans-serif";
+                    ctx.textAlign = "center";
+                    ctx.textBaseline = "top";
+                    ctx.lineWidth = 3;
+                    ctx.strokeStyle = lt ? "rgba(255,255,255,.75)" : "rgba(10,22,36,.75)";
+                    ctx.strokeText(label, q[0], q[1] + 11);
+                    ctx.fillStyle = ink;
+                    ctx.fillText(label, q[0], q[1] + 11);
+                    ctx.restore();
+                });
         }
         else {
             if (state.current.isMap) {
@@ -10848,7 +10895,7 @@ const AWARDS = [
 ];
 /* за полярным кругом: центры стран южнее круга, поэтому Исландия и Гренландия
    считаются целиком, а у остальных — по городам за кругом */
-const POLAR_WHOLE = new Set(["ISL", "GRL", "SJM"]);
+const POLAR_WHOLE = new Set(["ISL", "GRL", "SJM", "ATA", "XNP"]);
 const POLAR_CITIES = new Set(("мурманск тромсё тромсе рованиеми киркенес кируна абиску лонгйир нуук норильск " +
     "воркута салехард анадырь певек диксон териберка кировск апатиты мончегорск " +
     "лофотены лофотенские свольвер буде нордкап хоннингсвог альта саариселькя " +
@@ -10882,7 +10929,8 @@ function awardStats(visits, since) {
     real.forEach((a3) => {
         const c = BY_A3[a3];
         if (c) {
-            conts.add(c.cont);
+            if (!c.terr)
+                conts.add(c.cont); // территория — не часть света в счёт наград (43.12)
             if (isPolarTrip(a3, visits[a3]))
                 polar += 1;
             if (c.lat < 0)
@@ -10905,7 +10953,7 @@ function awardStats(visits, since) {
     });
     const span = yearsSpan(visits, since);
     return {
-        countries: real.length,
+        countries: real.filter((a3) => !isTerr(a3)).length,
         conts: conts.size,
         cities: cities.size,
         years: span,
@@ -10950,7 +10998,8 @@ function travelerStats(visits, people) {
         (t.who || []).forEach((w) => {
             const p = (people || []).find((x) => x.id === w || x.name === w);
             const r = touch(p ? p.id : w, p ? p.name : w === ME ? meLabel() : w, p === null || p === void 0 ? void 0 : p.role);
-            r.countries.add(a3);
+            if (!isTerr(a3))
+                r.countries.add(a3);
             if (c)
                 r.conts.add(c.cont);
             (t.cities || []).forEach((x) => r.cities.add(x));
@@ -11112,7 +11161,8 @@ function crewReport(visits, people, order, home) {
         ids.forEach((id) => {
             const r = touch(id);
             r.trips += 1;
-            r.countries.add(a3);
+            if (!isTerr(a3))
+                r.countries.add(a3);
             r.list.push({
                 id: t.id,
                 a3,
@@ -14562,7 +14612,7 @@ function reportData(visits, since, people) {
     const line = [];
     let acc = 0;
     for (let y = start; y <= NOW.getFullYear(); y++) {
-        acc += Object.keys(firstSeen).filter((a) => firstSeen[a] === y).length;
+        acc += Object.keys(firstSeen).filter((a) => firstSeen[a] === y && !isTerr(a)).length;
         line.push({ y, v: acc });
     }
     const conts = {};
@@ -14570,7 +14620,7 @@ function reportData(visits, since, people) {
         if (!(visits[a3] || []).some((t) => !t.plan))
             return;
         const c = BY_A3[a3];
-        if (c)
+        if (c && !c.terr)
             conts[c.cont] = (conts[c.cont] || 0) + 1;
     });
     const top = (obj, n = 5) => Object.entries(obj)
@@ -15039,6 +15089,8 @@ function worldData(visits) {
     const exact = (t) => !t.approx && (!t.y2 || t.y2 === t.y);
     const put = (a3, t, y) => {
         var _e;
+        if (isTerr(a3))
+            return; // территория — не «открытая страна» (43.12)
         const m = ((_e = dParts(t.from)) === null || _e === void 0 ? void 0 : _e.m) || t.m || null;
         const rec = { a3, y, m, cities: t.cities || [] };
         (byYear[y] = byYear[y] || []).push(rec);
@@ -16721,7 +16773,8 @@ function yearsData(visits, home) {
             rec.plans.push({ a3, t, at });
             return;
         }
-        rec.countries.add(a3);
+        if (!isTerr(a3))
+            rec.countries.add(a3);
         if (((_e = first[a3]) === null || _e === void 0 ? void 0 : _e.y) === y)
             rec.fresh.add(a3);
         if (!onceY(t))
@@ -18233,8 +18286,8 @@ function ShelfSheet({ open, onClose, box, isOn, isWish, onPick }) {
             return arr.filter((c) => !isOn(c.a3));
         return arr;
     }, [isOn, isWish, only]);
-    const got = COUNTRIES.filter((c) => isOn(c.a3)).length;
-    const all = COUNTRIES.length;
+    const got = COUNTRIES.filter((c) => !c.terr && isOn(c.a3)).length;
+    const all = TOTAL;
     return (React.createElement(Sheet, { open: open, onClose: onClose, title: "\u041F\u043E\u043B\u043A\u0430 \u0441\u0443\u0432\u0435\u043D\u0438\u0440\u043E\u0432", box: box }, () => (React.createElement("div", { className: "sheet-body" }, !BADGE.ready ? (React.createElement("p", { className: "hint small" }, "\u0417\u043D\u0430\u0447\u043A\u0438 \u0435\u0449\u0451 \u043D\u0435 \u0437\u0430\u0433\u0440\u0443\u0437\u0438\u043B\u0438\u0441\u044C. \u0415\u0441\u043B\u0438 \u0441\u0435\u0442\u0438 \u043D\u0435\u0442, \u0441\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u0435 \u0441\u043F\u0440\u0430\u0432\u043E\u0447\u043D\u0438\u043A\u0438 \u043D\u0430 \u0442\u0435\u043B\u0435\u0444\u043E\u043D \u0432 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0430\u0445.")) : (React.createElement(React.Fragment, null,
         React.createElement("div", { className: "shelf-top" },
             React.createElement("b", null,
@@ -21390,9 +21443,12 @@ function AtlasApp() {
         const per = {};
         CONT_ORDER.forEach((k) => (per[k] = 0));
         let trips = 0;
+        let terrs = 0;
         activeSet.forEach((a3) => {
             const c = BY_A3[a3];
-            if (c)
+            if (c === null || c === void 0 ? void 0 : c.terr)
+                terrs++; // территории — не страны (43.12)
+            else if (c)
                 per[c.cont]++;
         });
         if (yearFilter === "all")
@@ -21402,7 +21458,7 @@ function AtlasApp() {
                 if (!t.plan && !t.approx && t.y === +yearFilter)
                     trips++;
             }));
-        return { countries: activeSet.size, trips, per };
+        return { countries: activeSet.size - terrs, terrs, trips, per };
     }, [activeSet, visits, yearFilter]);
     // список стран на главном без выбора: где были, а с поиском — все страны
     const [homeQ, setHomeQ] = useState("");
