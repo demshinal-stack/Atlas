@@ -2986,7 +2986,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "43.23";
+const APP_VERSION = "43.24";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -4698,6 +4698,94 @@ function launchFlights(st, routes, rot, spin) {
     }
     st.next = now + 1400 + Math.random() * 2600;
 }
+/* 43.24: упрощённая копия границ для обычного масштаба (Дуглас — Пекер 0,08°, раз на набор) */
+const LOD_GEO = new WeakMap();
+function lodRing(pts, tol) {
+    if (pts.length < 8)
+        return pts;
+    const keep = new Uint8Array(pts.length);
+    keep[0] = keep[pts.length - 1] = 1;
+    const st = [[0, pts.length - 1]];
+    while (st.length) {
+        const [a, b] = st.pop();
+        const [x1, y1] = pts[a];
+        const [x2, y2] = pts[b];
+        const dx = x2 - x1, dy = y2 - y1;
+        const L = Math.hypot(dx, dy) || 1e-9;
+        let best = -1, bi = -1;
+        for (let i = a + 1; i < b; i++) {
+            const d = Math.abs(dy * pts[i][0] - dx * pts[i][1] + x2 * y1 - y2 * x1) / L;
+            if (d > best) {
+                best = d;
+                bi = i;
+            }
+        }
+        if (best > tol) {
+            keep[bi] = 1;
+            st.push([a, bi], [bi, b]);
+        }
+    }
+    const out = pts.filter((_, i) => keep[i]);
+    return out.length >= 4 ? out : pts;
+}
+function lodGeo(geo) {
+    if (!(geo === null || geo === void 0 ? void 0 : geo.features))
+        return geo;
+    let lg = LOD_GEO.get(geo);
+    if (lg)
+        return lg;
+    const TOL = 0.08;
+    // кольцо замкнуто: упрощаем двумя половинами, иначе первая и последняя точка совпадают
+    const ring = (r) => {
+        if (r.length < 8)
+            return r;
+        const m = r.length >> 1;
+        return lodRing(r.slice(0, m + 1), TOL).slice(0, -1).concat(lodRing(r.slice(m), TOL));
+    };
+    const poly = (p) => p.map(ring);
+    lg = {
+        ...geo,
+        features: geo.features.map((f) => {
+            const gm = f.geometry;
+            if (!gm || (gm.type !== "Polygon" && gm.type !== "MultiPolygon"))
+                return f;
+            const coordinates = gm.type === "Polygon" ? poly(gm.coordinates) : gm.coordinates.map(poly);
+            return { ...f, geometry: { type: gm.type, coordinates } };
+        }),
+    };
+    LOD_GEO.set(geo, lg);
+    return lg;
+}
+/* 43.24: охват страны/области на сфере — центр и угловой радиус (один раз на объект) */
+const FEAT_SPHERE = new WeakMap();
+function featSphere(f) {
+    let sp = FEAT_SPHERE.get(f);
+    if (sp !== undefined)
+        return sp;
+    sp = null;
+    try {
+        const c = d3.geoCentroid(f);
+        if (isFinite(c[0]) && isFinite(c[1])) {
+            let r = 0;
+            const walk = (a) => {
+                if (typeof a[0] === "number") {
+                    const d = d3.geoDistance(c, a);
+                    if (d > r)
+                        r = d;
+                }
+                else
+                    a.forEach(walk);
+            };
+            walk(f.geometry.coordinates);
+            sp = { c, r };
+        }
+    }
+    catch (e) {
+        sp = null;
+    }
+    FEAT_SPHERE.set(f, sp);
+    return sp;
+}
 function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home, marks, light, playing, setPlaying, view, page: pageProp, setPage, isWish, arcs, noFull, fitBox, onArcPick, spinStep, glow, lookAt, pins, dashSel, flights, flying, fitK = 1, regions, selRegion, noPlay = false, blinkOnly = false, tags = null, sea = null, onSea = null }) {
     const fitKRef = useRef(fitK);
     fitKRef.current = fitK;
@@ -4810,6 +4898,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
     }, []);
     /* отрисовка */
     const draw = useCallback(() => {
+        var _e;
         let needDraw = false; // нужен ли ещё кадр (анимации)
         const cv = canvasRef.current;
         if (!cv || !size)
@@ -4853,10 +4942,50 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                 .rotate([rot.current[0], rot.current[1], 0])
                 .clipAngle(90);
         }
-        const path = d3.geoPath(proj, ctx);
+        // 43.24: страны и области целиком на обратной стороне шара не проецируем вовсе (раньше каждую
+        // пересчитывали по нескольку раз за кадр — для заливки, градиента, размеров — и d3 их только
+        // отсекал). Охват каждой — круг на сфере (центр и угловой радиус), считается один раз.
+        // Размеры на экране (bounds) в пределах кадра запоминаются
+        const rawPath = d3.geoPath(proj, ctx);
+        const viewC = [-rot.current[0], -rot.current[1]];
+        const boundsMemo = new Map();
+        const NOBOX = [[Infinity, Infinity], [-Infinity, -Infinity]];
+        const hidden = (f) => {
+            if (state.current.isMap || !f || f.type !== "Feature" || !f.geometry)
+                return false;
+            const sp = featSphere(f);
+            return !!sp && d3.geoDistance(sp.c, viewC) > Math.PI / 2 + sp.r + 0.02;
+        };
+        const path = (f) => (hidden(f) ? undefined : rawPath(f));
+        path.bounds = (f) => {
+            if (hidden(f))
+                return NOBOX;
+            let b = boundsMemo.get(f);
+            if (!b)
+                boundsMemo.set(f, (b = rawPath.bounds(f)));
+            return b;
+        };
+        path.centroid = (f) => rawPath.centroid(f);
+        // грубая рамка на экране — для градиента заливки хватает: проекция центра ± угловой радиус
+        path.box = (f) => {
+            if (hidden(f))
+                return NOBOX;
+            const sp = !state.current.isMap && f && f.type === "Feature" ? featSphere(f) : null;
+            if (!sp || d3.geoDistance(sp.c, viewC) > Math.PI / 2 - 0.05)
+                return path.bounds(f);
+            const q = proj(sp.c);
+            const h = R * Math.sin(Math.min(sp.r, Math.PI / 2));
+            return q ? [[q[0] - h, q[1] - h], [q[0] + h, q[1] + h]] : path.bounds(f);
+        };
         if (canvasRef.current)
             canvasRef.current.__proj = proj; // для проверок: куда нажать
-        const { isOn: on, selected: sel, geo: g, marks: mk, light: lt, full: fs, } = state.current;
+        const { isOn: on, selected: sel, geo: gFull, marks: mk, light: lt, full: fs, } = state.current;
+        // 43.24: пока шар не увеличен, рисуем границы без невидимых подробностей (упрощение 0,08° —
+        // меньше половины точки экрана); при увеличении — полные подробные границы 1:50 млн
+        const ppd = (R * Math.PI) / 180;
+        const lod = !state.current.isMap && ppd < 6;
+        const g = lod ? lodGeo(gFull) : gFull;
+        const regFeats = lod ? lodGeo(((_e = REG.featsGeo) === null || _e === void 0 ? void 0 : _e.features) === REG.feats ? REG.featsGeo : (REG.featsGeo = { features: REG.feats })).features : REG.feats;
         const wish = state.current.isWish || (() => false);
         const visibleAt = (lon, lat) => state.current.isMap
             ? true
@@ -4999,7 +5128,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                 const wished = !visited && wish(f.id);
                 if (state.current.isMap) {
                     if (visited || wished) {
-                        ctx.fillStyle = fillStyleFor(ctx, f.id, path.bounds(f), wished, visited && champOf(f.id));
+                        ctx.fillStyle = fillStyleFor(ctx, f.id, path.box(f), wished, visited && champOf(f.id));
                         ctx.globalAlpha = sel === f.id ? 1 : 0.9;
                         ctx.fill();
                         ctx.globalAlpha = 1;
@@ -5019,7 +5148,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                     const hot = (_e = state.current.glow) === null || _e === void 0 ? void 0 : _e.has(f.id);
                     ctx.fillStyle =
                         visited || wished
-                            ? fillStyleFor(ctx, f.id, path.bounds(f), wished, visited && champOf(f.id))
+                            ? fillStyleFor(ctx, f.id, path.box(f), wished, visited && champOf(f.id))
                             : lt
                                 ? "#e8eef3"
                                 : "#2f5e7e";
@@ -5126,7 +5255,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
             const regBox = {};
             if (regs && REG.ready && !(state.current.arcs || []).length) {
                 // страны без своего контура (только области-атоллы): охват на экране
-                REG.feats.forEach((f) => {
+                regFeats.forEach((f) => {
                     const a3 = f.properties.a3;
                     // 43.10: и там, где ещё не были, — иначе островной страны (Сейшелы) на глобусе нет вовсе
                     if ((drawn.has(a3) && !tiny.has(a3)) || !mine(a3))
@@ -5144,7 +5273,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                     const rb = regBox[a3];
                     return !!rb && Math.max(rb[2] - rb[0], rb[3] - rb[1]) >= 24;
                 };
-                REG.feats.forEach((f) => {
+                regFeats.forEach((f) => {
                     const a3 = f.properties.a3;
                     if (!mine(a3))
                         return;
@@ -5154,7 +5283,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
                         return;
                     if (own && !bigBox(a3))
                         return; // пока мелко — страна кругом (ниже)
-                    const b = path.bounds(f);
+                    const b = path.box(f);
                     if (!isFinite(b[0][0]) || (!own && b[1][0] - b[0][0] < 0.6))
                         return;
                     ctx.beginPath();
@@ -6595,29 +6724,44 @@ function SpaceBackdrop({ light, moving = true }) {
             ctx.fill();
             ctx.globalAlpha = 1;
         };
+        // 43.24: яркая звезда — заготовка (точка, сияние, лучи), рисуется один раз на цвет и размер,
+        // дальше только копируется с нужной прозрачностью (раньше сияние строилось заново каждый кадр)
+        const sprites = new Map();
         const glowStar = (x, y, r, col, a) => {
+            const key = col + "|" + r.toFixed(1);
+            let sp = sprites.get(key);
+            if (!sp) {
+                const half = Math.ceil(r * 7) + 1;
+                const c2 = document.createElement("canvas");
+                c2.width = c2.height = Math.ceil(half * 2 * dpr);
+                const g2 = c2.getContext("2d");
+                g2.scale(dpr, dpr);
+                g2.fillStyle = col;
+                g2.beginPath();
+                g2.arc(half, half, r, 0, 7);
+                g2.fill();
+                const gr = g2.createRadialGradient(half, half, 0, half, half, r * 6);
+                gr.addColorStop(0, col);
+                gr.addColorStop(1, "rgba(255,255,255,0)");
+                g2.globalAlpha = 0.35;
+                g2.fillStyle = gr;
+                g2.beginPath();
+                g2.arc(half, half, r * 6, 0, 7);
+                g2.fill();
+                g2.globalAlpha = 0.6;
+                g2.strokeStyle = col;
+                g2.lineWidth = 0.6;
+                g2.beginPath();
+                g2.moveTo(half - r * 7, half);
+                g2.lineTo(half + r * 7, half);
+                g2.moveTo(half, half - r * 7);
+                g2.lineTo(half, half + r * 7);
+                g2.stroke();
+                sp = { c: c2, half };
+                sprites.set(key, sp);
+            }
             ctx.globalAlpha = a;
-            ctx.fillStyle = col;
-            ctx.beginPath();
-            ctx.arc(x, y, r, 0, 7);
-            ctx.fill();
-            const g = ctx.createRadialGradient(x, y, 0, x, y, r * 6);
-            g.addColorStop(0, col);
-            g.addColorStop(1, "rgba(255,255,255,0)");
-            ctx.globalAlpha = a * 0.35;
-            ctx.fillStyle = g;
-            ctx.beginPath();
-            ctx.arc(x, y, r * 6, 0, 7);
-            ctx.fill();
-            ctx.globalAlpha = a * 0.6;
-            ctx.strokeStyle = col;
-            ctx.lineWidth = 0.6;
-            ctx.beginPath();
-            ctx.moveTo(x - r * 7, y);
-            ctx.lineTo(x + r * 7, y);
-            ctx.moveTo(x, y - r * 7);
-            ctx.lineTo(x, y + r * 7);
-            ctx.stroke();
+            ctx.drawImage(sp.c, x - sp.half, y - sp.half, sp.half * 2, sp.half * 2);
             ctx.globalAlpha = 1;
         };
         const streak = (x, y, dx, dy, len, w, col0, head) => {
