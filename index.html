@@ -2987,7 +2987,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "43.34";
+const APP_VERSION = "43.35";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -7057,17 +7057,21 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
         });
         const land = { type: "GeometryCollection", geometries: big };
         if (W < 560) {
-            // узкое окно: по ширине самой суши (Аляска — Чукотка), а не всего круга с пустым океаном по бокам
+            // узкое окно: по ширине основной суши; кончики Чукотки и Алеутов уходят в растворяющийся край — мир крупнее
             const [[x0], [x1]] = d3.geoPath(p).bounds(land);
             if (isFinite(x0) && isFinite(x1) && x1 > x0) {
-                const k = (W * (1 - 2 * mx)) / (x1 - x0);
+                const k = ((W * (1 - 2 * mx)) / (x1 - x0)) * 1.15;
                 const t = p.translate();
                 p.scale(p.scale() * k).translate([W / 2 + (t[0] - (x0 + x1) / 2) * k, H / 2 + (t[1] - H / 2) * k]);
             }
         }
+        // 43.35: сверху и снизу — полосы под подписи Ледовитого и Южного вне растворяющегося края (24px) и с воздухом
+        // до суши; снизу в узком окне — ещё и под Атлантический/Индийский
+        const bandT = 54;
+        const bandB = W < 560 ? 74 : 56;
         let [[, y0], [, y1]] = d3.geoPath(p).bounds(land);
         if (isFinite(y0) && isFinite(y1)) {
-            const room = H * 0.89;
+            const room = H - bandT - bandB;
             if (y1 - y0 > room) {
                 const k = room / (y1 - y0);
                 const t = p.translate();
@@ -7075,8 +7079,7 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
                 [[, y0], [, y1]] = d3.geoPath(p).bounds(land);
             }
             const t = p.translate();
-            // чуть ниже середины: сверху — только однострочная подпись Ледовитого
-            p.translate([t[0], t[1] + (H * 0.52 - (y0 + y1) / 2)]);
+            p.translate([t[0], t[1] + ((bandT + H - bandB) / 2 - (y0 + y1) / 2)]);
         }
         return p.clipExtent([[-2, -2], [W + 2, H + 2]]);
     }, [geo, W, H]);
@@ -7290,9 +7293,11 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
         });
         // подписи — у «середины» своих точек, но только там, где под надписью целиком вода (моря) или
         // сама эта страна / регион (соседи), и без наездов на другие подписи; перебор от середины к краям
+        // на мире — с запасом вокруг надписи: океаны не жмутся к берегам
+        const gap = kind === "world" ? 7 : 0;
         const clearUnder = (r, ok) => {
-            for (let yy = r[1]; yy <= r[3]; yy += 2.5)
-                for (let xx = r[0]; xx <= r[2]; xx += 2.5)
+            for (let yy = r[1] - gap; yy <= r[3] + gap; yy += 2.5)
+                for (let xx = r[0] - gap; xx <= r[2] + gap; xx += 2.5)
                     if (!ok(xx, yy))
                         return false;
             return true;
@@ -7378,10 +7383,10 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
                 const lines = ["СЕВЕРНЫЙ ЛЕДОВИТЫЙ ОКЕАН"];
                 const cx0 = base0x;
                 let done = false;
-                for (let yy = Math.round(landTop - 14); yy > 8 && !done; yy -= 2)
+                for (let yy = Math.round(landTop - 20); yy > 8 && !done; yy -= 2)
                     for (const dx of [0, -20, 20, -40, 40, -70, 70]) {
                         const r = dotText(ctx, lines, cx0 + dx, yy, 7.6, 1.6, waterCol, 700, false);
-                        if (r[0] < 2 || r[2] > W - 2 || r[1] < 2 || taken.some((t) => dotHit(t, r)) || !clearUnder(r, isWater))
+                        if (r[0] < 2 || r[2] > W - 2 || r[1] < 20 || taken.some((t) => dotHit(t, r)) || !clearUnder(r, isWater))
                             continue;
                         dotText(ctx, lines, cx0 + dx, yy, 7.6, 1.6, waterCol, 700, true, halo);
                         taken.push(r);
@@ -7396,10 +7401,10 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
                 let done = false;
                 // ниже суши и ниже уже поставленных подписей океанов (Атлантического, Индийского) — с воздухом
                 const below = taken.reduce((m, t) => (t[3] > landBot - 40 && t[3] < H - 30 && t[1] > H * 0.4 ? Math.max(m, t[3]) : m), landBot);
-                for (let yy = Math.round(below + 14); yy < H - 8 && !done; yy += 2)
+                for (let yy = Math.round(below + 20); yy < H - 8 && !done; yy += 2)
                     for (const dx of [0, -20, 20, -40, 40, -70, 70]) {
                         const r = dotText(ctx, lines, cx0 + dx, yy, 7.6, 1.6, waterCol, 700, false);
-                        if (r[0] < 2 || r[2] > W - 2 || r[3] > H - 2 || taken.some((t) => dotHit(t, r)) || !clearUnder(r, isWater))
+                        if (r[0] < 2 || r[2] > W - 2 || r[3] > H - 20 || taken.some((t) => dotHit(t, r)) || !clearUnder(r, isWater))
                             continue;
                         dotText(ctx, lines, cx0 + dx, yy, 7.6, 1.6, waterCol, 700, true, halo);
                         taken.push(r);
@@ -25719,9 +25724,9 @@ button, input, select, textarea{font-family:inherit;}
 /* 43.29: карта из точек без рамки — края растворяются, на карте только карта */
 .map-wrap.dot-map{background:none; border:0; border-radius:0; overflow:visible; padding:0;}
 .dot-cv{border-radius:0;
-  -webkit-mask-image:linear-gradient(to right, transparent 0, #000 9%, #000 91%, transparent 100%), linear-gradient(to bottom, transparent 0, #000 11%, #000 89%, transparent 100%);
+  -webkit-mask-image:linear-gradient(to right, transparent 0, #000 9%, #000 91%, transparent 100%), linear-gradient(to bottom, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%);
   -webkit-mask-composite:source-in;
-  mask-image:linear-gradient(to right, transparent 0, #000 9%, #000 91%, transparent 100%), linear-gradient(to bottom, transparent 0, #000 11%, #000 89%, transparent 100%);
+  mask-image:linear-gradient(to right, transparent 0, #000 9%, #000 91%, transparent 100%), linear-gradient(to bottom, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%);
   mask-composite:intersect;}
 .fc-cn{font-weight:600; color:var(--gold); font-size:.95em;}
 /* 43.30: во весь экран карта из точек — на весь экран без отступов под меню; ✕ — в самом углу */
@@ -25731,8 +25736,11 @@ button, input, select, textarea{font-family:inherit;}
 
 /* 43.34: на главном экране вертикально — края по бокам растворяются меньше, мир крупнее */
 .col-map .dot-cv{
-  -webkit-mask-image:linear-gradient(to right, transparent 0, #000 4%, #000 96%, transparent 100%), linear-gradient(to bottom, transparent 0, #000 9%, #000 91%, transparent 100%);
-  mask-image:linear-gradient(to right, transparent 0, #000 4%, #000 96%, transparent 100%), linear-gradient(to bottom, transparent 0, #000 9%, #000 91%, transparent 100%);}
+  -webkit-mask-image:linear-gradient(to right, transparent 0, #000 4%, #000 96%, transparent 100%), linear-gradient(to bottom, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%);
+  mask-image:linear-gradient(to right, transparent 0, #000 4%, #000 96%, transparent 100%), linear-gradient(to bottom, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%);}
+
+/* 43.35: телефон вертикально — холст карты выше, мир крупнее */
+@media (orientation:portrait) and (max-width:560px){ .col-map .dot-stage{aspect-ratio:1.08;} .globe-full.dot-full .dot-stage{aspect-ratio:auto;} }
 `;
 const __b = document.getElementById('boot');
 if (__b)
