@@ -2987,7 +2987,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "43.36";
+const APP_VERSION = "43.37";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -3269,7 +3269,7 @@ const onPage = (a3, idx) => {
 };
 // v3 (43.14): в старом кеше нет Антарктиды и Гренландии — их коды (010, 304) появились в 43.12
 // v4 (43.20): подробные границы 1:50 млн; без сети — прежний кеш v3/v2
-const K_GEO = "atlas:borders:v4";
+const K_GEO = "atlas:borders:v5"; // 43.37: v5 — островные страны 1:10 млн (43.36 оставлял на телефоне старые границы из v4)
 /* примерный «охват» страны в градусах — для подсветки области на глобусе */
 const COUNTRY_R = {
     RUS: 21, CAN: 16, USA: 15, CHN: 14, BRA: 14, AUS: 14, IDN: 11, IND: 9.5,
@@ -21898,6 +21898,7 @@ function AtlasApp() {
                     setGeo(withExtraShapes(geo));
                     store.set(K_GEO, geo);
                     // прежние кеши больше не нужны — освобождаем место
+                    store.del("atlas:borders:v4");
                     store.del("atlas:borders:v3");
                     store.del("atlas:borders:v2");
                     return;
@@ -21907,7 +21908,7 @@ function AtlasApp() {
                 }
             }
             // сети нет — старый кеш (без Антарктиды и Гренландии) лучше, чем глобус без границ (43.14)
-            const old = (await store.get("atlas:borders:v3")) || (await store.get("atlas:borders:v2"));
+            const old = (await store.get("atlas:borders:v4")) || (await store.get("atlas:borders:v3")) || (await store.get("atlas:borders:v2"));
             if (!dead && ((_h = old === null || old === void 0 ? void 0 : old.features) === null || _h === void 0 ? void 0 : _h.length) > 100)
                 setGeo(withExtraShapes(old));
         })();
