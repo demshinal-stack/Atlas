@@ -2987,7 +2987,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "43.38";
+const APP_VERSION = "43.39";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -6946,6 +6946,7 @@ function dotLines(name) {
         out.push(cur);
     return out;
 }
+const DOT_PLATE = "strong";
 /* текст с разрядкой и тёмной обводкой (буква за буквой — ctx.letterSpacing есть не везде) */
 function dotText(ctx, lines, x, y, fs, sp, color, weight = 600, draw = true, halo = null) {
     ctx.font = `${weight} ${fs}px system-ui, -apple-system, sans-serif`;
@@ -6953,6 +6954,52 @@ function dotText(ctx, lines, x, y, fs, sp, color, weight = 600, draw = true, hal
     const widths = lines.map((s) => [...s].reduce((a, ch) => a + ctx.measureText(ch).width + sp, -sp));
     const w = Math.max(...widths);
     const h = lh * lines.length;
+    if (draw && halo) {
+        // 43.39: мягкая подложка под подписью — размытое пятно (без ctx.filter, его нет в старом Safari). Что под
+        // надписью, смотрим по уже нарисованной карте: на светлом (золото, где был) — тёмные буквы на светлом пятне,
+        // на тёмном — светлые буквы на тёмном пятне
+        const lt = /^rgba?\(\s*2[45]\d/.test(halo);
+        let bright = false;
+        if (DOT_PLATE === "auto") {
+            try {
+                const T = ctx.getTransform();
+                const x0 = Math.max(0, Math.round(T.a * (x - w / 2) + T.e));
+                const y0 = Math.max(0, Math.round(T.d * (y - h / 2) + T.f));
+                const ww = Math.max(1, Math.min(ctx.canvas.width - x0, Math.round(T.a * w)));
+                const hh = Math.max(1, Math.min(ctx.canvas.height - y0, Math.round(T.d * h)));
+                const d = ctx.getImageData(x0, y0, ww, hh).data;
+                let sum = 0;
+                let n = 0;
+                for (let i = 0; i < d.length; i += 16) {
+                    // непрозрачные пиксели — по яркости, прозрачные (фон окна) — тёмные
+                    sum += ((d[i] * 0.3 + d[i + 1] * 0.59 + d[i + 2] * 0.11) * d[i + 3]) / 255;
+                    n++;
+                }
+                bright = !lt && n > 0 && sum / n > 105;
+            }
+            catch {
+                /* без чтения — как обычно */
+            }
+        }
+        const rgb = bright ? "250,236,200" : lt ? "255,255,255" : "9,20,33";
+        const a0 = DOT_PLATE === "strong" ? 0.86 : bright ? 0.78 : lt ? 0.7 : 0.66;
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.scale(w / 2 + (DOT_PLATE === "strong" ? 14 : 11), h / 2 + (DOT_PLATE === "strong" ? 10 : 8));
+        const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
+        g.addColorStop(0, `rgba(${rgb},${a0})`);
+        g.addColorStop(0.6, `rgba(${rgb},${a0 * 0.72})`);
+        g.addColorStop(1, `rgba(${rgb},0)`);
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(0, 0, 1, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+        if (bright) {
+            color = "rgba(16,30,46,.92)";
+            halo = "rgba(250,236,200,.55)";
+        }
+    }
     if (draw) {
         ctx.textBaseline = "middle";
         ctx.textAlign = "left";
@@ -7082,14 +7129,14 @@ function dotProjFor(f, W, H, pad, keep, opt, turn = true) {
     p.turnInfo = { angle, can, north };
     return p.clipExtent([[-2, -2], [W + 2, H + 2]]);
 }
-function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCount, pins, lookKey, full = false, onToggleFull, noFull = false, light, cities, visitKey }) {
+function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCount, pins, lookKey, full = false, onToggleFull, noFull = false, light, cities, visitKey, sea = null, onSea = null, fullCard = null }) {
     const stageRef = useRef(null);
     const cvRef = useRef(null);
     const [box, setBox] = useState({ W: 0, H: 0 });
     const st = useRef({ cur: null, fly: null, seq: null, raf: 0, flash: null, layers: {}, north: new Set() });
     const [turnUI, setTurnUI] = useState(null);
     const props = useRef({});
-    props.current = { isOn, isWish, selected, onPick, selRegion, regions, regCount, pins, light, cities };
+    props.current = { isOn, isWish, selected, onPick, selRegion, regions, regCount, pins, light, cities, sea, onSea };
     /* размер окна карты */
     useEffect(() => {
         const el = stageRef.current;
@@ -7192,8 +7239,16 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
                     ...(REG.ready ? REG.feats.filter((f) => { var _e; return f.properties.a3 === view.a3 && ((_e = P.regions) === null || _e === void 0 ? void 0 : _e.has(f.properties.key)); }).map((f) => d3.geoCentroid(f)) : []),
                 ], smallIsl(view.a3), !view.north)
                 : dotProjFor(regionFeat(view.key), W, H, [34, 46, 34, 46], [], undefined, !view.north);
+        // 43.39: масштаб пальцами — тот же вид, увеличенный: z = {k, dx, dy} (экран → экран: x' = k·x + dx)
+        const z = view.zoom;
+        if (z) {
+            const t = proj.translate();
+            proj.scale(proj.scale() * z.k).translate([z.k * t[0] + z.dx, z.k * t[1] + z.dy]);
+        }
+        // увеличенный мир — как карта: подписи морей и стран по месту, а не «океаны по краям»
+        const wz = kind === "world" && !!z && z.k > 1.25;
         const sel = kind === "world" ? null : view.a3;
-        const feats = (kind === "world" ? lodGeo(geo) : geo).features.filter((f) => f.id !== "ATA");
+        const feats = (kind === "world" && !(wz && z.k >= 2) ? lodGeo(geo) : geo).features.filter((f) => f.id !== "ATA");
         const marine = typeof marineFeats === "function" ? marineFeats() : [];
         const on = P.isOn || (() => false);
         // регионы: золотые у больших стран, где были; у выбранной страны — все её регионы
@@ -7483,9 +7538,9 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
         };
         const isWater = (px, py) => read(landImg, px, py, 5) < 0;
         const waterCol = lt ? "rgba(40,80,120,.85)" : "rgba(200,225,248,.9)";
-        const seaMin = kind === "world" ? 50 : 30;
+        const seaMin = kind === "world" && !wz ? 50 : 30;
         const seaMax = kind === "world" ? 6 : 6;
-        if (kind === "world") {
+        if (kind === "world" && !wz) {
             // мир: подписи океанов по своим местам — Тихий слева и справа (край карты делит его пополам), Атлантический
             // на севере, Индийский, Северный Ледовитый — одной строкой у верхнего края; Южный не подписываем
             const byName = {};
@@ -7570,9 +7625,9 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
         }
         let nSea = 0;
         const seaDone = new Set();
-        if (kind !== "world")
+        if (kind !== "world" || wz)
             Object.entries(seaCount)
-                .filter(([m, l]) => l.length >= seaMin && (kind !== "world" || marine[m].properties.c === "ocean"))
+                .filter(([m, l]) => l.length >= seaMin && (kind !== "world" || wz || marine[m].properties.c === "ocean"))
                 .sort((a, b) => b[1].length - a[1].length)
                 .forEach(([m, l]) => {
                 const nm = marine[m].properties.n;
@@ -7591,7 +7646,7 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
         // 43.38: только океаны, которые омывают саму страну (их точки рядом с её точками); большие страны (Россия,
         // Канада, Китай…) не отдаляем вовсе — у них важнее размер самой страны
         let oceanMiss = 0;
-        if (kind === "country" && selIdx >= 0 && d3.geoArea(feats[selIdx]) < 0.04) {
+        if (kind === "country" && !z && selIdx >= 0 && d3.geoArea(feats[selIdx]) < 0.04) {
             const B = step * 2.5;
             const near = new Set();
             cells.forEach(([cx, cy, c]) => {
@@ -7613,13 +7668,13 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
                 return { ...next, view };
         }
         const nbCol = lt ? "rgba(40,70,100,.7)" : "rgba(185,208,230,.78)";
-        if (kind === "country") {
+        if (kind === "country" || wz) {
             let nNb = 0;
             Object.entries(landCount)
                 .filter(([c, l]) => feats[c].id !== sel && l.length >= 24 && BY_A3[feats[c].id])
                 .sort((a, b) => b[1].length - a[1].length)
                 .forEach(([c, l]) => {
-                if (nNb >= 8)
+                if (nNb >= (wz ? 16 : 8))
                     return;
                 const own = +c;
                 const onOwn = (px, py) => read(landImg, px, py, 5) === own;
@@ -7649,6 +7704,9 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
         const S = st.current;
         // север вверху — по выбору человека (компас), для страны и её регионов
         const v = view.kind !== "world" && S.north.has(view.a3) ? { ...view, north: true } : view;
+        // увеличенный пальцами вид — разовый, в запас не кладём
+        if (v.zoom)
+            return buildLayer(v);
         const id = v.kind + ":" + (v.a3 || "") + ":" + (v.key || "") + (v.north ? ":n" : "");
         if (!S.layers[id])
             S.layers[id] = buildLayer(v);
@@ -7785,6 +7843,10 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
             else
                 more = true;
         }
+        else if (S.live) {
+            // жест пальцами: готовая картинка вида тянется и сдвигается, после жеста вид строится заново
+            put(S.cur, mMul(S.live, [1 / S.cur.dpr, 0, 0, 1 / S.cur.dpr, 0, 0]).map((v, i) => (i < 4 ? v * dpr : v)), 1);
+        }
         else
             put(S.cur, [dpr / S.cur.dpr, 0, 0, dpr / S.cur.dpr, 0, 0], 1);
         // компас: страна повёрнута (стрелка на север) или её можно повернуть крупнее
@@ -7800,6 +7862,8 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         if (S.fly)
             return true;
+        if (S.live)
+            return false;
         const L = S.cur;
         const P = props.current;
         // мигание выбранной страны на текущей карте
@@ -7827,6 +7891,35 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
                 ctx.globalAlpha = 1;
                 more = true;
             }
+        }
+        // выбранное море — светящиеся точки по воде и контур (43.39)
+        if (P.sea && !S.seq) {
+            L.seaHi = L.seaHi || {};
+            let hi = L.seaHi[P.sea];
+            if (!hi) {
+                const mf = typeof marineFeats === "function" ? marineFeats() : [];
+                const dots = new Path2D();
+                const rr = L.r0 * 0.95;
+                L.cells.forEach(([cx, cy, c, m]) => {
+                    if (c >= 0 || m < 0 || !mf[m] || mf[m].properties.n !== P.sea)
+                        return;
+                    dots.moveTo(cx + rr, cy);
+                    dots.arc(cx, cy, rr, 0, Math.PI * 2);
+                });
+                hi = L.seaHi[P.sea] = { dots, parts: mf.filter((f) => f.properties.n === P.sea) };
+            }
+            ctx.fillStyle = P.light ? "rgba(40,130,210,.45)" : "rgba(110,200,255,.42)";
+            ctx.fill(hi.dots);
+            const sp = d3.geoPath(L.proj, ctx);
+            ctx.save();
+            ctx.beginPath();
+            hi.parts.forEach((f) => sp(f));
+            ctx.strokeStyle = P.light ? "rgba(29,127,224,.7)" : "rgba(143,212,255,.75)";
+            ctx.lineWidth = 1.2;
+            ctx.shadowColor = "rgba(143,212,255,.8)";
+            ctx.shadowBlur = 6;
+            ctx.stroke();
+            ctx.restore();
         }
         // вспышка региона перед перелётом к нему
         const fl = S.flash;
@@ -7943,6 +8036,35 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
     const setView = (view) => {
         st.current.view = view;
     };
+    // выбрали море — мелкое (Чёрное, Красное) приближаем, чтобы его было видно; сняли — обратно к миру
+    useEffect(() => {
+        const S = st.current;
+        if (!ready || !S.cur || selected)
+            return kick();
+        const parts = sea && typeof marineFeats === "function" ? marineFeats().filter((f) => f.properties.n === sea) : [];
+        if (!parts.length) {
+            if (S.cur.view.kind === "world" && S.cur.view.zoom && !sea)
+                flyTo({ kind: "world" });
+            else
+                kick();
+            return;
+        }
+        const base = layer({ kind: "world" });
+        const [[x0, y0], [x1, y1]] = d3.geoPath(base.proj).bounds({ type: "FeatureCollection", features: parts });
+        const bw = Math.max(8, x1 - x0);
+        const bh = Math.max(8, y1 - y0);
+        const k = Math.max(1, Math.min(5, Math.min(W / bw, H / bh) * 0.55));
+        if (!isFinite(k) || k < 1.4) {
+            if (S.cur.view.kind !== "world" || S.cur.view.zoom)
+                flyTo({ kind: "world" });
+            else
+                kick();
+            return;
+        }
+        const Z = clampZ([k, 0, 0, k, W / 2 - k * ((x0 + x1) / 2), H / 2 - k * ((y0 + y1) / 2)], "world");
+        flyTo({ kind: "world", zoom: { k: Z[0], dx: Z[4], dy: Z[5] } });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [sea, ready]);
     /* первый показ и смена размера: всё заново, текущий вид — сразу без перелёта */
     useEffect(() => {
         if (!ready)
@@ -8023,7 +8145,8 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
             S.seq = null;
             const v = { kind: "world" };
             setView(v);
-            if (S.cur && S.cur.view.kind !== "world")
+            // и увеличенный пальцами мир — обратно к обычному (✕ в карточке сбрасывает увеличение)
+            if (S.cur && (S.cur.view.kind !== "world" || (S.cur.view.zoom && !props.current.sea)))
                 flyTo(v);
             else
                 kick();
@@ -8070,7 +8193,164 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
     }, [selRegion]);
     /* касание: страна (или регион выбранной страны) */
     const down = useRef(null);
-    const onDown = (e) => (down.current = { x: e.clientX, y: e.clientY });
+    /* 43.39: масштаб и сдвиг пальцами (и колесом/тачпадом). Во время жеста — матрица S.live поверх готовой картинки,
+       после — вид строится заново в новом масштабе (точки снова ровной сеткой, подписи по месту) */
+    const ptrs = useRef(new Map());
+    const gest = useRef(null);
+    const zoomOf = (L) => (L && L.view.zoom ? [L.view.zoom.k, 0, 0, L.view.zoom.k, L.view.zoom.dx, L.view.zoom.dy] : [1, 0, 0, 1, 0, 0]);
+    // итоговый масштаб — в пределах, и карта не уезжает с экрана
+    const clampZ = (Z, kind) => {
+        const lo = kind === "world" ? 1 : 0.6;
+        const k = Math.max(lo, Math.min(kind === "world" ? 8 : 6, Z[0]));
+        let dx = Z[4] + (W / 2) * (Z[0] - k);
+        let dy = Z[5] + (H / 2) * (Z[0] - k);
+        if (Z[0] !== k) {
+            // масштаб упёрся — держим середину экрана
+            dx = W / 2 - ((W / 2 - Z[4]) / Z[0]) * k;
+            dy = H / 2 - ((H / 2 - Z[5]) / Z[0]) * k;
+        }
+        if (k >= 1) {
+            dx = Math.min(0, Math.max(W - k * W, dx));
+            dy = Math.min(0, Math.max(H - k * H, dy));
+        }
+        else {
+            dx = Math.max(0, Math.min(W - k * W, dx));
+            dy = Math.max(0, Math.min(H - k * H, dy));
+        }
+        return [k, 0, 0, k, dx, dy];
+    };
+    const setLive = (G) => {
+        const S = st.current;
+        if (!S.cur)
+            return;
+        const Z0 = zoomOf(S.cur);
+        const Z = clampZ(mMul(G, Z0), S.cur.view.kind);
+        S.live = mMul(Z, mInv(Z0));
+        kick();
+    };
+    const commitZoom = () => {
+        const S = st.current;
+        if (!S.live || !S.cur)
+            return;
+        const Z = clampZ(mMul(S.live, zoomOf(S.cur)), S.cur.view.kind);
+        const base = { ...S.cur.view };
+        delete base.zoom;
+        // страну/регион отдалили пальцами заметно меньше исходного — шаг назад (к стране, к миру)
+        if (S.cur.view.kind !== "world" && Z[0] < 0.8) {
+            S.live = null;
+            kick();
+            const P = props.current;
+            if (S.cur.view.kind === "region")
+                P.onPick && P.onPick(S.cur.view.a3);
+            else
+                P.onPick && P.onPick(null);
+            return;
+        }
+        const same = Math.abs(Z[0] - 1) < 0.03;
+        const L = same ? layer(base) : layer({ ...base, zoom: { k: Z[0], dx: Z[4], dy: Z[5] } });
+        S.live = null;
+        S.cur = L;
+        kick();
+    };
+    const ptIn = (e) => {
+        const r = cvRef.current.getBoundingClientRect();
+        return [e.clientX - r.left, e.clientY - r.top];
+    };
+    const onDown = (e) => {
+        const S = st.current;
+        if (S.fly)
+            return;
+        try {
+            e.currentTarget.setPointerCapture(e.pointerId);
+        }
+        catch {
+            /* без захвата — тоже работает */
+        }
+        ptrs.current.set(e.pointerId, ptIn(e));
+        if (ptrs.current.size === 1) {
+            down.current = { x: e.clientX, y: e.clientY };
+            gest.current = null;
+        }
+        else if (ptrs.current.size === 2) {
+            down.current = null;
+            const [a, b] = [...ptrs.current.values()];
+            gest.current = { mode: "pinch", a, b, G0: S.live || [1, 0, 0, 1, 0, 0] };
+        }
+    };
+    const onMove = (e) => {
+        if (!ptrs.current.has(e.pointerId))
+            return;
+        const S = st.current;
+        ptrs.current.set(e.pointerId, ptIn(e));
+        const g = gest.current;
+        if (ptrs.current.size >= 2 && g && g.mode === "pinch") {
+            const [a1, b1] = [...ptrs.current.values()];
+            const d0 = Math.hypot(g.b[0] - g.a[0], g.b[1] - g.a[1]) || 1;
+            const d1 = Math.hypot(b1[0] - a1[0], b1[1] - a1[1]) || 1;
+            const k = d1 / d0;
+            const c0 = [(g.a[0] + g.b[0]) / 2, (g.a[1] + g.b[1]) / 2];
+            const c1 = [(a1[0] + b1[0]) / 2, (a1[1] + b1[1]) / 2];
+            setLive(mMul([k, 0, 0, k, c1[0] - k * c0[0], c1[1] - k * c0[1]], g.G0));
+            return;
+        }
+        // один палец — сдвиг, когда карта увеличена (иначе это касание)
+        if (ptrs.current.size === 1 && S.cur && (S.cur.view.zoom || S.live)) {
+            const p = [...ptrs.current.values()][0];
+            if (!g || g.mode !== "pan") {
+                const d = down.current;
+                if (!d || Math.hypot(e.clientX - d.x, e.clientY - d.y) <= 8)
+                    return;
+                gest.current = { mode: "pan", p0: p, G0: S.live || [1, 0, 0, 1, 0, 0] };
+                down.current = null;
+                return;
+            }
+            setLive(mMul([1, 0, 0, 1, p[0] - g.p0[0], p[1] - g.p0[1]], g.G0));
+        }
+    };
+    const onEnd = (e) => {
+        if (!ptrs.current.has(e.pointerId))
+            return;
+        ptrs.current.delete(e.pointerId);
+        const S = st.current;
+        if (gest.current) {
+            if (ptrs.current.size === 1 && gest.current.mode === "pinch") {
+                // один палец остался — продолжаем сдвигом
+                gest.current = { mode: "pan", p0: [...ptrs.current.values()][0], G0: S.live || [1, 0, 0, 1, 0, 0] };
+                return;
+            }
+            if (ptrs.current.size === 0) {
+                gest.current = null;
+                commitZoom();
+            }
+            return;
+        }
+        if (e.type === "pointerup" && ptrs.current.size === 0)
+            onUp(e);
+    };
+    // колесо и тачпад (компьютер): приближение к курсору, вид строится после паузы
+    useEffect(() => {
+        const cv = cvRef.current;
+        if (!cv)
+            return;
+        let timer = 0;
+        const wheel = (e) => {
+            const S = st.current;
+            if (!S.cur || S.fly)
+                return;
+            e.preventDefault();
+            const [x, y] = ptIn(e);
+            const k = Math.exp(-e.deltaY * 0.0022);
+            setLive(mMul([k, 0, 0, k, x - k * x, y - k * y], S.live || [1, 0, 0, 1, 0, 0]));
+            clearTimeout(timer);
+            timer = setTimeout(commitZoom, 220);
+        };
+        cv.addEventListener("wheel", wheel, { passive: false });
+        return () => {
+            cv.removeEventListener("wheel", wheel);
+            clearTimeout(timer);
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [ready, W, H]);
     const onUp = (e) => {
         const d = down.current;
         down.current = null;
@@ -8111,7 +8391,15 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
             });
         }
         const P0 = props.current;
-        // касание по воде — шаг назад: из региона к стране, из страны ко всему миру
+        // 43.39: касание по воде — море или океан (справка, как на глобусе); назад — ✕ в карточке или щипком
+        if (best < 0 && P0.onSea) {
+            const m = L.read(L.landImg, px, py, 3);
+            const mf = typeof marineFeats === "function" ? marineFeats() : [];
+            if (m >= 0 && m < mf.length) {
+                P0.onSea(mf[m].properties.n);
+                return;
+            }
+        }
         if (best < 0) {
             if (L.view.kind === "region")
                 P0.onPick && P0.onPick(L.view.a3);
@@ -8148,21 +8436,26 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
             S.north.delete(turnUI.a3);
         else
             S.north.add(turnUI.a3);
-        const to = layer(S.cur.view.north ? { ...S.cur.view, north: undefined } : S.cur.view);
+        // поворот — от исходного вида страны (увеличение пальцами сбрасывается)
+        const base = { ...S.cur.view, north: undefined };
+        delete base.zoom;
+        const to = layer(base);
         S.fly = { from: S.cur, to, big: S.cur, small: to, M: affIn(S.cur, to), zoomIn: true, t0: performance.now() };
         kick();
     };
     const stage = (React.createElement("div", { className: "dot-stage", ref: stageRef },
-        React.createElement("canvas", { ref: cvRef, className: "dot-cv", onPointerDown: onDown, onPointerUp: onUp }),
+        React.createElement("canvas", { ref: cvRef, className: "dot-cv", onPointerDown: onDown, onPointerMove: onMove, onPointerUp: onEnd, onPointerCancel: onEnd }),
         turnUI && (React.createElement("button", { className: "dot-north" + (turnUI.angle ? " on" : ""), onClick: onTurn, "aria-label": turnUI.angle ? "Север вверху" : "Повернуть крупнее" }, turnUI.angle ? (React.createElement("svg", { viewBox: "-16 -16 32 32", width: "32", height: "32" },
             React.createElement("g", { transform: `rotate(${turnUI.north})` },
                 React.createElement("path", { d: "M0 -9 L4.5 4.5 L0 2 L-4.5 4.5 Z" }),
                 React.createElement("text", { y: "-11.5" }, "\u0421")))) : (React.createElement("span", null, "\u2922"))))));
     const controls = !noFull && (React.createElement("div", { className: "globe-controls" },
         React.createElement("button", { onClick: onToggleFull, "aria-label": full ? "Свернуть" : "Во весь экран" }, full ? "✕" : "⛶")));
+    // 43.39: во весь экран — мини-карточка выбранного (страна, регион, море) снизу, ✕ над ней
     if (full)
-        return (React.createElement("div", { className: "globe-full dot-full" },
+        return (React.createElement("div", { className: "globe-full dot-full" + (fullCard ? " has-card" : "") },
             stage,
+            fullCard && React.createElement("div", { className: "dfu-card" }, fullCard),
             controls));
     return (React.createElement("div", { className: "map-wrap dot-map" },
         stage,
@@ -23282,6 +23575,45 @@ function AtlasApp() {
     const homeRows = useMemo(() => countryList(visits, wish, homeQ, homeQ.trim() ? "all" : "been"), [visits, wish, homeQ]);
     /* выбор страны на главном: мигнуть 3 раза и поставить флажок (42.45) */
     const selGlow = useMemo(() => (selected ? new Set([selected]) : null), [selected, lookNonce]);
+    /* 43.39: во весь экран (карта из точек) — мини-карточка выбранного в стиле строк лент: флаг, название, подпись,
+       число поездок; ✕ снимает выбор — карта возвращается к миру (и сбрасывает увеличение) */
+    const dotFullCard = (() => {
+        var _e, _h;
+        if (mapView !== "map")
+            return null;
+        const close = (React.createElement("button", { className: "icon-btn fc-ico dfu-x", onClick: () => {
+                setSelected(null);
+                setSelRegion(null);
+                setSelSea(null);
+            }, "aria-label": "\u0421\u043D\u044F\u0442\u044C \u0432\u044B\u0431\u043E\u0440" },
+            React.createElement("i", { className: "act-ico" }, "\u2715")));
+        if (selSea && !selected)
+            return (React.createElement(React.Fragment, null,
+                React.createElement("div", { className: "ww-row fc-row dfu-row" },
+                    React.createElement("span", { className: "sea-fl" },
+                        React.createElement(SeaWave, { size: 22 })),
+                    React.createElement("span", { className: "ww-nm" },
+                        selSea,
+                        React.createElement("em", null, seaSub(selSea) || "водное пространство")),
+                    close),
+                seaText(selSea) && React.createElement("p", { className: "dfu-tx" }, seaText(selSea))));
+        const c = selected ? BY_A3[selected] : null;
+        if (!c)
+            return null;
+        const trips = (visits[selected] || []).filter((t) => !t.plan);
+        const rn = selRegion ? ((_e = regionByKey(selRegion)) === null || _e === void 0 ? void 0 : _e.properties.n) || selRegion.split("|")[1] : "";
+        const n = rn ? ((_h = regInfo === null || regInfo === void 0 ? void 0 : regInfo.count) === null || _h === void 0 ? void 0 : _h.get(selRegion)) || 0 : trips.length;
+        const cities = [...new Set(trips.flatMap((t) => t.cities || []))];
+        const sub = rn ? c.name : cities.length ? cities.slice(0, 4).join(", ") : "ещё не были";
+        return (React.createElement("div", { className: "ww-row fc-row dfu-row" },
+            React.createElement("span", { className: "sea-fl" },
+                React.createElement(Flg, { a3: selected })),
+            React.createElement("span", { className: "ww-nm" },
+                rn || c.name,
+                React.createElement("em", null, sub)),
+            n > 0 && React.createElement("span", { className: "fc-n" }, np(n, "trip")),
+            close));
+    })();
     const selPins = useMemo(() => {
         const c = selected ? BY_A3[selected] : null;
         if (!c)
@@ -23349,7 +23681,14 @@ function AtlasApp() {
                                 setSelected(BY_A3[a3] ? a3 : null);
                                 setSelRegion((x === null || x === void 0 ? void 0 : x.region) || null);
                                 setSelSea(null);
-                            }, selected: selected, selRegion: selRegion, regions: regionsOn, regCount: regInfo === null || regInfo === void 0 ? void 0 : regInfo.count, pins: selPins, lookKey: `${selected || ""}:${lookNonce}`, onToggleFull: () => setFull(true), light: light, cities: dotCities, visitKey: visitKey })) : (React.createElement(Globe, { geo: geo, isOn: isOn, onPick: (a3, x) => {
+                            }, selected: selected, selRegion: selRegion, regions: regionsOn, regCount: regInfo === null || regInfo === void 0 ? void 0 : regInfo.count, pins: selPins, lookKey: `${selected || ""}:${lookNonce}`, onToggleFull: () => setFull(true), light: light, cities: dotCities, visitKey: visitKey, sea: selSea, onSea: (n) => {
+                                setSelSea(n);
+                                if (n) {
+                                    setSelected(null);
+                                    setSelRegion(null);
+                                    setSpinning(false);
+                                }
+                            } })) : (React.createElement(Globe, { geo: geo, isOn: isOn, onPick: (a3, x) => {
                                 if (BY_A3[a3]) {
                                     setSpinning(false);
                                     if (a3 !== selected)
@@ -23380,7 +23719,13 @@ function AtlasApp() {
                                 setSelected(BY_A3[a3] ? a3 : null);
                                 setSelRegion((x === null || x === void 0 ? void 0 : x.region) || null);
                                 setSelSea(null);
-                            }, selected: selected, selRegion: selRegion, regions: regionsOn, regCount: regInfo === null || regInfo === void 0 ? void 0 : regInfo.count, pins: selPins, lookKey: `${selected || ""}:${lookNonce}`, onToggleFull: () => setFull(false), light: light, cities: dotCities, visitKey: visitKey })),
+                            }, selected: selected, selRegion: selRegion, regions: regionsOn, regCount: regInfo === null || regInfo === void 0 ? void 0 : regInfo.count, pins: selPins, lookKey: `${selected || ""}:${lookNonce}`, onToggleFull: () => setFull(false), light: light, cities: dotCities, visitKey: visitKey, sea: selSea, onSea: (n) => {
+                                setSelSea(n);
+                                if (n) {
+                                    setSelected(null);
+                                    setSelRegion(null);
+                                }
+                            }, fullCard: dotFullCard })),
                         full && mapView !== "map" && (React.createElement(Globe, { geo: geo, isOn: isOn, onPick: (a3, x) => {
                                 setSelected(BY_A3[a3] ? a3 : null);
                                 setSelRegion((x === null || x === void 0 ? void 0 : x.region) || null);
@@ -26020,6 +26365,25 @@ button, input, select, textarea{font-family:inherit;}
 .dot-north span{font-size:17px; line-height:1;}
 .dot-north path{fill:var(--gold);}
 .dot-north text{fill:var(--gold); font-size:8.5px; font-weight:700; text-anchor:middle; dominant-baseline:middle;}
+/* 43.39: карта из точек — масштаб и сдвиг пальцами: жесты целиком наши */
+.dot-cv{touch-action:none;}
+/* 43.39: во весь экран — мини-карточка выбранного внизу (как строки лент), ✕ «свернуть» — над ней */
+.dfu-card{position:absolute; z-index:3; left:calc(10px + env(safe-area-inset-left)); right:calc(10px + env(safe-area-inset-right));
+  bottom:calc((8px + env(safe-area-inset-bottom) * .5) * 1.5); padding:8px; border-radius:16px; border:1px solid var(--line);
+  background:color-mix(in srgb, var(--panel) 90%, transparent); -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px);
+  box-shadow:0 10px 30px rgba(0,0,0,.35);}
+.dfu-row{cursor:default; padding:6px 6px 6px 12px; gap:10px;}
+.dfu-row .ww-nm{font-size:15px;}
+.dfu-row .ww-nm em{font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+.dfu-row .sea-fl{flex:none; display:flex; align-items:center;}
+.dfu-tx{margin:8px 6px 2px; font-size:13px; line-height:1.4; color:var(--dim); display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;}
+.globe-full.dot-full.has-card .globe-controls{bottom:calc((8px + env(safe-area-inset-bottom) * .5) * 1.5 + 92px);}
+.globe-full.dot-full.has-card .dfu-card:has(.dfu-tx) ~ .globe-controls{bottom:calc((8px + env(safe-area-inset-bottom) * .5) * 1.5 + 160px);}
+@media (orientation:landscape){
+  .dfu-card{right:auto; width:min(460px, 58%);}
+  .globe-full.dot-full.has-card .globe-controls,
+  .globe-full.dot-full.has-card .dfu-card:has(.dfu-tx) ~ .globe-controls{bottom:calc((8px + env(safe-area-inset-bottom) * .5) * 1.5);}
+}
 `;
 const __b = document.getElementById('boot');
 if (__b)
