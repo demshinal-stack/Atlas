@@ -2987,7 +2987,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "43.28";
+const APP_VERSION = "43.29";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -7008,7 +7008,6 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
     const stageRef = useRef(null);
     const cvRef = useRef(null);
     const [box, setBox] = useState({ W: 0, H: 0 });
-    const [crumb, setCrumb] = useState(null);
     const st = useRef({ cur: null, fly: null, seq: null, raf: 0, flash: null, layers: {} });
     const props = useRef({});
     props.current = { isOn, isWish, selected, onPick, selRegion, regions, regCount, pins, light, cities };
@@ -7041,7 +7040,7 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
         p.scale(p.scale() * 1.04);
         return p.clipExtent([[-2, -2], [W + 2, H + 2]]);
     }, [geo, W, H]);
-    const PAD = [44, 14, 12, 14]; // сверху — место под строку «назад»
+    const PAD = [22, 22, 22, 22]; // поля: края растворяются, страна целиком в чёткой части
     const countryFeat = (a3) => geo.features.find((f) => f.id === a3);
     const regionFeat = (key) => (REG.ready ? REG.feats.find((f) => f.properties.key === key) : null);
     /* слой — всё неподвижное для одного вида: точки, линии, подписи, города */
@@ -7055,7 +7054,7 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
             ? worldProj()
             : kind === "country"
                 ? dotProjFor(countryFeat(view.a3), W, H, PAD)
-                : dotProjFor(regionFeat(view.key), W, H, [52, 40, 26, 40]);
+                : dotProjFor(regionFeat(view.key), W, H, [34, 46, 34, 46]);
         const sel = kind === "world" ? null : view.a3;
         const feats = (kind === "world" ? lodGeo(geo) : geo).features.filter((f) => f.id !== "ATA");
         const marine = typeof marineFeats === "function" ? marineFeats() : [];
@@ -7115,11 +7114,7 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
         cv.height = Math.round(H * dpr);
         const ctx = cv.getContext("2d");
         ctx.scale(dpr, dpr);
-        const bg = ctx.createRadialGradient(W * 0.5, H * 0.45, 10, W * 0.5, H * 0.5, Math.max(W, H) * 0.75);
-        bg.addColorStop(0, lt ? "#eef4f9" : kind === "world" ? "#11283d" : "#13304a");
-        bg.addColorStop(1, lt ? "#dbe5ee" : "#0a1724");
-        ctx.fillStyle = bg;
-        ctx.fillRect(0, 0, W, H);
+        // фон прозрачный: под картой — фон окна, края растворяются маской (стили .dot-cv)
         const r0 = step * 0.31;
         const batches = {};
         const add = (key, px, py, rr) => {
@@ -7217,8 +7212,8 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
                     glowLine(rf, lt ? "#c98a12" : "#ffe7a6", 1.8);
             }
         }
-        // места кнопок поверх карты: строка «назад» слева сверху, «во весь экран» справа снизу
-        const taken = [[0, 0, Math.min(W, 290), 40], [W - 52, H - 52, W, H]];
+        // место кнопки «во весь экран» справа снизу
+        const taken = [[W - 52, H - 52, W, H]];
         // флажок выбранной страны — подписи его не закрывают
         if (kind === "country" && ((_h = (_e = P.pins) === null || _e === void 0 ? void 0 : _e[0]) === null || _h === void 0 ? void 0 : _h.a3) === sel) {
             const fq = proj([P.pins[0].lon, P.pins[0].lat]);
@@ -7228,7 +7223,6 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
         const halo = lt ? "rgba(255,255,255,.92)" : "rgba(9,20,33,.95)";
         // города поездок — искорки; у страны — с названиями, у региона — ещё и с числом поездок
         const rf = kind === "region" ? regFeats.find((f) => f.properties.key === view.key) : null;
-        const named = [];
         (P.cities || []).forEach((ct) => {
             const q = proj([ct.lon, ct.lat]);
             if (!q || q[0] < 0 || q[0] > W || q[1] < 0 || q[1] > H)
@@ -7252,53 +7246,7 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
                 ctx.beginPath();
                 ctx.arc(q[0], q[1], 6, 0, Math.PI * 2);
                 ctx.stroke();
-                named.push([ct, q, true]);
             }
-            else if (kind === "country" && ct.a3 === sel)
-                named.push([ct, q, false]);
-        });
-        // у страны подписываем только самые частые города — иначе каша
-        const bigOnes = named.filter((x) => x[2]);
-        const smallOnes = named.filter((x) => !x[2]).sort((a, b) => (b[0].n || 0) - (a[0].n || 0)).slice(0, 6);
-        [...bigOnes, ...smallOnes]
-            .sort((a, b) => (b[0].n || 0) - (a[0].n || 0))
-            .forEach(([ct, q, big]) => {
-            ctx.save();
-            const f1 = big ? 12 : 10;
-            ctx.font = `${big ? 700 : 600} ${f1}px system-ui, -apple-system, sans-serif`;
-            const sub = big ? np(ct.n || 1, "trip") : "";
-            const w = Math.max(ctx.measureText(ct.name).width, sub ? ctx.measureText(sub).width * 0.86 : 0);
-            const hgt = big ? 30 : 14;
-            const tries = [[8, -hgt / 2], [-w - 8, -hgt / 2], [8, -hgt - 4], [8, 4], [-w - 8, 4], [-w - 8, -hgt - 4]];
-            for (const [dx, dy] of tries) {
-                const r = [q[0] + dx - 5, q[1] + dy, q[0] + dx + w + 5, q[1] + dy + hgt];
-                if (r[0] < 2 || r[2] > W - 2 || r[1] < 2 || r[3] > H - 2 || taken.some((t) => dotHit(t, r)))
-                    continue;
-                if (big) {
-                    ctx.fillStyle = lt ? "rgba(255,255,255,.88)" : "rgba(9,20,33,.82)";
-                    ctx.beginPath();
-                    ctx.roundRect(r[0], r[1], r[2] - r[0], r[3] - r[1], 7);
-                    ctx.fill();
-                }
-                ctx.textBaseline = "middle";
-                ctx.textAlign = "left";
-                if (!big) {
-                    ctx.lineJoin = "round";
-                    ctx.strokeStyle = halo;
-                    ctx.lineWidth = 3;
-                    ctx.strokeText(ct.name, q[0] + dx, q[1] + dy + 7);
-                }
-                ctx.fillStyle = lt ? "#1d2f40" : "#fff6dc";
-                ctx.fillText(ct.name, q[0] + dx, q[1] + dy + (big ? 9 : 7));
-                if (big) {
-                    ctx.font = "600 10px system-ui, -apple-system, sans-serif";
-                    ctx.fillStyle = lt ? "#a8740c" : "#f2c25a";
-                    ctx.fillText(sub, q[0] + dx, q[1] + dy + 22);
-                }
-                taken.push(r);
-                break;
-            }
-            ctx.restore();
         });
         // подписи — у «середины» своих точек, но только там, где под надписью целиком вода (моря) или
         // сама эта страна / регион (соседи), и без наездов на другие подписи; перебор от середины к краям
@@ -7382,14 +7330,6 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
                     nNb++;
             });
         }
-        if (kind !== "world") {
-            // по краям — лёгкое затемнение, страна (регион) в центре внимания
-            const v = ctx.createRadialGradient(W * 0.5, H * 0.5, Math.min(W, H) * 0.4, W * 0.5, H * 0.5, Math.max(W, H) * 0.72);
-            v.addColorStop(0, "rgba(10,23,36,0)");
-            v.addColorStop(1, lt ? "rgba(200,214,226,.45)" : "rgba(10,23,36,.5)");
-            ctx.fillStyle = v;
-            ctx.fillRect(0, 0, W, H);
-        }
         return { view, proj, cv, cells, feats, regFeats, landImg, regImg, regCells, r0, read, dpr };
     }, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -7461,15 +7401,21 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
             const cy = H / 2 + ((R[1] + R[3]) / 2 - H / 2) * t;
             const h = Math.exp(Math.log(H) + (Math.log(rh) - Math.log(H)) * t);
             const v = [cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2];
-            put(F.big, v, 1);
             // ближний слой — в рамке R, пересчитанной в окно v
             // по осям — свой масштаб: рамка R по форме чуть отличается от холста
             const kx = rw / W;
             const ky = rh / H;
-            put(F.small, [(v[0] - R[0]) / kx, (v[1] - R[1]) / ky, (v[2] - R[0]) / kx, (v[3] - R[1]) / ky], Math.max(0, Math.min(1, (t - 0.35) / 0.55)));
+            // слои прозрачные: дальний гаснет по мере того, как проявляется ближний
+            const aSmall = Math.max(0, Math.min(1, (t - 0.3) / 0.55));
+            put(F.big, v, 1 - aSmall);
+            put(F.small, [(v[0] - R[0]) / kx, (v[1] - R[1]) / ky, (v[2] - R[0]) / kx, (v[3] - R[1]) / ky], aSmall);
             if (p >= 1) {
+                // посадка: кадр заново — только новый вид
                 S.cur = F.to;
                 S.fly = null;
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
+                ctx.clearRect(0, 0, cv.width, cv.height);
+                put(S.cur, [0, 0, W, H], 1);
                 F.done && F.done();
             }
             else
@@ -7622,24 +7568,8 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
     }, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [layer, kick, W, H]);
-    const crumbFor = (view) => {
-        var _e, _h;
-        if (!view || view.kind === "world")
-            return null;
-        const P = props.current;
-        const c = BY_A3[view.a3];
-        if (view.kind === "country") {
-            const total = REG.ready ? REG.feats.filter((f) => f.properties.a3 === view.a3).length : 0;
-            const got = total && P.regions ? [...P.regions].filter((k) => k.startsWith(view.a3 + "|")).length : 0;
-            return { back: "world", prev: "Мир", name: (c === null || c === void 0 ? void 0 : c.name) || "", extra: total ? `${got} из ${total}` : "" };
-        }
-        const n = ((_h = (_e = P.regCount) === null || _e === void 0 ? void 0 : _e.get) === null || _h === void 0 ? void 0 : _h.call(_e, view.key)) || 0;
-        const rf = regionFeat(view.key);
-        return { back: "country", prev: (c === null || c === void 0 ? void 0 : c.name) || "", name: (rf === null || rf === void 0 ? void 0 : rf.properties.n) || "", extra: n ? np(n, "trip") : "" };
-    };
     const setView = (view) => {
         st.current.view = view;
-        setCrumb(crumbFor(view));
     };
     /* первый показ и смена размера: всё заново, текущий вид — сразу без перелёта */
     useEffect(() => {
@@ -7797,8 +7727,15 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
                 }
             });
         }
-        if (best < 0)
+        const P0 = props.current;
+        // касание по воде — шаг назад: из региона к стране, из страны ко всему миру
+        if (best < 0) {
+            if (L.view.kind === "region")
+                P0.onPick && P0.onPick(L.view.a3);
+            else if (L.view.kind === "country")
+                P0.onPick && P0.onPick(null);
             return;
+        }
         const a3 = L.feats[best].id;
         if (!BY_A3[a3])
             return;
@@ -7807,7 +7744,10 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
             const ri = L.read(L.regImg, px, py, 7);
             if (ri >= 0 && ri < L.regFeats.length) {
                 const key = L.regFeats[ri].properties.key;
-                if (key !== P.selRegion)
+                // тот же регион ещё раз — обратно к стране
+                if (key === P.selRegion)
+                    P.onPick && P.onPick(a3);
+                else
                     P.onPick && P.onPick(a3, { region: key });
                 return;
             }
@@ -7816,25 +7756,8 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
             return;
         P.onPick && P.onPick(a3);
     };
-    const onCrumb = () => {
-        if (!crumb)
-            return;
-        const P = props.current;
-        if (crumb.back === "country")
-            P.onPick && P.onPick(P.selected); // регион снят — обратно к стране
-        else
-            P.onPick && P.onPick(null); // весь мир
-    };
     const stage = (React.createElement("div", { className: "dot-stage", ref: stageRef },
-        React.createElement("canvas", { ref: cvRef, className: "dot-cv", onPointerDown: onDown, onPointerUp: onUp }),
-        crumb && (React.createElement("button", { className: "dot-crumb", onClick: onCrumb },
-            "\u2039 ",
-            crumb.prev,
-            " \u00B7 ",
-            React.createElement("b", null, crumb.name),
-            crumb.extra ? React.createElement("span", null,
-                " ",
-                crumb.extra) : null))));
+        React.createElement("canvas", { ref: cvRef, className: "dot-cv", onPointerDown: onDown, onPointerUp: onUp })));
     const controls = !noFull && (React.createElement("div", { className: "globe-controls" },
         React.createElement("button", { onClick: onToggleFull, "aria-label": full ? "Свернуть" : "Во весь экран" }, full ? "✕" : "⛶")));
     if (full)
@@ -22862,9 +22785,11 @@ function AtlasApp() {
         const trips = (visits[selected] || []).filter((t) => !t.plan);
         const cards = new Map();
         const put = (key, name, region, cities) => {
-            const c = cards.get(key) || { key, name, region, n: 0, cities: new Set() };
+            const c = cards.get(key) || { key, name, region, n: 0, cities: new Set(), cityN: new Map() };
             c.n += 1;
             cities.forEach((x) => c.cities.add(x));
+            // 43.29: сколько поездок в каждом городе — в карточке выбранного региона
+            new Set(cities).forEach((x) => c.cityN.set(x, (c.cityN.get(x) || 0) + 1));
             cards.set(key, c);
         };
         if (regInfo) {
@@ -22885,9 +22810,11 @@ function AtlasApp() {
         else {
             // страна без областей — одна строка на всю страну
             const all = new Set();
+            const cityN = new Map();
             trips.forEach((t) => (t.cities || []).forEach((c) => all.add(c)));
+            trips.forEach((t) => new Set(t.cities || []).forEach((c) => cityN.set(c, (cityN.get(c) || 0) + 1)));
             if (trips.length)
-                cards.set("c|" + selected, { key: "c|" + selected, name: ((_e = BY_A3[selected]) === null || _e === void 0 ? void 0 : _e.name) || selected, region: false, n: trips.length, cities: all });
+                cards.set("c|" + selected, { key: "c|" + selected, name: ((_e = BY_A3[selected]) === null || _e === void 0 ? void 0 : _e.name) || selected, region: false, n: trips.length, cities: all, cityN });
         }
         return [...cards.values()]
             .map((c) => ({ ...c, names: [...c.cities], cities: c.cities.size }))
@@ -23195,7 +23122,18 @@ function AtlasApp() {
                                     } },
                                     React.createElement("span", { className: "ww-nm" },
                                         c.name,
-                                        React.createElement("em", null, c.names.length ? c.names.join(", ") : "города не указаны")),
+                                        React.createElement("em", null, !c.names.length
+                                            ? "города не указаны"
+                                            : on && c.cityN
+                                                ? // выбранный регион: у каждого города — число поездок (на карте подписей нет)
+                                                    [...c.names]
+                                                        .sort((x, y) => (c.cityN.get(y) || 0) - (c.cityN.get(x) || 0))
+                                                        .map((nm, i) => (React.createElement(React.Fragment, { key: nm },
+                                                        i ? ", " : "",
+                                                        nm,
+                                                        " ",
+                                                        React.createElement("b", { className: "fc-cn" }, c.cityN.get(nm) || 1))))
+                                                : c.names.join(", "))),
                                     React.createElement("span", { className: "fc-n" }, np(c.n, "trip"))));
                             }))) : selRegion ? (React.createElement("p", { className: "focus-empty" },
                                 regName ? `${regName}: пока не были` : "Здесь пока не были",
@@ -25654,6 +25592,14 @@ button, input, select, textarea{font-family:inherit;}
   .col-map > .map-wrap.dot-map{align-items:stretch;}
   .col-map > .map-wrap.dot-map > .dot-stage{aspect-ratio:auto; height:100%;}
 }
+/* 43.29: карта из точек без рамки — края растворяются, на карте только карта */
+.map-wrap.dot-map{background:none; border:0; border-radius:0; overflow:visible; padding:0;}
+.dot-cv{border-radius:0;
+  -webkit-mask-image:linear-gradient(to right, transparent 0, #000 9%, #000 91%, transparent 100%), linear-gradient(to bottom, transparent 0, #000 11%, #000 89%, transparent 100%);
+  -webkit-mask-composite:source-in;
+  mask-image:linear-gradient(to right, transparent 0, #000 9%, #000 91%, transparent 100%), linear-gradient(to bottom, transparent 0, #000 11%, #000 89%, transparent 100%);
+  mask-composite:intersect;}
+.fc-cn{font-weight:600; color:var(--gold); font-size:.95em;}
 `;
 const __b = document.getElementById('boot');
 if (__b)
