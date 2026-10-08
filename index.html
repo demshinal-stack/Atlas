@@ -701,6 +701,7 @@ const WORD = {
     airline: ["авиакомпания", "авиакомпании", "авиакомпаний"],
     region: ["регион", "региона", "регионов"],
     leg: ["перегон", "перегона", "перегонов"],
+    occasion: ["повод", "повода", "поводов"],
 };
 const pw = (n, key) => plural(n, ...WORD[key]);
 const np = (n, key) => `${n} ${pw(n, key)}`;
@@ -2986,7 +2987,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "43.25";
+const APP_VERSION = "43.27";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -6910,6 +6911,838 @@ function SpaceBackdrop({ light, moving = true }) {
     }, [light]);
     return React.createElement("canvas", { className: "space-bg", ref: ref, "aria-hidden": "true" });
 }
+/* Атлас · 12c · карта из точек (43.27) — вид «Карта» на главном экране и во весь экран.
+   Мир собран из ровной сетки точек (проекция Natural Earth): где были — золото, большие страны с регионами —
+   светлое золото и золотые регионы (как на глобусе), города поездок — искорки. Выбор страны — как на глобусе:
+   карта приближается к её части света, страна трижды мигает, встаёт флажок, затем карта приближается к самой
+   стране: видны регионы (где были — золотом), соседи приглушены, их границы и названия, моря подписаны.
+   Каждый вид (мир / часть света / страна) рисуется один раз в запасной холст «слой»; при перелёте старый
+   и новый слои плавно сменяют друг друга с увеличением. Мигание, флажок и вспышка региона — поверх, по кадрам.
+   Части собираются по номерам (tools/rebuild.sh) и видят друг друга напрямую. */
+const DOT_CONT_BOX = {
+    EU: [-12, 34, 42, 66],
+    AS: [25, -11, 150, 58],
+    AF: [-18, -36, 52, 38],
+    NA: [-170, 7, -50, 75],
+    SA: [-82, -56, -34, 13],
+    OC: [110, -48, 180, -5],
+    PL: [-75, 58, -10, 84],
+};
+const DOT_STEP = { world: 4.2, cont: 3.5, country: 3.0 };
+const DOT_FLY = 700; // перелёт, мс
+const DOT_BLINK = 1350; // три мигания, как на глобусе
+const DOT_FLAG = 450;
+/* подпись по строкам не длиннее 14 знаков */
+function dotLines(name) {
+    const words = String(name || "").toUpperCase().split(" ");
+    const out = [];
+    let cur = "";
+    words.forEach((w) => {
+        if (!cur)
+            cur = w;
+        else if ((cur + " " + w).length <= 14)
+            cur += " " + w;
+        else {
+            out.push(cur);
+            cur = w;
+        }
+    });
+    if (cur)
+        out.push(cur);
+    return out;
+}
+/* текст с разрядкой (буква за буквой — ctx.letterSpacing есть не везде) */
+function dotText(ctx, lines, x, y, fs, sp, color, weight = 600, draw = true) {
+    ctx.font = `${weight} ${fs}px system-ui, -apple-system, sans-serif`;
+    const lh = fs * 1.25;
+    const widths = lines.map((s) => [...s].reduce((a, ch) => a + ctx.measureText(ch).width + sp, -sp));
+    const w = Math.max(...widths);
+    const h = lh * lines.length;
+    if (draw) {
+        ctx.fillStyle = color;
+        ctx.textBaseline = "middle";
+        ctx.textAlign = "left";
+        lines.forEach((s, i) => {
+            let xx = x - widths[i] / 2;
+            const yy = y + (i - (lines.length - 1) / 2) * lh;
+            [...s].forEach((ch) => {
+                ctx.fillText(ch, xx, yy);
+                xx += ctx.measureText(ch).width + sp;
+            });
+        });
+    }
+    return [x - w / 2 - 3, y - h / 2 - 2, x + w / 2 + 3, y + h / 2 + 2];
+}
+const dotHit = (a, b) => a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
+/* охват страны на базовой проекции: только заметные части рядом с главной (без «хвоста» Чукотки за краем) */
+function dotFeatBox(path, f) {
+    const g = f.geometry;
+    if (!g)
+        return null;
+    const polys = g.type === "MultiPolygon" ? g.coordinates : g.type === "Polygon" ? [g.coordinates] : [];
+    const parts = polys
+        .map((p) => {
+        const pf = { type: "Polygon", coordinates: p };
+        return { b: path.bounds(pf), a: d3.geoArea(pf) };
+    })
+        .filter((x) => isFinite(x.b[0][0]));
+    if (!parts.length)
+        return null;
+    parts.sort((x, y) => y.a - x.a);
+    const main = parts[0];
+    const mc = [(main.b[0][0] + main.b[1][0]) / 2, (main.b[0][1] + main.b[1][1]) / 2];
+    const mw = Math.max(20, main.b[1][0] - main.b[0][0]);
+    const box = [main.b[0][0], main.b[0][1], main.b[1][0], main.b[1][1]];
+    parts.slice(1).forEach((x) => {
+        if (x.a < main.a * 0.02)
+            return;
+        const c = [(x.b[0][0] + x.b[1][0]) / 2, (x.b[0][1] + x.b[1][1]) / 2];
+        if (Math.abs(c[0] - mc[0]) > mw * 2.5 + 60)
+            return;
+        box[0] = Math.min(box[0], x.b[0][0]);
+        box[1] = Math.min(box[1], x.b[0][1]);
+        box[2] = Math.max(box[2], x.b[1][0]);
+        box[3] = Math.max(box[3], x.b[1][1]);
+    });
+    return box;
+}
+function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, pins, lookKey, full = false, onToggleFull, noFull = false, light, cities, visitKey }) {
+    const stageRef = useRef(null);
+    const cvRef = useRef(null);
+    const [box, setBox] = useState({ W: 0, H: 0 });
+    const [crumb, setCrumb] = useState(null);
+    const st = useRef({ cam: null, cur: null, fly: null, seq: null, raf: 0, flash: null });
+    const props = useRef({});
+    props.current = { isOn, isWish, selected, onPick, selRegion, regions, pins, light, cities };
+    /* размер окна карты */
+    useEffect(() => {
+        const el = stageRef.current;
+        if (!el)
+            return;
+        const upd = () => {
+            const W = Math.floor(el.clientWidth);
+            const H = Math.floor(el.clientHeight);
+            setBox((b) => (b.W === W && b.H === H ? b : { W, H }));
+        };
+        upd();
+        const ro = new ResizeObserver(upd);
+        ro.observe(el);
+        return () => ro.disconnect();
+    }, []);
+    const { W, H } = box;
+    /* базовая проекция: вся суша (без Антарктиды) в окне */
+    const base = useMemo(() => {
+        if (!(geo === null || geo === void 0 ? void 0 : geo.features) || W < 40 || H < 40)
+            return null;
+        const land = { type: "FeatureCollection", features: lodGeo(geo).features.filter((f) => f.id !== "ATA") };
+        const p = d3.geoNaturalEarth1().rotate([-10, 0]);
+        p.fitExtent([[6, 8], [W - 6, H - 6]], land);
+        return p;
+    }, [geo, W, H]);
+    const projFor = useCallback((cam) => {
+        const t = base.translate();
+        return d3
+            .geoNaturalEarth1()
+            .rotate([-10, 0])
+            .scale(base.scale() * cam.k)
+            .translate([(t[0] - cam.x) * cam.k + W / 2, (t[1] - cam.y) * cam.k + H / 2])
+            .clipExtent([[-2, -2], [W + 2, H + 2]]);
+    }, [base, W, H]);
+    const worldCam = () => ({ k: 1, x: W / 2, y: H / 2, kind: "world" });
+    const camForBox = (b, pad, kind, extra = {}) => {
+        const bw = Math.max(4, b[2] - b[0]);
+        const bh = Math.max(4, b[3] - b[1]);
+        const k = Math.max(1, Math.min(60, Math.min((W * (1 - 2 * pad)) / bw, (H * (1 - 2 * pad)) / bh)));
+        return { k, x: (b[0] + b[2]) / 2, y: (b[1] + b[3]) / 2, kind, ...extra };
+    };
+    const contCam = (cont) => {
+        const r = DOT_CONT_BOX[cont];
+        if (!r)
+            return worldCam();
+        const pts = [];
+        for (let i = 0; i <= 8; i++)
+            for (let j = 0; j <= 8; j++)
+                pts.push(base([r[0] + ((r[2] - r[0]) * i) / 8, r[1] + ((r[3] - r[1]) * j) / 8]));
+        const b = [Infinity, Infinity, -Infinity, -Infinity];
+        pts.forEach((q) => {
+            if (!q)
+                return;
+            b[0] = Math.min(b[0], q[0]);
+            b[1] = Math.min(b[1], q[1]);
+            b[2] = Math.max(b[2], q[0]);
+            b[3] = Math.max(b[3], q[1]);
+        });
+        return camForBox(b, 0.02, "cont", { cont });
+    };
+    const countryCam = (a3) => {
+        var _e;
+        const f = geo.features.find((x) => x.id === a3);
+        const b = f && dotFeatBox(d3.geoPath(base), f);
+        if (!b)
+            return null;
+        return camForBox(b, 0.13, "country", { a3, cont: (_e = BY_A3[a3]) === null || _e === void 0 ? void 0 : _e.cont });
+    };
+    /* слой — всё неподвижное для одного вида: точки, линии, подписи, города */
+    const buildLayer = useCallback((cam) => {
+        const P = props.current;
+        const lt = !!P.light;
+        const dpr = Math.min(2, window.devicePixelRatio || 1);
+        const proj = projFor(cam);
+        const kind = cam.kind;
+        const sel = kind === "country" ? cam.a3 : null;
+        const feats = (kind === "country" ? geo : lodGeo(geo)).features.filter((f) => f.id !== "ATA");
+        const marine = typeof marineFeats === "function" ? marineFeats() : [];
+        // регионы: золотые у больших стран, где были; у выбранной — все её регионы
+        const on = P.isOn || (() => false);
+        const regFeats = REG.ready
+            ? REG.feats.filter((f) => f.properties.a3 === sel || (REG.big.has(f.properties.a3) && on(f.properties.a3)))
+            : [];
+        // запасной холст-указатель: цвет точки = номер страны / моря / региона
+        const ix = document.createElement("canvas");
+        ix.width = W;
+        ix.height = H;
+        const x = ix.getContext("2d", { willReadFrequently: true });
+        x.imageSmoothingEnabled = false;
+        const ip = d3.geoPath(proj, x);
+        const paint = (list, tag) => list.forEach((f, i) => {
+            x.beginPath();
+            ip(f);
+            const n = i + 1;
+            x.fillStyle = `rgb(${n & 255},${((n >> 8) & 15) * 16 + tag},${tag * 20})`;
+            x.fill();
+        });
+        paint(marine, 3);
+        paint(feats, 5);
+        const landImg = x.getImageData(0, 0, W, H).data;
+        let regImg = null;
+        if (regFeats.length) {
+            x.clearRect(0, 0, W, H);
+            paint(regFeats, 7);
+            regImg = x.getImageData(0, 0, W, H).data;
+        }
+        const read = (d, px, py, tag) => {
+            const k = (Math.min(H - 1, Math.max(0, Math.round(py))) * W + Math.min(W - 1, Math.max(0, Math.round(px)))) * 4;
+            if (d[k + 2] !== tag * 20 || (d[k + 1] & 15) !== tag)
+                return -1;
+            return d[k] + (d[k + 1] >> 4) * 256 - 1;
+        };
+        // сетка точек
+        const step = DOT_STEP[kind] || 4.2;
+        const cells = [];
+        for (let yy = step * 0.7, row = 0; yy < H - 1; yy += step * 0.866, row++)
+            for (let xx = step * 0.6 + (row % 2) * (step / 2); xx < W - 1; xx += step) {
+                // на краях цвета смешиваются — номер вне списка считаем «ничем»
+                let c = read(landImg, xx, yy, 5);
+                if (c >= feats.length)
+                    c = -1;
+                let m = c < 0 ? read(landImg, xx, yy, 3) : -1;
+                if (m >= marine.length)
+                    m = -1;
+                let r = c >= 0 && regImg ? read(regImg, xx, yy, 7) : -1;
+                if (r >= regFeats.length)
+                    r = -1;
+                cells.push([xx, yy, c, m, r]);
+            }
+        const cv = document.createElement("canvas");
+        cv.width = Math.round(W * dpr);
+        cv.height = Math.round(H * dpr);
+        const ctx = cv.getContext("2d");
+        ctx.scale(dpr, dpr);
+        const bg = ctx.createRadialGradient(W * 0.5, H * 0.45, 10, W * 0.5, H * 0.5, Math.max(W, H) * 0.75);
+        bg.addColorStop(0, lt ? "#eef4f9" : kind === "country" ? "#13304a" : "#11283d");
+        bg.addColorStop(1, lt ? "#dbe5ee" : "#0a1724");
+        ctx.fillStyle = bg;
+        ctx.fillRect(0, 0, W, H);
+        const r0 = step * 0.31;
+        const GOLD = lt ? "#d9a23a" : "#f2c25a";
+        const CHAMP = lt ? "#e8cf8f" : "#f3e3b4";
+        const BASE = lt ? "rgba(70,110,150,.34)" : "rgba(125,170,210,.40)";
+        const DIM = lt ? "rgba(70,110,150,.16)" : "rgba(125,170,210,.20)";
+        const SELB = lt ? "rgba(60,130,200,.75)" : "rgba(160,205,240,.85)";
+        const WISH = lt ? "rgba(60,120,190,.7)" : "rgba(110,165,225,.75)";
+        const batches = {};
+        const add = (key, px, py, rr) => {
+            const b = batches[key] || (batches[key] = new Path2D());
+            b.moveTo(px + rr, py);
+            b.arc(px, py, rr, 0, Math.PI * 2);
+        };
+        const selCells = [];
+        const regCells = {};
+        const landCount = {};
+        const seaCount = {};
+        cells.forEach(([cx, cy, c, m, r], i) => {
+            var _e;
+            if (c < 0) {
+                if (m >= 0)
+                    (seaCount[m] || (seaCount[m] = [])).push(i);
+                return;
+            }
+            const a3 = feats[c].id;
+            (landCount[c] || (landCount[c] = [])).push(i);
+            const visited = on(a3);
+            const rk = r >= 0 ? regFeats[r].properties.key : null;
+            if (rk && a3 === sel)
+                (regCells[rk] || (regCells[rk] = [])).push(i);
+            if (a3 === sel)
+                selCells.push(i);
+            let col;
+            if (sel && a3 !== sel) {
+                col = visited ? "nG" : "dim";
+            }
+            else if (visited) {
+                const champ = REG.ready && REG.big.has(a3);
+                col = champ ? (rk && ((_e = P.regions) === null || _e === void 0 ? void 0 : _e.has(rk)) ? "gold" : a3 === sel ? "selB" : "champ") : "gold";
+            }
+            else if (a3 === sel)
+                col = "selB";
+            else
+                col = P.isWish && P.isWish(a3) ? "wish" : "base";
+            if (col === "gold" || col === "champ")
+                add(col + "G", cx, cy, r0 * 2.2);
+            add(col, cx, cy, col === "gold" || col === "champ" || col === "selB" ? r0 * 1.15 : r0);
+        });
+        const FILL = {
+            goldG: lt ? "rgba(217,162,58,.14)" : "rgba(242,194,90,.16)",
+            champG: lt ? "rgba(232,207,143,.10)" : "rgba(243,227,180,.09)",
+            gold: GOLD,
+            champ: CHAMP,
+            base: BASE,
+            dim: DIM,
+            nG: lt ? "rgba(217,162,58,.45)" : "rgba(242,194,90,.5)",
+            selB: SELB,
+            wish: WISH,
+        };
+        ["goldG", "champG", "dim", "base", "wish", "nG", "champ", "selB", "gold"].forEach((k) => {
+            if (!batches[k])
+                return;
+            ctx.fillStyle = FILL[k];
+            ctx.fill(batches[k]);
+        });
+        // вблизи страны: границы соседей, линии регионов, светящийся контур
+        const path = d3.geoPath(proj, ctx);
+        if (kind === "country") {
+            ctx.beginPath();
+            feats.forEach((f) => f.id !== sel && path(f));
+            ctx.strokeStyle = lt ? "rgba(60,90,120,.4)" : "rgba(175,200,225,.38)";
+            ctx.lineWidth = 0.7;
+            ctx.stroke();
+            const own = regFeats.filter((f) => f.properties.a3 === sel);
+            if (own.length) {
+                ctx.beginPath();
+                own.forEach((f) => path(f));
+                ctx.strokeStyle = lt ? "rgba(60,90,120,.35)" : "rgba(215,232,248,.42)";
+                ctx.lineWidth = 0.5;
+                ctx.stroke();
+            }
+            const sf = feats.find((f) => f.id === sel);
+            if (sf) {
+                ctx.save();
+                ctx.beginPath();
+                path(sf);
+                ctx.strokeStyle = lt ? "rgba(29,127,224,.85)" : "rgba(143,212,255,.9)";
+                ctx.lineWidth = 1.3;
+                ctx.shadowColor = lt ? "rgba(29,127,224,.5)" : "rgba(143,212,255,.7)";
+                ctx.shadowBlur = 6;
+                ctx.stroke();
+                ctx.restore();
+            }
+        }
+        // города поездок — искорки; вблизи страны — с названиями
+        // места кнопок поверх карты: строка «назад» слева сверху, «во весь экран» справа снизу
+        const taken = [[0, 0, Math.min(W, 270), 40], [W - 52, H - 52, W, H]];
+        const cityNames = [];
+        (P.cities || []).forEach((ct) => {
+            const q = proj([ct.lon, ct.lat]);
+            if (!q || q[0] < 0 || q[0] > W || q[1] < 0 || q[1] > H)
+                return;
+            const rr = r0 * (kind === "world" ? 2.6 : 4);
+            const g = ctx.createRadialGradient(q[0], q[1], 0, q[0], q[1], rr);
+            g.addColorStop(0, lt ? "rgba(255,255,255,.9)" : kind === "world" ? "rgba(255,248,220,.5)" : "rgba(255,248,220,.68)");
+            g.addColorStop(1, "rgba(255,248,220,0)");
+            ctx.fillStyle = g;
+            ctx.beginPath();
+            ctx.arc(q[0], q[1], rr, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = lt ? "#ffffff" : "#fffaf0";
+            ctx.beginPath();
+            ctx.arc(q[0], q[1], r0 * 1.05, 0, Math.PI * 2);
+            ctx.fill();
+            if (kind === "country" && ct.a3 === sel)
+                cityNames.push([ct.name, q]);
+        });
+        cityNames.forEach(([n, q]) => {
+            ctx.save();
+            ctx.font = "600 10px system-ui, -apple-system, sans-serif";
+            const w = ctx.measureText(n).width;
+            const tries = [[6, -7], [6, 8], [-w - 6, -7], [-w - 6, 8]];
+            for (const [dx, dy] of tries) {
+                const r = [q[0] + dx - 2, q[1] + dy - 7, q[0] + dx + w + 2, q[1] + dy + 7];
+                if (r[0] < 2 || r[2] > W - 2 || r[1] < 2 || r[3] > H - 2 || taken.some((t) => dotHit(t, r)))
+                    continue;
+                ctx.fillStyle = lt ? "#1d2f40" : "#fff6dc";
+                ctx.shadowColor = lt ? "rgba(255,255,255,.95)" : "rgba(0,0,0,.9)";
+                ctx.shadowBlur = 3;
+                ctx.textBaseline = "middle";
+                ctx.textAlign = "left";
+                ctx.fillText(n, q[0] + dx, q[1] + dy);
+                taken.push(r);
+                break;
+            }
+            ctx.restore();
+        });
+        // подписи: где больше всего «своих» точек — туда, только если не наезжает на другие
+        // подпись — у «середины» своих точек, но только там, где под ней нет суши (для морей) или чужих стран
+        // (для соседей) и она не наезжает на другие подписи: перебираем свои точки от середины к краям
+        // на общем виде мира проверяем середину подписи (края букв могут чуть заходить на берег)
+        const clearUnder = (r, ok) => {
+            const ix = kind === "world" ? (r[2] - r[0]) * 0.18 : 0;
+            const iy = kind === "world" ? (r[3] - r[1]) * 0.22 : 0;
+            for (let yy = r[1] + iy; yy <= r[3] - iy; yy += 3)
+                for (let xx = r[0] + ix; xx <= r[2] - ix; xx += 3)
+                    if (!ok(xx, yy))
+                        return false;
+            return true;
+        };
+        const place = (idxs, lines, fs, sp, color, weight, ok) => {
+            let sx = 0;
+            let sy = 0;
+            idxs.forEach((i) => {
+                sx += cells[i][0];
+                sy += cells[i][1];
+            });
+            const mx = sx / idxs.length;
+            const my = sy / idxs.length;
+            const order = idxs
+                .map((i) => [i, (cells[i][0] - mx) ** 2 + (cells[i][1] - my) ** 2])
+                .sort((u, v) => u[1] - v[1]);
+            const stride = Math.max(1, Math.floor(order.length / 160));
+            for (let j = 0; j < order.length; j += stride) {
+                const [px, py] = cells[order[j][0]];
+                const r = dotText(ctx, lines, px, py, fs, sp, color, weight, false);
+                if (r[0] < 2 || r[2] > W - 2 || r[1] < 2 || r[3] > H - 2 || taken.some((t) => dotHit(t, r)))
+                    continue;
+                if (!clearUnder(r, ok))
+                    continue;
+                dotText(ctx, lines, px, py, fs, sp, color, weight, true);
+                taken.push(r);
+                return true;
+            }
+            return false;
+        };
+        const isWater = (px, py) => read(landImg, px, py, 5) < 0;
+        const waterCol = lt ? "rgba(50,90,130,.55)" : "rgba(140,185,225,.62)";
+        const seaMin = kind === "world" ? 70 : kind === "cont" ? 45 : 30;
+        const seaMax = kind === "world" ? 6 : 7;
+        let nSea = 0;
+        const seaDone = new Set();
+        Object.entries(seaCount)
+            .filter(([m, l]) => l.length >= seaMin && (kind !== "world" || marine[m].properties.c === "ocean"))
+            .sort((a, b) => b[1].length - a[1].length)
+            .forEach(([m, l]) => {
+            const nm = marine[m].properties.n;
+            if (nSea >= seaMax || seaDone.has(nm))
+                return;
+            const big = marine[m].properties.c === "ocean";
+            const fs = kind === "world" ? 6.5 : big ? 7.5 : 7;
+            if (place(l, dotLines(nm), fs, big ? 1.8 : 1.4, waterCol, 600, isWater)) {
+                nSea++;
+                seaDone.add(nm);
+            }
+        });
+        if (kind === "country") {
+            let nNb = 0;
+            Object.entries(landCount)
+                .filter(([c, l]) => feats[c].id !== sel && l.length >= 24 && BY_A3[feats[c].id])
+                .sort((a, b) => b[1].length - a[1].length)
+                .forEach(([c, l]) => {
+                if (nNb >= 8)
+                    return;
+                const own = +c;
+                const onOwn = (px, py) => {
+                    const k = read(landImg, px, py, 5);
+                    return k === own || k < 0;
+                };
+                if (place(l, dotLines(BY_A3[feats[c].id].name), 7.5, 2, lt ? "rgba(40,70,100,.6)" : "rgba(175,200,225,.62)", 700, onOwn))
+                    nNb++;
+            });
+            // по краям — лёгкое затемнение, страна в центре внимания
+            const v = ctx.createRadialGradient(W * 0.5, H * 0.5, Math.min(W, H) * 0.4, W * 0.5, H * 0.5, Math.max(W, H) * 0.72);
+            v.addColorStop(0, "rgba(10,23,36,0)");
+            v.addColorStop(1, lt ? "rgba(200,214,226,.45)" : "rgba(10,23,36,.5)");
+            ctx.fillStyle = v;
+            ctx.fillRect(0, 0, W, H);
+        }
+        return { cam, cv, cells, feats, regFeats, landImg, regImg, selCells, regCells, r0, read, dpr };
+    }, [geo, projFor, W, H]);
+    /* кадр: слой (или два — во время перелёта) и поверх мигание, вспышка региона, флажок */
+    const drawFrame = useCallback(() => {
+        var _e;
+        const cv = cvRef.current;
+        const S = st.current;
+        if (!cv || !S.cur || !base)
+            return false;
+        const dpr = S.cur.dpr;
+        if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) {
+            cv.width = Math.round(W * dpr);
+            cv.height = Math.round(H * dpr);
+            cv.style.width = W + "px";
+            cv.style.height = H + "px";
+        }
+        const ctx = cv.getContext("2d");
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, cv.width, cv.height);
+        const now = performance.now();
+        let more = false;
+        let cam = S.cur.cam;
+        const put = (L, c, a) => {
+            // слой L (снят с камерой L.cam) — под текущую камеру c
+            const s = c.k / L.cam.k;
+            const ox = (W / 2) * (1 - s) + (L.cam.x - c.x) * c.k;
+            const oy = (H / 2) * (1 - s) + (L.cam.y - c.y) * c.k;
+            ctx.globalAlpha = a;
+            ctx.setTransform(s, 0, 0, s, ox * dpr, oy * dpr);
+            ctx.drawImage(L.cv, 0, 0);
+        };
+        if (S.fly) {
+            const p = Math.min(1, (now - S.fly.t0) / S.fly.dur);
+            const e = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+            const a = S.fly.from.cam;
+            const b = S.fly.to.cam;
+            cam = {
+                k: Math.exp(Math.log(a.k) + (Math.log(b.k) - Math.log(a.k)) * e),
+                x: a.x + (b.x - a.x) * e,
+                y: a.y + (b.y - a.y) * e,
+            };
+            put(S.fly.from, cam, 1);
+            put(S.fly.to, cam, Math.min(1, e * 1.4));
+            if (p >= 1) {
+                S.cur = S.fly.to;
+                const done = S.fly.done;
+                S.fly = null;
+                cam = S.cur.cam;
+                done && done();
+            }
+            else
+                more = true;
+        }
+        else
+            put(S.cur, cam, 1);
+        ctx.globalAlpha = 1;
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        const L = S.cur;
+        const P = props.current;
+        // мигание выбранной страны
+        const q = S.seq;
+        if (q && q.blinkT0 && !S.fly && L.cam.a3 !== q.a3) {
+            const t = now - q.blinkT0;
+            if (t < DOT_BLINK) {
+                const pulse = Math.abs(Math.sin((t / DOT_BLINK) * Math.PI * 3));
+                const path = new Path2D();
+                const glow = new Path2D();
+                const rr = L.r0 * 1.3;
+                L.cells.forEach(([cx, cy, c]) => {
+                    if (c < 0 || L.feats[c].id !== q.a3)
+                        return;
+                    path.moveTo(cx + rr, cy);
+                    path.arc(cx, cy, rr, 0, Math.PI * 2);
+                    glow.moveTo(cx + rr * 2.4, cy);
+                    glow.arc(cx, cy, rr * 2.4, 0, Math.PI * 2);
+                });
+                ctx.globalAlpha = pulse;
+                ctx.fillStyle = "rgba(87,227,154,.35)";
+                ctx.fill(glow);
+                ctx.fillStyle = "#7df0b4";
+                ctx.fill(path);
+                ctx.globalAlpha = 1;
+                more = true;
+            }
+        }
+        // вспышка региона, выбранного в списке
+        const fl = S.flash;
+        if (fl && L.cam.kind === "country" && !S.fly) {
+            const t = now - fl.t0;
+            const ids = L.regCells[fl.key] || [];
+            if (t < 1800 && ids.length) {
+                const pulse = 0.5 + 0.5 * Math.cos((t / 600) * Math.PI * 2);
+                const path = new Path2D();
+                const rr = L.r0 * 1.35;
+                ids.forEach((i) => {
+                    const [cx, cy] = L.cells[i];
+                    path.moveTo(cx + rr * 2.2, cy);
+                    path.arc(cx, cy, rr * 2.2, 0, Math.PI * 2);
+                });
+                ctx.globalAlpha = 0.25 + 0.5 * pulse;
+                ctx.fillStyle = P.light ? "rgba(29,127,224,.45)" : "rgba(255,240,190,.55)";
+                ctx.fill(path);
+                ctx.globalAlpha = 1;
+                more = true;
+            }
+            else if (t >= 1800)
+                S.flash = null;
+        }
+        // флажок
+        if (q && q.flagT0 && ((_e = P.pins) === null || _e === void 0 ? void 0 : _e.length)) {
+            const show = Math.min(1, Math.max(0, (now - q.flagT0) / DOT_FLAG));
+            if (show < 1)
+                more = true;
+            const pin = P.pins[0];
+            const proj = projFor(cam);
+            const xy = proj([pin.lon, pin.lat]);
+            if (xy && show > 0) {
+                const h = 40 * show;
+                const top = xy[1] - h;
+                ctx.save();
+                ctx.globalAlpha = show;
+                ctx.strokeStyle = "rgba(8,16,26,.85)";
+                ctx.lineWidth = 3.4;
+                ctx.beginPath();
+                ctx.moveTo(xy[0], xy[1]);
+                ctx.lineTo(xy[0], top);
+                ctx.stroke();
+                ctx.strokeStyle = "#f4efe2";
+                ctx.lineWidth = 1.6;
+                ctx.beginPath();
+                ctx.moveTo(xy[0], xy[1]);
+                ctx.lineTo(xy[0], top);
+                ctx.stroke();
+                ctx.fillStyle = "#f4efe2";
+                ctx.beginPath();
+                ctx.arc(xy[0], xy[1], 2.6, 0, Math.PI * 2);
+                ctx.fill();
+                const c = BY_A3[pin.a3];
+                const spr = c && typeof flagSprite === "function" ? flagSprite(c) : null;
+                ctx.shadowColor = "rgba(0,0,0,.55)";
+                ctx.shadowBlur = 6;
+                if (spr) {
+                    const fw = 30;
+                    const fh = (fw * spr.height) / spr.width;
+                    ctx.drawImage(spr, xy[0] + 1, top - fh / 2 + 2, fw, fh);
+                }
+                else {
+                    if (c)
+                        more = true; // эмодзи ещё не нарисовался — попробуем в следующем кадре
+                    ctx.fillStyle = "#e8b84b";
+                    ctx.beginPath();
+                    ctx.roundRect(xy[0] + 2, top - 8, 38, 20, 5);
+                    ctx.fill();
+                    ctx.fillStyle = "#11202e";
+                    ctx.font = "bold 12px system-ui, -apple-system, sans-serif";
+                    ctx.textBaseline = "middle";
+                    ctx.fillText(pin.code || pin.a3 || "", xy[0] + 7, top + 2);
+                }
+                ctx.restore();
+            }
+        }
+        return more;
+    }, [base, W, H, projFor]);
+    const kick = useCallback(() => {
+        const S = st.current;
+        if (S.raf)
+            return;
+        const loop = () => {
+            S.raf = 0;
+            if (drawFrame())
+                S.raf = requestAnimationFrame(loop);
+        };
+        S.raf = requestAnimationFrame(loop);
+    }, [drawFrame]);
+    useEffect(() => () => cancelAnimationFrame(st.current.raf), []);
+    const flyTo = useCallback((cam, done) => {
+        const S = st.current;
+        const to = buildLayer(cam);
+        if (!S.cur) {
+            S.cur = to;
+            done && done();
+        }
+        else {
+            // перелёт начинается оттуда, где карта сейчас
+            if (S.fly)
+                S.cur = S.fly.to;
+            S.fly = { from: S.cur, to, t0: performance.now(), dur: DOT_FLY, done };
+        }
+        kick();
+    }, [buildLayer, kick]);
+    const crumbFor = (cam) => {
+        const contName = (c) => (CONTINENTS && CONTINENTS[c]) || "";
+        if (!cam || cam.kind === "world")
+            return null;
+        if (cam.kind === "cont")
+            return { back: "world", prev: "Мир", name: contName(cam.cont) };
+        const c = BY_A3[cam.a3];
+        const total = REG.ready ? REG.feats.filter((f) => f.properties.a3 === cam.a3).length : 0;
+        const got = total && props.current.regions ? [...props.current.regions].filter((k) => k.startsWith(cam.a3 + "|")).length : 0;
+        return { back: "cont", prev: contName(c === null || c === void 0 ? void 0 : c.cont) || "Мир", name: (c === null || c === void 0 ? void 0 : c.name) || "", extra: total ? `${got} из ${total}` : "" };
+    };
+    /* первый показ и смена размера: текущий вид заново */
+    useEffect(() => {
+        var _e, _h;
+        if (!base)
+            return;
+        const S = st.current;
+        cancelAnimationFrame(S.raf);
+        S.raf = 0;
+        S.fly = null;
+        const sel = props.current.selected;
+        let cam = worldCam();
+        if (sel && ((_e = S.seq) === null || _e === void 0 ? void 0 : _e.a3) === sel && S.seq.flagT0)
+            cam = countryCam(sel) || contCam((_h = BY_A3[sel]) === null || _h === void 0 ? void 0 : _h.cont);
+        else if (S.cam && S.cam.kind === "cont")
+            cam = contCam(S.cam.cont);
+        S.cur = buildLayer(cam);
+        S.cam = cam;
+        setCrumb(crumbFor(cam));
+        kick();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [base]);
+    /* поменялись отметки, регионы, тема — тот же вид перерисовываем */
+    useEffect(() => {
+        const S = st.current;
+        if (!base || !S.cur || S.fly)
+            return;
+        S.cur = buildLayer(S.cur.cam);
+        kick();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [visitKey, regions, light, cities]);
+    /* выбор страны: к части света → мигание → флажок → к самой стране; снят выбор — весь мир */
+    useEffect(() => {
+        if (!base)
+            return;
+        const S = st.current;
+        const a3 = selected;
+        if (!a3 || !BY_A3[a3]) {
+            S.seq = null;
+            const cam = worldCam();
+            S.cam = cam;
+            setCrumb(null);
+            if (S.cur && S.cur.cam.kind !== "world")
+                flyTo(cam);
+            else
+                kick();
+            return;
+        }
+        const seq = { a3 };
+        S.seq = seq;
+        const cont = BY_A3[a3].cont;
+        const cCam = contCam(cont);
+        S.cam = cCam;
+        setCrumb(crumbFor(cCam));
+        flyTo(cCam, () => {
+            if (S.seq !== seq)
+                return;
+            seq.blinkT0 = performance.now();
+            kick();
+            setTimeout(() => {
+                if (S.seq !== seq)
+                    return;
+                seq.flagT0 = performance.now();
+                kick();
+                setTimeout(() => {
+                    if (S.seq !== seq)
+                        return;
+                    const kCam = countryCam(a3);
+                    if (!kCam)
+                        return;
+                    S.cam = kCam;
+                    setCrumb(crumbFor(kCam));
+                    flyTo(kCam);
+                }, DOT_FLAG + 250);
+            }, DOT_BLINK);
+        });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [lookKey, selected, base]);
+    /* регион, выбранный в списке, — вспыхивает */
+    useEffect(() => {
+        if (!selRegion)
+            return;
+        st.current.flash = { key: selRegion, t0: performance.now() };
+        kick();
+    }, [selRegion, kick]);
+    /* касание: страна (или регион выбранной страны) */
+    const down = useRef(null);
+    const onDown = (e) => (down.current = { x: e.clientX, y: e.clientY });
+    const onUp = (e) => {
+        const d = down.current;
+        down.current = null;
+        if (!d || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 8)
+            return;
+        const S = st.current;
+        const L = S.cur;
+        if (!L || S.fly)
+            return;
+        const r = cvRef.current.getBoundingClientRect();
+        const px = e.clientX - r.left;
+        const py = e.clientY - r.top;
+        // ближайшая точка-страна в радиусе пары шагов: в мелкую страну легче попасть
+        let best = L.read(L.landImg, px, py, 5);
+        if (best >= L.feats.length)
+            best = -1;
+        if (best < 0) {
+            let bd = 14 * 14;
+            L.cells.forEach(([cx, cy, c]) => {
+                if (c < 0)
+                    return;
+                const dd = (cx - px) ** 2 + (cy - py) ** 2;
+                if (dd < bd) {
+                    bd = dd;
+                    best = c;
+                }
+            });
+        }
+        if (best < 0)
+            return;
+        const a3 = L.feats[best].id;
+        if (!BY_A3[a3])
+            return;
+        const P = props.current;
+        if (L.cam.kind === "country" && a3 === L.cam.a3 && L.regImg) {
+            const ri = L.read(L.regImg, px, py, 7);
+            if (ri >= 0 && ri < L.regFeats.length) {
+                P.onPick && P.onPick(a3, { region: L.regFeats[ri].properties.key });
+                return;
+            }
+        }
+        if (a3 === P.selected)
+            return;
+        P.onPick && P.onPick(a3);
+    };
+    const onCrumb = () => {
+        var _e, _h;
+        const S = st.current;
+        if (!crumb)
+            return;
+        if (crumb.back === "cont") {
+            const c = contCam((_h = BY_A3[((_e = S.cur) === null || _e === void 0 ? void 0 : _e.cam.a3) || props.current.selected]) === null || _h === void 0 ? void 0 : _h.cont);
+            S.cam = c;
+            setCrumb(crumbFor(c));
+            flyTo(c);
+        }
+        else {
+            const w = worldCam();
+            S.cam = w;
+            setCrumb(null);
+            flyTo(w);
+        }
+    };
+    const stage = (React.createElement("div", { className: "dot-stage", ref: stageRef },
+        React.createElement("canvas", { ref: cvRef, className: "dot-cv", onPointerDown: onDown, onPointerUp: onUp }),
+        crumb && (React.createElement("button", { className: "dot-crumb", onClick: onCrumb },
+            "\u2039 ",
+            crumb.prev,
+            " \u00B7 ",
+            React.createElement("b", null, crumb.name),
+            crumb.extra ? React.createElement("span", null,
+                " ",
+                crumb.extra) : null))));
+    const controls = !noFull && (React.createElement("div", { className: "globe-controls" },
+        React.createElement("button", { onClick: onToggleFull, "aria-label": full ? "Свернуть" : "Во весь экран" }, full ? "✕" : "⛶")));
+    if (full)
+        return (React.createElement("div", { className: "globe-full dot-full" },
+            stage,
+            controls));
+    return (React.createElement("div", { className: "map-wrap dot-map" },
+        stage,
+        controls));
+}
 /* Атлас · 13 · код входа, шторка, снимки, поля ввода, выбор даты.
    Части собираются по номерам в один файл (tools/rebuild.sh) и видят друг друга напрямую. */
 /* ================================================================== */
@@ -10800,16 +11633,6 @@ function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, 
             React.createElement(Ask, { ask: ask, onClose: () => setAsk(null), box: box })));
     }));
 }
-/* 43.25: свёрнутый список в настройках — строка-заголовок с числом, касание раскрывает */
-function FoldList({ title, sub, children }) {
-    const [open, setOpen] = useState(false);
-    return (React.createElement("div", { className: "fold" + (open ? " open" : "") },
-        React.createElement("button", { className: "fold-head", onClick: () => setOpen(!open), "aria-expanded": open },
-            React.createElement("span", { className: "fold-t" }, title),
-            React.createElement("span", { className: "fold-sub" }, sub),
-            React.createElement("span", { className: "fold-chev", "aria-hidden": "true" }, "\u203A")),
-        open && React.createElement("div", { className: "fold-body" }, children)));
-}
 function ReportsSetup({ cfg, onChange }) {
     const order = reportOrder(cfg);
     const off = (cfg === null || cfg === void 0 ? void 0 : cfg.off) || [];
@@ -10836,89 +11659,68 @@ function ReportsSetup({ cfg, onChange }) {
         }),
         React.createElement("button", { className: "link-btn", onClick: () => onChange(null) }, "\u0412\u0435\u0440\u043D\u0443\u0442\u044C \u043A\u0430\u043A \u0431\u044B\u043B\u043E")));
 }
-/* данные: подсказки «что можно поправить» и резервные копии (живут в настройках) */
-function DataTools({ home, depGaps, onFillDeparture, regionGaps, onFillRegions, doubles, onDoubles, onRestore, restoreMsg, onExport, onImport, box }) {
-    const [helpOpen, setHelpOpen] = useState(false);
-    const [ask, setAsk] = useState(null);
-    return (React.createElement(React.Fragment, null,
-        (() => {
-            const helps = [];
-            if (depGaps > 0 && home)
-                helps.push({
-                    k: "dep",
-                    title: "Город вылета",
-                    text: `Не указан в ${np(depGaps, "trip")} — подставить ${home.name}`,
-                    run: () => setAsk({
-                        title: "Проставить город вылета?",
-                        text: `В ${np(depGaps, "trip")} он не указан — поставим ${home.name}. В любой поездке его можно поменять.`,
-                        yes: "Проставить",
-                        onYes: onFillDeparture,
-                    }),
-                });
-            if ((regionGaps === null || regionGaps === void 0 ? void 0 : regionGaps.trips) > 0)
-                helps.push({
-                    k: "reg",
-                    title: "Регионы по городам",
-                    text: `Можно проставить в ${np(regionGaps.trips, "trip")} — сейчас их там нет`,
-                    run: () => setAsk({
-                        title: "Проставить регионы?",
-                        text: `Регионы подставятся по городам в ${np(regionGaps.trips, "trip")} — всего ${np(regionGaps.adds, "region")}. Уже указанные
-                      регионы останутся, лишнее можно убрать вручную.`,
-                        yes: "Проставить",
-                        onYes: onFillRegions,
-                    }),
-                });
-            if (doubles > 0)
-                helps.push({
-                    k: "dbl",
-                    title: "Похожие поездки",
-                    text: `Нашлось ${np(doubles, "trip")} с пересекающимися датами — посмотреть и объединить`,
-                    run: onDoubles,
-                });
-            if (!helps.length)
-                return null;
-            return (React.createElement(React.Fragment, null,
-                React.createElement("button", { className: "switch-row" + (helpOpen ? " on" : ""), onClick: () => setHelpOpen((v) => !v) },
-                    React.createElement("span", { className: "switch-text" },
-                        "\u0427\u0442\u043E \u043C\u043E\u0436\u043D\u043E \u043F\u043E\u043F\u0440\u0430\u0432\u0438\u0442\u044C",
-                        React.createElement("em", null, helps.length === 1
-                            ? helps[0].title.toLowerCase()
-                            : `${helps.length} подсказки: ` +
-                                helps.map((h) => h.title.toLowerCase()).join(", "))),
-                    React.createElement("span", { className: "step-pen fold" + (helpOpen ? " up" : "") }, "\u2304")),
-                helpOpen &&
-                    helps.map((h) => (React.createElement("button", { key: h.k, className: "switch-row sub", onClick: h.run },
-                        React.createElement("span", { className: "switch-text" },
-                            h.title,
-                            React.createElement("em", null, h.text)),
-                        React.createElement("span", { className: "step-pen" }, "\u2192"))))));
-        })(),
-        React.createElement("button", { className: "switch-row", onClick: onRestore },
-            React.createElement("span", { className: "switch-text" },
-                "\u041D\u0430\u0439\u0442\u0438 \u043F\u043E\u0442\u0435\u0440\u044F\u043D\u043D\u044B\u0435 \u043F\u043E\u0435\u0437\u0434\u043A\u0438",
-                React.createElement("em", null, restoreMsg ||
-                    "Проверим все хранилища телефона и вернём самую полную копию")),
-            React.createElement("span", { className: "step-pen" }, "\u21BA")),
-        React.createElement("button", { className: "switch-row", onClick: onExport },
-            React.createElement("span", { className: "switch-text" },
-                "\u0412\u044B\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u0432 \u0444\u0430\u0439\u043B",
-                React.createElement("em", null, "\u041F\u043E\u0435\u0437\u0434\u043A\u0438, \u0441\u043D\u0438\u043C\u043A\u0438 \u0438 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438 \u043E\u0434\u043D\u0438\u043C \u0444\u0430\u0439\u043B\u043E\u043C")),
-            React.createElement("span", { className: "step-pen" }, "\u2193")),
-        React.createElement("label", { className: "switch-row" },
-            React.createElement("span", { className: "switch-text" },
-                "\u0417\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u0438\u0437 \u0444\u0430\u0439\u043B\u0430",
-                React.createElement("em", null, "\u0421\u0432\u043E\u044F \u043A\u043E\u043F\u0438\u044F, \u0447\u0443\u0436\u0430\u044F \u043A\u043E\u043F\u0438\u044F \u0438\u043B\u0438 \u043F\u043E\u0435\u0437\u0434\u043A\u0438 \u043E\u0442 \u0441\u0435\u043C\u044C\u0438 \u2014 \u0441\u043F\u0440\u043E\u0441\u0438\u043C, \u0447\u0442\u043E \u0434\u0435\u043B\u0430\u0442\u044C")),
-            React.createElement("span", { className: "step-pen" }, "\u2191"),
-            React.createElement("input", { type: "file", accept: "application/json", style: { display: "none" }, onChange: (e) => {
-                    var _e;
-                    const f = (_e = e.target.files) === null || _e === void 0 ? void 0 : _e[0];
-                    e.target.value = "";
-                    if (f)
-                        onImport(f);
-                } })),
-        React.createElement(Ask, { ask: ask, onClose: () => setAsk(null), box: box })));
+/* 43.26: настройки — меню разделов (как в настройках iPhone). На главной у каждого раздела строка
+   с текущим состоянием; касание открывает раздел, «‹ Все настройки» — назад. Подсказки «можно
+   поправить» — карточкой наверху, только когда есть что поправить */
+/* подсказки по поездкам: город вылета, регионы, похожие поездки */
+function fixHelps({ home, depGaps, onFillDeparture, regionGaps, onFillRegions, doubles, onDoubles }, setAsk) {
+    const helps = [];
+    if (depGaps > 0 && home)
+        helps.push({
+            k: "dep",
+            title: "Город вылета",
+            text: `Не указан в ${np(depGaps, "trip")} — подставить ${home.name}`,
+            run: () => setAsk({
+                title: "Проставить город вылета?",
+                text: `В ${np(depGaps, "trip")} он не указан — поставим ${home.name}. В любой поездке его можно поменять.`,
+                yes: "Проставить",
+                onYes: onFillDeparture,
+            }),
+        });
+    if ((regionGaps === null || regionGaps === void 0 ? void 0 : regionGaps.trips) > 0)
+        helps.push({
+            k: "reg",
+            title: "Регионы по городам",
+            text: `Можно проставить в ${np(regionGaps.trips, "trip")} — сейчас их там нет`,
+            run: () => setAsk({
+                title: "Проставить регионы?",
+                text: `Регионы подставятся по городам в ${np(regionGaps.trips, "trip")} — всего ${np(regionGaps.adds, "region")}. Уже указанные регионы останутся, лишнее можно убрать вручную.`,
+                yes: "Проставить",
+                onYes: onFillRegions,
+            }),
+        });
+    if (doubles > 0)
+        helps.push({
+            k: "dbl",
+            title: "Похожие поездки",
+            text: `Нашлось ${np(doubles, "trip")} с пересекающимися датами — посмотреть и объединить`,
+            run: onDoubles,
+        });
+    return helps;
 }
-function SettingsSheet({ reportsCfg, onReportsCfg, open, onClose, box, theme, onTheme, quality, onQuality, cityPins, onToggleCityPins, spinStart, onToggleSpin, mapView, onMapView, night, onToggleNight, notify = false, notifyState = "none", onToggleNotify, fxShow = true, onFxShow, occasions = null, onOccasions, geoCount, onReloadGeo, offline, busy, progress, offlineAt, onToggleOffline, booksSize, booksCounts, hasPin, faceAvailable, faceOn, onSetPin, onDropPin, onLock, onFace, home, depGaps, onFillDeparture, regionGaps, onFillRegions, doubles, onDoubles, onRestore, restoreMsg, onExport, onImport, }) {
+/* строка-переключатель настроек */
+function SetSwitch({ on, onClick, title, sub, disabled, cls = "" }) {
+    return (React.createElement("button", { className: "switch-row" + (cls ? " " + cls : ""), onClick: onClick, disabled: disabled },
+        React.createElement("span", { className: "switch-text" },
+            title,
+            sub ? React.createElement("em", null, sub) : null),
+        React.createElement("span", { className: "switch" + (on ? " on" : "") },
+            React.createElement("i", null))));
+}
+/* выбор из нескольких вариантов кнопками */
+function SetSeg({ value, opts, onPick }) {
+    return (React.createElement("div", { className: "theme-row" }, opts.map(([v, t]) => (React.createElement("button", { key: v, className: "theme-cell" + (value === v ? " on" : ""), onClick: () => onPick(v) }, t)))));
+}
+const SET_THEME = { system: "системная тема", dark: "тёмная тема", light: "светлая тема" };
+function SettingsSheet(props) {
+    const { reportsCfg, onReportsCfg, open, onClose, box, theme, onTheme, quality, onQuality, cityPins, onToggleCityPins, spinStart, onToggleSpin, mapView, onMapView, night, onToggleNight, notify = false, notifyState = "none", onToggleNotify, fxShow = true, onFxShow, occasions = null, onOccasions, geoCount, onReloadGeo, offline, busy, progress, offlineAt, onToggleOffline, booksSize, booksCounts, hasPin, faceAvailable, faceOn, onSetPin, onDropPin, onLock, onFace, onRestore, restoreMsg, onExport, onImport, } = props;
+    const [page, setPage] = useState(null);
+    const [ask, setAsk] = useState(null);
+    // каждый раз настройки открываются с главной
+    useEffect(() => {
+        if (open)
+            setPage(null);
+    }, [open]);
     const where = store.kind() === "idb"
         ? "база браузера"
         : store.kind() === "ls"
@@ -10926,160 +11728,202 @@ function SettingsSheet({ reportsCfg, onReportsCfg, open, onClose, box, theme, on
             : store.kind() === "app"
                 ? "хранилище приложения"
                 : "только до закрытия";
-    return (React.createElement(Sheet, { open: open, onClose: onClose, title: "\u041D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438", box: box }, () => {
+    const helps = fixHelps(props, setAsk);
+    const order = reportOrder(reportsCfg);
+    const shownReports = order.filter((id) => !((reportsCfg === null || reportsCfg === void 0 ? void 0 : reportsCfg.off) || []).includes(id)).length;
+    const notifyText = notifyState === "none"
+        ? "только с экрана «Домой»"
+        : notifyState === "denied"
+            ? "запрещены в телефоне"
+            : notify
+                ? "включены"
+                : "выключены";
+    const SECTIONS = [
+        { g: "Вид" },
+        {
+            id: "globe",
+            ico: "🌍",
+            bg: "#1d4a6e",
+            t: "Глобус и карта",
+            sub: [mapView === "map" ? "карта" : "глобус", spinStart ? "вращается" : "стоит", night ? "ночь" : null, cityPins ? "булавки" : null]
+                .filter(Boolean)
+                .join(" · "),
+        },
+        { id: "look", ico: "🎨", bg: "#3b3560", t: "Оформление", sub: `${SET_THEME[theme] || SET_THEME.system} · эффекты ${fxShow ? "включены" : "выключены"}` },
+        { g: "Поездки" },
+        { id: "special", ico: "✨", bg: "#5a3a2a", t: "Особенные поездки", sub: np(occList(occasions).length, "occasion") },
+        { id: "notify", ico: "🔔", bg: "#2c4f3a", t: "Уведомления", sub: notifyText },
+        { id: "reports", ico: "📊", bg: "#4a4020", t: "Отчёты", sub: `показываются ${shownReports} из ${order.length}` },
+        { g: "Безопасность и данные" },
+        { id: "access", ico: "🔒", bg: "#4a2a35", t: "Доступ", sub: hasPin ? "код при входе" + (faceAvailable ? (faceOn ? " · Face ID" : " · Face ID выкл.") : "") : "без кода" },
+        { id: "copies", ico: "💾", bg: "#24425a", t: "Копии", sub: "выгрузить, загрузить, найти потерянное" },
+        { id: "memory", ico: "📦", bg: "#2f3b48", t: "Память и сеть", sub: `снимки ${quality === "full" ? "максимум" : "экономно"} · без сети ${offline ? "вкл." : "выкл."}` },
+        { g: "" },
+        { id: "about", ico: "ⓘ", bg: "#22303d", t: "О приложении", sub: `версия ${APP_VERSION}` },
+    ];
+    const cur = page === "fix" ? { t: "Можно поправить" } : SECTIONS.find((x) => x.id === page);
+    const body = () => {
         var _e;
-        return (React.createElement("div", { className: "sheet-body" },
-            React.createElement("p", { className: "step-title" }, "\u041A\u0430\u0440\u0442\u0430 \u043C\u0438\u0440\u0430"),
-            React.createElement("div", { className: "theme-row" }, [
-                ["globe", "Глобус"],
-                ["map", "Карта"],
-            ].map(([v, t]) => (React.createElement("button", { key: v, className: "theme-cell" + (mapView === v ? " on" : ""), onClick: () => onMapView(v) }, t)))),
-            React.createElement("button", { className: "switch-row", onClick: () => onToggleCityPins(!cityPins) },
-                React.createElement("span", { className: "switch-text" },
-                    "\u0411\u0443\u043B\u0430\u0432\u043A\u0438 \u043F\u043E \u0433\u043E\u0440\u043E\u0434\u0430\u043C",
-                    React.createElement("em", null, cityPins
-                        ? "Каждый город поездки отмечен булавкой"
-                        : "Страны закрашены, булавок нет")),
-                React.createElement("span", { className: "switch" + (cityPins ? " on" : "") },
-                    React.createElement("i", null))),
-            React.createElement("button", { className: "switch-row", onClick: () => onToggleSpin(!spinStart) },
-                React.createElement("span", { className: "switch-text" },
-                    "\u0412\u0440\u0430\u0449\u0430\u0442\u044C \u043F\u0440\u0438 \u0437\u0430\u043F\u0443\u0441\u043A\u0435",
-                    React.createElement("em", null, spinStart
-                        ? "Глобус начинает вращаться сразу"
-                        : "Глобус стоит, пока не нажмёте воспроизведение")),
-                React.createElement("span", { className: "switch" + (spinStart ? " on" : "") },
-                    React.createElement("i", null))),
-            React.createElement("button", { className: "switch-row", onClick: () => onToggleNight(!night) },
-                React.createElement("span", { className: "switch-text" },
-                    "\u041D\u043E\u0447\u044C \u043D\u0430 \u0433\u043B\u043E\u0431\u0443\u0441\u0435",
-                    React.createElement("em", null, night
-                        ? "Ночная сторона затемнена по текущему времени"
-                        : "Весь шар освещён ровно")),
-                React.createElement("span", { className: "switch" + (night ? " on" : "") },
-                    React.createElement("i", null))),
-            React.createElement("button", { className: "switch-row" + (notifyState === "none" ? " off" : ""), onClick: () => onToggleNotify === null || onToggleNotify === void 0 ? void 0 : onToggleNotify(!notify) },
-                React.createElement("span", { className: "switch-text" },
-                    "\u0423\u0432\u0435\u0434\u043E\u043C\u043B\u0435\u043D\u0438\u044F \u043E \u043F\u043E\u0435\u0437\u0434\u043A\u0430\u0445",
-                    React.createElement("em", null, notifyState === "none"
-                        ? "На iPhone работают только у приложения, добавленного на экран «Домой» (iOS 16.4 и новее)"
-                        : notifyState === "denied"
-                            ? "Запрещены для Атласа — разрешите в Настройках телефона → Уведомления"
-                            : notify
-                                ? `При открытии напомним о поездках в ближайшие ${NOTIFY_DAYS} дней — раз в день`
-                                : "Выключены")),
-                React.createElement("span", { className: "switch" + (notify && notifyState === "granted" ? " on" : "") },
-                    React.createElement("i", null))),
-            React.createElement("p", { className: "step-title" }, "\u041E\u0441\u043E\u0431\u0435\u043D\u043D\u044B\u0435 \u043F\u043E\u0435\u0437\u0434\u043A\u0438"),
-            React.createElement("button", { className: "switch-row", onClick: () => onFxShow === null || onFxShow === void 0 ? void 0 : onFxShow(!fxShow) },
-                React.createElement("span", { className: "switch-text" },
-                    "\u042D\u0444\u0444\u0435\u043A\u0442\u044B \u043D\u0430 \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0430\u0445",
-                    React.createElement("em", null, fxShow ? "Частицы у особенных поездок: в карточке — движутся, в ленте — неподвижно" : "Выключены — повод виден, частиц нет")),
-                React.createElement("span", { className: "switch" + (fxShow ? " on" : "") },
-                    React.createElement("i", null))),
-            React.createElement(FoldList, { title: "\u0421\u043F\u0438\u0441\u043E\u043A \u043F\u043E\u0432\u043E\u0434\u043E\u0432", sub: occList(occasions).length },
-                React.createElement("p", { className: "hint small" }, "\u041F\u043E\u0432\u043E\u0434\u044B \u2014 \u043F\u043E\u0434\u0441\u043A\u0430\u0437\u043A\u0438 \u0432 \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0435 \u043F\u043E\u0435\u0437\u0434\u043A\u0438. \u041A\u0430\u0441\u0430\u043D\u0438\u0435 \u2014 \u043F\u0435\u0440\u0435\u0438\u043C\u0435\u043D\u043E\u0432\u0430\u0442\u044C \u0438 \u0432\u044B\u0431\u0440\u0430\u0442\u044C \u044D\u0444\u0444\u0435\u043A\u0442."),
-                React.createElement(OccasionsSetup, { list: occasions, onChange: onOccasions })),
-            React.createElement("p", { className: "step-title" }, "\u041E\u0442\u0447\u0451\u0442\u044B"),
-            React.createElement(FoldList, { title: "\u0421\u043F\u0438\u0441\u043E\u043A \u043E\u0442\u0447\u0451\u0442\u043E\u0432", sub: (() => {
-                    const ord = reportOrder(reportsCfg);
-                    const off = (reportsCfg === null || reportsCfg === void 0 ? void 0 : reportsCfg.off) || [];
-                    return `${ord.filter((id) => !off.includes(id)).length} из ${ord.length}`;
-                })() },
-                React.createElement("p", { className: "hint small" }, "\u0413\u0430\u043B\u043E\u0447\u043A\u0430 \u2014 \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0442\u044C \u043E\u0442\u0447\u0451\u0442, \u0441\u0442\u0440\u0435\u043B\u043A\u0438 \u2014 \u043F\u043E\u043C\u0435\u043D\u044F\u0442\u044C \u043F\u043E\u0440\u044F\u0434\u043E\u043A \u043D\u0430 \u044D\u043A\u0440\u0430\u043D\u0435 \u043E\u0442\u0447\u0451\u0442\u043E\u0432."),
-                React.createElement(ReportsSetup, { cfg: reportsCfg, onChange: onReportsCfg })),
-            React.createElement("p", { className: "step-title" }, "\u041E\u0444\u043E\u0440\u043C\u043B\u0435\u043D\u0438\u0435"),
-            React.createElement("div", { className: "theme-row" }, [
-                ["system", "Системная"],
-                ["dark", "Тёмная"],
-                ["light", "Светлая"],
-            ].map(([v, t]) => (React.createElement("button", { key: v, className: "theme-cell" + (theme === v ? " on" : ""), onClick: () => onTheme(v) }, t)))),
-            React.createElement("p", { className: "step-title" }, "\u0424\u043E\u0442\u043E\u0433\u0440\u0430\u0444\u0438\u0438"),
-            React.createElement("div", { className: "theme-row" }, [
-                ["light", "Экономно"],
-                ["full", "Максимум"],
-            ].map(([v, t]) => (React.createElement("button", { key: v, className: "theme-cell" + (quality === v ? " on" : ""), onClick: () => onQuality(v) }, t)))),
-            React.createElement("p", { className: "step-title" }, "\u0414\u043E\u0441\u0442\u0443\u043F"),
-            React.createElement("button", { className: "switch-row", onClick: () => (hasPin ? onDropPin() : onSetPin()) },
-                React.createElement("span", { className: "switch-text" },
-                    "\u041A\u043E\u0434 \u043F\u0440\u0438 \u0432\u0445\u043E\u0434\u0435",
-                    React.createElement("em", null, hasPin
-                        ? "Четыре цифры при каждом запуске"
-                        : "Приложение открывается сразу")),
-                React.createElement("span", { className: "switch" + (hasPin ? " on" : "") },
-                    React.createElement("i", null))),
-            hasPin && (React.createElement("button", { className: "switch-row", onClick: onSetPin },
-                React.createElement("span", { className: "switch-text" }, "\u0421\u043C\u0435\u043D\u0438\u0442\u044C \u043A\u043E\u0434"),
-                React.createElement("span", { className: "step-pen" }, "\u2192"))),
-            hasPin && onLock && (React.createElement("button", { className: "switch-row", onClick: onLock },
-                React.createElement("span", { className: "switch-text" },
-                    "\u0417\u0430\u0431\u043B\u043E\u043A\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u0441\u0435\u0439\u0447\u0430\u0441",
-                    React.createElement("em", null, "\u041F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0435 \u0441\u0440\u0430\u0437\u0443 \u0441\u043F\u0440\u043E\u0441\u0438\u0442 \u043A\u043E\u0434")),
-                React.createElement("span", { className: "step-pen" }, "\u2192"))),
-            faceAvailable && hasPin && (React.createElement("button", { className: "switch-row", onClick: onFace },
-                React.createElement("span", { className: "switch-text" },
-                    "Face ID",
-                    React.createElement("em", null, faceOn
-                        ? "Система спрашивает подтверждение при каждом входе"
-                        : "Вместо кода — вход по лицу")),
-                React.createElement("span", { className: "switch" + (faceOn ? " on" : "") },
-                    React.createElement("i", null)))),
-            React.createElement("p", { className: "step-title" }, "\u0414\u0430\u043D\u043D\u044B\u0435 \u0438 \u043A\u043E\u043F\u0438\u0438"),
-            React.createElement(DataTools, { home: home, depGaps: depGaps, onFillDeparture: onFillDeparture, regionGaps: regionGaps, onFillRegions: onFillRegions, doubles: doubles, onDoubles: onDoubles, onRestore: onRestore, restoreMsg: restoreMsg, onExport: onExport, onImport: onImport, box: box }),
-            React.createElement("p", { className: "step-title" }, "\u0410\u0432\u0442\u043E\u043D\u043E\u043C\u043D\u0430\u044F \u0440\u0430\u0431\u043E\u0442\u0430"),
-            React.createElement("button", { className: "switch-row" + (offline ? " on" : ""), onClick: onToggleOffline, disabled: busy },
-                React.createElement("span", { className: "switch-text" },
-                    "\u0420\u0430\u0431\u043E\u0442\u0430\u0442\u044C \u0431\u0435\u0437 \u0441\u0435\u0442\u0438",
-                    React.createElement("em", null, "\u0413\u043E\u0440\u043E\u0434\u0430, \u043E\u0442\u0435\u043B\u0438, \u043C\u0435\u0441\u0442\u0430 \u0438 \u0437\u043D\u0430\u0447\u043A\u0438 \u0445\u0440\u0430\u043D\u044F\u0442\u0441\u044F \u0432 \u043F\u0430\u043C\u044F\u0442\u0438 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430")),
-                React.createElement("span", { className: "sw" + (offline ? " on" : "") },
-                    React.createElement("i", null))),
-            (busy || offline) && (React.createElement("div", { className: "load-bar" },
-                React.createElement("i", { style: {
-                        width: `${Math.round((busy ? progress : 1) * 100)}%`,
-                    } }))),
-            React.createElement("p", { className: "hint small" }, busy
-                ? `Загружаем… ${Math.round(progress * 100)}%`
-                : offline
-                    ? `В память телефона загружены данные по состоянию на ${offlineAt || "сегодня"} в объёме ${(booksSize / 1024).toFixed(0)} КБ: ${np(booksCounts.cities, "city")}, ${np(booksCounts.hotels, "hotel")}, ${np(booksCounts.sights, "sight")}.`
-                    : `Осталось загрузить с сервера ${(booksSize / 1024).toFixed(0) ||
-                        "≈540"} КБ. Пока выключено, справочники приходят с сервера при каждом запуске.`),
-            React.createElement("p", { className: "step-title" }, "\u041E \u043F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0438"),
-            React.createElement("div", { className: "about-row" },
-                React.createElement("span", null, "\u0412\u0435\u0440\u0441\u0438\u044F"),
-                React.createElement("b", null,
-                    APP_VERSION,
-                    " \u00B7 ",
-                    APP_BUILD)),
-            React.createElement("div", { className: "about-row" },
-                React.createElement("span", null, "\u0425\u0440\u0430\u043D\u0435\u043D\u0438\u0435"),
-                React.createElement("b", null, where)),
-            React.createElement("div", { className: "about-row" },
-                React.createElement("span", null, "\u0413\u0440\u0430\u043D\u0438\u0446\u044B"),
-                React.createElement("b", null, geoCount ? np(geoCount, "country") : "по контурам материков")),
-            React.createElement("button", { className: "switch-row", onClick: onReloadGeo },
-                React.createElement("span", { className: "switch-text" },
-                    "\u041E\u0431\u043D\u043E\u0432\u0438\u0442\u044C \u043A\u0430\u0440\u0442\u0443 \u0433\u0440\u0430\u043D\u0438\u0446",
-                    React.createElement("em", null, "\u0415\u0441\u043B\u0438 \u043A\u0430\u043A\u0430\u044F-\u0442\u043E \u0441\u0442\u0440\u0430\u043D\u0430 \u043D\u0435 \u0437\u0430\u043A\u0440\u0430\u0448\u0438\u0432\u0430\u0435\u0442\u0441\u044F")),
-                React.createElement("span", { className: "step-pen" }, "\u27F3")),
-            React.createElement("div", { className: "about-row" },
-                React.createElement("span", null, "\u0420\u0435\u0436\u0438\u043C"),
-                React.createElement("b", null, typeof window !== "undefined" &&
-                    ((_e = window.matchMedia) === null || _e === void 0 ? void 0 : _e.call(window, "(display-mode: standalone)").matches)
-                    ? "с домашнего экрана"
-                    : "в браузере")),
-            React.createElement("div", { className: "copyright" },
-                React.createElement("span", { className: "brand-line" },
-                    React.createElement("img", { className: "brand-mark", src: BRAND_MARK, alt: "" }),
-                    React.createElement("b", null, "Demshin_lab")),
-                React.createElement("span", null,
-                    "\u00AB\u0410\u0442\u043B\u0430\u0441\u00BB \u2014 \u043A\u0430\u0440\u0442\u0430 \u0441\u0442\u0440\u0430\u043D, \u0433\u0434\u0435 \u0432\u044B \u043F\u043E\u0431\u044B\u0432\u0430\u043B\u0438. \u0412\u0435\u0440\u0441\u0438\u044F ",
-                    APP_VERSION,
-                    "."),
-                React.createElement("em", null,
-                    "\u00A9 ",
-                    new Date().getFullYear(),
-                    " Demshin_lab. \u0412\u0441\u0435 \u043F\u0440\u0430\u0432\u0430 \u0437\u0430\u0449\u0438\u0449\u0435\u043D\u044B."))));
-    }));
+        switch (page) {
+            case "fix":
+                return (React.createElement(React.Fragment, null,
+                    React.createElement("p", { className: "hint small" }, "\u041F\u043E\u0434\u0441\u043A\u0430\u0437\u043A\u0438 \u043F\u043E \u0432\u0430\u0448\u0438\u043C \u043F\u043E\u0435\u0437\u0434\u043A\u0430\u043C \u2014 \u043A\u0430\u0441\u0430\u043D\u0438\u0435, \u0447\u0442\u043E\u0431\u044B \u043F\u043E\u043F\u0440\u0430\u0432\u0438\u0442\u044C."),
+                    helps.map((h) => (React.createElement("button", { key: h.k, className: "switch-row", onClick: h.run },
+                        React.createElement("span", { className: "switch-text" },
+                            h.title,
+                            React.createElement("em", null, h.text)),
+                        React.createElement("span", { className: "step-pen" }, "\u2192")))),
+                    !helps.length && React.createElement("p", { className: "hint small" }, "\u0412\u0441\u0451 \u0432 \u043F\u043E\u0440\u044F\u0434\u043A\u0435 \u2014 \u043F\u043E\u043F\u0440\u0430\u0432\u043B\u044F\u0442\u044C \u043D\u0435\u0447\u0435\u0433\u043E.")));
+            case "globe":
+                return (React.createElement(React.Fragment, null,
+                    React.createElement("p", { className: "step-title" }, "\u0412\u0438\u0434 \u043D\u0430 \u0433\u043B\u0430\u0432\u043D\u043E\u043C \u044D\u043A\u0440\u0430\u043D\u0435"),
+                    React.createElement(SetSeg, { value: mapView, opts: [["globe", "Глобус"], ["map", "Карта"]], onPick: onMapView }),
+                    React.createElement(SetSwitch, { on: spinStart, onClick: () => onToggleSpin(!spinStart), title: "\u0412\u0440\u0430\u0449\u0430\u0442\u044C \u043F\u0440\u0438 \u0437\u0430\u043F\u0443\u0441\u043A\u0435", sub: spinStart ? "Глобус начинает вращаться сразу" : "Глобус стоит, пока не нажмёте воспроизведение" }),
+                    React.createElement(SetSwitch, { on: night, onClick: () => onToggleNight(!night), title: "\u041D\u043E\u0447\u044C \u043D\u0430 \u0433\u043B\u043E\u0431\u0443\u0441\u0435", sub: night ? "Ночная сторона затемнена по текущему времени" : "Весь шар освещён ровно" }),
+                    React.createElement(SetSwitch, { on: cityPins, onClick: () => onToggleCityPins(!cityPins), title: "\u0411\u0443\u043B\u0430\u0432\u043A\u0438 \u043F\u043E \u0433\u043E\u0440\u043E\u0434\u0430\u043C", sub: cityPins ? "Каждый город поездки отмечен булавкой" : "Страны закрашены, булавок нет" })));
+            case "look":
+                return (React.createElement(React.Fragment, null,
+                    React.createElement("p", { className: "step-title" }, "\u0422\u0435\u043C\u0430"),
+                    React.createElement(SetSeg, { value: theme, opts: [["system", "Системная"], ["dark", "Тёмная"], ["light", "Светлая"]], onPick: onTheme }),
+                    React.createElement("p", { className: "step-title" }, "\u041E\u0441\u043E\u0431\u0435\u043D\u043D\u044B\u0435 \u043F\u043E\u0435\u0437\u0434\u043A\u0438"),
+                    React.createElement(SetSwitch, { on: fxShow, onClick: () => onFxShow === null || onFxShow === void 0 ? void 0 : onFxShow(!fxShow), title: "\u042D\u0444\u0444\u0435\u043A\u0442\u044B \u043D\u0430 \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0430\u0445", sub: fxShow ? "Частицы у особенных поездок: в карточке — движутся, в ленте — неподвижно" : "Выключены — повод виден, частиц нет" })));
+            case "special":
+                return (React.createElement(React.Fragment, null,
+                    React.createElement("p", { className: "hint small" }, "\u041F\u043E\u0432\u043E\u0434\u044B \u2014 \u043F\u043E\u0434\u0441\u043A\u0430\u0437\u043A\u0438 \u0432 \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0435 \u043F\u043E\u0435\u0437\u0434\u043A\u0438. \u041A\u0430\u0441\u0430\u043D\u0438\u0435 \u2014 \u043F\u0435\u0440\u0435\u0438\u043C\u0435\u043D\u043E\u0432\u0430\u0442\u044C \u0438 \u0432\u044B\u0431\u0440\u0430\u0442\u044C \u044D\u0444\u0444\u0435\u043A\u0442."),
+                    React.createElement(OccasionsSetup, { list: occasions, onChange: onOccasions })));
+            case "notify":
+                return (React.createElement(React.Fragment, null,
+                    React.createElement("button", { className: "switch-row" + (notifyState === "none" ? " off" : ""), onClick: () => onToggleNotify === null || onToggleNotify === void 0 ? void 0 : onToggleNotify(!notify) },
+                        React.createElement("span", { className: "switch-text" },
+                            "\u0423\u0432\u0435\u0434\u043E\u043C\u043B\u0435\u043D\u0438\u044F \u043E \u043F\u043E\u0435\u0437\u0434\u043A\u0430\u0445",
+                            React.createElement("em", null, notifyState === "none"
+                                ? "На iPhone работают только у приложения, добавленного на экран «Домой» (iOS 16.4 и новее)"
+                                : notifyState === "denied"
+                                    ? "Запрещены для Атласа — разрешите в Настройках телефона → Уведомления"
+                                    : notify
+                                        ? `При открытии напомним о поездках в ближайшие ${NOTIFY_DAYS} дней — раз в день`
+                                        : "Выключены")),
+                        React.createElement("span", { className: "switch" + (notify && notifyState === "granted" ? " on" : "") },
+                            React.createElement("i", null)))));
+            case "reports":
+                return (React.createElement(React.Fragment, null,
+                    React.createElement("p", { className: "hint small" }, "\u0413\u0430\u043B\u043E\u0447\u043A\u0430 \u2014 \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0442\u044C \u043E\u0442\u0447\u0451\u0442, \u0441\u0442\u0440\u0435\u043B\u043A\u0438 \u2014 \u043F\u043E\u043C\u0435\u043D\u044F\u0442\u044C \u043F\u043E\u0440\u044F\u0434\u043E\u043A \u043D\u0430 \u044D\u043A\u0440\u0430\u043D\u0435 \u043E\u0442\u0447\u0451\u0442\u043E\u0432."),
+                    React.createElement(ReportsSetup, { cfg: reportsCfg, onChange: onReportsCfg })));
+            case "access":
+                return (React.createElement(React.Fragment, null,
+                    React.createElement(SetSwitch, { on: hasPin, onClick: () => (hasPin ? onDropPin() : onSetPin()), title: "\u041A\u043E\u0434 \u043F\u0440\u0438 \u0432\u0445\u043E\u0434\u0435", sub: hasPin ? "Четыре цифры при каждом запуске" : "Приложение открывается сразу" }),
+                    faceAvailable && hasPin && (React.createElement(SetSwitch, { on: faceOn, onClick: onFace, title: "Face ID", sub: faceOn ? "Система спрашивает подтверждение при каждом входе" : "Вместо кода — вход по лицу" })),
+                    hasPin && (React.createElement("button", { className: "switch-row", onClick: onSetPin },
+                        React.createElement("span", { className: "switch-text" }, "\u0421\u043C\u0435\u043D\u0438\u0442\u044C \u043A\u043E\u0434"),
+                        React.createElement("span", { className: "step-pen" }, "\u2192"))),
+                    hasPin && onLock && (React.createElement("button", { className: "switch-row", onClick: onLock },
+                        React.createElement("span", { className: "switch-text" },
+                            "\u0417\u0430\u0431\u043B\u043E\u043A\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u0441\u0435\u0439\u0447\u0430\u0441",
+                            React.createElement("em", null, "\u041F\u0440\u0438\u043B\u043E\u0436\u0435\u043D\u0438\u0435 \u0441\u0440\u0430\u0437\u0443 \u0441\u043F\u0440\u043E\u0441\u0438\u0442 \u043A\u043E\u0434")),
+                        React.createElement("span", { className: "step-pen" }, "\u2192")))));
+            case "copies":
+                return (React.createElement(React.Fragment, null,
+                    React.createElement("button", { className: "switch-row", onClick: onExport },
+                        React.createElement("span", { className: "switch-text" },
+                            "\u0412\u044B\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u0432 \u0444\u0430\u0439\u043B",
+                            React.createElement("em", null, "\u041F\u043E\u0435\u0437\u0434\u043A\u0438, \u0441\u043D\u0438\u043C\u043A\u0438 \u0438 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438 \u043E\u0434\u043D\u0438\u043C \u0444\u0430\u0439\u043B\u043E\u043C")),
+                        React.createElement("span", { className: "step-pen" }, "\u2193")),
+                    React.createElement("label", { className: "switch-row" },
+                        React.createElement("span", { className: "switch-text" },
+                            "\u0417\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u0438\u0437 \u0444\u0430\u0439\u043B\u0430",
+                            React.createElement("em", null, "\u0421\u0432\u043E\u044F \u043A\u043E\u043F\u0438\u044F, \u0447\u0443\u0436\u0430\u044F \u043A\u043E\u043F\u0438\u044F \u0438\u043B\u0438 \u043F\u043E\u0435\u0437\u0434\u043A\u0438 \u043E\u0442 \u0441\u0435\u043C\u044C\u0438 \u2014 \u0441\u043F\u0440\u043E\u0441\u0438\u043C, \u0447\u0442\u043E \u0434\u0435\u043B\u0430\u0442\u044C")),
+                        React.createElement("span", { className: "step-pen" }, "\u2191"),
+                        React.createElement("input", { type: "file", accept: "application/json", style: { display: "none" }, onChange: (e) => {
+                                var _e;
+                                const f = (_e = e.target.files) === null || _e === void 0 ? void 0 : _e[0];
+                                e.target.value = "";
+                                if (f)
+                                    onImport(f);
+                            } })),
+                    React.createElement("p", { className: "step-title" }, "\u0415\u0441\u043B\u0438 \u043F\u043E\u0435\u0437\u0434\u043A\u0438 \u043F\u0440\u043E\u043F\u0430\u043B\u0438"),
+                    React.createElement("button", { className: "switch-row", onClick: onRestore },
+                        React.createElement("span", { className: "switch-text" },
+                            "\u041D\u0430\u0439\u0442\u0438 \u043F\u043E\u0442\u0435\u0440\u044F\u043D\u043D\u044B\u0435 \u043F\u043E\u0435\u0437\u0434\u043A\u0438",
+                            React.createElement("em", null, restoreMsg || "Проверим все хранилища телефона и вернём самую полную копию")),
+                        React.createElement("span", { className: "step-pen" }, "\u21BA"))));
+            case "memory":
+                return (React.createElement(React.Fragment, null,
+                    React.createElement("p", { className: "step-title" }, "\u041A\u0430\u0447\u0435\u0441\u0442\u0432\u043E \u0441\u043D\u0438\u043C\u043A\u043E\u0432"),
+                    React.createElement(SetSeg, { value: quality, opts: [["light", "Экономно"], ["full", "Максимум"]], onPick: onQuality }),
+                    React.createElement("p", { className: "hint small" }, quality === "full"
+                        ? "Снимки хранятся почти без сжатия — чётче, но занимают больше места в телефоне."
+                        : "Снимки сжимаются — на экране выглядят так же, а места занимают в несколько раз меньше."),
+                    React.createElement("p", { className: "step-title" }, "\u0411\u0435\u0437 \u0441\u0435\u0442\u0438"),
+                    React.createElement("button", { className: "switch-row" + (offline ? " on" : ""), onClick: onToggleOffline, disabled: busy },
+                        React.createElement("span", { className: "switch-text" },
+                            "\u0420\u0430\u0431\u043E\u0442\u0430\u0442\u044C \u0431\u0435\u0437 \u0441\u0435\u0442\u0438",
+                            React.createElement("em", null, "\u0413\u043E\u0440\u043E\u0434\u0430, \u043E\u0442\u0435\u043B\u0438, \u043C\u0435\u0441\u0442\u0430 \u0438 \u0437\u043D\u0430\u0447\u043A\u0438 \u0445\u0440\u0430\u043D\u044F\u0442\u0441\u044F \u0432 \u043F\u0430\u043C\u044F\u0442\u0438 \u0442\u0435\u043B\u0435\u0444\u043E\u043D\u0430")),
+                        React.createElement("span", { className: "sw" + (offline ? " on" : "") },
+                            React.createElement("i", null))),
+                    (busy || offline) && (React.createElement("div", { className: "load-bar" },
+                        React.createElement("i", { style: { width: `${Math.round((busy ? progress : 1) * 100)}%` } }))),
+                    React.createElement("p", { className: "hint small" }, busy
+                        ? `Загружаем… ${Math.round(progress * 100)}%`
+                        : offline
+                            ? `В память телефона загружены данные по состоянию на ${offlineAt || "сегодня"} в объёме ${(booksSize / 1024).toFixed(0)} КБ: ${np(booksCounts.cities, "city")}, ${np(booksCounts.hotels, "hotel")}, ${np(booksCounts.sights, "sight")}.`
+                            : `Осталось загрузить с сервера ${(booksSize / 1024).toFixed(0) || "≈540"} КБ. Пока выключено, справочники приходят с сервера при каждом запуске.`),
+                    React.createElement("p", { className: "step-title" }, "\u041A\u0430\u0440\u0442\u0430 \u0433\u0440\u0430\u043D\u0438\u0446"),
+                    React.createElement("button", { className: "switch-row", onClick: onReloadGeo },
+                        React.createElement("span", { className: "switch-text" },
+                            "\u041E\u0431\u043D\u043E\u0432\u0438\u0442\u044C \u043A\u0430\u0440\u0442\u0443 \u0433\u0440\u0430\u043D\u0438\u0446",
+                            React.createElement("em", null, "\u0415\u0441\u043B\u0438 \u043A\u0430\u043A\u0430\u044F-\u0442\u043E \u0441\u0442\u0440\u0430\u043D\u0430 \u043D\u0435 \u0437\u0430\u043A\u0440\u0430\u0448\u0438\u0432\u0430\u0435\u0442\u0441\u044F")),
+                        React.createElement("span", { className: "step-pen" }, "\u27F3"))));
+            case "about":
+                return (React.createElement(React.Fragment, null,
+                    React.createElement("div", { className: "about-row" },
+                        React.createElement("span", null, "\u0412\u0435\u0440\u0441\u0438\u044F"),
+                        React.createElement("b", null,
+                            APP_VERSION,
+                            " \u00B7 ",
+                            APP_BUILD)),
+                    React.createElement("div", { className: "about-row" },
+                        React.createElement("span", null, "\u0425\u0440\u0430\u043D\u0435\u043D\u0438\u0435"),
+                        React.createElement("b", null, where)),
+                    React.createElement("div", { className: "about-row" },
+                        React.createElement("span", null, "\u0413\u0440\u0430\u043D\u0438\u0446\u044B"),
+                        React.createElement("b", null, geoCount ? np(geoCount, "country") : "по контурам материков")),
+                    React.createElement("div", { className: "about-row" },
+                        React.createElement("span", null, "\u0420\u0435\u0436\u0438\u043C"),
+                        React.createElement("b", null, typeof window !== "undefined" && ((_e = window.matchMedia) === null || _e === void 0 ? void 0 : _e.call(window, "(display-mode: standalone)").matches)
+                            ? "с домашнего экрана"
+                            : "в браузере")),
+                    React.createElement("div", { className: "copyright" },
+                        React.createElement("span", { className: "brand-line" },
+                            React.createElement("img", { className: "brand-mark", src: BRAND_MARK, alt: "" }),
+                            React.createElement("b", null, "Demshin_lab")),
+                        React.createElement("span", null,
+                            "\u00AB\u0410\u0442\u043B\u0430\u0441\u00BB \u2014 \u043A\u0430\u0440\u0442\u0430 \u0441\u0442\u0440\u0430\u043D, \u0433\u0434\u0435 \u0432\u044B \u043F\u043E\u0431\u044B\u0432\u0430\u043B\u0438. \u0412\u0435\u0440\u0441\u0438\u044F ",
+                            APP_VERSION,
+                            "."),
+                        React.createElement("em", null,
+                            "\u00A9 ",
+                            new Date().getFullYear(),
+                            " Demshin_lab. \u0412\u0441\u0435 \u043F\u0440\u0430\u0432\u0430 \u0437\u0430\u0449\u0438\u0449\u0435\u043D\u044B."))));
+            default:
+                return (React.createElement(React.Fragment, null,
+                    helps.length > 0 && (React.createElement("button", { className: "set-item set-tip", onClick: () => setPage("fix") },
+                        React.createElement("span", { className: "set-ico", style: { background: "rgba(232,184,75,.18)" } }, "\u2726"),
+                        React.createElement("span", { className: "set-t" },
+                            "\u041C\u043E\u0436\u043D\u043E \u043F\u043E\u043F\u0440\u0430\u0432\u0438\u0442\u044C",
+                            React.createElement("em", null, helps.map((h) => h.title.toLowerCase()).join(", "))),
+                        React.createElement("span", { className: "set-chev" }, "\u203A"))),
+                    SECTIONS.map((x, i) => x.g !== undefined ? (React.createElement("p", { key: "g" + i, className: "step-title set-group" }, x.g || " ")) : (React.createElement("button", { key: x.id, className: "set-item", "data-set": x.id, onClick: () => setPage(x.id) },
+                        React.createElement("span", { className: "set-ico", style: { background: x.bg } }, x.ico),
+                        React.createElement("span", { className: "set-t" },
+                            x.t,
+                            React.createElement("em", null, x.sub)),
+                        React.createElement("span", { className: "set-chev" }, "\u203A"))))));
+        }
+    };
+    return (React.createElement(Sheet, { open: open, onClose: onClose, title: cur ? cur.t : "Настройки", box: box }, () => (React.createElement("div", { className: "sheet-body set-body", key: page || "menu" },
+        page && (React.createElement("button", { className: "link-btn set-back", onClick: () => setPage(null) }, "\u2039 \u0412\u0441\u0435 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438")),
+        body(),
+        React.createElement(Ask, { ask: ask, onClose: () => setAsk(null), box: box })))));
 }
 /* знак студии: упрощённая марка из фирменного набора в палитре «Атласа» */
 const BRAND_MARK = "data:image/webp;base64,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";
@@ -22014,6 +22858,26 @@ function AtlasApp() {
             return [];
         return [{ a3: c.a3, lon: c.lon, lat: c.lat, flag: c.a2 ? flag(c.a2) : "", img: OWN_FLAGS[c.a3] || null, code: c.a3 }];
     }, [selected, lookNonce]);
+    /* 43.27: города поездок — искорки на карте из точек (только точные точки из справочника) */
+    const dotCities = useMemo(() => {
+        const out = [];
+        const seen = new Set();
+        Object.entries(visits || {}).forEach(([a3, arr]) => (arr || []).forEach((t) => {
+            if (t.plan)
+                return;
+            (t.cities || []).forEach((city) => {
+                const k = a3 + "|" + city;
+                if (seen.has(k))
+                    return;
+                seen.add(k);
+                const p = distPoint(a3, city);
+                if (p && (p[2] === "" || p[2] === "approx"))
+                    out.push({ a3, name: city, lon: p[0], lat: p[1] });
+            });
+        }));
+        return out;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [visits, booksRev]);
     /* 43.18: вращение («все страны») включают только ✕ в ленте и ▶ — не любое снятие выбора:
        касание моря при выбранной стране тоже снимает выбор, но глобус должен встать к морю */
     const pickCountry = (a3) => {
@@ -22044,7 +22908,16 @@ function AtlasApp() {
             React.createElement("div", { className: "wrap" },
                 React.createElement("div", { className: "cols" + (full ? " is-full" : "") },
                     React.createElement("div", { className: "col-map" },
-                        React.createElement(Globe, { geo: geo, isOn: isOn, onPick: (a3, x) => {
+                        mapView === "map" ? (React.createElement(DotMap, { geo: geo, isOn: isOn, isWish: isWish, onPick: (a3, x) => {
+                                if (BY_A3[a3]) {
+                                    setSpinning(false);
+                                    if (a3 !== selected)
+                                        setLookNonce((n) => n + 1);
+                                }
+                                setSelected(BY_A3[a3] ? a3 : null);
+                                setSelRegion((x === null || x === void 0 ? void 0 : x.region) || null);
+                                setSelSea(null);
+                            }, selected: selected, selRegion: selRegion, regions: regionsOn, pins: selPins, lookKey: `${selected || ""}:${lookNonce}`, onToggleFull: () => setFull(true), light: light, cities: dotCities, visitKey: visitKey })) : (React.createElement(Globe, { geo: geo, isOn: isOn, onPick: (a3, x) => {
                                 if (BY_A3[a3]) {
                                     setSpinning(false);
                                     if (a3 !== selected)
@@ -22070,8 +22943,13 @@ function AtlasApp() {
                                     setSelSea(null);
                                 }
                                 setSpinning(on);
-                            }, view: mapView, page: mapPage, setPage: setMapPage, isWish: isWish }),
-                        full && (React.createElement(Globe, { geo: geo, isOn: isOn, onPick: (a3, x) => {
+                            }, view: mapView, page: mapPage, setPage: setMapPage, isWish: isWish })),
+                        full && mapView === "map" && (React.createElement(DotMap, { full: true, geo: geo, isOn: isOn, isWish: isWish, onPick: (a3, x) => {
+                                setSelected(BY_A3[a3] ? a3 : null);
+                                setSelRegion((x === null || x === void 0 ? void 0 : x.region) || null);
+                                setSelSea(null);
+                            }, selected: selected, selRegion: selRegion, regions: regionsOn, pins: selPins, lookKey: `${selected || ""}:${lookNonce}`, onToggleFull: () => setFull(false), light: light, cities: dotCities, visitKey: visitKey })),
+                        full && mapView !== "map" && (React.createElement(Globe, { geo: geo, isOn: isOn, onPick: (a3, x) => {
                                 setSelected(BY_A3[a3] ? a3 : null);
                                 setSelRegion((x === null || x === void 0 ? void 0 : x.region) || null);
                                 setSelSea(null);
@@ -24636,7 +25514,7 @@ button, input, select, textarea{font-family:inherit;}
   bottom:calc(14px + env(safe-area-inset-bottom)); padding:0; gap:8px; justify-content:flex-end; z-index:3;}
 /* 43.18: длинное название моря («Мозамбикский пролив») — в две строки, без многоточия */
 .sea-head .fc-name b{white-space:normal; overflow:visible; text-overflow:clip; line-height:1.15;}
-/* 43.25: списки в настройках (поводы, отчёты) — один вид строк и кнопок; оба свёрнуты под строкой-заголовком */
+/* 43.25: списки в настройках (поводы, отчёты) — один вид строк и кнопок */
 .rs-list, .occ-list{gap:6px;}
 .rs-row, .occ-row{border:1px solid var(--line); border-radius:14px; background:var(--field);}
 .rs-row{min-height:48px; padding:6px 6px 6px 10px; gap:10px;}
@@ -24645,16 +25523,33 @@ button, input, select, textarea{font-family:inherit;}
 .rs-arrow{width:32px; height:32px; border-radius:10px; font-size:14px; display:flex; align-items:center; justify-content:center; padding:0;}
 .rs-arrow.del{color:#d06a55;}
 .rs-row .rs-arrow + .rs-arrow, .occ-top .rs-arrow + .rs-arrow{margin-left:0;}
-.fold{margin-bottom:10px;}
-.fold-head{width:100%; display:flex; align-items:center; gap:10px; min-height:48px; padding:6px 12px; border:1px solid var(--line);
-  border-radius:14px; background:var(--field); color:var(--ink); font-size:14px; text-align:left; cursor:pointer;}
-.fold-t{flex:1 1 auto; min-width:0; font-weight:500;}
-.fold-sub{flex:none; color:var(--dim); font-size:13px;}
-.fold-chev{flex:none; color:var(--dim); font-size:18px; line-height:1; transition:transform .2s;}
-.fold.open .fold-chev{transform:rotate(90deg);}
-.fold.open .fold-head{border-color:var(--gold);}
-.fold-body{padding-top:8px;}
-.fold-body > .hint.small{margin-top:0;}
+/* 43.26: настройки — меню разделов */
+.set-group{margin-top:14px;}
+.set-group:first-of-type{margin-top:6px;}
+.set-item{width:100%; display:flex; align-items:center; gap:12px; min-height:56px; padding:8px 12px; margin-bottom:6px;
+  border:1px solid var(--line); border-radius:14px; background:var(--field); color:var(--ink); text-align:left; cursor:pointer; font-size:15px;}
+.set-ico{flex:none; width:32px; height:32px; border-radius:9px; display:flex; align-items:center; justify-content:center; font-size:17px; color:#fff;}
+.set-t{flex:1 1 auto; min-width:0; display:flex; flex-direction:column; font-weight:500;}
+.set-t em{font-style:normal; font-weight:400; font-size:12.5px; color:var(--dim); margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.set-chev{flex:none; color:var(--dim); font-size:20px; line-height:1;}
+.set-tip{border-color:rgba(232,184,75,.55); background:rgba(232,184,75,.08); margin-bottom:4px;}
+.set-tip .set-ico{color:var(--gold);}
+.set-back{display:block; margin:-6px 0 6px; padding:4px 0;}
+.root.light .set-ico{color:#fff;}
+/* 43.27: карта из точек */
+.dot-map{padding:8px;}
+.dot-stage{position:relative; width:100%; aspect-ratio:1.72; touch-action:manipulation;}
+.dot-cv{position:absolute; left:0; top:0; display:block; border-radius:12px; cursor:pointer;}
+.dot-crumb{position:absolute; left:8px; top:8px; z-index:2; max-width:calc(100% - 16px); padding:5px 11px; border-radius:999px;
+  border:1px solid var(--line); background:color-mix(in srgb, var(--el) 85%, transparent); color:var(--ink); font-size:12.5px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; cursor:pointer; -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);}
+.dot-crumb b{color:var(--gold); font-weight:600;}
+.dot-crumb span{color:var(--dim);}
+.dot-full .dot-stage{flex:1 1 auto; width:100%; aspect-ratio:auto; min-height:0;}
+@media (orientation:landscape) and (max-height:600px){
+  .col-map > .map-wrap.dot-map{align-items:stretch;}
+  .col-map > .map-wrap.dot-map > .dot-stage{aspect-ratio:auto; height:100%;}
+}
 `;
 const __b = document.getElementById('boot');
 if (__b)
