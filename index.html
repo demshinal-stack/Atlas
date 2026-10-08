@@ -2987,7 +2987,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "43.30";
+const APP_VERSION = "43.33";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -7039,8 +7039,36 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
             pts.push([-168.5, la], [190.5, la]);
         const p = d3.geoNaturalEarth1().rotate([-11, 0]);
         p.fitExtent([[W * 0.05, H * 0.07], [W * 0.95, H * 0.93]], { type: "MultiPoint", coordinates: pts });
+        // 43.31: по вертикали — по самой суше (без Антарктиды): поровну места сверху и снизу
+        // только заметная суша (куски от ~20 тыс. км²): мелкие острова у Антарктиды точками не видны, но сдвигали рамку
+        const big = [];
+        lodGeo(geo).features.forEach((f) => {
+            if (f.id === "ATA" || !f.geometry)
+                return;
+            const polys = f.geometry.type === "MultiPolygon" ? f.geometry.coordinates : f.geometry.type === "Polygon" ? [f.geometry.coordinates] : [];
+            polys.forEach((pc) => {
+                const pf = { type: "Polygon", coordinates: pc };
+                const a = d3.geoArea(pf);
+                if (a > 0.0005 && a < 2 * Math.PI)
+                    big.push(pf);
+            });
+        });
+        const land = { type: "GeometryCollection", geometries: big };
+        let [[, y0], [, y1]] = d3.geoPath(p).bounds(land);
+        if (isFinite(y0) && isFinite(y1)) {
+            const room = H * 0.89;
+            if (y1 - y0 > room) {
+                const k = room / (y1 - y0);
+                const t = p.translate();
+                p.scale(p.scale() * k).translate([W / 2 + (t[0] - W / 2) * k, H / 2 + (t[1] - H / 2) * k]);
+                [[, y0], [, y1]] = d3.geoPath(p).bounds(land);
+            }
+            const t = p.translate();
+            // чуть ниже середины: сверху — только однострочная подпись Ледовитого
+            p.translate([t[0], t[1] + (H * 0.52 - (y0 + y1) / 2)]);
+        }
         return p.clipExtent([[-2, -2], [W + 2, H + 2]]);
-    }, [W, H]);
+    }, [geo, W, H]);
     const PAD = [22, 22, 22, 22]; // поля: края растворяются, страна целиком в чёткой части
     const countryFeat = (a3) => geo.features.find((f) => f.id === a3);
     const regionFeat = (key) => (REG.ready ? REG.feats.find((f) => f.properties.key === key) : null);
@@ -7286,22 +7314,106 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
         const waterCol = lt ? "rgba(40,80,120,.85)" : "rgba(200,225,248,.9)";
         const seaMin = kind === "world" ? 50 : 30;
         const seaMax = kind === "world" ? 6 : 6;
+        if (kind === "world") {
+            // мир: подписи океанов по своим местам — Тихий слева и справа (край карты делит его пополам), Атлантический
+            // на севере, Индийский, Северный Ледовитый — одной строкой у верхнего края; Южный не подписываем
+            const byName = {};
+            Object.entries(seaCount).forEach(([m, l]) => {
+                if (marine[m].properties.c !== "ocean")
+                    return;
+                const nm = marine[m].properties.n;
+                (byName[nm] || (byName[nm] = [])).push(...l);
+            });
+            const base0x = (proj([11, 85]) || [W / 2])[0];
+            // верх и низ суши по точкам (подписи Ледовитого и Южного — вплотную к ней, а не к краю экрана)
+            let landTop = H, landBot = 0;
+            cells.forEach(([, cy, c]) => {
+                if (c < 0)
+                    return;
+                if (cy < landTop)
+                    landTop = cy;
+                if (cy > landBot)
+                    landBot = cy;
+            });
+            const part = (nm, test) => (byName[nm] || []).filter((i) => test(cells[i][0], cells[i][1]));
+            const lab = (idxs, lines) => idxs.length > 20 && place(idxs, lines, 7.6, 1.6, waterCol, 700, isWater);
+            // Тихий — слева и справа, по высоте ровно посередине экрана (ближайшее свободное место к середине)
+            const midLabel = (idxs, lines) => {
+                if (idxs.length < 20)
+                    return;
+                const cx = idxs.reduce((a, i) => a + cells[i][0], 0) / idxs.length;
+                for (let d = 0; d < H * 0.3; d += 3)
+                    for (const dy of d ? [-d, d] : [0])
+                        for (const dx of [0, -15, 15, -30, 30]) {
+                            const x = cx + dx, y = H / 2 + dy;
+                            const r = dotText(ctx, lines, x, y, 7.6, 1.6, waterCol, 700, false);
+                            if (r[0] < 2 || r[2] > W - 2 || r[1] < 2 || r[3] > H - 2 || taken.some((t) => dotHit(t, r)) || !clearUnder(r, isWater))
+                                continue;
+                            dotText(ctx, lines, x, y, 7.6, 1.6, waterCol, 700, true, halo);
+                            taken.push(r);
+                            return;
+                        }
+            };
+            // в узком окне (телефон вертикально) по бокам места нет — подписи Тихого налезали бы на карту
+            if (W >= 560) {
+                midLabel(part("Тихий океан", (px) => px < W * 0.25), ["ТИХИЙ", "ОКЕАН"]);
+                midLabel(part("Тихий океан", (px) => px > W * 0.78), ["ТИХИЙ", "ОКЕАН"]);
+            }
+            lab(part("Атлантический океан", (_x, py) => py < H * 0.5), ["АТЛАНТИЧЕСКИЙ", "ОКЕАН"]) ||
+                lab(part("Атлантический океан", () => true), ["АТЛАНТИЧЕСКИЙ", "ОКЕАН"]);
+            lab(part("Индийский океан", () => true), ["ИНДИЙСКИЙ", "ОКЕАН"]);
+            // Ледовитый — одной строкой над сушей, у верхнего края по центру: ищем самое высокое свободное место
+            {
+                const lines = ["СЕВЕРНЫЙ ЛЕДОВИТЫЙ ОКЕАН"];
+                const cx0 = base0x;
+                let done = false;
+                for (let yy = Math.round(landTop - 14); yy > 8 && !done; yy -= 2)
+                    for (const dx of [0, -20, 20, -40, 40, -70, 70]) {
+                        const r = dotText(ctx, lines, cx0 + dx, yy, 7.6, 1.6, waterCol, 700, false);
+                        if (r[0] < 2 || r[2] > W - 2 || r[1] < 2 || taken.some((t) => dotHit(t, r)) || !clearUnder(r, isWater))
+                            continue;
+                        dotText(ctx, lines, cx0 + dx, yy, 7.6, 1.6, waterCol, 700, true, halo);
+                        taken.push(r);
+                        done = true;
+                        break;
+                    }
+            }
+            // Южный — так же одной строкой под сушей, у нижнего края по центру
+            {
+                const lines = ["ЮЖНЫЙ ОКЕАН"];
+                const cx0 = (proj([11, -60]) || [W / 2])[0];
+                let done = false;
+                // ниже суши и ниже уже поставленных подписей океанов (Атлантического, Индийского) — с воздухом
+                const below = taken.reduce((m, t) => (t[3] > landBot - 40 && t[3] < H - 30 && t[1] > H * 0.4 ? Math.max(m, t[3]) : m), landBot);
+                for (let yy = Math.round(below + 14); yy < H - 8 && !done; yy += 2)
+                    for (const dx of [0, -20, 20, -40, 40, -70, 70]) {
+                        const r = dotText(ctx, lines, cx0 + dx, yy, 7.6, 1.6, waterCol, 700, false);
+                        if (r[0] < 2 || r[2] > W - 2 || r[3] > H - 2 || taken.some((t) => dotHit(t, r)) || !clearUnder(r, isWater))
+                            continue;
+                        dotText(ctx, lines, cx0 + dx, yy, 7.6, 1.6, waterCol, 700, true, halo);
+                        taken.push(r);
+                        done = true;
+                        break;
+                    }
+            }
+        }
         let nSea = 0;
         const seaDone = new Set();
-        Object.entries(seaCount)
-            .filter(([m, l]) => l.length >= seaMin && (kind !== "world" || marine[m].properties.c === "ocean"))
-            .sort((a, b) => b[1].length - a[1].length)
-            .forEach(([m, l]) => {
-            const nm = marine[m].properties.n;
-            if (nSea >= seaMax || seaDone.has(nm))
-                return;
-            const big = marine[m].properties.c === "ocean";
-            const lines = kind === "world" && nm.length > 12 ? nm.toUpperCase().split(" ") : dotLines(nm);
-            if (place(l, lines, kind === "world" ? 7.6 : big ? 7.6 : 7.2, kind === "world" ? 1.6 : 1.4, waterCol, 700, isWater)) {
-                nSea++;
-                seaDone.add(nm);
-            }
-        });
+        if (kind !== "world")
+            Object.entries(seaCount)
+                .filter(([m, l]) => l.length >= seaMin && (kind !== "world" || marine[m].properties.c === "ocean"))
+                .sort((a, b) => b[1].length - a[1].length)
+                .forEach(([m, l]) => {
+                const nm = marine[m].properties.n;
+                if (nSea >= seaMax || seaDone.has(nm))
+                    return;
+                const big = marine[m].properties.c === "ocean";
+                const lines = kind === "world" && nm.length > 12 ? nm.toUpperCase().split(" ") : dotLines(nm);
+                if (place(l, lines, kind === "world" ? 7.6 : big ? 7.6 : 7.2, kind === "world" ? 1.6 : 1.4, waterCol, 700, isWater)) {
+                    nSea++;
+                    seaDone.add(nm);
+                }
+            });
         const nbCol = lt ? "rgba(40,70,100,.7)" : "rgba(185,208,230,.78)";
         if (kind === "country") {
             let nNb = 0;
@@ -14931,7 +15043,7 @@ function FamilySheet({ open, onClose, box, profile, ops, onNear, onImport, onNam
         setMode("joinreq");
     };
     return (React.createElement(Sheet, { open: open, onClose: onClose, title: "\u0421\u0435\u043C\u044C\u044F", box: box }, () => {
-        var _e, _h, _j, _k, _l, _o, _p, _q, _t, _u, _v, _w, _x, _y, _z, _0;
+        var _e, _h, _j, _k, _l, _o, _p, _q, _t, _u, _v, _w, _y, _z, _0, _1;
         return (React.createElement("div", { className: "sheet-body fam" },
             !fam ? (React.createElement("p", { className: "hint small" }, "\u0421\u0435\u043C\u044C\u044F \u2014 \u044D\u0442\u043E \u043E\u0431\u0449\u0438\u0439 \u0430\u0442\u043B\u0430\u0441: \u0432\u0441\u0435 \u0432\u0438\u0434\u044F\u0442 \u043F\u043E\u0435\u0437\u0434\u043A\u0438 \u0434\u0440\u0443\u0433 \u0434\u0440\u0443\u0433\u0430, \u0443 \u043A\u0430\u0436\u0434\u043E\u0439 \u043F\u043E\u0435\u0437\u0434\u043A\u0438 \u043F\u043E\u0434\u043F\u0438\u0441\u0430\u043D \u0430\u0432\u0442\u043E\u0440. \u0418\u043C\u044F, \u0444\u043E\u0442\u043E, \u0441\u043F\u0443\u0442\u043D\u0438\u043A\u0438 \u0438 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438 \u0443 \u043A\u0430\u0436\u0434\u043E\u0433\u043E \u0441\u0432\u043E\u0438 \u0438 \u043F\u0440\u0438 \u043E\u0431\u043C\u0435\u043D\u0435 \u043D\u0435 \u043C\u0435\u043D\u044F\u044E\u0442\u0441\u044F. \u0427\u0442\u043E\u0431\u044B \u0441\u043E\u0437\u0434\u0430\u0442\u044C \u0441\u0435\u043C\u044C\u044E, \u043E\u0431\u043C\u0435\u043D\u044F\u0439\u0442\u0435\u0441\u044C \u0440\u044F\u0434\u043E\u043C \u0441 \u0440\u043E\u0434\u043D\u044B\u043C \u0447\u0435\u043B\u043E\u0432\u0435\u043A\u043E\u043C \u0438\u043B\u0438 \u043E\u0442\u043F\u0440\u0430\u0432\u044C\u0442\u0435 \u0435\u043C\u0443 \u043F\u0440\u0438\u0433\u043B\u0430\u0448\u0435\u043D\u0438\u0435.")) : (React.createElement("label", { className: "tf fam-name" },
                 React.createElement("span", null, "\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u0441\u0435\u043C\u044C\u0438"),
@@ -15101,7 +15213,7 @@ function FamilySheet({ open, onClose, box, profile, ops, onNear, onImport, onNam
                         ? `Приглашает вас в семью «${(_q = (_p = got.data) === null || _p === void 0 ? void 0 : _p.f) === null || _q === void 0 ? void 0 : _q.name}». Сейчас вы в семье «${fam.name}» — они станут одной.`
                         : `Приглашает вас в семью «${((_u = (_t = got.data) === null || _t === void 0 ? void 0 : _t.f) === null || _u === void 0 ? void 0 : _u.name) || "Наша семья"}». Вы будете видеть поездки друг друга. Имя, фото и настройки у каждого останутся своими.`
                     : `Хочет вступить в семью «${(fam === null || fam === void 0 ? void 0 : fam.name) || "Наша семья"}» по вашему приглашению.`),
-                React.createElement(LinkPick, { people: people, value: link, onChange: setLink, name: (_w = (_v = got.data) === null || _v === void 0 ? void 0 : _v.p) === null || _w === void 0 ? void 0 : _w.name, memberId: (_y = (_x = got.data) === null || _x === void 0 ? void 0 : _x.p) === null || _y === void 0 ? void 0 : _y.id, members: (fam === null || fam === void 0 ? void 0 : fam.members) || [] }),
+                React.createElement(LinkPick, { people: people, value: link, onChange: setLink, name: (_w = (_v = got.data) === null || _v === void 0 ? void 0 : _v.p) === null || _w === void 0 ? void 0 : _w.name, memberId: (_z = (_y = got.data) === null || _y === void 0 ? void 0 : _y.p) === null || _z === void 0 ? void 0 : _z.id, members: (fam === null || fam === void 0 ? void 0 : fam.members) || [] }),
                 React.createElement("div", { className: "fam-ask-btns" },
                     React.createElement("button", { className: "btn-ghost", onClick: () => setMode("") }, "\u041D\u0435 \u0441\u0435\u0439\u0447\u0430\u0441"),
                     React.createElement("button", { className: "btn-main", disabled: busy, onClick: async () => {
@@ -15125,7 +15237,7 @@ function FamilySheet({ open, onClose, box, profile, ops, onNear, onImport, onNam
             mode === "reply" && got && (React.createElement("div", { className: "fam-box" },
                 React.createElement("p", null,
                     "\u0412\u044B \u0432 \u0441\u0435\u043C\u044C\u0435. \u041E\u0442\u043F\u0440\u0430\u0432\u044C\u0442\u0435 \u044D\u0442\u043E\u0442 \u043E\u0442\u0432\u0435\u0442 \u043F\u0440\u0438\u0433\u043B\u0430\u0441\u0438\u0432\u0448\u0435\u043C\u0443",
-                    ((_0 = (_z = got.data) === null || _z === void 0 ? void 0 : _z.p) === null || _0 === void 0 ? void 0 : _0.name) ? ` (${got.data.p.name})` : "",
+                    ((_1 = (_0 = got.data) === null || _0 === void 0 ? void 0 : _0.p) === null || _1 === void 0 ? void 0 : _1.name) ? ` (${got.data.p.name})` : "",
                     ". \u041A\u0430\u043A \u0442\u043E\u043B\u044C\u043A\u043E \u043E\u0442\u0432\u0435\u0442 \u0432\u0441\u0442\u0430\u0432\u044F\u0442 \u0443 \u0441\u0435\u0431\u044F, \u0432\u044B \u0441\u043C\u043E\u0436\u0435\u0442\u0435 \u043E\u0431\u043C\u0435\u043D\u0438\u0432\u0430\u0442\u044C\u0441\u044F \u043F\u043E\u0435\u0437\u0434\u043A\u0430\u043C\u0438."),
                 React.createElement("textarea", { className: "fam-code", readOnly: true, value: code, onFocus: (e) => e.target.select() }),
                 React.createElement("div", { className: "fam-ask-btns" },
@@ -25581,7 +25693,7 @@ button, input, select, textarea{font-family:inherit;}
 .root.light .set-ico{color:#fff;}
 /* 43.27: карта из точек */
 .dot-map{padding:8px;}
-.dot-stage{position:relative; width:100%; aspect-ratio:1.9; touch-action:manipulation;}
+.dot-stage{position:relative; width:100%; aspect-ratio:1.55; touch-action:manipulation;}
 .dot-cv{position:absolute; left:0; top:0; display:block; border-radius:12px; cursor:pointer;}
 .dot-crumb{position:absolute; left:8px; top:8px; z-index:2; max-width:calc(100% - 16px); padding:5px 11px; border-radius:999px;
   border:1px solid var(--line); background:color-mix(in srgb, var(--el) 85%, transparent); color:var(--ink); font-size:12.5px;
@@ -25604,7 +25716,7 @@ button, input, select, textarea{font-family:inherit;}
 /* 43.30: во весь экран карта из точек — на весь экран без отступов под меню; ✕ — в самом углу */
 .globe-full.dot-full{padding:0 !important;}
 .dot-full .dot-stage{position:absolute; inset:0; width:auto; height:auto; aspect-ratio:auto;}
-.globe-full.dot-full .globe-controls{right:calc(8px + env(safe-area-inset-right) * .35); bottom:calc(8px + env(safe-area-inset-bottom) * .5); left:auto; top:auto;}
+.globe-full.dot-full .globe-controls{right:calc((8px + env(safe-area-inset-right) * .35) * 1.5); bottom:calc((8px + env(safe-area-inset-bottom) * .5) * 1.5); left:auto; top:auto;}
 `;
 const __b = document.getElementById('boot');
 if (__b)
