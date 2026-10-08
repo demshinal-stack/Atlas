@@ -2987,7 +2987,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "43.40";
+const APP_VERSION = "43.41";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -7840,7 +7840,15 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
                 bg.style.opacity = "0";
                 return;
             }
-            if (S.bgL !== L || bg.width !== cv.width) {
+            // слой другого размера (холст успел поменяться) — не растягиваем, а строим заново
+            if (L.cv.width !== cv.width || L.cv.height !== cv.height) {
+                if (!L.view || L.view.kind !== "world")
+                    return;
+                L = layer({ kind: "world", hole: L.view.hole });
+                if (L.cv.width !== cv.width || L.cv.height !== cv.height)
+                    return;
+            }
+            if (S.bgL !== L || bg.width !== cv.width || bg.height !== cv.height) {
                 bg.width = cv.width;
                 bg.height = cv.height;
                 bg.style.width = W + "px";
@@ -8228,6 +8236,9 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
         cancelAnimationFrame(S.raf);
         S.raf = 0;
         S.fly = null;
+        // 43.41: размытый мир под страной и подъём — тоже заново: иначе старый (другого размера) растягивался на новый холст
+        S.lift = null;
+        S.bgL = null;
         S.layers = {};
         const P = props.current;
         let view = { kind: "world" };
@@ -8361,12 +8372,7 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
     }, [selRegion]);
     /* касание: страна (или регион выбранной страны) */
     const down = useRef(null);
-    /* 43.39: масштаб и сдвиг пальцами (и колесом/тачпадом). Во время жеста — матрица S.live поверх готовой картинки,
-       после — вид строится заново в новом масштабе (точки снова ровной сеткой, подписи по месту) */
-    const ptrs = useRef(new Map());
-    const gest = useRef(null);
-    const zoomOf = (L) => (L && L.view.zoom ? [L.view.zoom.k, 0, 0, L.view.zoom.k, L.view.zoom.dx, L.view.zoom.dy] : [1, 0, 0, 1, 0, 0]);
-    // итоговый масштаб — в пределах, и карта не уезжает с экрана
+    /* 43.41: масштаб пальцами убран (43.39–43.40) — только касания; clampZ нужен приближению мелкого моря */
     const clampZ = (Z, kind) => {
         const lo = kind === "world" ? 1 : 0.6;
         const k = Math.max(lo, Math.min(kind === "world" ? 8 : 6, Z[0]));
@@ -8387,138 +8393,9 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
         }
         return [k, 0, 0, k, dx, dy];
     };
-    const setLive = (G) => {
-        const S = st.current;
-        if (!S.cur)
-            return;
-        const Z0 = zoomOf(S.cur);
-        const Z = clampZ(mMul(G, Z0), S.cur.view.kind);
-        S.live = mMul(Z, mInv(Z0));
-        kick();
-    };
-    const commitZoom = () => {
-        const S = st.current;
-        if (!S.live || !S.cur)
-            return;
-        const Z = clampZ(mMul(S.live, zoomOf(S.cur)), S.cur.view.kind);
-        const base = { ...S.cur.view };
-        delete base.zoom;
-        // страну/регион отдалили пальцами заметно меньше исходного — шаг назад (к стране, к миру)
-        if (S.cur.view.kind !== "world" && Z[0] < 0.8) {
-            S.live = null;
-            kick();
-            const P = props.current;
-            if (S.cur.view.kind === "region")
-                P.onPick && P.onPick(S.cur.view.a3);
-            else
-                P.onPick && P.onPick(null);
-            return;
-        }
-        const same = Math.abs(Z[0] - 1) < 0.03;
-        const L = same ? layer(base) : layer({ ...base, zoom: { k: Z[0], dx: Z[4], dy: Z[5] } });
-        S.live = null;
-        S.cur = L;
-        kick();
-    };
-    const ptIn = (e) => {
-        const r = cvRef.current.getBoundingClientRect();
-        return [e.clientX - r.left, e.clientY - r.top];
-    };
     const onDown = (e) => {
-        const S = st.current;
-        if (S.fly)
-            return;
-        try {
-            e.currentTarget.setPointerCapture(e.pointerId);
-        }
-        catch {
-            /* без захвата — тоже работает */
-        }
-        ptrs.current.set(e.pointerId, ptIn(e));
-        if (ptrs.current.size === 1) {
-            down.current = { x: e.clientX, y: e.clientY };
-            gest.current = null;
-        }
-        else if (ptrs.current.size === 2) {
-            down.current = null;
-            const [a, b] = [...ptrs.current.values()];
-            gest.current = { mode: "pinch", a, b, G0: S.live || [1, 0, 0, 1, 0, 0] };
-        }
+        down.current = { x: e.clientX, y: e.clientY };
     };
-    const onMove = (e) => {
-        if (!ptrs.current.has(e.pointerId))
-            return;
-        const S = st.current;
-        ptrs.current.set(e.pointerId, ptIn(e));
-        const g = gest.current;
-        if (ptrs.current.size >= 2 && g && g.mode === "pinch") {
-            const [a1, b1] = [...ptrs.current.values()];
-            const d0 = Math.hypot(g.b[0] - g.a[0], g.b[1] - g.a[1]) || 1;
-            const d1 = Math.hypot(b1[0] - a1[0], b1[1] - a1[1]) || 1;
-            const k = d1 / d0;
-            const c0 = [(g.a[0] + g.b[0]) / 2, (g.a[1] + g.b[1]) / 2];
-            const c1 = [(a1[0] + b1[0]) / 2, (a1[1] + b1[1]) / 2];
-            setLive(mMul([k, 0, 0, k, c1[0] - k * c0[0], c1[1] - k * c0[1]], g.G0));
-            return;
-        }
-        // один палец — сдвиг, когда карта увеличена (иначе это касание)
-        if (ptrs.current.size === 1 && S.cur && (S.cur.view.zoom || S.live)) {
-            const p = [...ptrs.current.values()][0];
-            if (!g || g.mode !== "pan") {
-                const d = down.current;
-                if (!d || Math.hypot(e.clientX - d.x, e.clientY - d.y) <= 8)
-                    return;
-                gest.current = { mode: "pan", p0: p, G0: S.live || [1, 0, 0, 1, 0, 0] };
-                down.current = null;
-                return;
-            }
-            setLive(mMul([1, 0, 0, 1, p[0] - g.p0[0], p[1] - g.p0[1]], g.G0));
-        }
-    };
-    const onEnd = (e) => {
-        if (!ptrs.current.has(e.pointerId))
-            return;
-        ptrs.current.delete(e.pointerId);
-        const S = st.current;
-        if (gest.current) {
-            if (ptrs.current.size === 1 && gest.current.mode === "pinch") {
-                // один палец остался — продолжаем сдвигом
-                gest.current = { mode: "pan", p0: [...ptrs.current.values()][0], G0: S.live || [1, 0, 0, 1, 0, 0] };
-                return;
-            }
-            if (ptrs.current.size === 0) {
-                gest.current = null;
-                commitZoom();
-            }
-            return;
-        }
-        if (e.type === "pointerup" && ptrs.current.size === 0)
-            onUp(e);
-    };
-    // колесо и тачпад (компьютер): приближение к курсору, вид строится после паузы
-    useEffect(() => {
-        const cv = cvRef.current;
-        if (!cv)
-            return;
-        let timer = 0;
-        const wheel = (e) => {
-            const S = st.current;
-            if (!S.cur || S.fly)
-                return;
-            e.preventDefault();
-            const [x, y] = ptIn(e);
-            const k = Math.exp(-e.deltaY * 0.0022);
-            setLive(mMul([k, 0, 0, k, x - k * x, y - k * y], S.live || [1, 0, 0, 1, 0, 0]));
-            clearTimeout(timer);
-            timer = setTimeout(commitZoom, 220);
-        };
-        cv.addEventListener("wheel", wheel, { passive: false });
-        return () => {
-            cv.removeEventListener("wheel", wheel);
-            clearTimeout(timer);
-        };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [ready, W, H]);
     const onUp = (e) => {
         const d = down.current;
         down.current = null;
@@ -8621,7 +8498,7 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
     };
     const stage = (React.createElement("div", { className: "dot-stage", ref: stageRef },
         React.createElement("canvas", { ref: bgRef, className: "dot-bg" }),
-        React.createElement("canvas", { ref: cvRef, className: "dot-cv", onPointerDown: onDown, onPointerMove: onMove, onPointerUp: onEnd, onPointerCancel: onEnd }),
+        React.createElement("canvas", { ref: cvRef, className: "dot-cv", onPointerDown: onDown, onPointerUp: onUp }),
         turnUI && (React.createElement("button", { className: "dot-north" + (turnUI.angle ? " on" : ""), onClick: onTurn, "aria-label": turnUI.angle ? "Север вверху" : "Повернуть крупнее" }, turnUI.angle ? (React.createElement("svg", { viewBox: "-16 -16 32 32", width: "32", height: "32" },
             React.createElement("g", { transform: `rotate(${turnUI.north})` },
                 React.createElement("path", { d: "M0 -9 L4.5 4.5 L0 2 L-4.5 4.5 Z" }),
@@ -26542,8 +26419,6 @@ button, input, select, textarea{font-family:inherit;}
 .dot-north span{font-size:17px; line-height:1;}
 .dot-north path{fill:var(--gold);}
 .dot-north text{fill:var(--gold); font-size:8.5px; font-weight:700; text-anchor:middle; dominant-baseline:middle;}
-/* 43.39: карта из точек — масштаб и сдвиг пальцами: жесты целиком наши */
-.dot-cv{touch-action:none;}
 /* 43.39: во весь экран — мини-карточка выбранного внизу (как строки лент), ✕ «свернуть» — над ней */
 .dfu-card{position:absolute; z-index:3; left:calc(10px + env(safe-area-inset-left)); right:calc(10px + env(safe-area-inset-right));
   bottom:calc((8px + env(safe-area-inset-bottom) * .5) * 1.5); padding:8px; border-radius:16px; border:1px solid var(--line);
