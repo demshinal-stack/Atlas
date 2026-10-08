@@ -2986,7 +2986,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "43.24";
+const APP_VERSION = "43.25";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -10035,9 +10035,9 @@ function OccasionsSetup({ list: raw, onChange }) {
                                 " ",
                                 o.n),
                             React.createElement("em", null, ((_h = FX[o.fx]) === null || _h === void 0 ? void 0 : _h.n) || "без эффекта"))),
-                    React.createElement("button", { className: "occ-btn", onClick: () => move(i, -1), disabled: !i, "aria-label": "\u0412\u044B\u0448\u0435" }, "\u25B2"),
-                    React.createElement("button", { className: "occ-btn", onClick: () => move(i, 1), disabled: i === list.length - 1, "aria-label": "\u041D\u0438\u0436\u0435" }, "\u25BC"),
-                    React.createElement("button", { className: "occ-btn del", onClick: () => { put(list.filter((_, k) => k !== i)); setEdit(-1); }, "aria-label": "\u0423\u0434\u0430\u043B\u0438\u0442\u044C" }, "\u2715")),
+                    React.createElement("button", { className: "rs-arrow", onClick: () => move(i, -1), disabled: !i, "aria-label": "\u0412\u044B\u0448\u0435" }, "\u2191"),
+                    React.createElement("button", { className: "rs-arrow", onClick: () => move(i, 1), disabled: i === list.length - 1, "aria-label": "\u041D\u0438\u0436\u0435" }, "\u2193"),
+                    React.createElement("button", { className: "rs-arrow del", onClick: () => { put(list.filter((_, k) => k !== i)); setEdit(-1); }, "aria-label": "\u0423\u0434\u0430\u043B\u0438\u0442\u044C" }, "\u2715")),
                 edit === i && (React.createElement("div", { className: "occ-edit" },
                     React.createElement("div", { className: "occ-names" },
                         React.createElement("input", { className: "sp-input occ-e", value: o.e, maxLength: 4, onChange: (e) => put(list.map((x, k) => (k === i ? { ...x, e: e.target.value } : x))), "aria-label": "\u0417\u043D\u0430\u0447\u043E\u043A" }),
@@ -10800,6 +10800,16 @@ function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, 
             React.createElement(Ask, { ask: ask, onClose: () => setAsk(null), box: box })));
     }));
 }
+/* 43.25: свёрнутый список в настройках — строка-заголовок с числом, касание раскрывает */
+function FoldList({ title, sub, children }) {
+    const [open, setOpen] = useState(false);
+    return (React.createElement("div", { className: "fold" + (open ? " open" : "") },
+        React.createElement("button", { className: "fold-head", onClick: () => setOpen(!open), "aria-expanded": open },
+            React.createElement("span", { className: "fold-t" }, title),
+            React.createElement("span", { className: "fold-sub" }, sub),
+            React.createElement("span", { className: "fold-chev", "aria-hidden": "true" }, "\u203A")),
+        open && React.createElement("div", { className: "fold-body" }, children)));
+}
 function ReportsSetup({ cfg, onChange }) {
     const order = reportOrder(cfg);
     const off = (cfg === null || cfg === void 0 ? void 0 : cfg.off) || [];
@@ -10967,11 +10977,17 @@ function SettingsSheet({ reportsCfg, onReportsCfg, open, onClose, box, theme, on
                     React.createElement("em", null, fxShow ? "Частицы у особенных поездок: в карточке — движутся, в ленте — неподвижно" : "Выключены — повод виден, частиц нет")),
                 React.createElement("span", { className: "switch" + (fxShow ? " on" : "") },
                     React.createElement("i", null))),
-            React.createElement("p", { className: "hint small" }, "\u041F\u043E\u0432\u043E\u0434\u044B \u2014 \u043F\u043E\u0434\u0441\u043A\u0430\u0437\u043A\u0438 \u0432 \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0435 \u043F\u043E\u0435\u0437\u0434\u043A\u0438. \u041A\u0430\u0441\u0430\u043D\u0438\u0435 \u2014 \u043F\u0435\u0440\u0435\u0438\u043C\u0435\u043D\u043E\u0432\u0430\u0442\u044C \u0438 \u0432\u044B\u0431\u0440\u0430\u0442\u044C \u044D\u0444\u0444\u0435\u043A\u0442."),
-            React.createElement(OccasionsSetup, { list: occasions, onChange: onOccasions }),
+            React.createElement(FoldList, { title: "\u0421\u043F\u0438\u0441\u043E\u043A \u043F\u043E\u0432\u043E\u0434\u043E\u0432", sub: occList(occasions).length },
+                React.createElement("p", { className: "hint small" }, "\u041F\u043E\u0432\u043E\u0434\u044B \u2014 \u043F\u043E\u0434\u0441\u043A\u0430\u0437\u043A\u0438 \u0432 \u043A\u0430\u0440\u0442\u043E\u0447\u043A\u0435 \u043F\u043E\u0435\u0437\u0434\u043A\u0438. \u041A\u0430\u0441\u0430\u043D\u0438\u0435 \u2014 \u043F\u0435\u0440\u0435\u0438\u043C\u0435\u043D\u043E\u0432\u0430\u0442\u044C \u0438 \u0432\u044B\u0431\u0440\u0430\u0442\u044C \u044D\u0444\u0444\u0435\u043A\u0442."),
+                React.createElement(OccasionsSetup, { list: occasions, onChange: onOccasions })),
             React.createElement("p", { className: "step-title" }, "\u041E\u0442\u0447\u0451\u0442\u044B"),
-            React.createElement("p", { className: "hint small" }, "\u0413\u0430\u043B\u043E\u0447\u043A\u0430 \u2014 \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0442\u044C \u043E\u0442\u0447\u0451\u0442, \u0441\u0442\u0440\u0435\u043B\u043A\u0438 \u2014 \u043F\u043E\u043C\u0435\u043D\u044F\u0442\u044C \u043F\u043E\u0440\u044F\u0434\u043E\u043A \u043D\u0430 \u044D\u043A\u0440\u0430\u043D\u0435 \u043E\u0442\u0447\u0451\u0442\u043E\u0432."),
-            React.createElement(ReportsSetup, { cfg: reportsCfg, onChange: onReportsCfg }),
+            React.createElement(FoldList, { title: "\u0421\u043F\u0438\u0441\u043E\u043A \u043E\u0442\u0447\u0451\u0442\u043E\u0432", sub: (() => {
+                    const ord = reportOrder(reportsCfg);
+                    const off = (reportsCfg === null || reportsCfg === void 0 ? void 0 : reportsCfg.off) || [];
+                    return `${ord.filter((id) => !off.includes(id)).length} из ${ord.length}`;
+                })() },
+                React.createElement("p", { className: "hint small" }, "\u0413\u0430\u043B\u043E\u0447\u043A\u0430 \u2014 \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0442\u044C \u043E\u0442\u0447\u0451\u0442, \u0441\u0442\u0440\u0435\u043B\u043A\u0438 \u2014 \u043F\u043E\u043C\u0435\u043D\u044F\u0442\u044C \u043F\u043E\u0440\u044F\u0434\u043E\u043A \u043D\u0430 \u044D\u043A\u0440\u0430\u043D\u0435 \u043E\u0442\u0447\u0451\u0442\u043E\u0432."),
+                React.createElement(ReportsSetup, { cfg: reportsCfg, onChange: onReportsCfg })),
             React.createElement("p", { className: "step-title" }, "\u041E\u0444\u043E\u0440\u043C\u043B\u0435\u043D\u0438\u0435"),
             React.createElement("div", { className: "theme-row" }, [
                 ["system", "Системная"],
@@ -24579,9 +24595,6 @@ button, input, select, textarea{font-family:inherit;}
 .occ-n{display:flex; flex-direction:column; min-width:0;}
 .occ-n b{font-size:14px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
 .occ-n em{font-style:normal; font-size:11.5px; color:var(--dim);}
-.occ-btn{flex:none; width:30px; height:30px; border-radius:8px; border:0; background:none; color:var(--dim); font-size:12px; cursor:pointer;}
-.occ-btn:disabled{opacity:.25;}
-.occ-btn.del{color:#d06a55;}
 .occ-edit{padding:4px 10px 12px;}
 .occ-names{display:flex; gap:6px; margin-bottom:6px;}
 .occ-names .occ-e{flex:none; width:56px; text-align:center;}
@@ -24623,6 +24636,25 @@ button, input, select, textarea{font-family:inherit;}
   bottom:calc(14px + env(safe-area-inset-bottom)); padding:0; gap:8px; justify-content:flex-end; z-index:3;}
 /* 43.18: длинное название моря («Мозамбикский пролив») — в две строки, без многоточия */
 .sea-head .fc-name b{white-space:normal; overflow:visible; text-overflow:clip; line-height:1.15;}
+/* 43.25: списки в настройках (поводы, отчёты) — один вид строк и кнопок; оба свёрнуты под строкой-заголовком */
+.rs-list, .occ-list{gap:6px;}
+.rs-row, .occ-row{border:1px solid var(--line); border-radius:14px; background:var(--field);}
+.rs-row{min-height:48px; padding:6px 6px 6px 10px; gap:10px;}
+.occ-top{min-height:46px; padding:6px 6px 6px 8px; gap:6px;}
+.rs-name, .occ-n b{font-size:14px; font-weight:500;}
+.rs-arrow{width:32px; height:32px; border-radius:10px; font-size:14px; display:flex; align-items:center; justify-content:center; padding:0;}
+.rs-arrow.del{color:#d06a55;}
+.rs-row .rs-arrow + .rs-arrow, .occ-top .rs-arrow + .rs-arrow{margin-left:0;}
+.fold{margin-bottom:10px;}
+.fold-head{width:100%; display:flex; align-items:center; gap:10px; min-height:48px; padding:6px 12px; border:1px solid var(--line);
+  border-radius:14px; background:var(--field); color:var(--ink); font-size:14px; text-align:left; cursor:pointer;}
+.fold-t{flex:1 1 auto; min-width:0; font-weight:500;}
+.fold-sub{flex:none; color:var(--dim); font-size:13px;}
+.fold-chev{flex:none; color:var(--dim); font-size:18px; line-height:1; transition:transform .2s;}
+.fold.open .fold-chev{transform:rotate(90deg);}
+.fold.open .fold-head{border-color:var(--gold);}
+.fold-body{padding-top:8px;}
+.fold-body > .hint.small{margin-top:0;}
 `;
 const __b = document.getElementById('boot');
 if (__b)
