@@ -2987,7 +2987,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "43.39";
+const APP_VERSION = "43.40";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -6924,6 +6924,7 @@ function SpaceBackdrop({ light, moving = true }) {
    Части собираются по номерам (tools/rebuild.sh) и видят друг друга напрямую. */
 const DOT_STEP = { world: 4.0, country: 3.0, region: 3.6 };
 const DOT_FLY = 750; // перелёт, мс
+const DOT_LIFT = 1150; // 43.40: страна поднимается с карты мира и встаёт в центр, мир размывается, мс
 const DOT_BLINK = 1350; // три мигания, как на глобусе
 const DOT_FLAG = 450;
 const DOT_FLASH = 900; // вспышка региона перед перелётом к нему
@@ -6947,6 +6948,8 @@ function dotLines(name) {
     return out;
 }
 const DOT_PLATE = "strong";
+// 43.40: вблизи — только сама страна (solo), вокруг ничего; ghost — соседи еле заметной тенью; off — как раньше
+const DOT_SOLO = "solo";
 /* текст с разрядкой и тёмной обводкой (буква за буквой — ctx.letterSpacing есть не везде) */
 function dotText(ctx, lines, x, y, fs, sp, color, weight = 600, draw = true, halo = null) {
     ctx.font = `${weight} ${fs}px system-ui, -apple-system, sans-serif`;
@@ -7132,6 +7135,7 @@ function dotProjFor(f, W, H, pad, keep, opt, turn = true) {
 function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCount, pins, lookKey, full = false, onToggleFull, noFull = false, light, cities, visitKey, sea = null, onSea = null, fullCard = null }) {
     const stageRef = useRef(null);
     const cvRef = useRef(null);
+    const bgRef = useRef(null);
     const [box, setBox] = useState({ W: 0, H: 0 });
     const st = useRef({ cur: null, fly: null, seq: null, raf: 0, flash: null, layers: {}, north: new Set() });
     const [turnUI, setTurnUI] = useState(null);
@@ -7248,6 +7252,7 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
         // увеличенный мир — как карта: подписи морей и стран по месту, а не «океаны по краям»
         const wz = kind === "world" && !!z && z.k > 1.25;
         const sel = kind === "world" ? null : view.a3;
+        const solo = kind !== "world" && DOT_SOLO !== "off";
         const feats = (kind === "world" && !(wz && z.k >= 2) ? lodGeo(geo) : geo).features.filter((f) => f.id !== "ATA");
         const marine = typeof marineFeats === "function" ? marineFeats() : [];
         const on = P.isOn || (() => false);
@@ -7334,6 +7339,14 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
             }
             const a3 = feats[c].id;
             (landCount[c] || (landCount[c] = [])).push(i);
+            // страна, поднятая над картой мира, оставляет на своём месте пустоту
+            if (view.hole && a3 === view.hole)
+                return;
+            if (solo && a3 !== sel) {
+                if (DOT_SOLO === "ghost")
+                    add("ghost", cx, cy, r0 * 0.9);
+                return;
+            }
             const visited = on(a3);
             const rk = r >= 0 ? regFeats[r].properties.key : null;
             if (rk && a3 === sel) {
@@ -7397,7 +7410,7 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
         const marks = [];
         feats.forEach((f, c) => {
             var _e;
-            if (landCount[c] || f.id === sel || !BY_A3[f.id])
+            if (solo || landCount[c] || f.id === sel || f.id === view.hole || !BY_A3[f.id])
                 return;
             const q = proj(d3.geoCentroid(((_e = f.geometry) === null || _e === void 0 ? void 0 : _e.type) === "MultiPolygon" ? dotMain(f) : f));
             if (!q || q[0] < 4 || q[0] > W - 4 || q[1] < 4 || q[1] > H - 4)
@@ -7417,12 +7430,23 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
             base: lt ? "rgba(70,110,150,.34)" : "rgba(125,170,210,.40)",
             dim: lt ? "rgba(70,110,150,.16)" : "rgba(125,170,210,.20)",
             dimR: lt ? "rgba(70,110,150,.26)" : "rgba(125,170,210,.28)",
+            ghost: lt ? "rgba(70,110,150,.12)" : "rgba(125,170,210,.13)",
             nG: lt ? "rgba(217,162,58,.32)" : "rgba(242,194,90,.30)",
             selD: lt ? "rgba(60,120,190,.38)" : "rgba(150,195,235,.40)",
             selB: lt ? "rgba(60,130,200,.75)" : "rgba(160,205,240,.85)",
             wish: lt ? "rgba(60,120,190,.7)" : "rgba(110,165,225,.75)",
         };
-        ["goldG", "champG", "dim", "dimR", "base", "wish", "nG", "champ", "selD", "selB", "gold"].forEach((k) => {
+        // 43.40: поднятая страна — непрозрачная «плитка» под точками: размытый мир не просвечивает сквозь неё
+        if (solo) {
+            const sf0 = feats.find((f) => f.id === sel);
+            if (sf0) {
+                ctx.beginPath();
+                d3.geoPath(proj, ctx)(sf0);
+                ctx.fillStyle = lt ? "rgba(236,242,248,.96)" : "rgba(12,24,38,.96)";
+                ctx.fill();
+            }
+        }
+        ["ghost", "goldG", "champG", "dim", "dimR", "base", "wish", "nG", "champ", "selD", "selB", "gold"].forEach((k) => {
             if (!batches[k])
                 return;
             ctx.fillStyle = FILL[k];
@@ -7443,7 +7467,8 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
         };
         if (kind !== "world") {
             ctx.beginPath();
-            feats.forEach((f) => f.id !== sel && path(f));
+            if (!solo)
+                feats.forEach((f) => f.id !== sel && path(f));
             ctx.strokeStyle = lt ? "rgba(60,90,120,.4)" : "rgba(175,200,225,.38)";
             ctx.lineWidth = 0.7;
             ctx.stroke();
@@ -7475,6 +7500,8 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
         // города поездок — искорки; у страны — с названиями, у региона — ещё и с числом поездок
         const rf = kind === "region" ? regFeats.find((f) => f.properties.key === view.key) : null;
         (P.cities || []).forEach((ct) => {
+            if ((solo && ct.a3 !== sel) || (view.hole && ct.a3 === view.hole))
+                return;
             const q = proj([ct.lon, ct.lat]);
             if (!q || q[0] < 0 || q[0] > W || q[1] < 0 || q[1] > H)
                 return;
@@ -7625,7 +7652,7 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
         }
         let nSea = 0;
         const seaDone = new Set();
-        if (kind !== "world" || wz)
+        if (!solo && (kind !== "world" || wz))
             Object.entries(seaCount)
                 .filter(([m, l]) => l.length >= seaMin && (kind !== "world" || wz || marine[m].properties.c === "ocean"))
                 .sort((a, b) => b[1].length - a[1].length)
@@ -7646,7 +7673,7 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
         // 43.38: только океаны, которые омывают саму страну (их точки рядом с её точками); большие страны (Россия,
         // Канада, Китай…) не отдаляем вовсе — у них важнее размер самой страны
         let oceanMiss = 0;
-        if (kind === "country" && !z && selIdx >= 0 && d3.geoArea(feats[selIdx]) < 0.04) {
+        if (kind === "country" && !solo && !z && selIdx >= 0 && d3.geoArea(feats[selIdx]) < 0.04) {
             const B = step * 2.5;
             const near = new Set();
             cells.forEach(([cx, cy, c]) => {
@@ -7668,7 +7695,7 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
                 return { ...next, view };
         }
         const nbCol = lt ? "rgba(40,70,100,.7)" : "rgba(185,208,230,.78)";
-        if (kind === "country" || wz) {
+        if ((kind === "country" && !solo) || wz) {
             let nNb = 0;
             Object.entries(landCount)
                 .filter(([c, l]) => feats[c].id !== sel && l.length >= 24 && BY_A3[feats[c].id])
@@ -7707,7 +7734,7 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
         // увеличенный пальцами вид — разовый, в запас не кладём
         if (v.zoom)
             return buildLayer(v);
-        const id = v.kind + ":" + (v.a3 || "") + ":" + (v.key || "") + (v.north ? ":n" : "");
+        const id = v.kind + ":" + (v.a3 || "") + ":" + (v.key || "") + (v.north ? ":n" : "") + (v.hole ? ":h" + v.hole : "");
         if (!S.layers[id])
             S.layers[id] = buildLayer(v);
         return S.layers[id];
@@ -7804,6 +7831,81 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
             ctx.setTransform(T[0], T[1], T[2], T[3], T[4] * dpr, T[5] * dpr);
             ctx.drawImage(L.cv, 0, 0);
         };
+        // мир под поднятой страной — на нижнем холсте: CSS-размытие и затемнение (amt 0…1)
+        const setBg = (L, amt) => {
+            const bg = bgRef.current;
+            if (!bg)
+                return;
+            if (!L) {
+                bg.style.opacity = "0";
+                return;
+            }
+            if (S.bgL !== L || bg.width !== cv.width) {
+                bg.width = cv.width;
+                bg.height = cv.height;
+                bg.style.width = W + "px";
+                bg.style.height = H + "px";
+                const bx = bg.getContext("2d");
+                bx.setTransform(1, 0, 0, 1, 0, 0);
+                bx.clearRect(0, 0, bg.width, bg.height);
+                bx.drawImage(L.cv, 0, 0, bg.width, bg.height);
+                S.bgL = L;
+            }
+            bg.style.opacity = "1";
+            // 43.40: размытие умеренное — мир под страной хорошо узнаётся
+            bg.style.filter = `blur(${(3.5 * amt).toFixed(1)}px) brightness(${(1 - 0.22 * amt).toFixed(3)}) saturate(${(1 - 0.15 * amt).toFixed(3)})`;
+        };
+        // слой страны над миром — с тенью: «висит» над размытой картой
+        const P0col = (k) => `rgba(0,0,0,${(0.6 * k).toFixed(3)})`;
+        const putFloat = (L, T, k) => {
+            ctx.save();
+            ctx.shadowColor = P0col(k);
+            ctx.shadowBlur = 26 * k * dpr;
+            ctx.shadowOffsetY = 10 * k * dpr;
+            put(L, T, 1);
+            ctx.restore();
+        };
+        if (S.lift) {
+            const F = S.lift;
+            const p = Math.min(1, (now - F.t0) / DOT_LIFT);
+            const e = p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+            const t = F.up ? e : 1 - e;
+            setBg(F.bgL, t);
+            // страна: от своего места на карте мира (M) — к середине экрана в полный размер
+            const M = F.M;
+            const s0 = 1 - t;
+            const sx = Math.hypot(M[0], M[1]);
+            const th = Math.atan2(M[1], M[0]);
+            const sy = (M[0] * M[3] - M[1] * M[2]) / sx;
+            const cx = W / 2 + (M[0] * (W / 2) + M[2] * (H / 2) + M[4] - W / 2) * s0;
+            const cy = H / 2 + (M[1] * (W / 2) + M[3] * (H / 2) + M[5] - H / 2) * s0 - Math.sin(Math.PI * t) * 18;
+            const kx = Math.exp(Math.log(sx) * s0);
+            const ky = Math.exp(Math.log(Math.abs(sy)) * s0);
+            const a = th * s0;
+            const T = [Math.cos(a) * kx, Math.sin(a) * kx, -Math.sin(a) * ky, Math.cos(a) * ky, 0, 0];
+            T[4] = cx - (T[0] * W) / 2 - (T[2] * H) / 2;
+            T[5] = cy - (T[1] * W) / 2 - (T[3] * H) / 2;
+            putFloat(F.L, mMul(T, [1 / F.L.dpr, 0, 0, 1 / F.L.dpr, 0, 0]).map((v, i) => (i < 4 ? v * dpr : v)), t);
+            if (p >= 1) {
+                S.lift = null;
+                if (F.up)
+                    S.cur = F.L;
+                else {
+                    S.cur = F.world;
+                    setBg(null, 0);
+                }
+                F.done && F.done();
+                ctx.setTransform(1, 0, 0, 1, 0, 0);
+                ctx.clearRect(0, 0, cv.width, cv.height);
+                if (F.up)
+                    putFloat(S.cur, [dpr / S.cur.dpr, 0, 0, dpr / S.cur.dpr, 0, 0], 1);
+                else
+                    put(S.cur, [dpr / S.cur.dpr, 0, 0, dpr / S.cur.dpr, 0, 0], 1);
+            }
+            ctx.globalAlpha = 1;
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            return true;
+        }
         if (S.fly) {
             const F = S.fly;
             const p = Math.min(1, (now - F.t0) / DOT_FLY);
@@ -7847,8 +7949,19 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
             // жест пальцами: готовая картинка вида тянется и сдвигается, после жеста вид строится заново
             put(S.cur, mMul(S.live, [1 / S.cur.dpr, 0, 0, 1 / S.cur.dpr, 0, 0]).map((v, i) => (i < 4 ? v * dpr : v)), 1);
         }
-        else
+        else if (S.cur.view.kind !== "world") {
+            // страна (регион) над размытым миром
+            const a3 = S.cur.view.a3;
+            if (!S.bgL || S.bgL.view.hole !== a3)
+                setBg(layer({ kind: "world", hole: a3 }), 1);
+            else
+                setBg(S.bgL, 1);
+            putFloat(S.cur, [dpr / S.cur.dpr, 0, 0, dpr / S.cur.dpr, 0, 0], 1);
+        }
+        else {
+            setBg(null, 0);
             put(S.cur, [dpr / S.cur.dpr, 0, 0, dpr / S.cur.dpr, 0, 0], 1);
+        }
         // компас: страна повёрнута (стрелка на север) или её можно повернуть крупнее
         if (!S.fly) {
             const ti = S.cur.view.kind !== "world" && S.cur.proj.turnInfo;
@@ -7997,7 +8110,7 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
             }
         }
         return more;
-    }, [W, H]);
+    }, [W, H, layer]);
     const kick = useCallback(() => {
         const S = st.current;
         if (S.raf)
@@ -8036,33 +8149,75 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
     const setView = (view) => {
         st.current.view = view;
     };
+    /* 43.40: страна поднимается из своих границ на карте мира, плывёт в середину и растёт; мир остаётся на месте,
+       размывается и темнеет (нижний холст). Обратно — страна опускается в своё место, мир проясняется */
+    const liftTo = (view, done) => {
+        const S = st.current;
+        if (S.fly)
+            S.cur = S.fly.to;
+        S.fly = null;
+        const from = S.cur;
+        const L = layer(view);
+        if (!from || from.view.kind !== "world")
+            return flyTo(view, done);
+        const bgL = layer({ ...from.view, hole: view.a3 });
+        S.lift = { up: true, L, bgL, M: affIn(bgL, L), t0: performance.now(), done };
+        kick();
+    };
+    const dropTo = (done) => {
+        const S = st.current;
+        if (S.fly)
+            S.cur = S.fly.to;
+        S.fly = null;
+        const from = S.cur;
+        const world = layer({ kind: "world" });
+        if (!from || from.view.kind === "world")
+            return flyTo({ kind: "world" }, done);
+        const bgL = S.bgL && S.bgL.view.hole === from.view.a3 && !S.bgL.view.zoom ? S.bgL : layer({ kind: "world", hole: from.view.a3 });
+        S.lift = { up: false, L: from, bgL, world, M: affIn(bgL, from), t0: performance.now(), done };
+        kick();
+    };
     // выбрали море — мелкое (Чёрное, Красное) приближаем, чтобы его было видно; сняли — обратно к миру
     useEffect(() => {
         const S = st.current;
         if (!ready || !S.cur || selected)
             return kick();
-        const parts = sea && typeof marineFeats === "function" ? marineFeats().filter((f) => f.properties.n === sea) : [];
-        if (!parts.length) {
-            if (S.cur.view.kind === "world" && S.cur.view.zoom && !sea)
-                flyTo({ kind: "world" });
-            else
-                kick();
-            return;
+        const run = () => {
+            if (props.current.sea !== sea || props.current.selected)
+                return;
+            const parts = sea && typeof marineFeats === "function" ? marineFeats().filter((f) => f.properties.n === sea) : [];
+            if (!parts.length) {
+                if (S.cur.view.kind === "world" && S.cur.view.zoom && !sea)
+                    flyTo({ kind: "world" });
+                else
+                    kick();
+                return;
+            }
+            const base = layer({ kind: "world" });
+            const [[x0, y0], [x1, y1]] = d3.geoPath(base.proj).bounds({ type: "FeatureCollection", features: parts });
+            const bw = Math.max(8, x1 - x0);
+            const bh = Math.max(8, y1 - y0);
+            const k = Math.max(1, Math.min(5, Math.min(W / bw, H / bh) * 0.55));
+            if (!isFinite(k) || k < 1.4) {
+                if (S.cur.view.kind !== "world" || S.cur.view.zoom)
+                    flyTo({ kind: "world" });
+                else
+                    kick();
+                return;
+            }
+            const Z = clampZ([k, 0, 0, k, W / 2 - k * ((x0 + x1) / 2), H / 2 - k * ((y0 + y1) / 2)], "world");
+            flyTo({ kind: "world", zoom: { k: Z[0], dx: Z[4], dy: Z[5] } });
+        };
+        // страна ещё опускается на место — море покажем после
+        if (S.lift) {
+            const prev = S.lift.done;
+            S.lift.done = () => {
+                prev && prev();
+                run();
+            };
         }
-        const base = layer({ kind: "world" });
-        const [[x0, y0], [x1, y1]] = d3.geoPath(base.proj).bounds({ type: "FeatureCollection", features: parts });
-        const bw = Math.max(8, x1 - x0);
-        const bh = Math.max(8, y1 - y0);
-        const k = Math.max(1, Math.min(5, Math.min(W / bw, H / bh) * 0.55));
-        if (!isFinite(k) || k < 1.4) {
-            if (S.cur.view.kind !== "world" || S.cur.view.zoom)
-                flyTo({ kind: "world" });
-            else
-                kick();
-            return;
-        }
-        const Z = clampZ([k, 0, 0, k, W / 2 - k * ((x0 + x1) / 2), H / 2 - k * ((y0 + y1) / 2)], "world");
-        flyTo({ kind: "world", zoom: { k: Z[0], dx: Z[4], dy: Z[5] } });
+        else
+            run();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [sea, ready]);
     /* первый показ и смена размера: всё заново, текущий вид — сразу без перелёта */
@@ -8145,8 +8300,10 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
             S.seq = null;
             const v = { kind: "world" };
             setView(v);
-            // и увеличенный пальцами мир — обратно к обычному (✕ в карточке сбрасывает увеличение)
-            if (S.cur && (S.cur.view.kind !== "world" || (S.cur.view.zoom && !props.current.sea)))
+            // страна опускается обратно на карту мира; увеличенный пальцами мир — к обычному (✕ сбрасывает увеличение)
+            if (S.cur && S.cur.view.kind !== "world")
+                dropTo();
+            else if (S.cur && S.cur.view.zoom && !props.current.sea)
                 flyTo(v);
             else
                 kick();
@@ -8159,27 +8316,38 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
         }
         const seq = { a3 };
         S.seq = seq;
-        seq.blinkT0 = performance.now();
-        kick();
-        setTimeout(() => {
-            if (S.seq !== seq)
-                return;
-            seq.flagT0 = performance.now();
+        // другая страна при уже поднятой — сначала прежняя опускается на место
+        if (S.cur && S.cur.view.kind !== "world" && S.cur.view.a3 !== a3) {
+            dropTo(() => {
+                if (S.seq === seq)
+                    start();
+            });
+            return;
+        }
+        start();
+        function start() {
+            seq.blinkT0 = performance.now();
             kick();
             setTimeout(() => {
                 if (S.seq !== seq)
                     return;
-                const v = { kind: "country", a3 };
-                setView(v);
-                flyTo(v, () => {
+                seq.flagT0 = performance.now();
+                kick();
+                setTimeout(() => {
                     if (S.seq !== seq)
                         return;
-                    seq.done = true;
-                    if (props.current.selRegion)
-                        goRegion(a3, props.current.selRegion);
-                });
-            }, DOT_FLAG + 250);
-        }, DOT_BLINK);
+                    const v = { kind: "country", a3 };
+                    setView(v);
+                    liftTo(v, () => {
+                        if (S.seq !== seq)
+                            return;
+                        seq.done = true;
+                        if (props.current.selRegion)
+                            goRegion(a3, props.current.selRegion);
+                    });
+                }, DOT_FLAG + 250);
+            }, DOT_BLINK);
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [lookKey, selected, ready]);
     /* регион выбран (в списке или на карте) или снят */
@@ -8391,6 +8559,14 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
             });
         }
         const P0 = props.current;
+        // 43.40: вблизи вокруг страны ничего нет — касание мимо неё = назад (из региона к стране, из страны к миру)
+        if (L.view.kind !== "world" && DOT_SOLO !== "off" && (best < 0 || L.feats[best].id !== L.view.a3)) {
+            if (L.view.kind === "region")
+                P0.onPick && P0.onPick(L.view.a3);
+            else
+                P0.onPick && P0.onPick(null);
+            return;
+        }
         // 43.39: касание по воде — море или океан (справка, как на глобусе); назад — ✕ в карточке или щипком
         if (best < 0 && P0.onSea) {
             const m = L.read(L.landImg, px, py, 3);
@@ -8444,6 +8620,7 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
         kick();
     };
     const stage = (React.createElement("div", { className: "dot-stage", ref: stageRef },
+        React.createElement("canvas", { ref: bgRef, className: "dot-bg" }),
         React.createElement("canvas", { ref: cvRef, className: "dot-cv", onPointerDown: onDown, onPointerMove: onMove, onPointerUp: onEnd, onPointerCancel: onEnd }),
         turnUI && (React.createElement("button", { className: "dot-north" + (turnUI.angle ? " on" : ""), onClick: onTurn, "aria-label": turnUI.angle ? "Север вверху" : "Повернуть крупнее" }, turnUI.angle ? (React.createElement("svg", { viewBox: "-16 -16 32 32", width: "32", height: "32" },
             React.createElement("g", { transform: `rotate(${turnUI.north})` },
@@ -26327,7 +26504,7 @@ button, input, select, textarea{font-family:inherit;}
 /* 43.27: карта из точек */
 .dot-map{padding:8px;}
 .dot-stage{position:relative; width:100%; aspect-ratio:1.22; touch-action:manipulation;}
-.dot-cv{position:absolute; left:0; top:0; display:block; border-radius:12px; cursor:pointer;}
+.dot-cv,.dot-bg{position:absolute; left:0; top:0; display:block; border-radius:12px; cursor:pointer;}
 .dot-crumb{position:absolute; left:8px; top:8px; z-index:2; max-width:calc(100% - 16px); padding:5px 11px; border-radius:999px;
   border:1px solid var(--line); background:color-mix(in srgb, var(--el) 85%, transparent); color:var(--ink); font-size:12.5px;
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis; cursor:pointer; -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);}
@@ -26340,7 +26517,7 @@ button, input, select, textarea{font-family:inherit;}
 }
 /* 43.29: карта из точек без рамки — края растворяются, на карте только карта */
 .map-wrap.dot-map{background:none; border:0; border-radius:0; overflow:visible; padding:0;}
-.dot-cv{border-radius:0;
+.dot-cv,.dot-bg{border-radius:0;
   -webkit-mask-image:linear-gradient(to right, transparent 0, #000 9%, #000 91%, transparent 100%), linear-gradient(to bottom, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%);
   -webkit-mask-composite:source-in;
   mask-image:linear-gradient(to right, transparent 0, #000 9%, #000 91%, transparent 100%), linear-gradient(to bottom, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%);
@@ -26352,7 +26529,7 @@ button, input, select, textarea{font-family:inherit;}
 .globe-full.dot-full .globe-controls{right:calc((8px + env(safe-area-inset-right) * .35) * 1.5); bottom:calc((8px + env(safe-area-inset-bottom) * .5) * 1.5); left:auto; top:auto;}
 
 /* 43.34: на главном экране вертикально — края по бокам растворяются меньше, мир крупнее */
-.col-map .dot-cv{
+.col-map .dot-cv,.col-map .dot-bg{
   -webkit-mask-image:linear-gradient(to right, transparent 0, #000 4%, #000 96%, transparent 100%), linear-gradient(to bottom, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%);
   mask-image:linear-gradient(to right, transparent 0, #000 4%, #000 96%, transparent 100%), linear-gradient(to bottom, transparent 0, #000 24px, #000 calc(100% - 24px), transparent 100%);}
 
@@ -26384,6 +26561,8 @@ button, input, select, textarea{font-family:inherit;}
   .globe-full.dot-full.has-card .globe-controls,
   .globe-full.dot-full.has-card .dfu-card:has(.dfu-tx) ~ .globe-controls{bottom:calc((8px + env(safe-area-inset-bottom) * .5) * 1.5);}
 }
+/* 43.40: мир под поднятой страной — нижний холст, размытие и затемнение задаются из кода */
+.dot-bg{pointer-events:none; opacity:0;}
 `;
 const __b = document.getElementById('boot');
 if (__b)
