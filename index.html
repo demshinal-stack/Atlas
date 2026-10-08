@@ -2987,7 +2987,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "43.33";
+const APP_VERSION = "43.34";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -7038,7 +7038,9 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
         for (let la = -56; la <= 80; la += 3)
             pts.push([-168.5, la], [190.5, la]);
         const p = d3.geoNaturalEarth1().rotate([-11, 0]);
-        p.fitExtent([[W * 0.05, H * 0.07], [W * 0.95, H * 0.93]], { type: "MultiPoint", coordinates: pts });
+        // узкое окно (телефон вертикально): мир почти на всю ширину — по бокам подписей нет, поля меньше
+        const mx = W < 560 ? 0.03 : 0.05;
+        p.fitExtent([[W * mx, H * 0.07], [W * (1 - mx), H * 0.93]], { type: "MultiPoint", coordinates: pts });
         // 43.31: по вертикали — по самой суше (без Антарктиды): поровну места сверху и снизу
         // только заметная суша (куски от ~20 тыс. км²): мелкие острова у Антарктиды точками не видны, но сдвигали рамку
         const big = [];
@@ -7054,6 +7056,15 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
             });
         });
         const land = { type: "GeometryCollection", geometries: big };
+        if (W < 560) {
+            // узкое окно: по ширине самой суши (Аляска — Чукотка), а не всего круга с пустым океаном по бокам
+            const [[x0], [x1]] = d3.geoPath(p).bounds(land);
+            if (isFinite(x0) && isFinite(x1) && x1 > x0) {
+                const k = (W * (1 - 2 * mx)) / (x1 - x0);
+                const t = p.translate();
+                p.scale(p.scale() * k).translate([W / 2 + (t[0] - (x0 + x1) / 2) * k, H / 2 + (t[1] - H / 2) * k]);
+            }
+        }
         let [[, y0], [, y1]] = d3.geoPath(p).bounds(land);
         if (isFinite(y0) && isFinite(y1)) {
             const room = H * 0.89;
@@ -25693,7 +25704,7 @@ button, input, select, textarea{font-family:inherit;}
 .root.light .set-ico{color:#fff;}
 /* 43.27: карта из точек */
 .dot-map{padding:8px;}
-.dot-stage{position:relative; width:100%; aspect-ratio:1.55; touch-action:manipulation;}
+.dot-stage{position:relative; width:100%; aspect-ratio:1.22; touch-action:manipulation;}
 .dot-cv{position:absolute; left:0; top:0; display:block; border-radius:12px; cursor:pointer;}
 .dot-crumb{position:absolute; left:8px; top:8px; z-index:2; max-width:calc(100% - 16px); padding:5px 11px; border-radius:999px;
   border:1px solid var(--line); background:color-mix(in srgb, var(--el) 85%, transparent); color:var(--ink); font-size:12.5px;
@@ -25717,6 +25728,11 @@ button, input, select, textarea{font-family:inherit;}
 .globe-full.dot-full{padding:0 !important;}
 .dot-full .dot-stage{position:absolute; inset:0; width:auto; height:auto; aspect-ratio:auto;}
 .globe-full.dot-full .globe-controls{right:calc((8px + env(safe-area-inset-right) * .35) * 1.5); bottom:calc((8px + env(safe-area-inset-bottom) * .5) * 1.5); left:auto; top:auto;}
+
+/* 43.34: на главном экране вертикально — края по бокам растворяются меньше, мир крупнее */
+.col-map .dot-cv{
+  -webkit-mask-image:linear-gradient(to right, transparent 0, #000 4%, #000 96%, transparent 100%), linear-gradient(to bottom, transparent 0, #000 9%, #000 91%, transparent 100%);
+  mask-image:linear-gradient(to right, transparent 0, #000 4%, #000 96%, transparent 100%), linear-gradient(to bottom, transparent 0, #000 9%, #000 91%, transparent 100%);}
 `;
 const __b = document.getElementById('boot');
 if (__b)
