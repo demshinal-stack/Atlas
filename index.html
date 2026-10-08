@@ -2987,7 +2987,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "43.35";
+const APP_VERSION = "43.36";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -3147,7 +3147,7 @@ const withExtraShapes = (geo) => !(geo === null || geo === void 0 ? void 0 : geo
 /* 43.20: сначала подробные границы 1:50 млн из самого приложения (data/borders50.json, tools/make_borders50.py),
    внешние наборы 1:110 млн — запасные */
 const GEO_SOURCES = [
-    "./data/borders50.json?v=1",
+    "./data/borders50.json?v=2",
     "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json",
     "https://unpkg.com/world-atlas@2/countries-110m.json",
     "https://cdn.jsdelivr.net/gh/johan/world.geo.json@master/countries.geo.json",
@@ -6975,26 +6975,66 @@ function dotText(ctx, lines, x, y, fs, sp, color, weight = 600, draw = true, hal
     return [x - w / 2 - 3, y - h / 2 - 2, x + w / 2 + 3, y + h / 2 + 2];
 }
 const dotHit = (a, b) => a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
-/* главная часть страны/региона: крупные куски и всё, что рядом (без далёких заморских островов) */
-function dotMain(f) {
+/* главная часть страны/региона (43.36): самый большой кусок и всё, что «цепочкой» рядом с ним (≤ ~350 км от уже
+   взятых кусков — архипелаги целиком), плюс куски с городами поездок. Далёкие острова (Марион у ЮАР, Азоры и Мадейра,
+   Канары, Галапагосы) в рамку не входят — рисуются, если попадают в кадр, но не сжимают страну */
+const dotMainMemo = new Map();
+function dotMain(f, keep = [], opt = {}) {
+    var _e;
     const g = f.geometry;
     if (!g || g.type !== "MultiPolygon")
         return f;
+    const reach = opt.reach || 0.055;
+    const key = f.id + "|" + (((_e = f.properties) === null || _e === void 0 ? void 0 : _e.key) || "") + "|" + reach + "|" + keep.map((q) => q[0].toFixed(2) + "," + q[1].toFixed(2)).join(";");
+    if (dotMainMemo.has(key))
+        return dotMainMemo.get(key);
     const parts = g.coordinates.map((p) => {
         const pf = { type: "Polygon", coordinates: p };
-        return { p, a: d3.geoArea(pf), c: d3.geoCentroid(pf) };
+        const ring = p[0] || [];
+        const step = Math.max(1, Math.floor(ring.length / 48));
+        const vs = ring.filter((_, i) => i % step === 0);
+        return { p, pf, a: d3.geoArea(pf), c: d3.geoCentroid(pf), vs };
     });
     parts.sort((x, y) => y.a - x.a);
-    const main = parts[0];
-    const keep = parts.filter((x) => {
-        const d = d3.geoDistance(x.c, main.c);
-        return x === main || d < 0.75 || (x.a >= main.a * 0.1 && d < 1.2);
+    // у маленькой островной страны главная часть — та, где столица (у Сейшел самая большая — Маэ, но так надёжнее)
+    const main = opt.seed ? parts.reduce((b, x) => (d3.geoDistance(x.c, opt.seed) < d3.geoDistance(b.c, opt.seed) ? x : b), parts[0]) : parts[0];
+    const near = (x, y) => {
+        // расстояние между кусками — по точкам их контуров (с прореживанием)
+        if (d3.geoDistance(x.c, y.c) > 0.6)
+            return false;
+        for (const u of x.vs)
+            for (const v of y.vs)
+                if (d3.geoDistance(u, v) < reach)
+                    return true;
+        return false;
+    };
+    const kept = new Set([main]);
+    parts.forEach((x) => {
+        // крупные куски (от 15 % главного: Аляска, Шпицберген) и куски с городами поездок — всегда в рамке
+        if ((!opt.seed && x.a >= main.a * 0.15 && d3.geoDistance(x.c, main.c) < 1.2) || keep.some((q) => d3.geoContains(x.pf, q)))
+            kept.add(x);
     });
-    return { type: "Feature", id: f.id, properties: f.properties, geometry: { type: "MultiPolygon", coordinates: keep.map((x) => x.p) } };
+    let grew = true;
+    while (grew) {
+        grew = false;
+        for (const x of parts) {
+            if (kept.has(x))
+                continue;
+            for (const y of kept)
+                if (near(x, y)) {
+                    kept.add(x);
+                    grew = true;
+                    break;
+                }
+        }
+    }
+    const res = { type: "Feature", id: f.id, properties: f.properties, geometry: { type: "MultiPolygon", coordinates: parts.filter((x) => kept.has(x)).map((x) => x.p) } };
+    dotMainMemo.set(key, res);
+    return res;
 }
 /* проекция «вблизи»: равновеликая коническая, повёрнутая к середине; объект целиком в холсте с полями */
-function dotProjFor(f, W, H, pad) {
-    const m = dotMain(f);
+function dotProjFor(f, W, H, pad, keep, opt) {
+    const m = dotMain(f, keep, opt);
     const c = d3.geoCentroid(m);
     const lat = Math.max(-75, Math.min(75, c[1]));
     const p = d3
@@ -7085,10 +7125,21 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
     }, [geo, W, H]);
     const PAD = [22, 22, 22, 22]; // поля: края растворяются, страна целиком в чёткой части
     const countryFeat = (a3) => geo.features.find((f) => f.id === a3);
+    /* 43.36: маленькая островная страна (суша < ~8 тыс. км², из многих островов: Мальдивы, Сейшелы, Тонга) — кадр
+       от столицы и острова цепочкой не дальше ~120 км; далёкие (Альдабра, Амиранты) — за кадром */
+    const smallIsl = (a3) => {
+        var _e;
+        const f = countryFeat(a3);
+        const c = BY_A3[a3];
+        if (!f || !c || ((_e = f.geometry) === null || _e === void 0 ? void 0 : _e.type) !== "MultiPolygon" || f.geometry.coordinates.length < 4 || d3.geoArea(f) > 0.0002)
+            return undefined;
+        // у Сейшел внутренние острова (Маэ, Праслин, Ла-Диг, Денис, Берд) — тесной группой, Платт в 130 км уже далеко
+        return { reach: a3 === "SYC" ? 0.012 : 0.019, seed: [c.lon, c.lat] };
+    };
     const regionFeat = (key) => (REG.ready ? REG.feats.find((f) => f.properties.key === key) : null);
     /* слой — всё неподвижное для одного вида: точки, линии, подписи, города */
     const buildLayer = useCallback((view) => {
-        var _e, _h;
+        var _e, _h, _j;
         const P = props.current;
         const lt = !!P.light;
         const dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -7096,7 +7147,11 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
         const proj = kind === "world"
             ? worldProj()
             : kind === "country"
-                ? dotProjFor(countryFeat(view.a3), W, H, PAD)
+                ? dotProjFor(countryFeat(view.a3), W, H, PAD.map((v) => v + (view.shrink || 0) * 16), [
+                    ...(P.cities || []).filter((ct) => ct.a3 === view.a3).map((ct) => [ct.lon, ct.lat]),
+                    // и области, где были (атолл Раа на Мальдивах)
+                    ...(REG.ready ? REG.feats.filter((f) => { var _e; return f.properties.a3 === view.a3 && ((_e = P.regions) === null || _e === void 0 ? void 0 : _e.has(f.properties.key)); }).map((f) => d3.geoCentroid(f)) : []),
+                ], smallIsl(view.a3))
                 : dotProjFor(regionFeat(view.key), W, H, [34, 46, 34, 46]);
         const sel = kind === "world" ? null : view.a3;
         const feats = (kind === "world" ? lodGeo(geo) : geo).features.filter((f) => f.id !== "ATA");
@@ -7202,6 +7257,38 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
                 add(col + "G", cx, cy, r0 * 2.2);
             add(col, cx, cy, col === "gold" || col === "champ" || col === "selB" ? r0 * 1.15 : r0);
         });
+        // 43.36: острова мельче шага сетки (атоллы Мальдив, Тонга) в сетку не попадают — им по точке в середине,
+        // цветом как у суши (с областью: где были — золотая)
+        if (kind !== "world") {
+            const sf = feats.find((f) => f.id === sel);
+            const bp = d3.geoPath(proj);
+            if (sf && ((_e = sf.geometry) === null || _e === void 0 ? void 0 : _e.type) === "MultiPolygon")
+                sf.geometry.coordinates.forEach((pc) => {
+                    var _e;
+                    const pf = { type: "Polygon", coordinates: pc };
+                    const [[x0, y0], [x1, y1]] = bp.bounds(pf);
+                    if (!(x1 - x0 < step * 1.6 && y1 - y0 < step * 1.6) || x1 < 0 || x0 > W || y1 < 0 || y0 > H)
+                        return;
+                    const cx = (x0 + x1) / 2;
+                    const cy = (y0 + y1) / 2;
+                    if (cells.some(([qx, qy, c]) => c >= 0 && Math.abs(qx - cx) < step * 0.8 && Math.abs(qy - cy) < step * 0.8))
+                        return;
+                    const ri = regImg ? read(regImg, cx, cy, 7) : -1;
+                    const rk = ri >= 0 && ri < regFeats.length ? regFeats[ri].properties.key : null;
+                    const been = rk && ((_e = P.regions) === null || _e === void 0 ? void 0 : _e.has(rk));
+                    const visited = on(sel);
+                    let col;
+                    if (kind === "region")
+                        col = rk === view.key ? "gold" : been ? "nG" : "dimR";
+                    else if (visited)
+                        col = REG.ready && REG.big.has(sel) ? (been ? "gold" : "selB") : "gold";
+                    else
+                        col = "selB";
+                    if (col === "gold")
+                        add("goldG", cx, cy, r0 * 2.2);
+                    add(col, cx, cy, col === "gold" || col === "selB" ? r0 * 1.15 : r0);
+                });
+        }
         const FILL = {
             goldG: lt ? "rgba(217,162,58,.14)" : "rgba(242,194,90,.16)",
             champG: lt ? "rgba(232,207,143,.10)" : "rgba(243,227,180,.09)",
@@ -7258,7 +7345,7 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
         // место кнопки «во весь экран» справа снизу
         const taken = [[W - 52, H - 52, W, H]];
         // флажок выбранной страны — подписи его не закрывают
-        if (kind === "country" && ((_h = (_e = P.pins) === null || _e === void 0 ? void 0 : _e[0]) === null || _h === void 0 ? void 0 : _h.a3) === sel) {
+        if (kind === "country" && ((_j = (_h = P.pins) === null || _h === void 0 ? void 0 : _h[0]) === null || _j === void 0 ? void 0 : _j.a3) === sel) {
             const fq = proj([P.pins[0].lon, P.pins[0].lat]);
             if (fq)
                 taken.push([fq[0] - 3, fq[1] - 54, fq[0] + 36, fq[1] + 4]);
@@ -7294,8 +7381,9 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
         // подписи — у «середины» своих точек, но только там, где под надписью целиком вода (моря) или
         // сама эта страна / регион (соседи), и без наездов на другие подписи; перебор от середины к краям
         // на мире — с запасом вокруг надписи: океаны не жмутся к берегам
-        const gap = kind === "world" ? 7 : 0;
+        // 43.36: и у страны/региона — подписи морей с запасом 6 px, не вплотную к берегу
         const clearUnder = (r, ok) => {
+            const gap = ok !== isWater ? 0 : kind === "world" ? 7 : 6;
             for (let yy = r[1] - gap; yy <= r[3] + gap; yy += 2.5)
                 for (let xx = r[0] - gap; xx <= r[2] + gap; xx += 2.5)
                     if (!ok(xx, yy))
@@ -7316,7 +7404,8 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
             for (let j = 0; j < order.length; j += stride) {
                 const [px, py] = cells[order[j][0]];
                 const r = dotText(ctx, lines, px, py, fs, sp, color, weight, false);
-                if (r[0] < 2 || r[2] > W - 2 || r[1] < 2 || r[3] > H - 2 || taken.some((t) => dotHit(t, r)))
+                // не в растворяющемся крае холста
+                if (r[0] < 14 || r[2] > W - 14 || r[1] < 22 || r[3] > H - 22 || taken.some((t) => dotHit(t, r)))
                     continue;
                 if (!clearUnder(r, ok))
                     continue;
@@ -7430,6 +7519,19 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
                     seaDone.add(nm);
                 }
             });
+        // 43.36: страна — крупно, но так, чтобы подписи океанов у неё влезли: если океан в кадре есть, а подпись
+        // (с отступом от берега и краёв) не встала — отдаляем на шаг (поля +16 px) и строим заново, до 4 шагов
+        // (если и так не встаёт — остаёмся на самом крупном варианте с тем же числом подписей)
+        const oceanMiss = kind === "country"
+            ? new Set(Object.entries(seaCount)
+                .filter(([m, l]) => l.length >= seaMin && marine[m].properties.c === "ocean" && !seaDone.has(marine[m].properties.n))
+                .map(([m]) => marine[m].properties.n)).size
+            : 0;
+        if (oceanMiss && (view.shrink || 0) < 4) {
+            const next = buildLayer({ ...view, shrink: (view.shrink || 0) + 1 });
+            if (next.oceanMiss < oceanMiss)
+                return { ...next, view };
+        }
         const nbCol = lt ? "rgba(40,70,100,.7)" : "rgba(185,208,230,.78)";
         if (kind === "country") {
             let nNb = 0;
@@ -7459,7 +7561,7 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
                     nNb++;
             });
         }
-        return { view, proj, cv, cells, feats, regFeats, landImg, regImg, regCells, r0, read, dpr };
+        return { view, proj, cv, cells, feats, regFeats, landImg, regImg, regCells, r0, read, dpr, oceanMiss };
     }, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [geo, worldProj, W, H]);
