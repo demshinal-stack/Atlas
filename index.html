@@ -2987,7 +2987,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "43.37";
+const APP_VERSION = "43.38";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -7033,22 +7033,61 @@ function dotMain(f, keep = [], opt = {}) {
     return res;
 }
 /* проекция «вблизи»: равновеликая коническая, повёрнутая к середине; объект целиком в холсте с полями */
-function dotProjFor(f, W, H, pad, keep, opt) {
+/* 43.38: длинную страну (Мальдивы, Чили, Норвегия, Вьетнам, Япония) поворачиваем, как в «Покорении»: самый малый
+   угол в пределах ±45°, дающий почти лучший размер, если выигрыш от 20 %; turn = false — север строго вверху */
+function dotProjFor(f, W, H, pad, keep, opt, turn = true) {
+    var _e;
     const m = dotMain(f, keep, opt);
     const c = d3.geoCentroid(m);
     const lat = Math.max(-75, Math.min(75, c[1]));
-    const p = d3
+    const ext = [[pad[3], pad[0]], [W - pad[1], H - pad[2]]];
+    const make = (a) => d3
         .geoConicEqualArea()
         .parallels([Math.max(-80, lat - 8), Math.min(80, lat + 8)])
-        .rotate([-c[0], 0]);
-    p.fitExtent([[pad[3], pad[0]], [W - pad[1], H - pad[2]]], m);
+        .rotate([-c[0], 0])
+        .angle(a);
+    // подбор угла — по прореженным точкам контура (быстро даже для России)
+    const pts = [];
+    const polys = ((_e = m.geometry) === null || _e === void 0 ? void 0 : _e.type) === "MultiPolygon" ? m.geometry.coordinates : m.geometry ? [m.geometry.coordinates] : [];
+    polys.forEach((pc) => {
+        const ring = pc[0] || [];
+        const st = Math.max(1, Math.floor(ring.length / 60));
+        for (let i = 0; i < ring.length; i += st)
+            pts.push(ring[i]);
+    });
+    const mp = { type: "MultiPoint", coordinates: pts };
+    let angle = 0;
+    let can = false;
+    if (pts.length > 2) {
+        const k0 = make(0).fitExtent(ext, mp).scale();
+        const ks = [];
+        for (let a = -45; a <= 45; a += 5)
+            ks.push({ a, k: a ? make(a).fitExtent(ext, mp).scale() : k0 });
+        const top = Math.max(...ks.map((x) => x.k));
+        const best = ks.filter((x) => x.k >= top * 0.97).sort((x, y) => Math.abs(x.a) - Math.abs(y.a))[0];
+        can = !!best.a && best.k >= k0 * 1.2;
+        if (can && turn)
+            angle = best.a;
+    }
+    const p = make(angle);
+    p.fitExtent(ext, m);
+    // куда смотрит север (для компаса): две точки на одном меридиане
+    let north = 0;
+    if (angle) {
+        const p0 = p(c);
+        const p1 = p([c[0], c[1] + 1]);
+        if (p0 && p1)
+            north = (Math.atan2(p1[0] - p0[0], -(p1[1] - p0[1])) * 180) / Math.PI;
+    }
+    p.turnInfo = { angle, can, north };
     return p.clipExtent([[-2, -2], [W + 2, H + 2]]);
 }
 function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCount, pins, lookKey, full = false, onToggleFull, noFull = false, light, cities, visitKey }) {
     const stageRef = useRef(null);
     const cvRef = useRef(null);
     const [box, setBox] = useState({ W: 0, H: 0 });
-    const st = useRef({ cur: null, fly: null, seq: null, raf: 0, flash: null, layers: {} });
+    const st = useRef({ cur: null, fly: null, seq: null, raf: 0, flash: null, layers: {}, north: new Set() });
+    const [turnUI, setTurnUI] = useState(null);
     const props = useRef({});
     props.current = { isOn, isWish, selected, onPick, selRegion, regions, regCount, pins, light, cities };
     /* размер окна карты */
@@ -7151,8 +7190,8 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
                     ...(P.cities || []).filter((ct) => ct.a3 === view.a3).map((ct) => [ct.lon, ct.lat]),
                     // и области, где были (атолл Раа на Мальдивах)
                     ...(REG.ready ? REG.feats.filter((f) => { var _e; return f.properties.a3 === view.a3 && ((_e = P.regions) === null || _e === void 0 ? void 0 : _e.has(f.properties.key)); }).map((f) => d3.geoCentroid(f)) : []),
-                ], smallIsl(view.a3))
-                : dotProjFor(regionFeat(view.key), W, H, [34, 46, 34, 46]);
+                ], smallIsl(view.a3), !view.north)
+                : dotProjFor(regionFeat(view.key), W, H, [34, 46, 34, 46], [], undefined, !view.north);
         const sel = kind === "world" ? null : view.a3;
         const feats = (kind === "world" ? lodGeo(geo) : geo).features.filter((f) => f.id !== "ATA");
         const marine = typeof marineFeats === "function" ? marineFeats() : [];
@@ -7190,6 +7229,8 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
                 return -1;
             return d[k] + (d[k + 1] >> 4) * 256 - 1;
         };
+        const selIdx = sel ? feats.findIndex((f) => f.id === sel) : -1;
+        const islSel = kind !== "world" && selIdx >= 0 && !!smallIsl(sel);
         // сетка точек
         const step = DOT_STEP[kind] || 4;
         const cells = [];
@@ -7199,12 +7240,17 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
                 let c = read(landImg, xx, yy, 5);
                 if (c >= feats.length)
                     c = -1;
+                let r = (c >= 0 || islSel) && regImg ? read(regImg, xx, yy, 7) : -1;
+                if (r >= regFeats.length)
+                    r = -1;
+                // 43.38: у маленькой островной страны (Мальдивы) область-атолл целиком — как суша: где были, видно сразу
+                if (c < 0 && islSel && r >= 0 && regFeats[r].properties.a3 === sel)
+                    c = selIdx;
+                else if (c < 0)
+                    r = -1;
                 let m = c < 0 ? read(landImg, xx, yy, 3) : -1;
                 if (m >= marine.length)
                     m = -1;
-                let r = c >= 0 && regImg ? read(regImg, xx, yy, 7) : -1;
-                if (r >= regFeats.length)
-                    r = -1;
                 cells.push([xx, yy, c, m, r]);
             }
         const cv = document.createElement("canvas");
@@ -7247,15 +7293,17 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
                 col = rk === view.key ? "gold" : been ? "nG" : "dimR";
             else if (visited) {
                 const champ = REG.ready && REG.big.has(a3);
-                col = champ ? (been ? "gold" : a3 === sel ? "selB" : "champ") : "gold";
+                // 43.38: у выбранной страны с областями — где был, ярко-золотые, остальное приглушено
+                col = champ ? (been ? "gold" : a3 === sel ? "selD" : "champ") : "gold";
             }
             else if (a3 === sel)
                 col = "selB";
             else
                 col = P.isWish && P.isWish(a3) ? "wish" : "base";
+            const big = sel && a3 === sel && col === "gold";
             if (col === "gold" || col === "champ")
-                add(col + "G", cx, cy, r0 * 2.2);
-            add(col, cx, cy, col === "gold" || col === "champ" || col === "selB" ? r0 * 1.15 : r0);
+                add(col + "G", cx, cy, r0 * (big ? 2.6 : 2.2));
+            add(col, cx, cy, big ? r0 * 1.3 : col === "gold" || col === "champ" || col === "selB" ? r0 * 1.15 : r0);
         });
         // 43.36: острова мельче шага сетки (атоллы Мальдив, Тонга) в сетку не попадают — им по точке в середине,
         // цветом как у суши (с областью: где были — золотая)
@@ -7281,7 +7329,7 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
                     if (kind === "region")
                         col = rk === view.key ? "gold" : been ? "nG" : "dimR";
                     else if (visited)
-                        col = REG.ready && REG.big.has(sel) ? (been ? "gold" : "selB") : "gold";
+                        col = REG.ready && REG.big.has(sel) ? (been ? "gold" : "selD") : "gold";
                     else
                         col = "selB";
                     if (col === "gold")
@@ -7289,6 +7337,23 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
                     add(col, cx, cy, col === "gold" || col === "selB" ? r0 * 1.15 : r0);
                 });
         }
+        // 43.38: страны мельче шага сетки (Мальдивы, Мальта, Сингапур на карте мира) — точка в середине: видно, где был,
+        // и есть куда нажать (marks — для касания)
+        const marks = [];
+        feats.forEach((f, c) => {
+            var _e;
+            if (landCount[c] || f.id === sel || !BY_A3[f.id])
+                return;
+            const q = proj(d3.geoCentroid(((_e = f.geometry) === null || _e === void 0 ? void 0 : _e.type) === "MultiPolygon" ? dotMain(f) : f));
+            if (!q || q[0] < 4 || q[0] > W - 4 || q[1] < 4 || q[1] > H - 4)
+                return;
+            const visited = on(f.id);
+            const col = sel ? (visited ? "nG" : "dim") : visited ? "gold" : P.isWish && P.isWish(f.id) ? "wish" : "base";
+            if (col === "gold")
+                add("goldG", q[0], q[1], r0 * 2.6);
+            add(col, q[0], q[1], col === "gold" ? r0 * 1.4 : r0 * 1.1);
+            marks.push([q[0], q[1], c]);
+        });
         const FILL = {
             goldG: lt ? "rgba(217,162,58,.14)" : "rgba(242,194,90,.16)",
             champG: lt ? "rgba(232,207,143,.10)" : "rgba(243,227,180,.09)",
@@ -7297,11 +7362,12 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
             base: lt ? "rgba(70,110,150,.34)" : "rgba(125,170,210,.40)",
             dim: lt ? "rgba(70,110,150,.16)" : "rgba(125,170,210,.20)",
             dimR: lt ? "rgba(70,110,150,.26)" : "rgba(125,170,210,.28)",
-            nG: lt ? "rgba(217,162,58,.45)" : "rgba(242,194,90,.45)",
+            nG: lt ? "rgba(217,162,58,.32)" : "rgba(242,194,90,.30)",
+            selD: lt ? "rgba(60,120,190,.38)" : "rgba(150,195,235,.40)",
             selB: lt ? "rgba(60,130,200,.75)" : "rgba(160,205,240,.85)",
             wish: lt ? "rgba(60,120,190,.7)" : "rgba(110,165,225,.75)",
         };
-        ["goldG", "champG", "dim", "dimR", "base", "wish", "nG", "champ", "selB", "gold"].forEach((k) => {
+        ["goldG", "champG", "dim", "dimR", "base", "wish", "nG", "champ", "selD", "selB", "gold"].forEach((k) => {
             if (!batches[k])
                 return;
             ctx.fillStyle = FILL[k];
@@ -7522,11 +7588,25 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
         // 43.36: страна — крупно, но так, чтобы подписи океанов у неё влезли: если океан в кадре есть, а подпись
         // (с отступом от берега и краёв) не встала — отдаляем на шаг (поля +16 px) и строим заново, до 4 шагов
         // (если и так не встаёт — остаёмся на самом крупном варианте с тем же числом подписей)
-        const oceanMiss = kind === "country"
-            ? new Set(Object.entries(seaCount)
-                .filter(([m, l]) => l.length >= seaMin && marine[m].properties.c === "ocean" && !seaDone.has(marine[m].properties.n))
-                .map(([m]) => marine[m].properties.n)).size
-            : 0;
+        // 43.38: только океаны, которые омывают саму страну (их точки рядом с её точками); большие страны (Россия,
+        // Канада, Китай…) не отдаляем вовсе — у них важнее размер самой страны
+        let oceanMiss = 0;
+        if (kind === "country" && selIdx >= 0 && d3.geoArea(feats[selIdx]) < 0.04) {
+            const B = step * 2.5;
+            const near = new Set();
+            cells.forEach(([cx, cy, c]) => {
+                if (c === selIdx)
+                    for (let dx = -1; dx <= 1; dx++)
+                        for (let dy = -1; dy <= 1; dy++)
+                            near.add(Math.floor(cx / B) + dx + "," + (Math.floor(cy / B) + dy));
+            });
+            oceanMiss = new Set(Object.entries(seaCount)
+                .filter(([m, l]) => l.length >= seaMin &&
+                marine[m].properties.c === "ocean" &&
+                !seaDone.has(marine[m].properties.n) &&
+                l.some((i) => near.has(Math.floor(cells[i][0] / B) + "," + Math.floor(cells[i][1] / B))))
+                .map(([m]) => marine[m].properties.n)).size;
+        }
         if (oceanMiss && (view.shrink || 0) < 4) {
             const next = buildLayer({ ...view, shrink: (view.shrink || 0) + 1 });
             if (next.oceanMiss < oceanMiss)
@@ -7561,34 +7641,84 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
                     nNb++;
             });
         }
-        return { view, proj, cv, cells, feats, regFeats, landImg, regImg, regCells, r0, read, dpr, oceanMiss };
+        return { view, proj, cv, cells, feats, regFeats, landImg, regImg, regCells, r0, read, dpr, oceanMiss, marks };
     }, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [geo, worldProj, W, H]);
     const layer = useCallback((view) => {
         const S = st.current;
-        const id = view.kind + ":" + (view.a3 || "") + ":" + (view.key || "");
+        // север вверху — по выбору человека (компас), для страны и её регионов
+        const v = view.kind !== "world" && S.north.has(view.a3) ? { ...view, north: true } : view;
+        const id = v.kind + ":" + (v.a3 || "") + ":" + (v.key || "") + (v.north ? ":n" : "");
         if (!S.layers[id])
-            S.layers[id] = buildLayer(view);
+            S.layers[id] = buildLayer(v);
         return S.layers[id];
     }, [buildLayer]);
     /* рамка слоя B (весь его холст) в координатах слоя A: углы и края холста B → долгота/широта → в проекцию A */
-    const rectIn = (A, B) => {
-        const b = [Infinity, Infinity, -Infinity, -Infinity];
-        for (let i = 0; i <= 12; i++)
-            [[(W * i) / 12, 0], [(W * i) / 12, H], [0, (H * i) / 12], [W, (H * i) / 12]].forEach((pt) => {
+    /* 43.38: где ближний вид лежит в дальнем — аффинно (сдвиг, масштаб, поворот: повёрнутые страны), по 25 точкам
+       методом наименьших квадратов; матрица [a, b, c, d, e, f] как у canvas: x' = a·x + c·y + e, y' = b·x + d·y + f */
+    const affIn = (A, B) => {
+        const src = [];
+        const dst = [];
+        for (let i = 0; i <= 4; i++)
+            for (let j = 0; j <= 4; j++) {
+                const pt = [(W * i) / 4, (H * j) / 4];
                 const ll = B.proj.invert(pt);
                 if (!ll || !isFinite(ll[0]))
-                    return;
+                    continue;
                 const q = A.proj(ll);
                 if (!q || !isFinite(q[0]))
-                    return;
-                b[0] = Math.min(b[0], q[0]);
-                b[1] = Math.min(b[1], q[1]);
-                b[2] = Math.max(b[2], q[0]);
-                b[3] = Math.max(b[3], q[1]);
-            });
-        return isFinite(b[0]) ? b : [W * 0.4, H * 0.4, W * 0.6, H * 0.6];
+                    continue;
+                src.push(pt);
+                dst.push(q);
+            }
+        if (src.length < 3)
+            return [0.2, 0, 0, 0.2, W * 0.4, H * 0.4];
+        // нормальные уравнения 3×3 для x' и y'
+        const N = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+        const bx = [0, 0, 0];
+        const by = [0, 0, 0];
+        src.forEach(([x, y], k) => {
+            const v = [x, y, 1];
+            for (let r = 0; r < 3; r++) {
+                for (let q = 0; q < 3; q++)
+                    N[r][q] += v[r] * v[q];
+                bx[r] += v[r] * dst[k][0];
+                by[r] += v[r] * dst[k][1];
+            }
+        });
+        const solve = (M, v) => {
+            const a = M.map((r, i) => [...r, v[i]]);
+            for (let i = 0; i < 3; i++) {
+                let mx = i;
+                for (let r = i + 1; r < 3; r++)
+                    if (Math.abs(a[r][i]) > Math.abs(a[mx][i]))
+                        mx = r;
+                [a[i], a[mx]] = [a[mx], a[i]];
+                for (let r = 0; r < 3; r++)
+                    if (r !== i) {
+                        const k = a[r][i] / a[i][i];
+                        for (let q = i; q < 4; q++)
+                            a[r][q] -= k * a[i][q];
+                    }
+            }
+            return [a[0][3] / a[0][0], a[1][3] / a[1][1], a[2][3] / a[2][2]];
+        };
+        const X = solve(N, bx);
+        const Y = solve(N, by);
+        return [X[0], Y[0], X[1], Y[1], X[2], Y[2]];
+    };
+    const mMul = (A, B) => [
+        A[0] * B[0] + A[2] * B[1],
+        A[1] * B[0] + A[3] * B[1],
+        A[0] * B[2] + A[2] * B[3],
+        A[1] * B[2] + A[3] * B[3],
+        A[0] * B[4] + A[2] * B[5] + A[4],
+        A[1] * B[4] + A[3] * B[5] + A[5],
+    ];
+    const mInv = (A) => {
+        const det = A[0] * A[3] - A[1] * A[2];
+        return [A[3] / det, -A[1] / det, -A[2] / det, A[0] / det, (A[2] * A[5] - A[3] * A[4]) / det, (A[1] * A[4] - A[0] * A[5]) / det];
     };
     /* кадр: слой (или два — во время перелёта) и поверх мигание, вспышка региона, флажок */
     const drawFrame = useCallback(() => {
@@ -7610,50 +7740,62 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
         const now = performance.now();
         let more = false;
         // слой L так, чтобы его часть view (в его координатах) заняла весь холст
-        const put = (L, view, a) => {
-            const sx = W / (view[2] - view[0]);
-            const sy = H / (view[3] - view[1]);
+        // слой L: его координаты → экран матрицей T (в пикселях слоя, у которого свой dpr)
+        const put = (L, T, a) => {
             ctx.globalAlpha = a;
-            ctx.setTransform(sx, 0, 0, sy, -view[0] * sx * dpr, -view[1] * sy * dpr);
+            ctx.setTransform(T[0], T[1], T[2], T[3], T[4] * dpr, T[5] * dpr);
             ctx.drawImage(L.cv, 0, 0);
         };
         if (S.fly) {
             const F = S.fly;
             const p = Math.min(1, (now - F.t0) / DOT_FLY);
             const e = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
-            // big — дальний вид, small — ближний; R — рамка ближнего в координатах дальнего
+            // big — дальний вид, small — ближний; M — ближний в координатах дальнего (с поворотом, если страна повёрнута).
+            // Окно камеры в дальнем виде V(t): центр — по прямой, масштаб — по логарифму, угол — по прямой
             const t = F.zoomIn ? e : 1 - e;
-            const R = F.R;
-            const rw = R[2] - R[0];
-            const rh = R[3] - R[1];
-            // ширина окна по логарифму — ровное приближение; середина — по прямой
-            const w = Math.exp(Math.log(W) + (Math.log(rw) - Math.log(W)) * t);
-            const cx = W / 2 + ((R[0] + R[2]) / 2 - W / 2) * t;
-            const cy = H / 2 + ((R[1] + R[3]) / 2 - H / 2) * t;
-            const h = Math.exp(Math.log(H) + (Math.log(rh) - Math.log(H)) * t);
-            const v = [cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2];
-            // ближний слой — в рамке R, пересчитанной в окно v
-            // по осям — свой масштаб: рамка R по форме чуть отличается от холста
-            const kx = rw / W;
-            const ky = rh / H;
+            const M = F.M;
+            const sx = Math.hypot(M[0], M[1]);
+            const th = Math.atan2(M[1], M[0]);
+            const sy = (M[0] * M[3] - M[1] * M[2]) / sx;
+            const cx = W / 2 + (M[0] * (W / 2) + M[2] * (H / 2) + M[4] - W / 2) * t;
+            const cy = H / 2 + (M[1] * (W / 2) + M[3] * (H / 2) + M[5] - H / 2) * t;
+            const kx = Math.exp(Math.log(sx) * t);
+            const ky = Math.exp(Math.log(Math.abs(sy)) * t) * Math.sign(sy || 1);
+            const a = th * t;
+            const co = Math.cos(a);
+            const si = Math.sin(a);
+            // V = сдвиг(cx, cy) · поворот(a) · масштаб(kx, ky) · сдвиг(−W/2, −H/2): экран → дальний вид
+            const V = [co * kx, si * kx, -si * ky, co * ky, 0, 0];
+            V[4] = cx - (V[0] * W) / 2 - (V[2] * H) / 2;
+            V[5] = cy - (V[1] * W) / 2 - (V[3] * H) / 2;
+            const Cam = mInv(V);
             // слои прозрачные: дальний гаснет по мере того, как проявляется ближний
             const aSmall = Math.max(0, Math.min(1, (t - 0.3) / 0.55));
-            put(F.big, v, 1 - aSmall);
-            put(F.small, [(v[0] - R[0]) / kx, (v[1] - R[1]) / ky, (v[2] - R[0]) / kx, (v[3] - R[1]) / ky], aSmall);
+            put(F.big, mMul(Cam, [1 / F.big.dpr, 0, 0, 1 / F.big.dpr, 0, 0]).map((v, i) => (i < 4 ? v * dpr : v)), 1 - aSmall);
+            put(F.small, mMul(mMul(Cam, M), [1 / F.small.dpr, 0, 0, 1 / F.small.dpr, 0, 0]).map((v, i) => (i < 4 ? v * dpr : v)), aSmall);
             if (p >= 1) {
                 // посадка: кадр заново — только новый вид
                 S.cur = F.to;
                 S.fly = null;
                 ctx.setTransform(1, 0, 0, 1, 0, 0);
                 ctx.clearRect(0, 0, cv.width, cv.height);
-                put(S.cur, [0, 0, W, H], 1);
+                put(S.cur, [dpr / S.cur.dpr, 0, 0, dpr / S.cur.dpr, 0, 0], 1);
                 F.done && F.done();
             }
             else
                 more = true;
         }
         else
-            put(S.cur, [0, 0, W, H], 1);
+            put(S.cur, [dpr / S.cur.dpr, 0, 0, dpr / S.cur.dpr, 0, 0], 1);
+        // компас: страна повёрнута (стрелка на север) или её можно повернуть крупнее
+        if (!S.fly) {
+            const ti = S.cur.view.kind !== "world" && S.cur.proj.turnInfo;
+            const key = ti && (ti.angle || ti.can) ? S.cur.view.a3 + ":" + ti.angle + ":" + Math.round(ti.north) : "";
+            if (key !== S.turnKey) {
+                S.turnKey = key;
+                setTurnUI(key ? { a3: S.cur.view.a3, angle: ti.angle, north: ti.north } : null);
+            }
+        }
         ctx.globalAlpha = 1;
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         if (S.fly)
@@ -7793,8 +7935,7 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
         const zoomIn = RANK[view.kind] >= RANK[from.view.kind];
         const big = zoomIn ? from : to;
         const small = zoomIn ? to : from;
-        const R = rectIn(big, small);
-        S.fly = { from, to, big, small, R, zoomIn, t0: performance.now(), done };
+        S.fly = { from, to, big, small, M: affIn(big, small), zoomIn, t0: performance.now(), done };
         kick();
     }, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -7947,6 +8088,17 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
         if (best >= L.feats.length)
             best = -1;
         if (best < 0) {
+            // мелкие страны-точки — первыми и с запасом (палец толще точки)
+            let md = 18 * 18;
+            (L.marks || []).forEach(([cx, cy, c]) => {
+                const dd = (cx - px) ** 2 + (cy - py) ** 2;
+                if (dd < md) {
+                    md = dd;
+                    best = c;
+                }
+            });
+        }
+        if (best < 0) {
             let bd = 14 * 14;
             L.cells.forEach(([cx, cy, c]) => {
                 if (c < 0)
@@ -7987,8 +8139,25 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
             return;
         P.onPick && P.onPick(a3);
     };
+    // компас (43.38): повёрнута — «север вверху»; север вверху, а повернуть можно крупнее — «⤢»
+    const onTurn = () => {
+        const S = st.current;
+        if (!turnUI || S.fly || !S.cur)
+            return;
+        if (S.north.has(turnUI.a3))
+            S.north.delete(turnUI.a3);
+        else
+            S.north.add(turnUI.a3);
+        const to = layer(S.cur.view.north ? { ...S.cur.view, north: undefined } : S.cur.view);
+        S.fly = { from: S.cur, to, big: S.cur, small: to, M: affIn(S.cur, to), zoomIn: true, t0: performance.now() };
+        kick();
+    };
     const stage = (React.createElement("div", { className: "dot-stage", ref: stageRef },
-        React.createElement("canvas", { ref: cvRef, className: "dot-cv", onPointerDown: onDown, onPointerUp: onUp })));
+        React.createElement("canvas", { ref: cvRef, className: "dot-cv", onPointerDown: onDown, onPointerUp: onUp }),
+        turnUI && (React.createElement("button", { className: "dot-north" + (turnUI.angle ? " on" : ""), onClick: onTurn, "aria-label": turnUI.angle ? "Север вверху" : "Повернуть крупнее" }, turnUI.angle ? (React.createElement("svg", { viewBox: "-16 -16 32 32", width: "32", height: "32" },
+            React.createElement("g", { transform: `rotate(${turnUI.north})` },
+                React.createElement("path", { d: "M0 -9 L4.5 4.5 L0 2 L-4.5 4.5 Z" }),
+                React.createElement("text", { y: "-11.5" }, "\u0421")))) : (React.createElement("span", null, "\u2922"))))));
     const controls = !noFull && (React.createElement("div", { className: "globe-controls" },
         React.createElement("button", { onClick: onToggleFull, "aria-label": full ? "Свернуть" : "Во весь экран" }, full ? "✕" : "⛶")));
     if (full)
@@ -25844,6 +26013,13 @@ button, input, select, textarea{font-family:inherit;}
 
 /* 43.35: телефон вертикально — холст карты выше, мир крупнее */
 @media (orientation:portrait) and (max-width:560px){ .col-map .dot-stage{aspect-ratio:1.08;} .globe-full.dot-full .dot-stage{aspect-ratio:auto;} }
+/* 43.38: компас карты из точек — повёрнутая длинная страна (как в «Покорении») */
+.dot-north{position:absolute; right:10px; top:10px; z-index:2; width:40px; height:40px; border-radius:50%; padding:0;
+  display:flex; align-items:center; justify-content:center; border:1px solid var(--line); cursor:pointer;
+  background:color-mix(in srgb, var(--el) 80%, transparent); color:var(--gold); -webkit-backdrop-filter:blur(6px); backdrop-filter:blur(6px);}
+.dot-north span{font-size:17px; line-height:1;}
+.dot-north path{fill:var(--gold);}
+.dot-north text{fill:var(--gold); font-size:8.5px; font-weight:700; text-anchor:middle; dominant-baseline:middle;}
 `;
 const __b = document.getElementById('boot');
 if (__b)
