@@ -2987,7 +2987,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "43.45";
+const APP_VERSION = "43.46";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -6347,6 +6347,13 @@ function Globe({ children = null, geo, isOn, onPick, selected, full, onToggleFul
             avg += (dt - avg) * 0.1;
             const k = avg / 16.7;
             belt.current += 0.006 * k;
+            // 43.46: над шаром поднята страна (шар отступил и размыт) — шар стоит и не перерисовывается каждый кадр:
+            // его всё равно не разглядеть, а кадры уходили бы на него (поворот телефона «подвисал» на секунды)
+            if (canvasRef.current && canvasRef.current.__still) {
+                last = 0;
+                raf2 = requestAnimationFrame(step);
+                return;
+            }
             const d = playRef.current && !spinBusy.current ? (spinRef.current || 0.7) * k : 0;
             if (d)
                 rot.current = [rot.current[0] + d, rot.current[1]];
@@ -9173,6 +9180,7 @@ function GlobeLift({ geo, selected, selRegion, isOn, regions, onPick, cities, li
     const setBack = (a) => {
         const { gcv, space } = globeEls();
         if (gcv) {
+            gcv.__still = a > 0.999; // шар отступил полностью — свой цикл кадров он ставит на паузу
             gcv.style.transition = "none";
             gcv.style.filter = a > 0.001 ? `blur(${(3.5 * a).toFixed(2)}px) brightness(${(1 - 0.5 * a).toFixed(3)})` : "";
             gcv.style.transform = a > 0.001 ? `scale(${(1 - 0.12 * a).toFixed(3)})` : "";
@@ -9414,17 +9422,23 @@ function GlobeLift({ geo, selected, selRegion, isOn, regions, onPick, cities, li
         top.hit = { body, parts: parts.map((f) => [f, ring(geomOf(f), M, new Path2D())]) };
         return more;
     }, [W, H]);
+    // кадр всегда рисует свежий draw (с текущими шириной и высотой): после поворота телефона уже запущенный цикл
+    // иначе дорисовывал бы прежним размером
+    const drawRef = useRef(draw);
+    drawRef.current = draw;
     const kick = useCallback(() => {
         const S = st.current;
         if (S.raf)
             return;
         const loop = () => {
             S.raf = 0;
-            if (draw())
+            const more = drawRef.current();
+            // draw мог сам запросить кадр (конец подъёма → kick) — тогда второй не ставим
+            if (more && !S.raf)
                 S.raf = requestAnimationFrame(loop);
         };
         S.raf = requestAnimationFrame(loop);
-    }, [draw]);
+    }, []);
     const lift = useCallback((v, base, done) => {
         const S = st.current;
         S.anim = { up: true, v, base, t0: performance.now(), done };
@@ -9443,6 +9457,35 @@ function GlobeLift({ geo, selected, selRegion, isOn, regions, onPick, cities, li
         S.cur = null;
         kick();
     }, [kick]);
+    // 43.46: сменился размер окна (поворот телефона) — поднятое строим заново под новый размер и рисуем сразу, до
+    // показа кадра: проекция вида считалась под прежние ширину и высоту, и страна уезжала за край. Идущий подъём
+    // досрочно завершается (дальше выбор доведёт эффект ниже)
+    React.useLayoutEffect(() => {
+        const S = st.current;
+        if (!W || !H)
+            return;
+        const sz = W + "x" + H;
+        const was = S.size;
+        S.size = sz;
+        if (!was || was === sz)
+            return;
+        if (S.anim) {
+            S.cur = S.anim.up ? S.anim.v : S.anim.back || null;
+            if (S.anim.up && S.anim.base)
+                S.base = S.anim.base;
+            S.anim = null;
+        }
+        if (S.base)
+            S.base = makeView(S.base.a3) || S.base;
+        if (S.cur)
+            S.cur = (S.cur.key ? makeView(S.cur.a3, S.cur.key) : S.base && S.base.a3 === S.cur.a3 ? S.base : makeView(S.cur.a3)) || S.cur;
+        if (S.cur && !S.cur.key)
+            S.base = S.cur;
+        cancelAnimationFrame(S.raf);
+        S.raf = 0;
+        if (drawRef.current())
+            kick();
+    }, [W, H, makeView, kick]);
     /* выбор страны/региона → подъём; снятие → опускание */
     useEffect(() => {
         const S = st.current;
