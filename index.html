@@ -2987,7 +2987,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "43.47";
+const APP_VERSION = "43.49";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -9604,13 +9604,19 @@ function GlobeLift({ geo, selected, selRegion, isOn, regions, onPick, cities, li
         const v = S.cur;
         if (v.key)
             return P.onPick && P.onPick(v.a3);
-        const hit = v.hit.parts.find(([, p]) => ctx.isPointInPath(p, x, y));
+        // точка проверки — в пикселях холста (на неё преобразование контекста не действует), путь — с преобразованием
+        const hit = v.hit.parts.find(([, p]) => ctx.isPointInPath(p, x * dpr, y * dpr));
         if (!hit)
             return P.onPick && P.onPick(null);
         const k = (_e = hit[0].properties) === null || _e === void 0 ? void 0 : _e.key;
         if (k)
             P.onPick && P.onPick(v.a3, { region: k });
     };
+    // для проверок: где на поднятой карте точка [долгота, широта] (null — ничего не поднято)
+    if (cvRef.current)
+        cvRef.current.__proj = (pt) => (st.current.cur ? st.current.cur.proj(pt) : null);
+    if (cvRef.current)
+        cvRef.current.__up = () => (st.current.cur ? st.current.cur.key || st.current.cur.a3 : null); // что поднято
     return React.createElement("canvas", { ref: cvRef, className: "gl-lift" + (active ? " on" : ""), onClick: onTap });
 }
 /* Атлас · 13 · код входа, шторка, снимки, поля ввода, выбор даты.
@@ -23406,14 +23412,6 @@ function AtlasApp() {
         };
     }, []);
     const colW = vw ? Math.floor(vw) : null;
-    // 43.47: телефон лежит горизонтально — на главном глобусе дуги с самолётами и подъём страны, как во весь экран
-    const [land, setLand] = useState(() => window.matchMedia("(orientation: landscape)").matches);
-    useEffect(() => {
-        const mq = window.matchMedia("(orientation: landscape)");
-        const on = () => setLand(mq.matches);
-        mq.addEventListener("change", on);
-        return () => mq.removeEventListener("change", on);
-    }, []);
     const shell = colW
         ? { width: colW, maxWidth: colW, left: 0, marginLeft: 0 }
         : undefined;
@@ -24867,14 +24865,14 @@ function AtlasApp() {
                                     setSelRegion(null);
                                     setSpinning(false);
                                 }
-                            } })) : (React.createElement(Globe, { geo: geo, isOn: isOn, onPick: (a3, x) => {
+                            } })) : (React.createElement(Globe, { geo: geo, isOn: isOn, onPick: (a3) => {
                                 if (BY_A3[a3]) {
                                     setSpinning(false);
                                     if (a3 !== selected)
                                         setLookNonce((n) => n + 1);
                                 }
                                 setSelected(BY_A3[a3] ? a3 : null);
-                                setSelRegion((x === null || x === void 0 ? void 0 : x.region) || null);
+                                setSelRegion(null); // 43.49: касание шара — страна целиком; регион выбирают на поднятой стране
                                 setSelSea(null);
                             }, sea: selSea, onSea: (n) => {
                                 setSelSea(n);
@@ -24883,7 +24881,7 @@ function AtlasApp() {
                                     setSelRegion(null);
                                     setSpinning(false);
                                 }
-                            }, selected: selected, full: false, flights: land && !full ? (selected ? flights.filter((r) => r.a3 === selected) : flights) : undefined, flying: land && !full, blinkOnly: true, glow: selGlow, pins: selPins, onToggleFull: () => setFull(true), visitKey: visitKey, home: lastTrip, marks: marks, regions: regionsOn, selRegion: selRegion, lookAt: seaLook || (cardLook && (!regLook || !selRegion) ? cardLook : regLook), light: light, playing: spinning, setPlaying: (v) => {
+                            }, selected: selected, full: false, flights: !full ? (selected ? flights.filter((r) => r.a3 === selected) : flights) : undefined, flying: !full, blinkOnly: true, glow: selGlow, pins: selPins, onToggleFull: () => setFull(true), visitKey: visitKey, home: lastTrip, marks: marks, regions: regionsOn, selRegion: selRegion, lookAt: seaLook || (cardLook && (!regLook || !selRegion) ? cardLook : regLook), light: light, playing: spinning, setPlaying: (v) => {
                                 // 43.17: плей = «все страны»: снимаем выбор, глобус едет в базовую точку и крутится
                                 // выбрана страна или море — ▶ всегда «все страны и крутить», а не «стоп»
                                 const on = (selected || selSea) && v !== false ? true : typeof v === "function" ? v(spinning) : v;
@@ -24893,8 +24891,9 @@ function AtlasApp() {
                                     setSelSea(null);
                                 }
                                 setSpinning(on);
-                            }, view: mapView, page: mapPage, setPage: setMapPage, isWish: isWish }, land && !full && (React.createElement(GlobeLift, { compact: true, geo: geo, selected: selected, selRegion: selRegion, isOn: isOn, regions: regionsOn, cities: dotCities, light: light, onPick: (a3, x) => {
-                                setSpinning(false);
+                            }, view: mapView, page: mapPage, setPage: setMapPage, isWish: isWish }, !full && (React.createElement(GlobeLift, { compact: true, geo: geo, selected: selected, selRegion: selRegion, isOn: isOn, regions: regionsOn, cities: dotCities, light: light, onPick: (a3, x) => {
+                                // касание мимо поднятой страны — «все страны»: страна опускается, шар снова крутится
+                                setSpinning(!(a3 && BY_A3[a3]));
                                 setSelected(a3 && BY_A3[a3] ? a3 : null);
                                 setSelRegion((x === null || x === void 0 ? void 0 : x.region) || null);
                                 setSelSea(null);
@@ -24910,9 +24909,9 @@ function AtlasApp() {
                                     setSelRegion(null);
                                 }
                             }, fullCard: dotFullCard })),
-                        full && mapView !== "map" && (React.createElement(Globe, { geo: geo, isOn: isOn, onPick: (a3, x) => {
+                        full && mapView !== "map" && (React.createElement(Globe, { geo: geo, isOn: isOn, onPick: (a3) => {
                                 setSelected(BY_A3[a3] ? a3 : null);
-                                setSelRegion((x === null || x === void 0 ? void 0 : x.region) || null);
+                                setSelRegion(null); // 43.49: касание шара — страна целиком; регион выбирают на поднятой стране
                                 setSelSea(null);
                             }, sea: selSea, onSea: (n) => {
                                 setSelSea(n);
