@@ -2987,7 +2987,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "43.42";
+const APP_VERSION = "43.43";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -6923,6 +6923,40 @@ function SpaceBackdrop({ light, moving = true }) {
    другого (рамка нового слоя заранее пересчитана в координаты старого) со сменой слоёв.
    Части собираются по номерам (tools/rebuild.sh) и видят друг друга напрямую. */
 const DOT_STEP = { world: 4.0, country: 3.0, region: 3.6 };
+// 43.43 (макет): точки — объёмные шарики (как на образце автора): блик, тень, золото — металлом; вблизи шарики крупнее
+const DOT_BALL = true;
+const DOT_BALL_K = 1.5; // шарик почти касается соседей (радиус ≈ 0,47 шага)
+const DOT_STEP_BALL = { world: 4.4, country: 5.2, region: 5.6 };
+/* спрайт шарика: радиальный градиент от блика (сверху слева) к тёмному краю; по цвету — свой, кэш */
+const DOT_SPR = {};
+function dotBall(name, px) {
+    const id = name + ":" + px;
+    if (DOT_SPR[id])
+        return DOT_SPR[id];
+    const P = {
+        gold: ["#fff4c2", "#ffc53d", "#b8760a", "#3d2203"],
+        champ: ["#fff6d8", "#f0cf78", "#a98232", "#3e2c0c"],
+        base: ["#e6eef8", "#8c9fb8", "#3d4d63", "#0d1522"],
+        sel: ["#e8f4ff", "#8fb4da", "#44678f", "#14243a"],
+        wish: ["#e3efff", "#6f9bd6", "#305a92", "#0e2140"],
+    }[name];
+    const S = Math.max(8, Math.ceil(px * 2 + 2));
+    const c = document.createElement("canvas");
+    c.width = c.height = S;
+    const x = c.getContext("2d");
+    const r = S / 2 - 1;
+    const g = x.createRadialGradient(S / 2 - r * 0.38, S / 2 - r * 0.42, r * 0.05, S / 2, S / 2, r);
+    g.addColorStop(0, P[0]);
+    g.addColorStop(0.28, P[1]);
+    g.addColorStop(0.72, P[2]);
+    g.addColorStop(1, P[3]);
+    x.fillStyle = g;
+    x.beginPath();
+    x.arc(S / 2, S / 2, r, 0, Math.PI * 2);
+    x.fill();
+    DOT_SPR[id] = c;
+    return c;
+}
 const DOT_FLY = 750; // перелёт, мс
 const DOT_LIFT = 1150; // 43.40: страна поднимается с карты мира и встаёт в центр, мир размывается, мс
 const DOT_BLINK = 1350; // три мигания, как на глобусе
@@ -6953,13 +6987,17 @@ const DOT_SOLO = "solo";
 // 43.42 (макет): наклон узких длинных стран во весь экран, градусы (0 — без наклона)
 const DOT_LEAN = 22;
 // 43.42: объём поднятой страны: slab — плитка с толщиной и светом, light — только свет и фаска, off — плоско
-const DOT_VOL = "slab";
+const DOT_VOL = "off"; // 43.43: толщины у поднятой страны нет (автору не понравилась) — плоская, «парит»
+// 43.43 (макет): как страна парит: soft — глубокая мягкая тень; cast — тень-силуэт падает на мир ниже; bob — cast + лёгкое покачивание
+const DOT_FLOAT = "cast";
 // 43.42: что с миром под поднятой страной: blur — размыт (как в 43.40), tilt — наклонён вглубь, back — отъехал назад
 // с виньеткой, pit — чёткий, а на месте страны вырезанное углубление
 const DOT_BGMODE = "tilt";
 // 43.42 (макет): объём основной карты: flat — плоско; raise — страны, где был, приподняты плитками; beads — точки-бусины
 // со светом и тенью; tilt — вся карта чуть наклонена вглубь; all — всё вместе
-const DOT_WORLD3D = "rtilt"; // 43.42: rtilt — где был приподнято + лёгкий наклон (выбор автора)
+const DOT_BALL_TILT = false; // наклон карты из шариков (автор выбрал без наклона)
+const DOT_WIRE = true; // 43.43: тонкие серебристые границы непосещённых стран (на мире) и регионов (у поднятой страны)
+const DOT_WORLD3D = DOT_BALL ? (DOT_BALL_TILT ? "tilt" : "flat") : "rtilt"; // 43.42: rtilt — где был приподнято + лёгкий наклон (выбор автора)
 const DOT_TILT = 16; // наклон карты мира вглубь, градусы
 /* наклон «столом» (как CSS perspective(d) rotateX(a), начало в (W/2, 0.65·H)): точка карты → точка экрана и обратно */
 const dotTiltPt = (x, y, W, H, deg) => {
@@ -7372,7 +7410,7 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
         const selIdx = sel ? feats.findIndex((f) => f.id === sel) : -1;
         const islSel = kind !== "world" && selIdx >= 0 && !!smallIsl(sel);
         // сетка точек
-        const step = DOT_STEP[kind] || 4;
+        const step = (DOT_BALL ? DOT_STEP_BALL[kind] : DOT_STEP[kind]) || 4;
         const cells = [];
         for (let yy = step * 0.7, row = 0; yy < H - 1; yy += step * 0.866, row++)
             for (let xx = step * 0.6 + (row % 2) * (step / 2); xx < W - 1; xx += step) {
@@ -7402,7 +7440,10 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
         const r0 = step * 0.31;
         const batches = {};
         const beads = (DOT_WORLD3D === "beads" || DOT_WORLD3D === "all");
+        const balls = {};
         const add = (key, px, py, rr) => {
+            if (DOT_BALL && !key.endsWith("G") && key !== "ghost")
+                (balls[key] || (balls[key] = [])).push(px, py, rr);
             const b = batches[key] || (batches[key] = new Path2D());
             b.moveTo(px + rr, py);
             b.arc(px, py, rr, 0, Math.PI * 2);
@@ -7551,8 +7592,10 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
                 ctx.stroke(shape);
                 ctx.restore();
             }
-            ctx.fillStyle = lt ? "rgba(236,242,248,.96)" : "rgba(12,24,38,.96)";
-            ctx.fill(shape);
+            if (!DOT_BALL) {
+                ctx.fillStyle = lt ? "rgba(236,242,248,.96)" : "rgba(12,24,38,.96)";
+                ctx.fill(shape);
+            }
         }
         // 43.42 (макет): страны, где был, — приподнятые плитки (бок и тень), точки — сверху
         if ((DOT_WORLD3D === "raise" || DOT_WORLD3D === "all" || DOT_WORLD3D === "rtilt") && kind === "world") {
@@ -7580,12 +7623,68 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
             ctx.fillStyle = lt ? "rgba(0,30,60,.18)" : "rgba(0,0,0,.45)";
             ctx.fill(batches._s);
         }
-        ["ghost", "goldG", "champG", "dim", "dimR", "base", "wish", "nG", "champ", "selD", "selB", "gold"].forEach((k) => {
-            if (!batches[k])
-                return;
-            ctx.fillStyle = FILL[k];
-            ctx.fill(batches[k]);
-        });
+        if (DOT_BALL) {
+            // шарики: сначала мягкие тени (вниз вправо), потом сами шарики спрайтами; свечение золота — как было
+            ["goldG", "champG"].forEach((k) => {
+                if (!batches[k])
+                    return;
+                ctx.fillStyle = FILL[k];
+                ctx.fill(batches[k]);
+            });
+            const BALL = { gold: ["gold", 1], champ: ["champ", 1], nG: ["gold", 0.5], base: ["base", 1], dim: ["base", 0.45], dimR: ["base", 0.7], selB: ["sel", 1], selD: ["base", 0.85], wish: ["wish", 1] };
+            // 43.43: где был — шарики приподняты: выше на lift, их тень длиннее и гуще
+            const UP = { gold: 1, champ: 1, nG: 1 };
+            const lift = Math.max(2, r0 * 1.5);
+            const sh = new Path2D();
+            const shUp = new Path2D();
+            Object.entries(balls).forEach(([k, a]) => {
+                const al = (BALL[k] || ["base", 1])[1];
+                if (al < 0.6 && !UP[k])
+                    return;
+                const up = UP[k];
+                const P2 = up ? shUp : sh;
+                for (let i = 0; i < a.length; i += 3) {
+                    const r = a[i + 2] * DOT_BALL_K * 0.95;
+                    const ox = up ? r * 0.35 + lift * 0.45 : r * 0.35;
+                    const oy = up ? r * 0.55 + lift * 0.55 : r * 0.55;
+                    P2.moveTo(a[i] + ox + r, a[i + 1] + oy);
+                    P2.arc(a[i] + ox, a[i + 1] + oy, r, 0, Math.PI * 2);
+                }
+            });
+            ctx.save();
+            ctx.fillStyle = lt ? "rgba(0,30,60,.22)" : "rgba(0,0,0,.6)";
+            ctx.filter = "blur(" + Math.max(0.6, r0 * 0.35).toFixed(2) + "px)";
+            ctx.fill(sh);
+            ctx.fillStyle = lt ? "rgba(0,30,60,.38)" : "rgba(0,0,0,.85)";
+            ctx.filter = "blur(" + Math.max(1.4, r0 * 1).toFixed(2) + "px)";
+            ctx.fill(shUp);
+            ctx.restore();
+            ["dim", "dimR", "base", "wish", "nG", "champ", "selD", "selB", "gold"].forEach((k) => {
+                const a = balls[k];
+                if (!a)
+                    return;
+                const [nm, al] = BALL[k] || ["base", 1];
+                ctx.globalAlpha = al;
+                let spr = null;
+                let sr = -1;
+                for (let i = 0; i < a.length; i += 3) {
+                    const r = a[i + 2] * DOT_BALL_K;
+                    if (Math.abs(r - sr) > 0.01) {
+                        sr = r;
+                        spr = dotBall(nm, Math.round(r * dpr * 2) / 2);
+                    }
+                    ctx.drawImage(spr, a[i] - r, a[i + 1] - r - (UP[k] ? lift : 0), r * 2, r * 2);
+                }
+                ctx.globalAlpha = 1;
+            });
+        }
+        else
+            ["ghost", "goldG", "champG", "dim", "dimR", "base", "wish", "nG", "champ", "selD", "selB", "gold"].forEach((k) => {
+                if (!batches[k])
+                    return;
+                ctx.fillStyle = FILL[k];
+                ctx.fill(batches[k]);
+            });
         // 43.42: на месте поднятой страны — вырезанное углубление (pit): тёмное дно, тень у верхней кромки, блик у нижней
         if (view.hole && DOT_BGMODE === "pit") {
             const hf = feats.find((f) => f.id === view.hole);
@@ -7663,7 +7762,40 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
             ctx.stroke();
             ctx.restore();
         };
-        if (kind !== "world") {
+        // 43.43 (макет): на карте мира — тонкие границы стран «серебряной проволокой»: тень снизу, серебро, блик сверху
+        // у поднятой страны (и региона) — той же проволокой контур страны и границы её регионов
+        if (DOT_BALL && DOT_WIRE && (kind === "world" || solo)) {
+            const wp = new Path2D();
+            const gp = d3.geoPath(proj);
+            // посещённые страны и регионы не обводим — их выделяет подъём; проволоку внутри них стираем клипом
+            const been = (f) => { var _e; return (kind === "world" ? on(f.id) : !!((_e = P.regions) === null || _e === void 0 ? void 0 : _e.has(f.properties.key))); };
+            const wl = kind === "world" ? feats.filter((f) => f.id !== view.hole && !on(f.id)) : [...feats.filter((f) => f.id === sel), ...regFeats.filter((f) => f.properties.a3 === sel && !been(f))];
+            const vis = new Path2D();
+            vis.rect(-W, -H, W * 3, H * 3);
+            (kind === "world" ? feats.filter((f) => on(f.id)) : regFeats.filter((f) => f.properties.a3 === sel && been(f))).forEach((f) => {
+                const d = gp(f);
+                if (d)
+                    vis.addPath(new Path2D(d));
+            });
+            wl.forEach((f) => {
+                const d = gp(f);
+                if (d)
+                    wp.addPath(new Path2D(d));
+            });
+            // 43.43: одна тонкая серебряная линия (без тени и блика) — в полпикселя экрана
+            const lw = (kind === "world" ? 0.5 : 0.6) / Math.max(1, dpr / 2);
+            ctx.save();
+            ctx.clip(vis, "evenodd");
+            ctx.lineJoin = "round";
+            // в мелком окне (главный экран вертикально) линия теряется — там она светлее
+            const small = Math.min(W, H) < 480;
+            ctx.strokeStyle = lt ? "rgba(110,125,145,.85)" : small ? "rgba(220,230,244,.8)" : "rgba(205,216,232,.65)";
+            ctx.lineWidth = lw;
+            ctx.stroke(wp);
+            ctx.restore();
+        }
+        // шарики — без контуров: страна и регионы видны по самим шарикам
+        if (kind !== "world" && !DOT_BALL) {
             ctx.beginPath();
             if (!solo)
                 feats.forEach((f) => f.id !== sel && path(f));
@@ -8071,26 +8203,56 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
             bg.style.opacity = "1";
             // 43.40: размытие умеренное — мир под страной хорошо узнаётся
             const m = DOT_BGMODE;
-            const blur = m === "blur" ? 3.5 : m === "pit" ? 0.6 : m === "tilt" ? 1.4 : 2;
-            const dim = m === "blur" ? 0.22 : m === "pit" ? 0.12 : m === "tilt" ? 0.18 : 0.3;
+            const blur = m === "blur" ? 3.5 : m === "pit" ? 0.6 : m === "tilt" ? 1 : 2;
+            const dim = m === "blur" ? 0.22 : m === "pit" ? 0.12 : m === "tilt" ? 0.08 : 0.3;
             bg.style.filter = `blur(${(blur * amt).toFixed(2)}px) brightness(${(1 - dim * amt).toFixed(3)}) saturate(${(1 - 0.15 * amt).toFixed(3)})`;
             bg.style.transformOrigin = "50% 65%";
             // мир наклоняется дальше: от обычного лёгкого наклона карты (DOT_TILT) почти вдвое
             bg.style.transform =
                 m === "tilt"
-                    ? `perspective(${Math.round(Math.max(W, H) * 1.8)}px) rotateX(${(DOT_TILT + 18 * amt).toFixed(2)}deg) scale(${(1 - 0.04 * amt).toFixed(3)})`
+                    ? `perspective(${Math.round(Math.max(W, H) * 1.8)}px) rotateX(${((dotTiltOn() ? DOT_TILT : 0) + 18 * amt).toFixed(2)}deg) scale(${(1 - 0.04 * amt).toFixed(3)})`
                     : m === "back"
                         ? `scale(${(1 - 0.14 * amt).toFixed(3)})`
                         : "none";
         };
         // слой страны над миром — с тенью: «висит» над размытой картой
-        const P0col = (k) => `rgba(0,0,0,${(0.6 * k).toFixed(3)})`;
         const putFloat = (L, T, k) => {
+            const now2 = performance.now();
+            // покачивание (bob): страна чуть поднимается и опускается, тень — наоборот
+            const h = DOT_FLOAT === "bob" ? Math.sin((now2 / 4200) * Math.PI * 2) * 3 * k : 0;
+            if (DOT_FLOAT === "soft") {
+                ctx.save();
+                ctx.shadowColor = `rgba(0,0,0,${(0.6 * k).toFixed(3)})`;
+                ctx.shadowBlur = 34 * k * dpr;
+                ctx.shadowOffsetY = 22 * k * dpr;
+                put(L, T, 1);
+                ctx.restore();
+                return;
+            }
+            // тень-силуэт: та же страна, чуть сжатая, ниже на «зазор» и размытая — падает на мир под ней
+            const gap = (Math.max(26, Math.min(W, H) * 0.07) + h) * k;
+            const cx = W / 2;
+            const cy = H / 2;
+            const sx = 1 - 0.06 * k;
+            const sy = 1 - 0.12 * k;
+            const Sd = [sx, 0, 0, sy, cx * (1 - sx) * dpr, (cy * (1 - sy) + gap) * dpr];
+            const Td = [T[0], T[1], T[2], T[3], T[4] * dpr, T[5] * dpr];
+            const R = mMul(Sd, Td);
+            const OFF = 30000;
             ctx.save();
-            ctx.shadowColor = P0col(k);
-            ctx.shadowBlur = 26 * k * dpr;
-            ctx.shadowOffsetY = 10 * k * dpr;
-            put(L, T, 1);
+            ctx.setTransform(R[0], R[1], R[2], R[3], R[4] - OFF, R[5]);
+            ctx.shadowColor = `rgba(0,0,0,${(0.92 * k).toFixed(3)})`;
+            ctx.shadowBlur = (9 + 5 * k + h) * dpr;
+            ctx.shadowOffsetX = OFF;
+            ctx.globalAlpha = 1;
+            ctx.drawImage(L.cv, 0, 0);
+            ctx.restore();
+            // сама страна — над тенью (при покачивании — чуть выше)
+            ctx.save();
+            ctx.shadowColor = `rgba(0,0,0,${(0.35 * k).toFixed(3)})`;
+            ctx.shadowBlur = 8 * k * dpr;
+            ctx.shadowOffsetY = 3 * k * dpr;
+            put(L, [T[0], T[1], T[2], T[3], T[4], T[5] - h], 1);
             ctx.restore();
         };
         if (S.lift) {
@@ -8185,6 +8347,8 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
             else
                 setBg(S.bgL, 1);
             putFloat(S.cur, [dpr / S.cur.dpr, 0, 0, dpr / S.cur.dpr, 0, 0], 1);
+            if (DOT_FLOAT === "bob")
+                more = true;
         }
         else {
             setBg(null, 0);
@@ -26712,6 +26876,8 @@ button, input, select, textarea{font-family:inherit;}
 }
 /* 43.40: мир под поднятой страной — нижний холст, размытие и затемнение задаются из кода */
 .dot-bg{pointer-events:none; opacity:0;}
+/* 43.43 (макет): под картой из шариков — мягкое свечение фона, как на образце */
+.dot-stage{background:radial-gradient(ellipse 70% 60% at 50% 45%, rgba(46,70,110,.45), rgba(46,70,110,0) 72%);}
 `;
 const __b = document.getElementById('boot');
 if (__b)
