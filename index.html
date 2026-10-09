@@ -454,6 +454,13 @@ const OWN_FLAGS = {
    своим рисунком флага значка-смайлика нет — лучше ничего, чем белый флаг */
 const flagText = (a3) => { var _e; return (OWN_FLAGS[a3] ? "" : ((_e = BY_A3[a3]) === null || _e === void 0 ? void 0 : _e.a2) ? flag(BY_A3[a3].a2) : ""); };
 /* флаг как элемент: картинка, если своя, иначе обычный значок */
+/* 43.50: герб региона (России) — в ленте регионов на месте флага; нет герба — null */
+function RegCoat({ k, className = "" }) {
+    const f = typeof REG_COAT !== "undefined" && k ? REG_COAT[k] : null;
+    if (!f)
+        return null;
+    return React.createElement("img", { className: "reg-coat " + className, src: "data/coats/" + f + ".webp", alt: "", loading: "lazy", decoding: "async" });
+}
 function Flg({ a3, a2, className = "" }) {
     var _e;
     const own = OWN_FLAGS[a3];
@@ -2987,7 +2994,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "43.49";
+const APP_VERSION = "43.50";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -3798,6 +3805,9 @@ function SeaWave({ size = 34 }) {
 /* Атлас · 10g · страны, у которых есть подробные контуры регионов (data/regions/<A3>.json).
    Генерируется tools/make_regions_hd.py — руками не править. */
 const REG_HD_HAS = new Set(["ARE", "ARG", "AUS", "BRA", "CAN", "CHN", "CYP", "DEU", "EGY", "ESP", "FRA", "GEO", "IDN", "IND", "ITA", "JPN", "KAZ", "MEX", "MNG", "MYS", "PHL", "RUS", "THA", "TUR", "USA", "UZB", "VNM", "ZAF"]);
+/* Атлас · 10h · гербы регионов (data/coats/<файл>.webp) — ключ региона → файл.
+   Генерируется tools/make_coats.py — руками не править. */
+const REG_COAT = { "RUS|Адыгея": "adygea", "RUS|Алтайский край": "altai_krai", "RUS|Амурская область": "amur", "RUS|Архангельская область": "arkhangelsk", "RUS|Астраханская область": "astrakhan", "RUS|Белгородская область": "belgorod", "RUS|Брянская область": "bryansk", "RUS|Бурятия": "buryatia", "RUS|Владимирская область": "vladimir", "RUS|Волгоградская область": "volgograd", "RUS|Вологодская область": "vologda", "RUS|Воронежская область": "voronezh", "RUS|Дагестан": "dagestan", "RUS|Еврейская автономная область": "jewish_ao", "RUS|Забайкальский край": "zabaykalsky_krai", "RUS|Ивановская область": "ivanovo", "RUS|Ингушетия": "ingushetia", "RUS|Иркутская область": "irkutsk", "RUS|Кабардино-Балкария": "kabardino_balkaria", "RUS|Калининградская область": "kaliningrad", "RUS|Калмыкия": "kalmykia", "RUS|Калужская область": "kaluga", "RUS|Камчатский край": "kamchatka_krai", "RUS|Карачаево-Черкесия": "karachay_cherkessia", "RUS|Карелия": "karelia", "RUS|Кировская область": "kirov", "RUS|Костромская область": "kostroma", "RUS|Краснодарский край": "krasnodar_krai", "RUS|Красноярский край": "krasnoyarsk_krai", "RUS|Крым": "crimea", "RUS|Курганская область": "kurgan", "RUS|Курская область": "kursk", "RUS|Ленинградская область": "leningrad_oblast", "RUS|Липецкая область": "lipetsk", "RUS|Магаданская область": "magadan", "RUS|Марий Эл": "mari_el", "RUS|Мордовия": "mordovia", "RUS|Москва": "moscow", "RUS|Московская область": "moscow_oblast", "RUS|Мурманская область": "murmansk", "RUS|Ненецкий автономный округ": "nenets_ao", "RUS|Нижегородская область": "nizhny_novgorod", "RUS|Новгородская область": "novgorod", "RUS|Новосибирская область": "novosibirsk", "RUS|Омская область": "omsk", "RUS|Оренбургская область": "orenburg", "RUS|Орловская область": "oryol", "RUS|Пензенская область": "penza", "RUS|Пермский край": "perm_krai", "RUS|Приморский край": "primorsky_krai", "RUS|Псковская область": "pskov", "RUS|Республика Алтай": "altai_republic", "RUS|Республика Башкортостан": "bashkortostan", "RUS|Республика Коми": "komi", "RUS|Республика Северная Осетия-Алания": "north_ossetia_alania", "RUS|Ростовская область": "rostov", "RUS|Рязанская область": "ryazan", "RUS|Самарская область": "samara", "RUS|Санкт-Петербург": "saint_petersburg", "RUS|Саратовская область": "saratov", "RUS|Сахалинская область": "sakhalin", "RUS|Севастополь": "sevastopol", "RUS|Смоленская область": "smolensk", "RUS|Ставропольский край": "stavropol_krai", "RUS|Тамбовская область": "tambov", "RUS|Татарстан": "tatarstan", "RUS|Тверская область": "tver", "RUS|Томская область": "tomsk", "RUS|Тульская область": "tula", "RUS|Тыва": "tuva", "RUS|Тюменская область": "tyumen", "RUS|Удмуртия": "udmurtia", "RUS|Ульяновская область": "ulyanovsk", "RUS|Хабаровский край": "khabarovsk_krai", "RUS|Хакасия": "khakassia", "RUS|Ханты-Мансийский автономный округ — Югра": "khanty_mansi_ao", "RUS|Челябинская область": "chelyabinsk", "RUS|Чечня": "chechnya", "RUS|Чувашия": "chuvashia", "RUS|Чукотский автономный округ": "chukotka_ao", "RUS|Якутия": "sakha_yakutia", "RUS|Ямало-Ненецкий автономный округ": "yamalo_nenets_ao", "RUS|Ярославская область": "yaroslavl" };
 /* Атлас · 11 · координаты городов, столицы, валюты, языки, советы, часовые пояса, такси.
    Части собираются по номерам в один файл (tools/rebuild.sh) и видят друг друга напрямую. */
 /* популярные отели по городам — подсказки при выборе жилья */
@@ -24605,6 +24615,7 @@ function AtlasApp() {
             setSelected(a3);
             setSelRegion(r || null);
         };
+        window.__atlasFull = (v) => setFull(v !== false); // для проверок: у глобуса на главном кнопки нет
         window.__atlasSea = (n) => {
             setSelected(null);
             setSelSea(n);
@@ -24783,8 +24794,7 @@ function AtlasApp() {
         const cities = [...new Set(trips.flatMap((t) => t.cities || []))];
         const sub = rn ? c.name : cities.length ? cities.slice(0, 4).join(", ") : "ещё не были";
         return (React.createElement("div", { className: "ww-row fc-row dfu-row" },
-            React.createElement("span", { className: "sea-fl" },
-                React.createElement(Flg, { a3: selected })),
+            React.createElement("span", { className: "sea-fl" + (rn && REG_COAT[selRegion] ? " coat-fl" : "") }, rn && REG_COAT[selRegion] ? React.createElement(RegCoat, { k: selRegion }) : React.createElement(Flg, { a3: selected })),
             React.createElement("span", { className: "ww-nm" },
                 rn || c.name,
                 React.createElement("em", null, sub)),
@@ -24881,7 +24891,8 @@ function AtlasApp() {
                                     setSelRegion(null);
                                     setSpinning(false);
                                 }
-                            }, selected: selected, full: false, flights: !full ? (selected ? flights.filter((r) => r.a3 === selected) : flights) : undefined, flying: !full, blinkOnly: true, glow: selGlow, pins: selPins, onToggleFull: () => setFull(true), visitKey: visitKey, home: lastTrip, marks: marks, regions: regionsOn, selRegion: selRegion, lookAt: seaLook || (cardLook && (!regLook || !selRegion) ? cardLook : regLook), light: light, playing: spinning, setPlaying: (v) => {
+                            }, selected: selected, full: false, flights: !full ? (selected ? flights.filter((r) => r.a3 === selected) : flights) : undefined, flying: !full, blinkOnly: true, glow: selGlow, pins: selPins, noFull // 43.50: на главном экране у глобуса нет кнопки «во весь экран» (по просьбе автора)
+                            : true, onToggleFull: () => setFull(true), visitKey: visitKey, home: lastTrip, marks: marks, regions: regionsOn, selRegion: selRegion, lookAt: seaLook || (cardLook && (!regLook || !selRegion) ? cardLook : regLook), light: light, playing: spinning, setPlaying: (v) => {
                                 // 43.17: плей = «все страны»: снимаем выбор, глобус едет в базовую точку и крутится
                                 // выбрана страна или море — ▶ всегда «все страны и крутить», а не «стоп»
                                 const on = (selected || selSea) && v !== false ? true : typeof v === "function" ? v(spinning) : v;
@@ -25054,6 +25065,8 @@ function AtlasApp() {
                                             setSheet("list");
                                         }
                                     } },
+                                    selected === "RUS" && (React.createElement("span", { className: "sea-fl coat-fl" },
+                                        React.createElement(RegCoat, { k: c.key }))),
                                     React.createElement("span", { className: "ww-nm" },
                                         c.name,
                                         React.createElement("em", null, !c.names.length
@@ -27581,6 +27594,9 @@ button, input, select, textarea{font-family:inherit;}
 .globe-full canvas.globe, .map-wrap canvas.globe{transform-origin:50% 50%;}
 /* 43.47: подъём страны в окне глобуса на главном экране — кнопки окна над слоем подъёма */
 .col-map > .map-wrap > .globe-controls{z-index:4;}
+/* 43.50: герб региона в ленте регионов — на месте флага, по высоте строки */
+.coat-fl{width:26px; display:flex; align-items:center; justify-content:center; font-size:0;}
+.coat-fl .reg-coat{height:30px; width:auto; max-width:30px; display:block; filter:drop-shadow(0 1px 1.5px rgba(0,0,0,.35));}
 `;
 const __b = document.getElementById('boot');
 if (__b)
