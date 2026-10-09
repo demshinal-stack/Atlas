@@ -2572,7 +2572,7 @@ function findDoubles(visits) {
     return pairs;
 }
 /* ключ пары похожих поездок: по нему помним «это разные, оставить как есть» */
-const doubleKey = (pr) => { var _e, _h; return [((_e = pr.a) === null || _e === void 0 ? void 0 : _e.id) || `${pr.a3}:${tripLabel(pr.a)}`, ((_h = pr.b) === null || _h === void 0 ? void 0 : _h.id) || `${pr.a3}:${tripLabel(pr.b)}`].sort().join("+"); };
+const doubleKey = (pr) => { var _e, _j; return [((_e = pr.a) === null || _e === void 0 ? void 0 : _e.id) || `${pr.a3}:${tripLabel(pr.a)}`, ((_j = pr.b) === null || _j === void 0 ? void 0 : _j.id) || `${pr.a3}:${tripLabel(pr.b)}`].sort().join("+"); };
 /* склейка двух поездок в одну: берём всё лучшее */
 function joinTrips(a, b) {
     const uniq = (x = [], y = []) => [...new Set([...x, ...y])];
@@ -2748,11 +2748,11 @@ function familyUnpack(packet, profile, decide = null) {
     const senderId = ((_e = packet === null || packet === void 0 ? void 0 : packet.from) === null || _e === void 0 ? void 0 : _e.id) || "";
     const dir = (packet === null || packet === void 0 ? void 0 : packet.dir) || {};
     const nameOfMember = (pid) => {
-        var _e, _h, _j, _k, _l;
+        var _e, _j, _k, _l, _o;
         return ((_e = famMember(profile, pid)) === null || _e === void 0 ? void 0 : _e.name) ||
-            (pid === senderId ? (_h = packet === null || packet === void 0 ? void 0 : packet.from) === null || _h === void 0 ? void 0 : _h.name : "") ||
-            ((_k = (((_j = packet === null || packet === void 0 ? void 0 : packet.family) === null || _j === void 0 ? void 0 : _j.members) || []).find((m) => m.id === pid)) === null || _k === void 0 ? void 0 : _k.name) ||
-            ((_l = dir[pid]) === null || _l === void 0 ? void 0 : _l.n) ||
+            (pid === senderId ? (_j = packet === null || packet === void 0 ? void 0 : packet.from) === null || _j === void 0 ? void 0 : _j.name : "") ||
+            ((_l = (((_k = packet === null || packet === void 0 ? void 0 : packet.family) === null || _k === void 0 ? void 0 : _k.members) || []).find((m) => m.id === pid)) === null || _l === void 0 ? void 0 : _l.name) ||
+            ((_o = dir[pid]) === null || _o === void 0 ? void 0 : _o.n) ||
             "";
     };
     let touched = false;
@@ -2801,7 +2801,7 @@ function familyUnpack(packet, profile, decide = null) {
             (((_e = packet === null || packet === void 0 ? void 0 : packet.family) === null || _e === void 0 ? void 0 : _e.members) || []).some((m) => m.id === w);
     };
     const local = (w) => {
-        var _e, _h;
+        var _e, _j;
         if (!w)
             return w;
         if (w === myId || selfAka.includes(w))
@@ -2837,7 +2837,7 @@ function familyUnpack(packet, profile, decide = null) {
             const dd = decided(w, false);
             if (dd)
                 return dd;
-            const nm = ((_h = dir[w]) === null || _h === void 0 ? void 0 : _h.n) || "";
+            const nm = ((_j = dir[w]) === null || _j === void 0 ? void 0 : _j.n) || "";
             const same = nm && people.find((x) => normName(x.name) === normName(nm));
             if (same) {
                 people = people.map((x) => x.id === same.id ? { ...x, aka: [...new Set([...(x.aka || []), w])] } : x);
@@ -2987,7 +2987,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "43.41";
+const APP_VERSION = "43.42";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -4823,10 +4823,10 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         let tries = 0;
         let raf = 0;
         const fit = () => {
-            var _e, _h, _j;
+            var _e, _j, _k;
             if (full) {
                 const vw = ((_e = window.visualViewport) === null || _e === void 0 ? void 0 : _e.width) || window.innerWidth || 360;
-                const vh = ((_h = window.visualViewport) === null || _h === void 0 ? void 0 : _h.height) || window.innerHeight || 640;
+                const vh = ((_j = window.visualViewport) === null || _j === void 0 ? void 0 : _j.height) || window.innerHeight || 640;
                 const landFull = window.matchMedia("(orientation:landscape) and (max-height:600px)").matches;
                 // лёжа — тот же размер, что стоя: короткая сторона минус поля
                 const short = Math.min(vw, vh);
@@ -4838,7 +4838,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
             }
             const el = wrapRef.current;
             const w = el ? Math.floor(el.getBoundingClientRect().width) : 0;
-            const vh = ((_j = window.visualViewport) === null || _j === void 0 ? void 0 : _j.height) || window.innerHeight || 640;
+            const vh = ((_k = window.visualViewport) === null || _k === void 0 ? void 0 : _k.height) || window.innerHeight || 640;
             // в горизонтальном положении экран низкий — ограничиваем по высоте
             const land = window.matchMedia("(orientation:landscape) and (max-height:600px)").matches;
             // в окне путешественника меряем по самой области, а не по экрану
@@ -6664,11 +6664,11 @@ function SpaceBackdrop({ light, moving = true }) {
     const movingRef = useRef(moving);
     movingRef.current = moving;
     useEffect(() => {
-        var _e, _h;
+        var _e, _j;
         const cv = ref.current;
         if (!cv)
             return;
-        const reduce = (_h = (_e = window.matchMedia) === null || _e === void 0 ? void 0 : _e.call(window, "(prefers-reduced-motion: reduce)")) === null || _h === void 0 ? void 0 : _h.matches;
+        const reduce = (_j = (_e = window.matchMedia) === null || _e === void 0 ? void 0 : _e.call(window, "(prefers-reduced-motion: reduce)")) === null || _j === void 0 ? void 0 : _j.matches;
         const dpr = Math.min(2, window.devicePixelRatio || 1);
         let W = 0;
         let H = 0;
@@ -6950,6 +6950,37 @@ function dotLines(name) {
 const DOT_PLATE = "strong";
 // 43.40: вблизи — только сама страна (solo), вокруг ничего; ghost — соседи еле заметной тенью; off — как раньше
 const DOT_SOLO = "solo";
+// 43.42 (макет): наклон узких длинных стран во весь экран, градусы (0 — без наклона)
+const DOT_LEAN = 22;
+// 43.42: объём поднятой страны: slab — плитка с толщиной и светом, light — только свет и фаска, off — плоско
+const DOT_VOL = "slab";
+// 43.42: что с миром под поднятой страной: blur — размыт (как в 43.40), tilt — наклонён вглубь, back — отъехал назад
+// с виньеткой, pit — чёткий, а на месте страны вырезанное углубление
+const DOT_BGMODE = "tilt";
+// 43.42 (макет): объём основной карты: flat — плоско; raise — страны, где был, приподняты плитками; beads — точки-бусины
+// со светом и тенью; tilt — вся карта чуть наклонена вглубь; all — всё вместе
+const DOT_WORLD3D = "rtilt"; // 43.42: rtilt — где был приподнято + лёгкий наклон (выбор автора)
+const DOT_TILT = 16; // наклон карты мира вглубь, градусы
+/* наклон «столом» (как CSS perspective(d) rotateX(a), начало в (W/2, 0.65·H)): точка карты → точка экрана и обратно */
+const dotTiltPt = (x, y, W, H, deg) => {
+    const d = Math.max(W, H) * 1.8;
+    const a = (deg * Math.PI) / 180;
+    const ox = W / 2;
+    const oy = H * 0.65;
+    const Y = y - oy;
+    const k = d / (d - Y * Math.sin(a));
+    return [ox + (x - ox) * k, oy + Y * Math.cos(a) * k];
+};
+const dotTiltInv = (sx, sy, W, H, deg) => {
+    const d = Math.max(W, H) * 1.8;
+    const a = (deg * Math.PI) / 180;
+    const ox = W / 2;
+    const oy = H * 0.65;
+    const Ys = sy - oy;
+    const Y = (Ys * d) / (d * Math.cos(a) + Ys * Math.sin(a));
+    const k = d / (d - Y * Math.sin(a));
+    return [ox + (sx - ox) / k, oy + Y];
+};
 /* текст с разрядкой и тёмной обводкой (буква за буквой — ctx.letterSpacing есть не везде) */
 function dotText(ctx, lines, x, y, fs, sp, color, weight = 600, draw = true, halo = null) {
     ctx.font = `${weight} ${fs}px system-ui, -apple-system, sans-serif`;
@@ -7108,6 +7139,19 @@ function dotProjFor(f, W, H, pad, keep, opt, turn = true) {
     const mp = { type: "MultiPoint", coordinates: pts };
     let angle = 0;
     let can = false;
+    // 43.42 (макет): очень узкая и длинная по вертикали страна (Мальдивы, Чили) в высоком окне — наклоняем влево:
+    // по высоте она становится ниже и не упирается в вырез камеры и карточку, по ширине — занимает больше
+    if (!angle && turn && DOT_LEAN) {
+        const b0 = d3.geoPath(make(0).fitExtent(ext, mp)).bounds(mp);
+        const bw = b0[1][0] - b0[0][0];
+        const bh = b0[1][1] - b0[0][1];
+        const ah = ext[1][1] - ext[0][1];
+        const aw = ext[1][0] - ext[0][0];
+        if (bh > bw * 3 && ah > aw * 1.2) {
+            angle = DOT_LEAN;
+            can = true;
+        }
+    }
     if (pts.length > 2) {
         const k0 = make(0).fitExtent(ext, mp).scale();
         const ks = [];
@@ -7132,6 +7176,7 @@ function dotProjFor(f, W, H, pad, keep, opt, turn = true) {
     p.turnInfo = { angle, can, north };
     return p.clipExtent([[-2, -2], [W + 2, H + 2]]);
 }
+const dotTiltOn = () => DOT_WORLD3D === "tilt" || DOT_WORLD3D === "all" || DOT_WORLD3D === "rtilt";
 function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCount, pins, lookKey, full = false, onToggleFull, noFull = false, light, cities, visitKey, sea = null, onSea = null, fullCard = null }) {
     const stageRef = useRef(null);
     const cvRef = useRef(null);
@@ -7214,6 +7259,34 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
         return p.clipExtent([[-2, -2], [W + 2, H + 2]]);
     }, [geo, W, H]);
     const PAD = [22, 22, 22, 22]; // поля: края растворяются, страна целиком в чёткой части
+    /* 43.42: во весь экран страна не должна заходить под вырез камеры сверху и под мини-карточку снизу —
+       эти полосы вычитаются из рамки (и поворот подбирается уже под оставшееся место) */
+    const cardRef = useRef(null);
+    const fullInsets = () => {
+        var _e;
+        if (!full)
+            return [0, 0];
+        let top = typeof window !== "undefined" && window.__atlasSafeTop != null ? window.__atlasSafeTop : 0;
+        if (typeof window === "undefined" || window.__atlasSafeTop == null) {
+            try {
+                const pr = document.createElement("div");
+                pr.style.cssText = "position:fixed;top:0;left:0;visibility:hidden;padding-top:env(safe-area-inset-top)";
+                document.body.appendChild(pr);
+                top = parseFloat(getComputedStyle(pr).paddingTop) || 0;
+                pr.remove();
+            }
+            catch {
+                top = 0;
+            }
+        }
+        // снизу — от верха мини-карточки или кнопки «свернуть» (что выше)
+        const st0 = stageRef.current.getBoundingClientRect().top;
+        const tops = [cardRef.current, (_e = stageRef.current.parentElement) === null || _e === void 0 ? void 0 : _e.querySelector(".globe-controls")]
+            .filter(Boolean)
+            .map((el) => el.getBoundingClientRect().top - st0);
+        const bottom = tops.length ? H - Math.min(...tops) + 6 : 0;
+        return [Math.max(0, top), Math.max(0, bottom)];
+    };
     const countryFeat = (a3) => geo.features.find((f) => f.id === a3);
     /* 43.36: маленькая островная страна (суша < ~8 тыс. км², из многих островов: Мальдивы, Сейшелы, Тонга) — кадр
        от столицы и острова цепочкой не дальше ~120 км; далёкие (Альдабра, Амиранты) — за кадром */
@@ -7229,7 +7302,7 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
     const regionFeat = (key) => (REG.ready ? REG.feats.find((f) => f.properties.key === key) : null);
     /* слой — всё неподвижное для одного вида: точки, линии, подписи, города */
     const buildLayer = useCallback((view) => {
-        var _e, _h, _j;
+        var _e, _j, _k;
         const P = props.current;
         const lt = !!P.light;
         const dpr = Math.min(2, window.devicePixelRatio || 1);
@@ -7237,12 +7310,19 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
         const proj = kind === "world"
             ? worldProj()
             : kind === "country"
-                ? dotProjFor(countryFeat(view.a3), W, H, PAD.map((v) => v + (view.shrink || 0) * 16), [
+                ? dotProjFor(countryFeat(view.a3), W, H, (() => {
+                    const [it, ib] = fullInsets();
+                    const p = PAD.map((v) => v + (view.shrink || 0) * 16);
+                    return [p[0] + it, p[1], p[2] + ib, p[3]];
+                })(), [
                     ...(P.cities || []).filter((ct) => ct.a3 === view.a3).map((ct) => [ct.lon, ct.lat]),
                     // и области, где были (атолл Раа на Мальдивах)
                     ...(REG.ready ? REG.feats.filter((f) => { var _e; return f.properties.a3 === view.a3 && ((_e = P.regions) === null || _e === void 0 ? void 0 : _e.has(f.properties.key)); }).map((f) => d3.geoCentroid(f)) : []),
                 ], smallIsl(view.a3), !view.north)
-                : dotProjFor(regionFeat(view.key), W, H, [34, 46, 34, 46], [], undefined, !view.north);
+                : dotProjFor(regionFeat(view.key), W, H, (() => {
+                    const [it, ib] = fullInsets();
+                    return [34 + it, 46, 34 + ib, 46];
+                })(), [], undefined, !view.north);
         // 43.39: масштаб пальцами — тот же вид, увеличенный: z = {k, dx, dy} (экран → экран: x' = k·x + dx)
         const z = view.zoom;
         if (z) {
@@ -7321,10 +7401,21 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
         // фон прозрачный: под картой — фон окна, края растворяются маской (стили .dot-cv)
         const r0 = step * 0.31;
         const batches = {};
+        const beads = (DOT_WORLD3D === "beads" || DOT_WORLD3D === "all");
         const add = (key, px, py, rr) => {
             const b = batches[key] || (batches[key] = new Path2D());
             b.moveTo(px + rr, py);
             b.arc(px, py, rr, 0, Math.PI * 2);
+            // бусины: под точкой — тень (вниз вправо), на точке — блик (вверх влево)
+            if (beads && !key.endsWith("G") && key !== "ghost") {
+                const sh = batches["_s"] || (batches["_s"] = new Path2D());
+                sh.moveTo(px + rr * 0.45 + rr, py + rr * 0.55);
+                sh.arc(px + rr * 0.45, py + rr * 0.55, rr, 0, Math.PI * 2);
+                const hk = key === "gold" || key === "champ" || key === "nG" ? "_hg" : "_h";
+                const hl = batches[hk] || (batches[hk] = new Path2D());
+                hl.moveTo(px - rr * 0.32 + rr * 0.42, py - rr * 0.32);
+                hl.arc(px - rr * 0.32, py - rr * 0.32, rr * 0.42, 0, Math.PI * 2);
+            }
         };
         const regCells = {};
         const landCount = {};
@@ -7437,14 +7528,57 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
             wish: lt ? "rgba(60,120,190,.7)" : "rgba(110,165,225,.75)",
         };
         // 43.40: поднятая страна — непрозрачная «плитка» под точками: размытый мир не просвечивает сквозь неё
-        if (solo) {
-            const sf0 = feats.find((f) => f.id === sel);
-            if (sf0) {
-                ctx.beginPath();
-                d3.geoPath(proj, ctx)(sf0);
-                ctx.fillStyle = lt ? "rgba(236,242,248,.96)" : "rgba(12,24,38,.96)";
-                ctx.fill();
+        const sf0 = solo ? feats.find((f) => f.id === sel) : null;
+        const shape = sf0 ? new Path2D(d3.geoPath(proj)(sf0) || "") : null;
+        if (shape) {
+            // 43.42: толщина «плитки» — силуэт, сдвинутый вниз слоями, темнее к низу; по нижней кромке — тонкий блик
+            if (DOT_VOL === "slab") {
+                const depth = Math.max(6, Math.min(14, Math.min(W, H) * 0.03));
+                for (let k = depth; k >= 1; k--) {
+                    ctx.save();
+                    ctx.translate(0, k);
+                    const a = 0.55 + 0.4 * (k / depth);
+                    // бок плитки: светлее у верхней кромки, темнее к низу
+                    const q = k / depth;
+                    ctx.fillStyle = lt ? `rgba(${Math.round(170 - 60 * q)},${Math.round(190 - 60 * q)},${Math.round(210 - 60 * q)},${a})` : `rgba(${Math.round(52 - 36 * q)},${Math.round(92 - 62 * q)},${Math.round(132 - 84 * q)},${a})`;
+                    ctx.fill(shape);
+                    ctx.restore();
+                }
+                ctx.save();
+                ctx.translate(0, depth);
+                ctx.strokeStyle = lt ? "rgba(90,120,150,.5)" : "rgba(120,180,230,.3)";
+                ctx.lineWidth = 0.8;
+                ctx.stroke(shape);
+                ctx.restore();
             }
+            ctx.fillStyle = lt ? "rgba(236,242,248,.96)" : "rgba(12,24,38,.96)";
+            ctx.fill(shape);
+        }
+        // 43.42 (макет): страны, где был, — приподнятые плитки (бок и тень), точки — сверху
+        if ((DOT_WORLD3D === "raise" || DOT_WORLD3D === "all" || DOT_WORLD3D === "rtilt") && kind === "world") {
+            const gp = d3.geoPath(proj);
+            const ups = feats.filter((f) => on(f.id) && f.id !== view.hole);
+            const all = new Path2D();
+            ups.forEach((f) => all.addPath(new Path2D(gp(f) || "")));
+            ctx.save();
+            ctx.shadowColor = "rgba(0,0,0,.55)";
+            ctx.shadowBlur = 4 * dpr;
+            ctx.shadowOffsetY = 2.5 * dpr;
+            for (let k = 3; k >= 1; k--) {
+                ctx.save();
+                ctx.translate(0, k * 0.9);
+                ctx.fillStyle = lt ? `rgba(170,125,40,${0.5 + k * 0.1})` : `rgba(${110 - k * 18},${80 - k * 14},${28 - k * 5},.95)`;
+                ctx.fill(all);
+                ctx.restore();
+                ctx.shadowColor = "transparent";
+            }
+            ctx.restore();
+            ctx.fillStyle = lt ? "rgba(240,215,160,.6)" : "rgba(64,50,22,.9)";
+            ctx.fill(all);
+        }
+        if (batches._s) {
+            ctx.fillStyle = lt ? "rgba(0,30,60,.18)" : "rgba(0,0,0,.45)";
+            ctx.fill(batches._s);
         }
         ["ghost", "goldG", "champG", "dim", "dimR", "base", "wish", "nG", "champ", "selD", "selB", "gold"].forEach((k) => {
             if (!batches[k])
@@ -7452,6 +7586,70 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
             ctx.fillStyle = FILL[k];
             ctx.fill(batches[k]);
         });
+        // 43.42: на месте поднятой страны — вырезанное углубление (pit): тёмное дно, тень у верхней кромки, блик у нижней
+        if (view.hole && DOT_BGMODE === "pit") {
+            const hf = feats.find((f) => f.id === view.hole);
+            const hp = hf ? new Path2D(d3.geoPath(proj)(hf) || "") : null;
+            if (hp) {
+                ctx.save();
+                ctx.fillStyle = lt ? "rgba(170,185,200,.9)" : "rgba(3,8,15,.92)";
+                ctx.fill(hp);
+                ctx.clip(hp);
+                const ring = new Path2D();
+                ring.rect(-W, -H, W * 3, H * 3);
+                ring.addPath(hp);
+                ctx.shadowColor = "rgba(0,0,0,.9)";
+                ctx.shadowOffsetX = 2 * dpr;
+                ctx.shadowOffsetY = 3 * dpr;
+                ctx.shadowBlur = 5 * dpr;
+                ctx.fillStyle = "#000";
+                ctx.fill(ring, "evenodd");
+                ctx.shadowColor = lt ? "rgba(255,255,255,.8)" : "rgba(120,180,230,.35)";
+                ctx.shadowOffsetX = -1.5 * dpr;
+                ctx.shadowOffsetY = -2 * dpr;
+                ctx.shadowBlur = 3 * dpr;
+                ctx.fill(ring, "evenodd");
+                ctx.restore();
+                ctx.strokeStyle = lt ? "rgba(60,90,120,.4)" : "rgba(143,212,255,.35)";
+                ctx.lineWidth = 0.8;
+                ctx.stroke(hp);
+            }
+        }
+        if (batches._h) {
+            ctx.fillStyle = lt ? "rgba(255,255,255,.5)" : "rgba(220,238,255,.22)";
+            ctx.fill(batches._h);
+        }
+        if (batches._hg) {
+            ctx.fillStyle = "rgba(255,250,230,.55)";
+            ctx.fill(batches._hg);
+        }
+        // 43.42: свет сверху слева по поверхности страны и фаска по краю (светлая кромка сверху, тень снизу справа)
+        if (shape && DOT_VOL !== "off") {
+            const b = d3.geoPath(proj).bounds(sf0);
+            ctx.save();
+            ctx.clip(shape);
+            const g = ctx.createLinearGradient(b[0][0], b[0][1], b[1][0], b[1][1]);
+            g.addColorStop(0, lt ? "rgba(255,255,255,.45)" : "rgba(190,225,255,.17)");
+            g.addColorStop(0.45, "rgba(0,0,0,0)");
+            g.addColorStop(1, lt ? "rgba(0,30,60,.16)" : "rgba(0,0,0,.40)");
+            ctx.fillStyle = g;
+            ctx.fillRect(b[0][0], b[0][1], b[1][0] - b[0][0], b[1][1] - b[0][1]);
+            // фаска: «вне страны» — большой прямоугольник с дыркой-страной, его тень ложится внутрь по краю
+            const ring = new Path2D();
+            ring.rect(-W, -H, W * 3, H * 3);
+            ring.addPath(shape);
+            const bevel = (col, dx, dy, blur) => {
+                ctx.shadowColor = col;
+                ctx.shadowOffsetX = dx * dpr;
+                ctx.shadowOffsetY = dy * dpr;
+                ctx.shadowBlur = blur * dpr;
+                ctx.fillStyle = "#000";
+                ctx.fill(ring, "evenodd");
+            };
+            bevel(lt ? "rgba(255,255,255,.95)" : "rgba(200,232,255,.5)", 3, 3.5, 6);
+            bevel(lt ? "rgba(0,30,60,.35)" : "rgba(0,0,0,.7)", -4, -5, 10);
+            ctx.restore();
+        }
         // вблизи: границы соседей, линии регионов, светящийся контур
         const path = d3.geoPath(proj, ctx);
         const glowLine = (f, col, w) => {
@@ -7491,7 +7689,7 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
         // место кнопки «во весь экран» справа снизу
         const taken = [[W - 52, H - 52, W, H]];
         // флажок выбранной страны — подписи его не закрывают
-        if (kind === "country" && ((_j = (_h = P.pins) === null || _h === void 0 ? void 0 : _h[0]) === null || _j === void 0 ? void 0 : _j.a3) === sel) {
+        if (kind === "country" && ((_k = (_j = P.pins) === null || _j === void 0 ? void 0 : _j[0]) === null || _k === void 0 ? void 0 : _k.a3) === sel) {
             const fq = proj([P.pins[0].lon, P.pins[0].lat]);
             if (fq)
                 taken.push([fq[0] - 3, fq[1] - 54, fq[0] + 36, fq[1] + 4]);
@@ -7857,11 +8055,33 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
                 bx.setTransform(1, 0, 0, 1, 0, 0);
                 bx.clearRect(0, 0, bg.width, bg.height);
                 bx.drawImage(L.cv, 0, 0, bg.width, bg.height);
+                if (DOT_BGMODE === "back") {
+                    // виньетка: края мира уходят в темноту, середина под страной — светлее
+                    const vg = bx.createRadialGradient(bg.width / 2, bg.height / 2, Math.min(bg.width, bg.height) * 0.2, bg.width / 2, bg.height / 2, Math.max(bg.width, bg.height) * 0.62);
+                    // края не темним заливкой (было бы видно прямоугольник холста), а растворяем в прозрачность
+                    vg.addColorStop(0, "rgba(0,0,0,1)");
+                    vg.addColorStop(1, "rgba(0,0,0,0)");
+                    bx.globalCompositeOperation = "destination-in";
+                    bx.fillStyle = vg;
+                    bx.fillRect(0, 0, bg.width, bg.height);
+                    bx.globalCompositeOperation = "source-over";
+                }
                 S.bgL = L;
             }
             bg.style.opacity = "1";
             // 43.40: размытие умеренное — мир под страной хорошо узнаётся
-            bg.style.filter = `blur(${(3.5 * amt).toFixed(1)}px) brightness(${(1 - 0.22 * amt).toFixed(3)}) saturate(${(1 - 0.15 * amt).toFixed(3)})`;
+            const m = DOT_BGMODE;
+            const blur = m === "blur" ? 3.5 : m === "pit" ? 0.6 : m === "tilt" ? 1.4 : 2;
+            const dim = m === "blur" ? 0.22 : m === "pit" ? 0.12 : m === "tilt" ? 0.18 : 0.3;
+            bg.style.filter = `blur(${(blur * amt).toFixed(2)}px) brightness(${(1 - dim * amt).toFixed(3)}) saturate(${(1 - 0.15 * amt).toFixed(3)})`;
+            bg.style.transformOrigin = "50% 65%";
+            // мир наклоняется дальше: от обычного лёгкого наклона карты (DOT_TILT) почти вдвое
+            bg.style.transform =
+                m === "tilt"
+                    ? `perspective(${Math.round(Math.max(W, H) * 1.8)}px) rotateX(${(DOT_TILT + 18 * amt).toFixed(2)}deg) scale(${(1 - 0.04 * amt).toFixed(3)})`
+                    : m === "back"
+                        ? `scale(${(1 - 0.14 * amt).toFixed(3)})`
+                        : "none";
         };
         // слой страны над миром — с тенью: «висит» над размытой картой
         const P0col = (k) => `rgba(0,0,0,${(0.6 * k).toFixed(3)})`;
@@ -7970,6 +8190,10 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
             setBg(null, 0);
             put(S.cur, [dpr / S.cur.dpr, 0, 0, dpr / S.cur.dpr, 0, 0], 1);
         }
+        // 43.42 (макет): вся карта мира слегка наклонена вглубь, как стол
+        const tiltOn = dotTiltOn() && !S.lift && S.cur.view.kind === "world";
+        cv.style.transformOrigin = "50% 65%";
+        cv.style.transform = tiltOn ? `perspective(${Math.round(Math.max(W, H) * 1.8)}px) rotateX(${DOT_TILT}deg)` : "";
         // компас: страна повёрнута (стрелка на север) или её можно повернуть крупнее
         if (!S.fly) {
             const ti = S.cur.view.kind !== "world" && S.cur.proj.turnInfo;
@@ -8159,6 +8383,53 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
     };
     /* 43.40: страна поднимается из своих границ на карте мира, плывёт в середину и растёт; мир остаётся на месте,
        размывается и темнеет (нижний холст). Обратно — страна опускается в своё место, мир проясняется */
+    // 43.42: карта мира наклонена — место страны на экране тоже «на наклоне»: подгоняем матрицу M под наклон
+    // (по 9 точкам, наименьшие квадраты — как в affIn)
+    const tiltAff = (M) => {
+        if (!dotTiltOn())
+            return M;
+        const src = [];
+        const dst = [];
+        for (let i = 0; i <= 2; i++)
+            for (let j = 0; j <= 2; j++) {
+                const x = (W * i) / 2;
+                const y = (H * j) / 2;
+                src.push([x, y]);
+                dst.push(dotTiltPt(M[0] * x + M[2] * y + M[4], M[1] * x + M[3] * y + M[5], W, H, DOT_TILT));
+            }
+        const N = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+        const bx = [0, 0, 0];
+        const by = [0, 0, 0];
+        src.forEach(([x, y], k) => {
+            const v = [x, y, 1];
+            for (let r = 0; r < 3; r++) {
+                for (let q = 0; q < 3; q++)
+                    N[r][q] += v[r] * v[q];
+                bx[r] += v[r] * dst[k][0];
+                by[r] += v[r] * dst[k][1];
+            }
+        });
+        const solve = (A, v) => {
+            const a = A.map((r, i) => [...r, v[i]]);
+            for (let i = 0; i < 3; i++) {
+                let mx = i;
+                for (let r = i + 1; r < 3; r++)
+                    if (Math.abs(a[r][i]) > Math.abs(a[mx][i]))
+                        mx = r;
+                [a[i], a[mx]] = [a[mx], a[i]];
+                for (let r = 0; r < 3; r++)
+                    if (r !== i) {
+                        const k = a[r][i] / a[i][i];
+                        for (let q = i; q < 4; q++)
+                            a[r][q] -= k * a[i][q];
+                    }
+            }
+            return [a[0][3] / a[0][0], a[1][3] / a[1][1], a[2][3] / a[2][2]];
+        };
+        const X = solve(N, bx);
+        const Y = solve(N, by);
+        return [X[0], Y[0], X[1], Y[1], X[2], Y[2]];
+    };
     const liftTo = (view, done) => {
         const S = st.current;
         if (S.fly)
@@ -8169,7 +8440,7 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
         if (!from || from.view.kind !== "world")
             return flyTo(view, done);
         const bgL = layer({ ...from.view, hole: view.a3 });
-        S.lift = { up: true, L, bgL, M: affIn(bgL, L), t0: performance.now(), done };
+        S.lift = { up: true, L, bgL, M: tiltAff(affIn(bgL, L)), t0: performance.now(), done };
         kick();
     };
     const dropTo = (done) => {
@@ -8182,7 +8453,7 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
         if (!from || from.view.kind === "world")
             return flyTo({ kind: "world" }, done);
         const bgL = S.bgL && S.bgL.view.hole === from.view.a3 && !S.bgL.view.zoom ? S.bgL : layer({ kind: "world", hole: from.view.a3 });
-        S.lift = { up: false, L: from, bgL, world, M: affIn(bgL, from), t0: performance.now(), done };
+        S.lift = { up: false, L: from, bgL, world, M: tiltAff(affIn(bgL, from)), t0: performance.now(), done };
         kick();
     };
     // выбрали море — мелкое (Чёрное, Красное) приближаем, чтобы его было видно; сняли — обратно к миру
@@ -8266,7 +8537,7 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
     }, [visitKey, regions, light, cities]);
     /* регион: вспышка на карте страны → перелёт к региону; снят — обратно к стране */
     const goRegion = (a3, key) => {
-        var _e, _h;
+        var _e, _j;
         const S = st.current;
         if (!key || !regionFeat(key)) {
             if (((_e = S.cur) === null || _e === void 0 ? void 0 : _e.view.kind) === "region") {
@@ -8291,7 +8562,7 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
             }, DOT_FLASH);
         };
         // с карты другого региона — сначала к стране, там вспышка
-        if (((_h = S.cur) === null || _h === void 0 ? void 0 : _h.view.kind) === "country" && S.cur.view.a3 === a3)
+        if (((_j = S.cur) === null || _j === void 0 ? void 0 : _j.view.kind) === "country" && S.cur.view.a3 === a3)
             go();
         else {
             setView(country);
@@ -8405,9 +8676,12 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
         const L = S.cur;
         if (!L || S.fly)
             return;
-        const r = cvRef.current.getBoundingClientRect();
-        const px = e.clientX - r.left;
-        const py = e.clientY - r.top;
+        // 43.42: координаты — от окна карты (холст может быть наклонён CSS-ом), наклон снимаем обратным пересчётом
+        const r = stageRef.current.getBoundingClientRect();
+        let px = e.clientX - r.left;
+        let py = e.clientY - r.top;
+        if (dotTiltOn() && L.view.kind === "world")
+            [px, py] = dotTiltInv(px, py, W, H, DOT_TILT);
         // ближайшая точка-страна в радиусе пары шагов: в мелкую страну легче попасть
         let best = L.read(L.landImg, px, py, 5);
         if (best >= L.feats.length)
@@ -8509,7 +8783,7 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
     if (full)
         return (React.createElement("div", { className: "globe-full dot-full" + (fullCard ? " has-card" : "") },
             stage,
-            fullCard && React.createElement("div", { className: "dfu-card" }, fullCard),
+            fullCard && (React.createElement("div", { className: "dfu-card", ref: cardRef }, fullCard)),
             controls));
     return (React.createElement("div", { className: "map-wrap dot-map" },
         stage,
@@ -9552,8 +9826,8 @@ const TR_WORDS = {
     other: { on: "пересадка", in: "выходили в город", out: "только порт", tag: "пересадка" },
 };
 function trWords(route, i) {
-    var _e, _h, _j, _k;
-    const ks = [(_h = (_e = route === null || route === void 0 ? void 0 : route.legs) === null || _e === void 0 ? void 0 : _e[i]) === null || _h === void 0 ? void 0 : _h.k, (_k = (_j = route === null || route === void 0 ? void 0 : route.legs) === null || _j === void 0 ? void 0 : _j[i + 1]) === null || _k === void 0 ? void 0 : _k.k];
+    var _e, _j, _k, _l;
+    const ks = [(_j = (_e = route === null || route === void 0 ? void 0 : route.legs) === null || _e === void 0 ? void 0 : _e[i]) === null || _j === void 0 ? void 0 : _j.k, (_l = (_k = route === null || route === void 0 ? void 0 : route.legs) === null || _k === void 0 ? void 0 : _k[i + 1]) === null || _l === void 0 ? void 0 : _l.k];
     const k = ["air", "car", "rail", "other"].find((x) => ks.includes(x)) || "air";
     return TR_WORDS[k];
 }
@@ -9697,7 +9971,7 @@ function blankRoute(homePt) {
 }
 /* маршрут из нескольких поездок цепочкой (для «Собрать маршруты») */
 function routeFromTrips(chain, homePt) {
-    var _e, _h, _j;
+    var _e, _j, _k;
     const first = ((_e = chain[0]) === null || _e === void 0 ? void 0 : _e.t) || {};
     const d0 = first.dep && isFinite(first.dep.lat) ? first.dep : null;
     const r = blankRoute(d0 && routeKey(d0.name) !== routeKey(homePt === null || homePt === void 0 ? void 0 : homePt.name) ? homePt : d0 || homePt);
@@ -9717,8 +9991,8 @@ function routeFromTrips(chain, homePt) {
         r.legs.unshift({ k: null, air: [] });
     }
     // обратно — тем же транспортом, что и уехали
-    r.legs.push({ ...(r.legs[0] || { k: null, air: [] }), air: [...(((_h = r.legs[0]) === null || _h === void 0 ? void 0 : _h.air) || [])] });
-    const last = ((_j = chain[chain.length - 1]) === null || _j === void 0 ? void 0 : _j.t) || {};
+    r.legs.push({ ...(r.legs[0] || { k: null, air: [] }), air: [...(((_j = r.legs[0]) === null || _j === void 0 ? void 0 : _j.air) || [])] });
+    const last = ((_k = chain[chain.length - 1]) === null || _k === void 0 ? void 0 : _k.t) || {};
     Object.assign(r, {
         y: first.y || NOW.getFullYear(),
         m: first.m || null,
@@ -9809,7 +10083,7 @@ const chainText = (chain) => chain
 const routeCountries = (r) => [...new Set(((r === null || r === void 0 ? void 0 : r.stops) || []).filter((s) => s.tr !== 2 && s.a3).map((s) => s.a3))]
     .map((a3) => { var _e; return ((_e = BY_A3[a3]) === null || _e === void 0 ? void 0 : _e.name) || a3; })
     .join(" · ");
-const routeText = (r) => { var _e, _h; return [(_e = r === null || r === void 0 ? void 0 : r.start) === null || _e === void 0 ? void 0 : _e.name, ...((r === null || r === void 0 ? void 0 : r.stops) || []).map((s) => s.name), (_h = r === null || r === void 0 ? void 0 : r.start) === null || _h === void 0 ? void 0 : _h.name].filter(Boolean).join(" → "); };
+const routeText = (r) => { var _e, _j; return [(_e = r === null || r === void 0 ? void 0 : r.start) === null || _e === void 0 ? void 0 : _e.name, ...((r === null || r === void 0 ? void 0 : r.stops) || []).map((s) => s.name), (_j = r === null || r === void 0 ? void 0 : r.start) === null || _j === void 0 ? void 0 : _j.name].filter(Boolean).join(" → "); };
 /* строка маршрута в ленте (42.68): длинный путь не перечисляем, а обобщаем —
    «✈️🚗 · 4 страны · 11 городов» (город старта не пишем — 42.69, дней не пишем — 42.72); в группе страны — что было здесь:
    «здесь 2 города из 11: Дубай, Абу-Даби». Городов всего до трёх — просто перечисляем */
@@ -9949,7 +10223,7 @@ function MergeSheet({ open, onClose, box, a3, list, onMerge }) {
     const chips = (key, opts, label, def) => opts.length > 1 && (React.createElement("div", { className: "mg-pick" }, opts.map((t) => (React.createElement("button", { key: t.id, className: (opt[key] || def) === t.id ? "on" : "", onClick: () => setOpt((o) => ({ ...o, [key]: t.id })) }, label(t))))));
     const c = BY_A3[a3];
     return (React.createElement(Sheet, { open: open, onClose: onClose, box: box, title: "\u041E\u0431\u044A\u0435\u0434\u0438\u043D\u0438\u0442\u044C \u043F\u043E\u0435\u0437\u0434\u043A\u0438" }, (close) => {
-        var _e, _h, _j, _k;
+        var _e, _j, _k, _l;
         return (React.createElement("div", { className: "sheet-body mg-body" },
             React.createElement("div", { className: "mg-head" },
                 flagText(a3),
@@ -9975,12 +10249,12 @@ function MergeSheet({ open, onClose, box, a3, list, onMerge }) {
                     React.createElement("div", null,
                         res.move ? `${MOVE_ICON[res.move]} ${((_e = MOVES.find((m) => m.id === res.move)) === null || _e === void 0 ? void 0 : _e.name) || ""}` : "не указан",
                         (res.air || []).length > 0 && React.createElement("em", null, res.air.map((x) => { var _e; return ((_e = airInfo(x)) === null || _e === void 0 ? void 0 : _e.name) || x; }).join(" · ")),
-                        chips("move", moveOpts, (t) => { var _e; return `${MOVE_ICON[t.move] || ""} ${((_e = MOVES.find((m) => m.id === t.move)) === null || _e === void 0 ? void 0 : _e.name) || ""}`; }, (_h = ts.find((t) => t.move)) === null || _h === void 0 ? void 0 : _h.id))),
+                        chips("move", moveOpts, (t) => { var _e; return `${MOVE_ICON[t.move] || ""} ${((_e = MOVES.find((m) => m.id === t.move)) === null || _e === void 0 ? void 0 : _e.name) || ""}`; }, (_j = ts.find((t) => t.move)) === null || _j === void 0 ? void 0 : _j.id))),
                 React.createElement("div", { className: "mg-f" },
                     React.createElement("i", null, "\u041E\u0442\u043A\u0443\u0434\u0430"),
                     React.createElement("div", null,
-                        ((_j = res.dep) === null || _j === void 0 ? void 0 : _j.name) || "—",
-                        chips("dep", depOpts, (t) => { var _e; return ((_e = t.dep) === null || _e === void 0 ? void 0 : _e.name) || ""; }, (_k = ts.find((t) => t.dep)) === null || _k === void 0 ? void 0 : _k.id))),
+                        ((_k = res.dep) === null || _k === void 0 ? void 0 : _k.name) || "—",
+                        chips("dep", depOpts, (t) => { var _e; return ((_e = t.dep) === null || _e === void 0 ? void 0 : _e.name) || ""; }, (_l = ts.find((t) => t.dep)) === null || _l === void 0 ? void 0 : _l.id))),
                 React.createElement("div", { className: "mg-f" },
                     React.createElement("i", null, "\u041E\u0442\u0435\u043B\u0438"),
                     React.createElement("div", null,
@@ -10146,7 +10420,7 @@ function pathAdd(d, x) {
 }
 /* открыть сохранённую поездку как путь: маршрут — целиком, обычную — из её городов */
 function journeyOf(visits, a3, id, homePt) {
-    var _e, _h, _j;
+    var _e, _j, _k;
     const t = (visits[a3] || []).find((x) => x.id === id);
     if (!t)
         return null;
@@ -10182,7 +10456,7 @@ function journeyOf(visits, a3, id, homePt) {
             return { r, members: { [a3]: id }, fanRecs, photos, owner, who: t.who || [], left: t.left || [], by: t.by || "", orig: { a3, id }, plain: false };
         }
     }
-    if ((_j = (_h = t.route) === null || _h === void 0 ? void 0 : _h.stops) === null || _j === void 0 ? void 0 : _j.length) {
+    if ((_k = (_j = t.route) === null || _j === void 0 ? void 0 : _j.stops) === null || _k === void 0 ? void 0 : _k.length) {
         const r = routeAdopt(t.route, visits);
         const members = {};
         const photos = [];
@@ -10277,7 +10551,7 @@ function PlacePick({ visits = {}, onPick, onClose, all = false, placeholder = "�
         all && !s && React.createElement("p", { className: "tf-hint" }, "\u041D\u0430\u043F\u0440\u0438\u043C\u0435\u0440: \u041F\u0445\u0443\u043A\u0435\u0442, \u042F\u043F\u043E\u043D\u0438\u044F, \u041F\u0440\u0430\u0433\u0430. \u0421\u0442\u0440\u0430\u043D\u0443 \u043C\u043E\u0436\u043D\u043E \u0432\u044B\u0431\u0440\u0430\u0442\u044C \u0446\u0435\u043B\u0438\u043A\u043E\u043C"),
         onClose && (React.createElement("button", { className: "link-btn pl-cancel", onClick: onClose }, "\u043E\u0442\u043C\u0435\u043D\u0430")),
         found.length > 0 && (React.createElement("div", { className: "sheet-list inline-list" }, found.map((x) => {
-            var _e, _h;
+            var _e, _j;
             return (React.createElement("button", { key: x.kind + x.a3 + x.name, className: "opt" + (been(x) ? " opt-on" : ""), onClick: () => onPick(x) },
                 React.createElement("span", { className: "fl" },
                     React.createElement(Flg, { a3: x.a3 })),
@@ -10286,7 +10560,7 @@ function PlacePick({ visits = {}, onPick, onClose, all = false, placeholder = "�
                     x.kind === "city" && React.createElement("em", { className: "via" },
                         " \u00B7 ",
                         ((_e = BY_A3[x.a3]) === null || _e === void 0 ? void 0 : _e.name) || x.a3)),
-                React.createElement("span", { className: "ct" }, x.kind === "city" ? "город" : CONTINENTS[(_h = BY_A3[x.a3]) === null || _h === void 0 ? void 0 : _h.cont] || "страна")));
+                React.createElement("span", { className: "ct" }, x.kind === "city" ? "город" : CONTINENTS[(_j = BY_A3[x.a3]) === null || _j === void 0 ? void 0 : _j.cont] || "страна")));
         })))));
 }
 /* единая карточка поездки */
@@ -10294,7 +10568,7 @@ function PlacePick({ visits = {}, onPick, onClose, all = false, placeholder = "�
 const HomeIcon = () => (React.createElement("svg", { className: "home-ic", viewBox: "0 0 24 24", width: "14", height: "14", "aria-label": "\u0441\u0435\u043C\u044C\u044F" },
     React.createElement("path", { d: "M3.5 11.2 12 4l8.5 7.2V20a1 1 0 0 1-1 1h-5v-6h-5v6h-5a1 1 0 0 1-1-1z", fill: "currentColor" })));
 function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onRemove, onMergeWith, mode, quality, since, people = [], meId = ME, family = null, occasions = null, onAddOccasion = null, fxShow = true }) {
-    var _e, _h, _j;
+    var _e, _j, _k;
     const totalPhotos = useMemo(() => {
         let k = 0;
         Object.values(visits).forEach((arr) => arr.forEach((t) => (k += (t.photos || []).length)));
@@ -10525,7 +10799,7 @@ function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onR
     const famIds = new Set(((family === null || family === void 0 ? void 0 : family.members) || []).flatMap((m) => [m.id, ...(m.aka || [])]));
     const P0 = { key: "", legs: r.legs, stops: r.stops || [], setLeg, setStop, setHotel, move, drop };
     const legRow = (i, last, P = P0) => {
-        var _e, _h;
+        var _e, _j;
         const { legs: pLegs, stops: pStops, setLeg, setStop, setHotel } = P;
         const K = P.key + i;
         const L = pLegs[i] || {};
@@ -10538,7 +10812,7 @@ function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onR
                 L.k === "air" &&
                     ((L.air || []).length ? (React.createElement("button", { className: "rt-air", onClick: () => setAirFor(airFor === K ? null : K) },
                         React.createElement(AirMark, { code: L.air[0] }),
-                        ((_h = airInfo(L.air[0])) === null || _h === void 0 ? void 0 : _h.name) || L.air[0])) : (React.createElement("button", { className: "link-btn rt-air-add", onClick: () => setAirFor(airFor === K ? null : K) }, "\uFF0B \u0430\u0432\u0438\u0430\u043A\u043E\u043C\u043F\u0430\u043D\u0438\u044F"))),
+                        ((_j = airInfo(L.air[0])) === null || _j === void 0 ? void 0 : _j.name) || L.air[0])) : (React.createElement("button", { className: "link-btn rt-air-add", onClick: () => setAirFor(airFor === K ? null : K) }, "\uFF0B \u0430\u0432\u0438\u0430\u043A\u043E\u043C\u043F\u0430\u043D\u0438\u044F"))),
                 !last &&
                     st &&
                     st.tr !== 2 &&
@@ -10585,7 +10859,7 @@ function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onR
             React.createElement("i", { className: "rt-dot home" }),
             React.createElement("b", null,
                 ((_e = r.start) === null || _e === void 0 ? void 0 : _e.name) || "не указано",
-                React.createElement("em", null, r.dirs ? "отправление · общее для всех направлений" : ((_h = r.start) === null || _h === void 0 ? void 0 : _h.a3) ? ((_j = BY_A3[r.start.a3]) === null || _j === void 0 ? void 0 : _j.name) || "" : "дом")),
+                React.createElement("em", null, r.dirs ? "отправление · общее для всех направлений" : ((_j = r.start) === null || _j === void 0 ? void 0 : _j.a3) ? ((_k = BY_A3[r.start.a3]) === null || _k === void 0 ? void 0 : _k.name) || "" : "дом")),
             React.createElement("button", { className: "link-btn", onClick: () => setPickStart(!pickStart) }, "\u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C")),
         pickStart && (React.createElement(CityPointPicker, { placeholder: "\u041E\u0442\u043A\u0443\u0434\u0430 \u0432\u044B\u0435\u0437\u0436\u0430\u043B\u0438", onClose: () => setPickStart(false), onPick: (c) => {
                 patch({ start: { name: c.name, a3: c.a3, lat: c.lat, lon: c.lon } });
@@ -10596,7 +10870,7 @@ function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onR
         homeTile,
         stops.length > 1 && React.createElement("p", { className: "hint small fan-hint" }, "\u0422\u043E\u0447\u043A\u0443 \u043C\u043E\u0436\u043D\u043E \u043F\u043E\u0442\u044F\u043D\u0443\u0442\u044C: \u0432\u043B\u0435\u0432\u043E \u2014 \u0441\u0432\u043E\u0451 \u043D\u0430\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u0435 \u0438\u0437 \u0434\u043E\u043C\u0430, \u0432\u043F\u0440\u0430\u0432\u043E \u2014 \u043F\u0440\u043E\u0434\u043E\u043B\u0436\u0435\u043D\u0438\u0435 \u043F\u0440\u0435\u0434\u044B\u0434\u0443\u0449\u0435\u0433\u043E."),
         r.dirs.map((D, k) => {
-            var _e, _h;
+            var _e, _j;
             const P = dirP(k);
             const cp = fanCompass(r.start, D);
             const col = ((_e = MOVE_KINDS.find((m) => { var _e; return m.id === ((_e = D.legs[0]) === null || _e === void 0 ? void 0 : _e.k); })) === null || _e === void 0 ? void 0 : _e.color) || "#5d7891";
@@ -10606,7 +10880,7 @@ function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onR
                         cp.arrow,
                         " ",
                         cp.word)),
-                    React.createElement("b", null, (_h = D.stops[D.stops.length - 1]) === null || _h === void 0 ? void 0 : _h.name)),
+                    React.createElement("b", null, (_j = D.stops[D.stops.length - 1]) === null || _j === void 0 ? void 0 : _j.name)),
                 stopTiles(P),
                 adding === k ? (React.createElement(PlacePick, { visits: visits, placeholder: "\u0415\u0449\u0451 \u0442\u043E\u0447\u043A\u0430 \u044D\u0442\u043E\u0433\u043E \u043D\u0430\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u044F", onClose: () => setAdding(false), onPick: (x) => {
                         onDir(k, (D) => pathAdd(D, x));
@@ -10663,7 +10937,7 @@ function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onR
     });
     /* плитки точек пути с перегонами перед ними: цепочка или направление веера */
     const stopTiles = (P) => P.stops.map((s, i) => {
-        var _e, _h;
+        var _e, _j;
         const tw = trWords(P, i);
         return (React.createElement(React.Fragment, { key: "s" + P.key + i },
             legRow(i, false, P),
@@ -10672,7 +10946,7 @@ function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onR
                 React.createElement("b", null,
                     s.name,
                     React.createElement("em", null,
-                        s.country ? (cityState(s.a3) ? (_e = BY_A3[s.a3]) === null || _e === void 0 ? void 0 : _e.name : "вся страна") : ((_h = BY_A3[s.a3]) === null || _h === void 0 ? void 0 : _h.name) || s.a3,
+                        s.country ? (cityState(s.a3) ? (_e = BY_A3[s.a3]) === null || _e === void 0 ? void 0 : _e.name : "вся страна") : ((_j = BY_A3[s.a3]) === null || _j === void 0 ? void 0 : _j.name) || s.a3,
                         s.tr === 2 ? ` · ${tw.out}, страна не засчитается` : s.tr === 1 ? ` · ${tw.tag}` : "")),
                 React.createElement("span", { className: "rt-tools" },
                     P.stops.length > 1 && (React.createElement(React.Fragment, null,
@@ -10711,7 +10985,7 @@ function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onR
     };
     return (React.createElement(React.Fragment, null,
         React.createElement(Sheet, { open: open, onClose: onClose, box: box, title: title, back: jr.sp && fxShow && FX[jr.sp.fx] ? React.createElement(FxCanvas, { fx: jr.sp.fx, anim: true, scale: 1.25, seed: 7 }) : null }, (close) => {
-            var _e, _h, _j, _k, _l, _o;
+            var _e, _j, _k, _l, _o, _p;
             return (React.createElement("div", { className: "sheet-body rt-body jr-body" },
                 editWhen ? (React.createElement("div", { className: "step" },
                     React.createElement("p", { className: "step-title" }, "\u041A\u043E\u0433\u0434\u0430 \u044D\u0442\u043E \u0431\u044B\u043B\u043E"),
@@ -10731,8 +11005,8 @@ function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onR
                         React.createElement("div", { className: "rt-stop home" },
                             React.createElement("i", { className: "rt-dot home" }),
                             React.createElement("b", null,
-                                ((_h = r.start) === null || _h === void 0 ? void 0 : _h.name) || "не указано",
-                                React.createElement("em", null, ((_j = r.start) === null || _j === void 0 ? void 0 : _j.a3) ? ((_k = BY_A3[r.start.a3]) === null || _k === void 0 ? void 0 : _k.name) || "" : "дом")),
+                                ((_j = r.start) === null || _j === void 0 ? void 0 : _j.name) || "не указано",
+                                React.createElement("em", null, ((_k = r.start) === null || _k === void 0 ? void 0 : _k.a3) ? ((_l = BY_A3[r.start.a3]) === null || _l === void 0 ? void 0 : _l.name) || "" : "дом")),
                             React.createElement("button", { className: "link-btn", onClick: () => setPickStart(!pickStart) }, "\u0438\u0437\u043C\u0435\u043D\u0438\u0442\u044C")),
                         pickStart && (React.createElement(CityPointPicker, { placeholder: "\u041E\u0442\u043A\u0443\u0434\u0430 \u0432\u044B\u0435\u0437\u0436\u0430\u043B\u0438", onClose: () => setPickStart(false), onPick: (c) => {
                                 patch({ start: { name: c.name, a3: c.a3, lat: c.lat, lon: c.lon } });
@@ -10743,7 +11017,7 @@ function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onR
                         React.createElement("div", { className: "rt-stop home" },
                             React.createElement("i", { className: "rt-dot home" }),
                             React.createElement("b", null,
-                                ((_l = r.start) === null || _l === void 0 ? void 0 : _l.name) || "дом",
+                                ((_o = r.start) === null || _o === void 0 ? void 0 : _o.name) || "дом",
                                 React.createElement("em", null, "\u0432\u0435\u0440\u043D\u0443\u043B\u0438\u0441\u044C \u0434\u043E\u043C\u043E\u0439"))),
                         adding === true ? (React.createElement(PlacePick, { visits: visits, placeholder: "\u0415\u0449\u0451 \u0442\u043E\u0447\u043A\u0430: \u0433\u043E\u0440\u043E\u0434 \u0438\u043B\u0438 \u0441\u0442\u0440\u0430\u043D\u0430", onClose: () => setAdding(false), onPick: (x) => {
                                 addPlace(x);
@@ -10805,7 +11079,7 @@ function JourneySheet({ open, onClose, box, initial, visits, homePt, onSave, onR
                     React.createElement(Ask, { ask: ask, onClose: () => setAsk(null), box: box }),
                     mode === "edit" && foreign && (React.createElement("p", { className: "hint small trip-author" },
                         "\u0410\u0432\u0442\u043E\u0440 \u0437\u0430\u043F\u0438\u0441\u0438: ",
-                        ((_o = (people || []).find((c) => c.link === jr.by)) === null || _o === void 0 ? void 0 : _o.name) || "член семьи",
+                        ((_p = (people || []).find((c) => c.link === jr.by)) === null || _p === void 0 ? void 0 : _p.name) || "член семьи",
                         ". \u0423\u0434\u0430\u043B\u0438\u0442\u044C \u0435\u0451 \u0434\u043B\u044F \u0432\u0441\u0435\u0445 \u043C\u043E\u0436\u0435\u0442 \u0442\u043E\u043B\u044C\u043A\u043E \u0430\u0432\u0442\u043E\u0440, \u0432\u044B \u043C\u043E\u0436\u0435\u0442\u0435 \u0441\u043A\u0440\u044B\u0442\u044C \u0435\u0451 \u0443 \u0441\u0435\u0431\u044F.")),
                     (React.createElement("div", { className: "edit-actions" },
                         mode === "edit" && onMergeWith && jr.plain && jr.orig && (React.createElement("button", { className: "act merge", "aria-label": "\u041E\u0431\u044A\u0435\u0434\u0438\u043D\u0438\u0442\u044C \u0441 \u0434\u0440\u0443\u0433\u043E\u0439 \u043F\u043E\u0435\u0437\u0434\u043A\u043E\u0439", onClick: () => {
@@ -11552,8 +11826,8 @@ function SpecialBlock({ sp, onChange, occasions, onOpen }) {
     const list = occList(occasions);
     const on = !!sp;
     const turnOn = () => {
-        var _e, _h, _j, _k;
-        onChange({ o: ((_e = list[0]) === null || _e === void 0 ? void 0 : _e.n) || "Особенная поездка", e: ((_h = list[0]) === null || _h === void 0 ? void 0 : _h.e) || "✨", fx: (_k = (_j = list[0]) === null || _j === void 0 ? void 0 : _j.fx) !== null && _k !== void 0 ? _k : "gold" });
+        var _e, _j, _k, _l;
+        onChange({ o: ((_e = list[0]) === null || _e === void 0 ? void 0 : _e.n) || "Особенная поездка", e: ((_j = list[0]) === null || _j === void 0 ? void 0 : _j.e) || "✨", fx: (_l = (_k = list[0]) === null || _k === void 0 ? void 0 : _k.fx) !== null && _l !== void 0 ? _l : "gold" });
         onOpen === null || onOpen === void 0 ? void 0 : onOpen();
     };
     return (React.createElement("div", { className: "sp-block" + (on ? " on" : ""), style: on ? { "--fxc": fxColor(sp) } : undefined },
@@ -11628,7 +11902,7 @@ function OccasionsSetup({ list: raw, onChange }) {
     };
     return (React.createElement("div", { className: "occ-list" },
         list.map((o, i) => {
-            var _e, _h;
+            var _e, _j;
             return (React.createElement("div", { key: i, className: "occ-row" + (edit === i ? " open" : "") },
                 React.createElement("div", { className: "occ-top" },
                     React.createElement("button", { className: "occ-main", onClick: () => setEdit(edit === i ? -1 : i) },
@@ -11639,7 +11913,7 @@ function OccasionsSetup({ list: raw, onChange }) {
                                 o.e,
                                 " ",
                                 o.n),
-                            React.createElement("em", null, ((_h = FX[o.fx]) === null || _h === void 0 ? void 0 : _h.n) || "без эффекта"))),
+                            React.createElement("em", null, ((_j = FX[o.fx]) === null || _j === void 0 ? void 0 : _j.n) || "без эффекта"))),
                     React.createElement("button", { className: "rs-arrow", onClick: () => move(i, -1), disabled: !i, "aria-label": "\u0412\u044B\u0448\u0435" }, "\u2191"),
                     React.createElement("button", { className: "rs-arrow", onClick: () => move(i, 1), disabled: i === list.length - 1, "aria-label": "\u041D\u0438\u0436\u0435" }, "\u2193"),
                     React.createElement("button", { className: "rs-arrow del", onClick: () => { put(list.filter((_, k) => k !== i)); setEdit(-1); }, "aria-label": "\u0423\u0434\u0430\u043B\u0438\u0442\u044C" }, "\u2715")),
@@ -11936,7 +12210,7 @@ function fanLayout(start, dirs) {
        и только если соседний сектор свободен; иначе — прямо. Остались сближения — луч выпрямляем */
     const usedO = new Set(best ? best.acc : dirs.map((_d, i) => i));
     const build = (d, i, straight) => {
-        var _e, _h, _j;
+        var _e, _j, _k;
         const o = best ? best.acc[i] : i;
         const t1 = o * step;
         const freeL = !usedO.has((o + 1) % slots);
@@ -11977,7 +12251,7 @@ function fanLayout(start, dirs) {
             end: { x: cur[0], y: cur[1], s: d.stops[n - 1], u: [Math.cos(dirT), Math.sin(dirT)] },
             col: ((_e = MOVE_KINDS.find((m) => m.id === L.k)) === null || _e === void 0 ? void 0 : _e.color) || "#7d93a8",
             k: L.k,
-            hotel: ((_j = (((_h = d.stops[n - 1]) === null || _h === void 0 ? void 0 : _h.hotels) || [])[0]) === null || _j === void 0 ? void 0 : _j.name) || "",
+            hotel: ((_k = (((_j = d.stops[n - 1]) === null || _j === void 0 ? void 0 : _j.hotels) || [])[0]) === null || _k === void 0 ? void 0 : _k.name) || "",
         };
     };
     const lines = dirs.map((d, i) => build(d, i, false));
@@ -12147,11 +12421,11 @@ function FanStar({ start, dirs, w = 330, delay = 0.4 }) {
                     React.createElement("animate", { attributeName: "opacity", values: "0;1;1;0", keyTimes: "0;0.12;0.85;1", dur: "1s", begin: `${delay + q.j * 0.55}s`, fill: "freeze" })))));
         }),
         G.pills.map((q, i) => {
-            var _e, _h;
+            var _e, _j;
             return q.k ? (React.createElement("g", { key: "p" + i, transform: `translate(${q.mx + ox},${q.my + oy})` },
                 React.createElement("rect", { x: -q.pw / 2, y: "-11", width: q.pw, height: "22", rx: "11", className: "mvs-pill", stroke: ((_e = kind(q.k)) === null || _e === void 0 ? void 0 : _e.color) || "#5d7891" }),
                 React.createElement("text", { x: q.wide ? -11 : 0, y: "4.5", textAnchor: "middle", fontSize: "12" }, MOVE_ICON[q.k]),
-                q.wide && (React.createElement("text", { x: "11", y: "4", textAnchor: "middle", fontSize: "10", fill: (_h = kind(q.k)) === null || _h === void 0 ? void 0 : _h.color }, q.code.replace(/^~/, "").slice(0, 3))))) : null;
+                q.wide && (React.createElement("text", { x: "11", y: "4", textAnchor: "middle", fontSize: "10", fill: (_j = kind(q.k)) === null || _j === void 0 ? void 0 : _j.color }, q.code.replace(/^~/, "").slice(0, 3))))) : null;
         }),
         L.map((s, i) => {
             const [x, y] = G.pts[i];
@@ -12187,8 +12461,8 @@ function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, 
         if (!addPerson)
             return;
         const outside = (e) => {
-            var _e, _h;
-            const box = (_h = (_e = e.target).closest) === null || _h === void 0 ? void 0 : _h.call(_e, ".person-new");
+            var _e, _j;
+            const box = (_j = (_e = e.target).closest) === null || _j === void 0 ? void 0 : _j.call(_e, ".person-new");
             if (!box)
                 setAddPerson(false);
         };
@@ -12388,11 +12662,11 @@ function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, 
                         React.createElement("em", { className: "opt-role" }, newRole)))))) : (React.createElement("button", { className: "link-btn", onClick: () => setAddPerson(true) }, "\uFF0B \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u043F\u0443\u0442\u0435\u0448\u0435\u0441\u0442\u0432\u0435\u043D\u043D\u0438\u043A\u0430")),
             React.createElement("p", { className: "step-title" }, "\u041D\u0430\u0433\u0440\u0430\u0434\u044B"),
             (() => {
-                var _e, _h;
+                var _e, _j;
                 const sum = awardSummary(awardSeries(visits || {}, since));
                 const g = sum.goals[0];
                 return (React.createElement("button", { className: "switch-row aw-row", onClick: onAwards },
-                    React.createElement(AwardCup, { tier: ((_h = (_e = sum.best) === null || _e === void 0 ? void 0 : _e.cur) === null || _h === void 0 ? void 0 : _h.tier) || 0, size: 52, glow: true }),
+                    React.createElement(AwardCup, { tier: ((_j = (_e = sum.best) === null || _e === void 0 ? void 0 : _e.cur) === null || _j === void 0 ? void 0 : _j.tier) || 0, size: 52, glow: true }),
                     React.createElement("span", { className: "switch-text" },
                         sum.got,
                         " \u0438\u0437 ",
@@ -12408,7 +12682,7 @@ function ProfileSheet({ open, onClose, box, avatar, name, onName, onPickAvatar, 
 function ReportsSetup({ cfg, onChange }) {
     const order = reportOrder(cfg);
     const off = (cfg === null || cfg === void 0 ? void 0 : cfg.off) || [];
-    const save = (next) => { var _e, _h; return onChange({ order: (_e = next.order) !== null && _e !== void 0 ? _e : order, off: (_h = next.off) !== null && _h !== void 0 ? _h : off }); };
+    const save = (next) => { var _e, _j; return onChange({ order: (_e = next.order) !== null && _e !== void 0 ? _e : order, off: (_j = next.off) !== null && _j !== void 0 ? _j : off }); };
     const move = (i, d) => {
         const j = i + d;
         if (j < 0 || j >= order.length)
@@ -13472,9 +13746,9 @@ function crewTree(list) {
             k: c.k,
             n: c.n,
             items: c.items.slice().sort((a, b) => {
-                var _e, _h;
+                var _e, _j;
                 return b.m - a.m ||
-                    (((_e = BY_A3[a.a3]) === null || _e === void 0 ? void 0 : _e.name) || a.a3).localeCompare(((_h = BY_A3[b.a3]) === null || _h === void 0 ? void 0 : _h.name) || b.a3, "ru");
+                    (((_e = BY_A3[a.a3]) === null || _e === void 0 ? void 0 : _e.name) || a.a3).localeCompare(((_j = BY_A3[b.a3]) === null || _j === void 0 ? void 0 : _j.name) || b.a3, "ru");
             }),
         })),
     }));
@@ -13548,9 +13822,9 @@ function diffPair(rows, idA, idB) {
     const only = (x, y) => [...x.values()]
         .filter((v) => !y.has(v.a3))
         .sort((p, q) => {
-        var _e, _h;
+        var _e, _j;
         return (q.y || 0) - (p.y || 0) ||
-            (((_e = BY_A3[p.a3]) === null || _e === void 0 ? void 0 : _e.name) || "").localeCompare(((_h = BY_A3[q.a3]) === null || _h === void 0 ? void 0 : _h.name) || "", "ru");
+            (((_e = BY_A3[p.a3]) === null || _e === void 0 ? void 0 : _e.name) || "").localeCompare(((_j = BY_A3[q.a3]) === null || _j === void 0 ? void 0 : _j.name) || "", "ru");
     });
     return {
         A,
@@ -13678,7 +13952,7 @@ function AwardCup({ tier = 0, size = 48, glow = false }) {
 }
 /* кубок с кольцом прогресса до следующего уровня */
 function CupRing({ s, size = 92, cup = 62 }) {
-    var _e, _h;
+    var _e, _j;
     const r = size / 2 - 4;
     const len = 2 * Math.PI * r;
     const col = s.next ? "var(--gold)" : CUP_METAL[((_e = s.cur) === null || _e === void 0 ? void 0 : _e.tier) || 0][1];
@@ -13686,7 +13960,7 @@ function CupRing({ s, size = 92, cup = 62 }) {
         React.createElement("svg", { width: size, height: size, "aria-hidden": "true" },
             React.createElement("circle", { cx: size / 2, cy: size / 2, r: r, fill: "none", className: "aw-track", strokeWidth: "4" }),
             React.createElement("circle", { cx: size / 2, cy: size / 2, r: r, fill: "none", stroke: col, strokeWidth: "4", strokeLinecap: "round", strokeDasharray: `${len * s.p} ${len}`, transform: `rotate(-90 ${size / 2} ${size / 2})` })),
-        React.createElement(AwardCup, { tier: ((_h = s.cur) === null || _h === void 0 ? void 0 : _h.tier) || 0, size: cup, glow: true })));
+        React.createElement(AwardCup, { tier: ((_j = s.cur) === null || _j === void 0 ? void 0 : _j.tier) || 0, size: cup, glow: true })));
 }
 const leftText = (s) => `ещё ${np(s.left, s.unitKey)}${s.suffix ? " " + s.suffix : ""}`;
 /* сводка для профиля: сколько взято, лучший кубок, ближайшая цель */
@@ -14249,9 +14523,9 @@ function moveReport(visits, home) {
     const plans = { n: 0, by: {} }; // планы — отдельно, в итоги не входят (42.23)
     const once = routeOnce();
     Object.entries(visits || {}).forEach(([a3, arr]) => (arr || []).forEach((t) => {
-        var _e, _h, _j, _k, _l;
+        var _e, _j, _k, _l, _o;
         // маршрут — одна поездка: вторую страну маршрута не считаем (километры — по перегонам ниже)
-        if (((_h = (_e = t.route) === null || _e === void 0 ? void 0 : _e.stops) === null || _h === void 0 ? void 0 : _h.length) && !once(t))
+        if (((_j = (_e = t.route) === null || _e === void 0 ? void 0 : _e.stops) === null || _j === void 0 ? void 0 : _j.length) && !once(t))
             return;
         if (t.plan) {
             const pk = by[t.move] ? t.move : "none";
@@ -14273,7 +14547,7 @@ function moveReport(visits, home) {
             years[t.y][k] = (years[t.y][k] || 0) + 1;
         }
         // поездка из маршрута: километры считаем по перегонам маршрута один раз (ниже)
-        if ((_k = (_j = t.route) === null || _j === void 0 ? void 0 : _j.stops) === null || _k === void 0 ? void 0 : _k.length) {
+        if ((_l = (_k = t.route) === null || _k === void 0 ? void 0 : _k.stops) === null || _l === void 0 ? void 0 : _l.length) {
             const r0 = routesSeen.get(t.route.id);
             if (!r0 || (t.route.at || 0) > (r0.at || 0))
                 routesSeen.set(t.route.id, t.route);
@@ -14283,7 +14557,7 @@ function moveReport(visits, home) {
         if (!from)
             return;
         let far = 0;
-        let to = ((_l = BY_A3[a3]) === null || _l === void 0 ? void 0 : _l.name) || a3;
+        let to = ((_o = BY_A3[a3]) === null || _o === void 0 ? void 0 : _o.name) || a3;
         const pts = (t.cities || []).length
             ? (t.cities || []).map((city) => [city, distPoint(a3, city)]).filter((x) => x[1])
             : [[null, distPoint(a3, null)]].filter((x) => x[1]);
@@ -14343,7 +14617,7 @@ function bendPoint(a, b, t, side) {
 function airArcs(visits, home) {
     const groups = new Map();
     Object.entries(visits || {}).forEach(([a3, arr]) => (arr || []).forEach((t) => {
-        var _e, _h;
+        var _e, _j;
         if (t.plan || t.move !== "air")
             return;
         const codes = (t.air || []).filter(Boolean);
@@ -14355,7 +14629,7 @@ function airArcs(visits, home) {
         const cont = ((_e = BY_A3[a3]) === null || _e === void 0 ? void 0 : _e.cont) || "";
         const pts = (t.cities || []).length
             ? (t.cities || []).map((c) => ({ xy: distPoint(a3, c), name: c }))
-            : [{ xy: distPoint(a3, null), name: ((_h = BY_A3[a3]) === null || _h === void 0 ? void 0 : _h.name) || a3 }];
+            : [{ xy: distPoint(a3, null), name: ((_j = BY_A3[a3]) === null || _j === void 0 ? void 0 : _j.name) || a3 }];
         codes.forEach((code) => {
             var _e;
             const k = code + "|" + cont;
@@ -14385,7 +14659,7 @@ function airArcs(visits, home) {
         });
         const list = [...g.byCountry.entries()]
             .map(([a3, n]) => ({ a3, n }))
-            .sort((x, y) => { var _e, _h; return y.n - x.n || (((_e = BY_A3[x.a3]) === null || _e === void 0 ? void 0 : _e.name) || "").localeCompare(((_h = BY_A3[y.a3]) === null || _h === void 0 ? void 0 : _h.name) || "", "ru"); });
+            .sort((x, y) => { var _e, _j; return y.n - x.n || (((_e = BY_A3[x.a3]) === null || _e === void 0 ? void 0 : _e.name) || "").localeCompare(((_j = BY_A3[y.a3]) === null || _j === void 0 ? void 0 : _j.name) || "", "ru"); });
         return { ...g, from, to, km, countries: g.countries.size, list };
     })
         .filter((g) => g.to && g.km > 1);
@@ -14410,7 +14684,7 @@ const ARC_SPARE = [
 ];
 /* авиакомпании во весь экран: логика окна путешественника */
 function AirGlobe({ visits, home, air, geo, mapProps, onClose }) {
-    var _e, _h, _j, _k;
+    var _e, _j, _k, _l;
     const arcs = useMemo(() => airArcs(visits, home), [visits, home]);
     // при открытии сразу выбран самый длинный перелёт, дальше — как решит пользователь
     const [sel, setSel] = useState(() => arcs.length ? arcs.reduce((a, b) => (b.km > a.km ? b : a)).key : null);
@@ -14492,7 +14766,7 @@ function AirGlobe({ visits, home, air, geo, mapProps, onClose }) {
                 CONTINENTS[selArc.cont] || "",
                 " \u00B7 ",
                 np(selArc.trips, "trip"),
-                ((_h = airInfo(selArc.code)) === null || _h === void 0 ? void 0 : _h.icao)
+                ((_j = airInfo(selArc.code)) === null || _j === void 0 ? void 0 : _j.icao)
                     ? ` · ICAO ${airInfo(selArc.code).icao}`
                     : "")),
         React.createElement("div", { className: "ag-list" }, selArc.list.map((c) => {
@@ -14510,12 +14784,12 @@ function AirGlobe({ visits, home, air, geo, mapProps, onClose }) {
         back("Все авиакомпании", () => setSelCode(null)),
         React.createElement("div", { className: "ag-sel-head" },
             React.createElement("i", { className: "ag-dot", style: { background: colorOf[selCode] } }),
-            React.createElement("b", null, ((_j = airInfo(selCode)) === null || _j === void 0 ? void 0 : _j.name) || selCode),
+            React.createElement("b", null, ((_k = airInfo(selCode)) === null || _k === void 0 ? void 0 : _k.name) || selCode),
             React.createElement("em", null,
                 np(arcs
                     .filter((g) => g.code === selCode)
                     .reduce((t, g) => t + g.trips, 0), "trip"),
-                ((_k = airInfo(selCode)) === null || _k === void 0 ? void 0 : _k.icao)
+                ((_l = airInfo(selCode)) === null || _l === void 0 ? void 0 : _l.icao)
                     ? ` · IATA ${selCode} · ICAO ${airInfo(selCode).icao}`
                     : "")),
         React.createElement("div", { className: "ag-list" }, arcs
@@ -14654,7 +14928,7 @@ function FarGlobe({ rows, geo, mapProps, onClose }) {
 }
 /* глобус одного человека: лучи из дома во все его точки */
 function PersonGlobe({ row, home, geo, onClose, mapProps }) {
-    var _e, _h, _j;
+    var _e, _j, _k;
     const wrap = useRef(null);
     const cv = useRef(null);
     const rot = useRef(homeRot(home));
@@ -14987,8 +15261,8 @@ function PersonGlobe({ row, home, geo, onClose, mapProps }) {
                             trip.m ? ` · ${MONTHS[trip.m - 1]}` : "",
                             trip.y ? ` ${trip.y}` : "")),
                     React.createElement("span", { className: "pg-km" }, kmText((sel
-                        ? (_h = rays.find((q) => q.key === sel)) === null || _h === void 0 ? void 0 : _h.km
-                        : (_j = rays.find((q) => (q.tids || []).includes(trip.id))) === null || _j === void 0 ? void 0 : _j.km) ||
+                        ? (_j = rays.find((q) => q.key === sel)) === null || _j === void 0 ? void 0 : _j.km
+                        : (_k = rays.find((q) => (q.tids || []).includes(trip.id))) === null || _k === void 0 ? void 0 : _k.km) ||
                         0))))))));
 }
 /* самая длинная дуга: две самые удалённые точки поездок */
@@ -15185,7 +15459,7 @@ function QrCamera({ onCode, onClose, facing = "environment", hidden = false, onS
         let reads = 0;
         const cv = document.createElement("canvas");
         (async () => {
-            var _e, _h, _j, _k, _l, _o, _p;
+            var _e, _j, _k, _l, _o, _p, _q;
             try {
                 // Нужен самый широкий обзор. Кадр 16:9 на iPhone — это обрезка датчика,
                 // поэтому просим 4:3 (весь датчик) в хорошем разрешении, потом попроще.
@@ -15242,17 +15516,17 @@ function QrCamera({ onCode, onClose, facing = "environment", hidden = false, onS
                         { width: { ideal: 1440 }, height: { ideal: 1920 } },
                     ]);
                 // 2. самое мелкое увеличение — шире обзор
-                if (caps.zoom && typeof caps.zoom.min === "number" && caps.zoom.min < ((_h = got().zoom) !== null && _h !== void 0 ? _h : 1))
+                if (caps.zoom && typeof caps.zoom.min === "number" && caps.zoom.min < ((_j = got().zoom) !== null && _j !== void 0 ? _j : 1))
                     await tryEach([{ advanced: [{ zoom: caps.zoom.min }] }]);
                 // 3. непрерывная наводка на резкость, если камера умеет
                 const fm = caps.focusMode || [];
                 if (fm.includes("continuous"))
                     await tryEach([{ advanced: [{ focusMode: "continuous" }] }]);
                 const st = got();
-                (_j = cbStat.current) === null || _j === void 0 ? void 0 : _j.call(cbStat, {
+                (_k = cbStat.current) === null || _k === void 0 ? void 0 : _k.call(cbStat, {
                     lens: [
                         st.width ? `кадр ${st.width}×${st.height}` : "",
-                        ((_k = caps.width) === null || _k === void 0 ? void 0 : _k.max) ? `наибольший ${caps.width.max}×${(_l = caps.height) === null || _l === void 0 ? void 0 : _l.max}` : "",
+                        ((_l = caps.width) === null || _l === void 0 ? void 0 : _l.max) ? `наибольший ${caps.width.max}×${(_o = caps.height) === null || _o === void 0 ? void 0 : _o.max}` : "",
                         st.zoom != null ? `увеличение ${st.zoom}${caps.zoom ? ` (от ${caps.zoom.min})` : ""}` : "увеличение не меняется",
                         fm.length ? `фокус: ${st.focusMode || "—"}` : "фокус не настраивается",
                     ]
@@ -15282,9 +15556,9 @@ function QrCamera({ onCode, onClose, facing = "environment", hidden = false, onS
                 catch {
                     detector = null;
                 }
-                (_o = cbStat.current) === null || _o === void 0 ? void 0 : _o.call(cbStat, { cam: "работает", sys: !!detector });
+                (_p = cbStat.current) === null || _p === void 0 ? void 0 : _p.call(cbStat, { cam: "работает", sys: !!detector });
                 const tick = async () => {
-                    var _e, _h, _j, _k, _l, _o;
+                    var _e, _j, _k, _l, _o, _p;
                     if (stop)
                         return;
                     const w = v.videoWidth;
@@ -15324,7 +15598,7 @@ function QrCamera({ onCode, onClose, facing = "environment", hidden = false, onS
                                 for (let i = 0; i < img.data.length; i += 4000)
                                     sum += img.data[i];
                                 const mean = Math.round(sum / (img.data.length / 4000));
-                                (_h = cbStat.current) === null || _h === void 0 ? void 0 : _h.call(cbStat, {
+                                (_j = cbStat.current) === null || _j === void 0 ? void 0 : _j.call(cbStat, {
                                     bright: mean,
                                     tries,
                                     shot: cv.toDataURL("image/jpeg", 0.4),
@@ -15333,7 +15607,7 @@ function QrCamera({ onCode, onClose, facing = "environment", hidden = false, onS
                             }
                         }
                         if (frames % 4 === 0)
-                            (_j = cbStat.current) === null || _j === void 0 ? void 0 : _j.call(cbStat, { cam: `кадров ${frames}`, res: `${w}×${h}`, sys: !!detector });
+                            (_k = cbStat.current) === null || _k === void 0 ? void 0 : _k.call(cbStat, { cam: `кадров ${frames}`, res: `${w}×${h}`, sys: !!detector });
                         // весь кадр камеры маленькой картинкой — видно, какой на самом деле обзор
                         if (frames % 8 === 1) {
                             const fw = 200;
@@ -15342,7 +15616,7 @@ function QrCamera({ onCode, onClose, facing = "environment", hidden = false, onS
                             fc.width = fw;
                             fc.height = fh;
                             fc.getContext("2d").drawImage(v, 0, 0, fw, fh);
-                            (_k = cbStat.current) === null || _k === void 0 ? void 0 : _k.call(cbStat, { full: fc.toDataURL("image/jpeg", 0.5) });
+                            (_l = cbStat.current) === null || _l === void 0 ? void 0 : _l.call(cbStat, { full: fc.toDataURL("image/jpeg", 0.5) });
                         }
                         if (text) {
                             // камеру не выключаем: первый прочитанный код может оказаться
@@ -15352,8 +15626,8 @@ function QrCamera({ onCode, onClose, facing = "environment", hidden = false, onS
                                 lastText = text;
                                 lastAt = now;
                                 reads += 1;
-                                (_l = cbStat.current) === null || _l === void 0 ? void 0 : _l.call(cbStat, { cam: "код распознан", read: text.slice(0, 5), reads });
-                                (_o = cbCode.current) === null || _o === void 0 ? void 0 : _o.call(cbCode, text);
+                                (_o = cbStat.current) === null || _o === void 0 ? void 0 : _o.call(cbStat, { cam: "код распознан", read: text.slice(0, 5), reads });
+                                (_p = cbCode.current) === null || _p === void 0 ? void 0 : _p.call(cbCode, text);
                             }
                         }
                     }
@@ -15363,7 +15637,7 @@ function QrCamera({ onCode, onClose, facing = "environment", hidden = false, onS
             }
             catch (e) {
                 setErr("Камера недоступна");
-                (_p = cbStat.current) === null || _p === void 0 ? void 0 : _p.call(cbStat, { cam: "нет доступа: " + String((e === null || e === void 0 ? void 0 : e.name) || e) });
+                (_q = cbStat.current) === null || _q === void 0 ? void 0 : _q.call(cbStat, { cam: "нет доступа: " + String((e === null || e === void 0 ? void 0 : e.name) || e) });
             }
         })();
         return () => {
@@ -15654,16 +15928,16 @@ function FamilySheet({ open, onClose, box, profile, ops, onNear, onImport, onNam
         setMsg(r === "copied" ? "Скопировано — вставьте в мессенджер" : r === "fail" ? "Не получилось — скопируйте код вручную" : "");
     };
     const readPasted = () => {
-        var _e, _h, _j, _k, _l, _o, _p;
+        var _e, _j, _k, _l, _o, _p, _q;
         setErr("");
         const c = readCode(paste);
         if (!c)
             return setErr("Не похоже на код Атласа. Вставьте сообщение целиком.");
-        if (((_h = (_e = c.data) === null || _e === void 0 ? void 0 : _e.p) === null || _h === void 0 ? void 0 : _h.id) === myId)
+        if (((_j = (_e = c.data) === null || _e === void 0 ? void 0 : _e.p) === null || _j === void 0 ? void 0 : _j.id) === myId)
             return setErr("Это ваш собственный код — его нужно отправить другому человеку.");
         if (c.kind === "I") {
             setGot(c);
-            setLink(guessCard(people, (_k = (_j = c.data) === null || _j === void 0 ? void 0 : _j.p) === null || _k === void 0 ? void 0 : _k.name));
+            setLink(guessCard(people, (_l = (_k = c.data) === null || _k === void 0 ? void 0 : _k.p) === null || _l === void 0 ? void 0 : _l.name));
             setMode("incoming");
             return;
         }
@@ -15672,12 +15946,12 @@ function FamilySheet({ open, onClose, box, profile, ops, onNear, onImport, onNam
             return setErr(e);
         setGot(c);
         // приглашали конкретного человека — его карточку и предлагаем
-        const planned = ops.inviteCard((_l = c.data) === null || _l === void 0 ? void 0 : _l.k);
-        setLink(planned && people.some((x) => x.id === planned && !x.link) ? planned : guessCard(people, (_p = (_o = c.data) === null || _o === void 0 ? void 0 : _o.p) === null || _p === void 0 ? void 0 : _p.name));
+        const planned = ops.inviteCard((_o = c.data) === null || _o === void 0 ? void 0 : _o.k);
+        setLink(planned && people.some((x) => x.id === planned && !x.link) ? planned : guessCard(people, (_q = (_p = c.data) === null || _p === void 0 ? void 0 : _p.p) === null || _q === void 0 ? void 0 : _q.name));
         setMode("joinreq");
     };
     return (React.createElement(Sheet, { open: open, onClose: onClose, title: "\u0421\u0435\u043C\u044C\u044F", box: box }, () => {
-        var _e, _h, _j, _k, _l, _o, _p, _q, _t, _u, _v, _w, _y, _z, _0, _1;
+        var _e, _j, _k, _l, _o, _p, _q, _t, _u, _v, _w, _y, _z, _0, _1, _2;
         return (React.createElement("div", { className: "sheet-body fam" },
             !fam ? (React.createElement("p", { className: "hint small" }, "\u0421\u0435\u043C\u044C\u044F \u2014 \u044D\u0442\u043E \u043E\u0431\u0449\u0438\u0439 \u0430\u0442\u043B\u0430\u0441: \u0432\u0441\u0435 \u0432\u0438\u0434\u044F\u0442 \u043F\u043E\u0435\u0437\u0434\u043A\u0438 \u0434\u0440\u0443\u0433 \u0434\u0440\u0443\u0433\u0430, \u0443 \u043A\u0430\u0436\u0434\u043E\u0439 \u043F\u043E\u0435\u0437\u0434\u043A\u0438 \u043F\u043E\u0434\u043F\u0438\u0441\u0430\u043D \u0430\u0432\u0442\u043E\u0440. \u0418\u043C\u044F, \u0444\u043E\u0442\u043E, \u0441\u043F\u0443\u0442\u043D\u0438\u043A\u0438 \u0438 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438 \u0443 \u043A\u0430\u0436\u0434\u043E\u0433\u043E \u0441\u0432\u043E\u0438 \u0438 \u043F\u0440\u0438 \u043E\u0431\u043C\u0435\u043D\u0435 \u043D\u0435 \u043C\u0435\u043D\u044F\u044E\u0442\u0441\u044F. \u0427\u0442\u043E\u0431\u044B \u0441\u043E\u0437\u0434\u0430\u0442\u044C \u0441\u0435\u043C\u044C\u044E, \u043E\u0431\u043C\u0435\u043D\u044F\u0439\u0442\u0435\u0441\u044C \u0440\u044F\u0434\u043E\u043C \u0441 \u0440\u043E\u0434\u043D\u044B\u043C \u0447\u0435\u043B\u043E\u0432\u0435\u043A\u043E\u043C \u0438\u043B\u0438 \u043E\u0442\u043F\u0440\u0430\u0432\u044C\u0442\u0435 \u0435\u043C\u0443 \u043F\u0440\u0438\u0433\u043B\u0430\u0448\u0435\u043D\u0438\u0435.")) : (React.createElement("label", { className: "tf fam-name" },
                 React.createElement("span", null, "\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u0441\u0435\u043C\u044C\u0438"),
@@ -15698,7 +15972,7 @@ function FamilySheet({ open, onClose, box, profile, ops, onNear, onImport, onNam
                         React.createElement("b", null, ((profile === null || profile === void 0 ? void 0 : profile.name) || "").trim() || "Вы"),
                         React.createElement("em", null, "\u044D\u0442\u043E \u0432\u044B"))),
                 members.map((m) => {
-                    var _e, _h;
+                    var _e, _j;
                     return (React.createElement("div", { key: m.id, className: "fam-row" },
                         React.createElement(Ava, { src: m.ava, name: m.name }),
                         React.createElement("span", { className: "fam-who" },
@@ -15709,7 +15983,7 @@ function FamilySheet({ open, onClose, box, profile, ops, onNear, onImport, onNam
                         React.createElement("span", { className: "fam-acts" },
                             React.createElement("span", { className: "since-pick fam-relink", "aria-label": "\u041A\u0442\u043E \u044D\u0442\u043E \u0432 \u043F\u043E\u0435\u0437\u0434\u043A\u0430\u0445" },
                                 React.createElement("span", null, "\u270E"),
-                                React.createElement("select", { value: ((_h = cardOf(m)) === null || _h === void 0 ? void 0 : _h.id) || "", onChange: (e) => {
+                                React.createElement("select", { value: ((_j = cardOf(m)) === null || _j === void 0 ? void 0 : _j.id) || "", onChange: (e) => {
                                         const v = e.target.value;
                                         if (!v)
                                             return;
@@ -15840,18 +16114,18 @@ function FamilySheet({ open, onClose, box, profile, ops, onNear, onImport, onNam
                     React.createElement("button", { className: "btn-ghost", onClick: () => setMode("") }, "\u041D\u0430\u0437\u0430\u0434"),
                     React.createElement("button", { className: "btn-main", onClick: readPasted, disabled: !paste.trim() }, "\u041F\u0440\u043E\u0434\u043E\u043B\u0436\u0438\u0442\u044C")))),
             (mode === "incoming" || mode === "joinreq") && got && (React.createElement("div", { className: "fam-ask" },
-                React.createElement(Ava, { name: (_h = (_e = got.data) === null || _e === void 0 ? void 0 : _e.p) === null || _h === void 0 ? void 0 : _h.name, size: 56 }),
-                React.createElement("b", null, ((_k = (_j = got.data) === null || _j === void 0 ? void 0 : _j.p) === null || _k === void 0 ? void 0 : _k.name) || "Без имени"),
+                React.createElement(Ava, { name: (_j = (_e = got.data) === null || _e === void 0 ? void 0 : _e.p) === null || _j === void 0 ? void 0 : _j.name, size: 56 }),
+                React.createElement("b", null, ((_l = (_k = got.data) === null || _k === void 0 ? void 0 : _k.p) === null || _l === void 0 ? void 0 : _l.name) || "Без имени"),
                 React.createElement("p", null, mode === "incoming"
-                    ? fam && !famIds(fam).includes((_o = (_l = got.data) === null || _l === void 0 ? void 0 : _l.f) === null || _o === void 0 ? void 0 : _o.id)
-                        ? `Приглашает вас в семью «${(_q = (_p = got.data) === null || _p === void 0 ? void 0 : _p.f) === null || _q === void 0 ? void 0 : _q.name}». Сейчас вы в семье «${fam.name}» — они станут одной.`
-                        : `Приглашает вас в семью «${((_u = (_t = got.data) === null || _t === void 0 ? void 0 : _t.f) === null || _u === void 0 ? void 0 : _u.name) || "Наша семья"}». Вы будете видеть поездки друг друга. Имя, фото и настройки у каждого останутся своими.`
+                    ? fam && !famIds(fam).includes((_p = (_o = got.data) === null || _o === void 0 ? void 0 : _o.f) === null || _p === void 0 ? void 0 : _p.id)
+                        ? `Приглашает вас в семью «${(_t = (_q = got.data) === null || _q === void 0 ? void 0 : _q.f) === null || _t === void 0 ? void 0 : _t.name}». Сейчас вы в семье «${fam.name}» — они станут одной.`
+                        : `Приглашает вас в семью «${((_v = (_u = got.data) === null || _u === void 0 ? void 0 : _u.f) === null || _v === void 0 ? void 0 : _v.name) || "Наша семья"}». Вы будете видеть поездки друг друга. Имя, фото и настройки у каждого останутся своими.`
                     : `Хочет вступить в семью «${(fam === null || fam === void 0 ? void 0 : fam.name) || "Наша семья"}» по вашему приглашению.`),
-                React.createElement(LinkPick, { people: people, value: link, onChange: setLink, name: (_w = (_v = got.data) === null || _v === void 0 ? void 0 : _v.p) === null || _w === void 0 ? void 0 : _w.name, memberId: (_z = (_y = got.data) === null || _y === void 0 ? void 0 : _y.p) === null || _z === void 0 ? void 0 : _z.id, members: (fam === null || fam === void 0 ? void 0 : fam.members) || [] }),
+                React.createElement(LinkPick, { people: people, value: link, onChange: setLink, name: (_y = (_w = got.data) === null || _w === void 0 ? void 0 : _w.p) === null || _y === void 0 ? void 0 : _y.name, memberId: (_0 = (_z = got.data) === null || _z === void 0 ? void 0 : _z.p) === null || _0 === void 0 ? void 0 : _0.id, members: (fam === null || fam === void 0 ? void 0 : fam.members) || [] }),
                 React.createElement("div", { className: "fam-ask-btns" },
                     React.createElement("button", { className: "btn-ghost", onClick: () => setMode("") }, "\u041D\u0435 \u0441\u0435\u0439\u0447\u0430\u0441"),
                     React.createElement("button", { className: "btn-main", disabled: busy, onClick: async () => {
-                            var _e, _h;
+                            var _e, _j;
                             setBusy(true);
                             try {
                                 if (mode === "incoming") {
@@ -15860,7 +16134,7 @@ function FamilySheet({ open, onClose, box, profile, ops, onNear, onImport, onNam
                                 }
                                 else {
                                     await ops.acceptJoin(got.data, link);
-                                    setMsg(`${((_h = (_e = got.data) === null || _e === void 0 ? void 0 : _e.p) === null || _h === void 0 ? void 0 : _h.name) || "Человек"} теперь в семье. Обменяйтесь поездками: рядом или файлом.`);
+                                    setMsg(`${((_j = (_e = got.data) === null || _e === void 0 ? void 0 : _e.p) === null || _j === void 0 ? void 0 : _j.name) || "Человек"} теперь в семье. Обменяйтесь поездками: рядом или файлом.`);
                                     setMode("");
                                 }
                             }
@@ -15871,7 +16145,7 @@ function FamilySheet({ open, onClose, box, profile, ops, onNear, onImport, onNam
             mode === "reply" && got && (React.createElement("div", { className: "fam-box" },
                 React.createElement("p", null,
                     "\u0412\u044B \u0432 \u0441\u0435\u043C\u044C\u0435. \u041E\u0442\u043F\u0440\u0430\u0432\u044C\u0442\u0435 \u044D\u0442\u043E\u0442 \u043E\u0442\u0432\u0435\u0442 \u043F\u0440\u0438\u0433\u043B\u0430\u0441\u0438\u0432\u0448\u0435\u043C\u0443",
-                    ((_1 = (_0 = got.data) === null || _0 === void 0 ? void 0 : _0.p) === null || _1 === void 0 ? void 0 : _1.name) ? ` (${got.data.p.name})` : "",
+                    ((_2 = (_1 = got.data) === null || _1 === void 0 ? void 0 : _1.p) === null || _2 === void 0 ? void 0 : _2.name) ? ` (${got.data.p.name})` : "",
                     ". \u041A\u0430\u043A \u0442\u043E\u043B\u044C\u043A\u043E \u043E\u0442\u0432\u0435\u0442 \u0432\u0441\u0442\u0430\u0432\u044F\u0442 \u0443 \u0441\u0435\u0431\u044F, \u0432\u044B \u0441\u043C\u043E\u0436\u0435\u0442\u0435 \u043E\u0431\u043C\u0435\u043D\u0438\u0432\u0430\u0442\u044C\u0441\u044F \u043F\u043E\u0435\u0437\u0434\u043A\u0430\u043C\u0438."),
                 React.createElement("textarea", { className: "fam-code", readOnly: true, value: code, onFocus: (e) => e.target.select() }),
                 React.createElement("div", { className: "fam-ask-btns" },
@@ -15941,7 +16215,7 @@ function NearSync({ makePayload, onData, onClose, box, profile, meAva = "", onJo
     };
     /* согласие на общую семью */
     const agree = async () => {
-        var _e, _h;
+        var _e, _j;
         if (!((_e = them === null || them === void 0 ? void 0 : them.me) === null || _e === void 0 ? void 0 : _e.id))
             return;
         setState("Сохраняем семью");
@@ -15958,7 +16232,7 @@ function NearSync({ makePayload, onData, onClose, box, profile, meAva = "", onJo
         setState(theirOk.current ? "Соединяемся" : `Ждём подтверждения на телефоне: ${them.me.name || "второй телефон"}`);
         if (theirOk.current && chRef.current) {
             // отправку запускает общий обработчик
-            (_h = ctlRef.current) === null || _h === void 0 ? void 0 : _h.call(ctlRef, { ctl: "ok" });
+            (_j = ctlRef.current) === null || _j === void 0 ? void 0 : _j.call(ctlRef, { ctl: "ok" });
         }
     };
     const refuse = () => {
@@ -15983,7 +16257,7 @@ function NearSync({ makePayload, onData, onClose, box, profile, meAva = "", onJo
     const ackOk = useRef(false);
     const finished = useRef(false);
     const finish = () => {
-        var _e, _h;
+        var _e, _j;
         if (finished.current || !got_.current)
             return;
         finished.current = true;
@@ -16010,7 +16284,7 @@ function NearSync({ makePayload, onData, onClose, box, profile, meAva = "", onJo
             conf: ((res === null || res === void 0 ? void 0 : res.conflicts) || 0) + ((res === null || res === void 0 ? void 0 : res.dels) || 0),
             a3: (res === null || res === void 0 ? void 0 : res.addA3) || [],
             sentN: sentOk.current ? ((_e = mineRef.current) === null || _e === void 0 ? void 0 : _e.t) || 0 : 0,
-            photos: ((_h = mineRef.current) === null || _h === void 0 ? void 0 : _h.p) || 0,
+            photos: ((_j = mineRef.current) === null || _j === void 0 ? void 0 : _j.p) || 0,
         });
         setState((res === null || res === void 0 ? void 0 : res.error) === "stranger"
             ? "Второй телефон не в вашей семье — поездки не приняты"
@@ -16092,28 +16366,28 @@ function NearSync({ makePayload, onData, onClose, box, profile, meAva = "", onJo
                 send();
         };
         ctlRef.current = (m) => {
-            var _e, _h, _j, _k, _l, _o;
+            var _e, _j, _k, _l, _o, _p;
             if (m.ctl === "hello") {
                 // знакомство могут прислать повторно — второй раз ничего не сбрасываем
                 if (helloFrom.current && helloFrom.current === ((_e = m.me) === null || _e === void 0 ? void 0 : _e.id))
                     return;
-                helloFrom.current = ((_h = m.me) === null || _h === void 0 ? void 0 : _h.id) || "?";
-                themName.current = (((_j = m.me) === null || _j === void 0 ? void 0 : _j.name) || "").trim();
+                helloFrom.current = ((_j = m.me) === null || _j === void 0 ? void 0 : _j.id) || "?";
+                themName.current = (((_k = m.me) === null || _k === void 0 ? void 0 : _k.name) || "").trim();
                 const who = { me: m.me || {}, fam: m.fam || null };
                 setThem(who);
                 const prof = profileRef0.current || {};
-                const trusted = !!((_k = m.me) === null || _k === void 0 ? void 0 : _k.id) && famHas(prof, m.me.id) && famSame(prof.family, m.fam);
+                const trusted = !!((_l = m.me) === null || _l === void 0 ? void 0 : _l.id) && famHas(prof, m.me.id) && famSame(prof.family, m.fam);
                 if (m.ok)
                     theirOk.current = true;
                 if (trusted) {
                     myOk.current = true;
                     say({ ctl: "ok" });
                     setStep("wait");
-                    setState(theirOk.current ? "Соединяемся" : `Ждём подтверждения на телефоне: ${((_l = m.me) === null || _l === void 0 ? void 0 : _l.name) || "второй телефон"}`);
+                    setState(theirOk.current ? "Соединяемся" : `Ждём подтверждения на телефоне: ${((_o = m.me) === null || _o === void 0 ? void 0 : _o.name) || "второй телефон"}`);
                     both();
                 }
                 else {
-                    setLinkCard(guessCard(prof.people, (_o = m.me) === null || _o === void 0 ? void 0 : _o.name));
+                    setLinkCard(guessCard(prof.people, (_p = m.me) === null || _p === void 0 ? void 0 : _p.name));
                     setStep("ask");
                     setState("");
                 }
@@ -16240,7 +16514,7 @@ function NearSync({ makePayload, onData, onClose, box, profile, meAva = "", onJo
     };
     /* пришёл чужой код: либо отвечаем на предложение, либо принимаем ответ */
     const onCode = async (raw) => {
-        var _e, _h;
+        var _e, _j;
         const code = String(raw || "").trim().toUpperCase();
         if (!code || busy.current)
             return;
@@ -16283,7 +16557,7 @@ function NearSync({ makePayload, onData, onClose, box, profile, meAva = "", onJo
             // сбой посреди пары: начинаем заново с новым предложением
             setWhy("сбой: " + String((e === null || e === void 0 ? void 0 : e.name) || (e === null || e === void 0 ? void 0 : e.message) || e).slice(0, 60) + " — начинаем заново");
             setState("Код не подошёл, держите телефоны ровно");
-            (_h = peer.current) === null || _h === void 0 ? void 0 : _h.pc.close();
+            (_j = peer.current) === null || _j === void 0 ? void 0 : _j.pc.close();
             peer.current = null;
             await start();
         }
@@ -16291,12 +16565,12 @@ function NearSync({ makePayload, onData, onClose, box, profile, meAva = "", onJo
     return (React.createElement(Sheet, { open: true, onClose: onClose, title: React.createElement(React.Fragment, null,
             "\u041E\u0431\u043C\u0435\u043D ",
             React.createElement("span", { className: "t-gold" }, "\u0440\u044F\u0434\u043E\u043C")), box: box }, () => {
-        var _e, _h, _j, _k, _l, _o, _p, _q;
+        var _e, _j, _k, _l, _o, _p, _q, _t;
         return (React.createElement("div", { className: "sheet-body near" },
             step === "idle" && (React.createElement("p", { className: "hint small near-sub" }, "\u041F\u043E\u0435\u0437\u0434\u043A\u0438, \u043C\u0430\u0440\u0448\u0440\u0443\u0442\u044B \u0438 \u043F\u043B\u0430\u043D\u044B \u2014 \u043F\u0440\u044F\u043C\u043E \u043D\u0430 \u0441\u043E\u0441\u0435\u0434\u043D\u0438\u0439 \u0442\u0435\u043B\u0435\u0444\u043E\u043D")),
             React.createElement("div", { className: "near-stage" + (step === "ask" ? " ask" : "") + (step === "pair" ? " code" : "") }, step === "ask" && them ? (React.createElement("div", { className: "fam-ask" },
-                React.createElement(Ava, { src: (_e = them.me) === null || _e === void 0 ? void 0 : _e.ava, name: (_h = them.me) === null || _h === void 0 ? void 0 : _h.name, size: 64 }),
-                React.createElement("b", null, ((_j = them.me) === null || _j === void 0 ? void 0 : _j.name) || "Второй телефон"),
+                React.createElement(Ava, { src: (_e = them.me) === null || _e === void 0 ? void 0 : _e.ava, name: (_j = them.me) === null || _j === void 0 ? void 0 : _j.name, size: 64 }),
+                React.createElement("b", null, ((_k = them.me) === null || _k === void 0 ? void 0 : _k.name) || "Второй телефон"),
                 React.createElement("p", null, (() => {
                     const mine = profile === null || profile === void 0 ? void 0 : profile.family;
                     const theirs = them.fam;
@@ -16309,10 +16583,10 @@ function NearSync({ makePayload, onData, onClose, box, profile, meAva = "", onJo
                         return `Приглашение в семью «${theirs.name}».` + tail;
                     return "Создать общую семью?" + tail;
                 })()),
-                React.createElement(LinkPick, { people: (profile === null || profile === void 0 ? void 0 : profile.people) || [], value: linkCard, onChange: setLinkCard, name: (_k = them.me) === null || _k === void 0 ? void 0 : _k.name, memberId: (_l = them.me) === null || _l === void 0 ? void 0 : _l.id, members: ((_o = profile === null || profile === void 0 ? void 0 : profile.family) === null || _o === void 0 ? void 0 : _o.members) || [] }),
+                React.createElement(LinkPick, { people: (profile === null || profile === void 0 ? void 0 : profile.people) || [], value: linkCard, onChange: setLinkCard, name: (_l = them.me) === null || _l === void 0 ? void 0 : _l.name, memberId: (_o = them.me) === null || _o === void 0 ? void 0 : _o.id, members: ((_p = profile === null || profile === void 0 ? void 0 : profile.family) === null || _p === void 0 ? void 0 : _p.members) || [] }),
                 React.createElement("div", { className: "fam-ask-btns" },
                     React.createElement("button", { className: "btn-ghost", onClick: refuse }, "\u041D\u0435 \u0441\u0435\u0439\u0447\u0430\u0441"),
-                    React.createElement("button", { className: "btn-main", onClick: agree }, "\u041F\u0440\u0438\u043D\u044F\u0442\u044C \u0432 \u0441\u0435\u043C\u044C\u044E")))) : step === "done" ? (React.createElement(NearDone, { info: doneInfo })) : step === "idle" || step === "refused" ? (React.createElement(NearHero, null)) : step === "wait" || step === "live" ? (React.createElement(NearOrbits, { sent: sent, got: got, mine: mine, theirs: theirs, name: ((_p = them === null || them === void 0 ? void 0 : them.me) === null || _p === void 0 ? void 0 : _p.name) || "" })) : (React.createElement("div", { className: "near-card" + (flip ? " flip" : ""), onClick: () => setFlip((v) => !v) },
+                    React.createElement("button", { className: "btn-main", onClick: agree }, "\u041F\u0440\u0438\u043D\u044F\u0442\u044C \u0432 \u0441\u0435\u043C\u044C\u044E")))) : step === "done" ? (React.createElement(NearDone, { info: doneInfo })) : step === "idle" || step === "refused" ? (React.createElement(NearHero, null)) : step === "wait" || step === "live" ? (React.createElement(NearOrbits, { sent: sent, got: got, mine: mine, theirs: theirs, name: ((_q = them === null || them === void 0 ? void 0 : them.me) === null || _q === void 0 ? void 0 : _q.name) || "" })) : (React.createElement("div", { className: "near-card" + (flip ? " flip" : ""), onClick: () => setFlip((v) => !v) },
                 React.createElement("div", { className: "near-face near-front" },
                     myCode ? (React.createElement(QrBox, { text: myCode, hole: step === "pair", onHole: setHolePx, size: Math.min(320, Math.round((typeof window !== "undefined" ? Math.min(window.innerWidth * 0.84, window.innerHeight * 0.4) : 320))) })) : (React.createElement("p", { className: "near-state" }, "\u0413\u043E\u0442\u043E\u0432\u0438\u043C \u043A\u043E\u0434\u2026")),
                     step === "pair" && (React.createElement("div", { className: "qr-hole", style: { width: holePx, height: holePx } },
@@ -16375,7 +16649,7 @@ function NearSync({ makePayload, onData, onClose, box, profile, meAva = "", onJo
                             "\u0420\u0430\u0437\u0431\u043E\u0440\u043E\u0432: ",
                             stat.tries || 0,
                             " \u00B7 \u044F\u0440\u043A\u043E\u0441\u0442\u044C \u043A\u0430\u0434\u0440\u0430:",
-                            " ", (_q = stat.bright) !== null && _q !== void 0 ? _q : "—",
+                            " ", (_t = stat.bright) !== null && _t !== void 0 ? _t : "—",
                             " \u00B7 \u0440\u0435\u0436\u0438\u043C: ",
                             stat.zoom || "—"),
                         (stat.full || stat.shot) && (React.createElement("div", { className: "near-shot" },
@@ -16973,8 +17247,8 @@ function BarsChart({ data, vague, labels }) {
     const cur = pick === null ? data.length - 1 : pick;
     const cx = (cur * w) / data.length + w / data.length / 2;
     return (React.createElement("div", { ref: box, className: "chart-touch", onPointerDown: (e) => {
-            var _e, _h;
-            (_h = (_e = e.currentTarget).setPointerCapture) === null || _h === void 0 ? void 0 : _h.call(_e, e.pointerId);
+            var _e, _j;
+            (_j = (_e = e.currentTarget).setPointerCapture) === null || _j === void 0 ? void 0 : _j.call(_e, e.pointerId);
             at(e.clientX);
         }, onPointerMove: (e) => {
             if (e.buttons || e.pressure > 0)
@@ -17027,8 +17301,8 @@ function AreaChart({ points }) {
     };
     const cur = pick === null ? points.length - 1 : pick;
     return (React.createElement("div", { ref: box, className: "chart-touch", onPointerDown: (e) => {
-            var _e, _h;
-            (_h = (_e = e.currentTarget).setPointerCapture) === null || _h === void 0 ? void 0 : _h.call(_e, e.pointerId);
+            var _e, _j;
+            (_j = (_e = e.currentTarget).setPointerCapture) === null || _j === void 0 ? void 0 : _j.call(_e, e.pointerId);
             at(e.clientX);
         }, onPointerMove: (e) => {
             if (e.buttons || e.pressure > 0)
@@ -17050,7 +17324,7 @@ function AreaChart({ points }) {
 }
 /* кольцо по частям света */
 function DonutChart({ parts, total, sel = null, onSel, size = 168, big = false, geo = null, legend = null }) {
-    var _e, _h;
+    var _e, _j;
     const cx = size / 2;
     const cy = size / 2;
     const w = size * (big ? 0.15 : 0.135); // толщина кольца
@@ -17086,13 +17360,13 @@ function DonutChart({ parts, total, sel = null, onSel, size = 168, big = false, 
         raf.current = requestAnimationFrame(glide);
     };
     const down = (e) => {
-        var _e, _h;
+        var _e, _j;
         cancelAnimationFrame(raf.current);
         spin.current = 0;
         moved.current = 0;
         setFree(true);
         drag.current = { a: angleAt(e) };
-        (_h = (_e = e.currentTarget).setPointerCapture) === null || _h === void 0 ? void 0 : _h.call(_e, e.pointerId);
+        (_j = (_e = e.currentTarget).setPointerCapture) === null || _j === void 0 ? void 0 : _j.call(_e, e.pointerId);
     };
     const move = (e) => {
         if (!drag.current)
@@ -17109,14 +17383,14 @@ function DonutChart({ parts, total, sel = null, onSel, size = 168, big = false, 
         setRot((v) => v + d);
     };
     const up = (e) => {
-        var _e, _h, _j;
+        var _e, _j, _k;
         if (!drag.current)
             return;
         drag.current = null;
         // палец захвачен кольцом, поэтому попадание ищем по точке отпускания
         if (moved.current < 6 && onSel) {
-            const el = (_h = (_e = document.elementFromPoint(e.clientX, e.clientY)) === null || _e === void 0 ? void 0 : _e.closest) === null || _h === void 0 ? void 0 : _h.call(_e, "[data-seg]");
-            const k = (_j = el === null || el === void 0 ? void 0 : el.getAttribute) === null || _j === void 0 ? void 0 : _j.call(el, "data-seg");
+            const el = (_j = (_e = document.elementFromPoint(e.clientX, e.clientY)) === null || _e === void 0 ? void 0 : _e.closest) === null || _j === void 0 ? void 0 : _j.call(_e, "[data-seg]");
+            const k = (_k = el === null || el === void 0 ? void 0 : el.getAttribute) === null || _k === void 0 ? void 0 : _k.call(el, "data-seg");
             if (k === "")
                 onSel(null);
             else if (k)
@@ -17171,7 +17445,7 @@ function DonutChart({ parts, total, sel = null, onSel, size = 168, big = false, 
                 React.createElement("circle", { cx: cx, cy: cy, r: r - w / 2 - 4, fill: "none", stroke: "rgba(140,180,220,.25)" }))),
             React.createElement("g", { "data-seg": "", style: { cursor: sel ? "pointer" : "default" } },
                 React.createElement("circle", { cx: cx, cy: cy, r: r - w / 2 - 2, fill: "transparent" }),
-                React.createElement("text", { x: cx, y: cy - size * 0.005, fill: C_GOLD, fontSize: size * 0.14, fontWeight: "700", textAnchor: "middle" }, sel ? (_h = (_e = parts.find((p) => p.k === sel)) === null || _e === void 0 ? void 0 : _e.v) !== null && _h !== void 0 ? _h : total : total),
+                React.createElement("text", { x: cx, y: cy - size * 0.005, fill: C_GOLD, fontSize: size * 0.14, fontWeight: "700", textAnchor: "middle" }, sel ? (_j = (_e = parts.find((p) => p.k === sel)) === null || _e === void 0 ? void 0 : _e.v) !== null && _j !== void 0 ? _j : total : total),
                 React.createElement("text", { x: cx, y: cy + size * 0.075, fill: C_DIM, fontSize: size * 0.055, textAnchor: "middle" }, sel ? CONTINENTS[sel] : pw(total, "country")),
                 sel && (React.createElement("text", { x: cx, y: cy + size * 0.13, fill: C_GOLD, fontSize: size * 0.05, textAnchor: "middle" }, "\u21BA \u0432\u0441\u0435")))),
         React.createElement("div", { className: "donut-legend" }, (legend || segs).map((p) => {
@@ -17213,7 +17487,7 @@ function contsData(visits) {
         total += 1;
         (by[k] = by[k] || []).push({ a3, n: trips });
     });
-    Object.values(by).forEach((l) => l.sort((a, b) => { var _e, _h; return b.n - a.n || (((_e = BY_A3[a.a3]) === null || _e === void 0 ? void 0 : _e.name) || "").localeCompare(((_h = BY_A3[b.a3]) === null || _h === void 0 ? void 0 : _h.name) || "", "ru"); }));
+    Object.values(by).forEach((l) => l.sort((a, b) => { var _e, _j; return b.n - a.n || (((_e = BY_A3[a.a3]) === null || _e === void 0 ? void 0 : _e.name) || "").localeCompare(((_j = BY_A3[b.a3]) === null || _j === void 0 ? void 0 : _j.name) || "", "ru"); }));
     const parts = CONT_ORDER.filter((k) => { var _e; return (_e = by[k]) === null || _e === void 0 ? void 0 : _e.length; }).map((k) => ({ k, v: by[k].length }));
     return { by, parts, total };
 }
@@ -17257,9 +17531,9 @@ function worldData(visits) {
     const opened = {};
     Object.values(first).forEach((r) => (opened[r.y] = [...(opened[r.y] || []), r]));
     Object.values(opened).forEach((l) => l.sort((a, b) => {
-        var _e, _h;
+        var _e, _j;
         return (a.m || 13) - (b.m || 13) ||
-            (((_e = BY_A3[a.a3]) === null || _e === void 0 ? void 0 : _e.name) || "").localeCompare(((_h = BY_A3[b.a3]) === null || _h === void 0 ? void 0 : _h.name) || "", "ru");
+            (((_e = BY_A3[a.a3]) === null || _e === void 0 ? void 0 : _e.name) || "").localeCompare(((_j = BY_A3[b.a3]) === null || _j === void 0 ? void 0 : _j.name) || "", "ru");
     }));
     const total = {};
     let acc = 0;
@@ -17368,7 +17642,7 @@ function soloData(visits, people) {
     const nameOf = (id) => { var _e; return id === ME ? meLabel() : ((_e = (people || []).find((p) => p.id === id)) === null || _e === void 0 ? void 0 : _e.name) || id; };
     const byCountry = {};
     Object.entries(visits || {}).forEach(([a3, arr]) => (arr || []).forEach((t) => {
-        var _e, _h;
+        var _e, _j;
         if (t.plan)
             return;
         const rec = (byCountry[a3] = byCountry[a3] || { who: new Set(), trips: [] });
@@ -17376,7 +17650,7 @@ function soloData(visits, people) {
         rec.trips.push({
             a3,
             y: isSpan(t) ? null : ((_e = dParts(t.from)) === null || _e === void 0 ? void 0 : _e.y) || t.y || null,
-            m: ((_h = dParts(t.from)) === null || _h === void 0 ? void 0 : _h.m) || t.m || null,
+            m: ((_j = dParts(t.from)) === null || _j === void 0 ? void 0 : _j.m) || t.m || null,
             city: (t.cities || [])[0] || "",
             who: t.who || [],
         });
@@ -17733,7 +18007,7 @@ function SoloWin({ visits, people, geo, mapProps, onClose }) {
             const back = backRef.current ? [...backRef.current.querySelectorAll(".dg-sat")] : [];
             const pts = [];
             S.forEach((st, i) => {
-                var _e, _h;
+                var _e, _j;
                 const r = R * st.rad;
                 const pw0 = ((_e = front[i]) === null || _e === void 0 ? void 0 : _e.offsetWidth) || 80;
                 const rx = Math.min(r, Math.max(R * 0.6, Math.min(cx, W - cx) - pw0 * 0.52));
@@ -17750,7 +18024,7 @@ function SoloWin({ visits, people, geo, mapProps, onClose }) {
                         0.13 * Math.sin(st.hf[1] * T + st.hp[1]) +
                         0.05 * Math.sin(st.hf[2] * T + st.hp[2]));
                 const sc = 1 / (1 - z / (R * 4.4));
-                const ph0 = ((_h = front[i]) === null || _h === void 0 ? void 0 : _h.offsetHeight) || pw0 * 1.25;
+                const ph0 = ((_j = front[i]) === null || _j === void 0 ? void 0 : _j.offsetHeight) || pw0 * 1.25;
                 const yLo = -cy + ph0 * 0.4 * sc + 2; // верх планеты не выше края
                 const yHi = H - cy - ph0 * 0.6 * sc - 4; // табличка не ниже края
                 const y = Math.max(yLo, Math.min(yHi, x0 * Math.sin(tilt) + ye * Math.cos(tilt) - h));
@@ -17921,7 +18195,7 @@ function SoloWin({ visits, people, geo, mapProps, onClose }) {
    Части собираются по номерам в один файл (tools/rebuild.sh) и видят друг друга напрямую. */
 /* «Чаще всего» во весь экран: шар с любимыми местами и список */
 function OftenWin({ visits, geo, mapProps, onClose }) {
-    var _e, _h;
+    var _e, _j;
     const data = useMemo(() => oftenData(visits), [visits]);
     const [mode, setMode] = useState("countries"); // countries | cities | hotels
     const [sel, setSel] = useState(null);
@@ -17998,7 +18272,7 @@ function OftenWin({ visits, geo, mapProps, onClose }) {
             React.createElement("b", null, data.total),
             React.createElement("em", null, pw(data.total, "country"))),
         React.createElement("span", null,
-            React.createElement("b", null, ((_h = data.countries[0]) === null || _h === void 0 ? void 0 : _h.n) || 0),
+            React.createElement("b", null, ((_j = data.countries[0]) === null || _j === void 0 ? void 0 : _j.n) || 0),
             React.createElement("em", null, "\u043C\u0430\u043A\u0441\u0438\u043C\u0443\u043C \u0440\u0430\u0437")),
         React.createElement("span", null,
             React.createElement("b", null, data.once),
@@ -18006,7 +18280,7 @@ function OftenWin({ visits, geo, mapProps, onClose }) {
     const list = (React.createElement(React.Fragment, null,
         React.createElement("div", { className: "of-list" },
             rows.map((r, i) => {
-                var _e, _h;
+                var _e, _j;
                 const key = keyOfRow(r);
                 const isOpen = open === key;
                 return (React.createElement("div", { key: key },
@@ -18025,7 +18299,7 @@ function OftenWin({ visits, geo, mapProps, onClose }) {
                                 mode === "countries" && r.years.length
                                     ? ` · ${r.years[0]}–${r.years[r.years.length - 1]}`
                                     : mode !== "countries"
-                                        ? ` · ${((_h = BY_A3[r.a3]) === null || _h === void 0 ? void 0 : _h.name) || r.a3}`
+                                        ? ` · ${((_j = BY_A3[r.a3]) === null || _j === void 0 ? void 0 : _j.name) || r.a3}`
                                         : "")),
                         React.createElement("span", { className: "of-bar" },
                             React.createElement("i", { style: { width: `${Math.round((r.n / lead) * 100)}%` } })),
@@ -18326,9 +18600,9 @@ function ContsWin({ visits, geo, onClose }) {
     const [side, setSide] = useState(280);
     useEffect(() => {
         const fit = () => {
-            var _e, _h;
+            var _e, _j;
             setWide(window.innerWidth > window.innerHeight);
-            const b = (_h = (((_e = wrap.current) === null || _e === void 0 ? void 0 : _e.closest(".pg-map")) || wrap.current)) === null || _h === void 0 ? void 0 : _h.getBoundingClientRect();
+            const b = (_j = (((_e = wrap.current) === null || _e === void 0 ? void 0 : _e.closest(".pg-map")) || wrap.current)) === null || _j === void 0 ? void 0 : _j.getBoundingClientRect();
             if (b)
                 setSide(Math.max(200, Math.min(b.width - 16, b.height - 16, 520)));
         };
@@ -18538,9 +18812,9 @@ function SeasonWin({ visits, onClose }) {
     const [side, setSide] = useState(280);
     useEffect(() => {
         const fit = () => {
-            var _e, _h;
+            var _e, _j;
             setWide(window.innerWidth > window.innerHeight);
-            const b = (_h = (((_e = wrap.current) === null || _e === void 0 ? void 0 : _e.closest(".pg-map")) || wrap.current)) === null || _h === void 0 ? void 0 : _h.getBoundingClientRect();
+            const b = (_j = (((_e = wrap.current) === null || _e === void 0 ? void 0 : _e.closest(".pg-map")) || wrap.current)) === null || _j === void 0 ? void 0 : _j.getBoundingClientRect();
             if (b)
                 setSide(Math.max(200, Math.min(b.width - 16, b.height - 16, 520)));
         };
@@ -18738,7 +19012,7 @@ function calData(visits, year, only = null) {
         months,
         max,
         years: [...years].sort((x, y) => y - x),
-        countries: [...countries].sort((x, y) => { var _e, _h; return (((_e = BY_A3[x]) === null || _e === void 0 ? void 0 : _e.name) || x).localeCompare(((_h = BY_A3[y]) === null || _h === void 0 ? void 0 : _h.name) || y, "ru"); }),
+        countries: [...countries].sort((x, y) => { var _e, _j; return (((_e = BY_A3[x]) === null || _e === void 0 ? void 0 : _e.name) || x).localeCompare(((_j = BY_A3[y]) === null || _j === void 0 ? void 0 : _j.name) || y, "ru"); }),
         latest: past[0] || done[0] || null,
     };
 }
@@ -18892,7 +19166,7 @@ function yearsData(visits, home) {
     const onceY = routeOnce();
     const onceV = routeOnce();
     Object.entries(visits || {}).forEach(([a3, arr]) => (arr || []).forEach((t0) => {
-        var _e, _h;
+        var _e, _j;
         const t = normTrip(t0);
         const a = dParts(t.from);
         const y = a ? a.y : t.y;
@@ -18914,7 +19188,7 @@ function yearsData(visits, home) {
             rec.fresh.add(a3);
         if (!onceY(t))
             return; // маршрут — одна поездка (42.24)
-        rec.trips.push({ a3, t, at, fresh: ((_h = first[a3]) === null || _h === void 0 ? void 0 : _h.y) === y });
+        rec.trips.push({ a3, t, at, fresh: ((_j = first[a3]) === null || _j === void 0 ? void 0 : _j.y) === y });
         // путь туда и обратно: от места вылета до города поездки
         const from = depPoint(t, hm);
         const to = distPoint(a3, (t.cities || [])[0]);
@@ -18929,7 +19203,7 @@ function yearsData(visits, home) {
     return { by, years, vague };
 }
 function YearsWin({ visits, geo, home, mapProps, onClose, onOpenTrip }) {
-    var _e, _h;
+    var _e, _j;
     // точка отсчёта считается по всем поездкам, даже когда выбрана одна страна
     const hm = useMemo(() => tripRoutes(visits, home).home, [visits, home]);
     const [only, setOnly] = useState(null); // страна
@@ -18944,7 +19218,7 @@ function YearsWin({ visits, geo, home, mapProps, onClose, onOpenTrip }) {
             r.plans.forEach((x) => set.add(x.a3));
         });
         yd.vague.forEach((x) => set.add(x.a3));
-        return [...set].sort((x, y) => { var _e, _h; return (((_e = BY_A3[x]) === null || _e === void 0 ? void 0 : _e.name) || x).localeCompare(((_h = BY_A3[y]) === null || _h === void 0 ? void 0 : _h.name) || y, "ru"); });
+        return [...set].sort((x, y) => { var _e, _j; return (((_e = BY_A3[x]) === null || _e === void 0 ? void 0 : _e.name) || x).localeCompare(((_j = BY_A3[y]) === null || _j === void 0 ? void 0 : _j.name) || y, "ru"); });
     }, [visits, hm]);
     const nowY = NOW.getFullYear();
     const lastOf = (d) => {
@@ -19036,7 +19310,7 @@ function YearsWin({ visits, geo, home, mapProps, onClose, onOpenTrip }) {
         React.createElement("div", { className: "ag-frame sd-frame yw-list" },
             React.createElement("p", { className: "cw-head" },
                 year || "Все годы",
-                only ? ` · ${((_h = BY_A3[only]) === null || _h === void 0 ? void 0 : _h.name) || only}` : ""),
+                only ? ` · ${((_j = BY_A3[only]) === null || _j === void 0 ? void 0 : _j.name) || only}` : ""),
             [...rec.plans, ...rec.trips].map((it) => {
                 var _e;
                 return (React.createElement("button", { key: it.t.id || it.at, className: "ww-row cw-card" + (it.t.plan ? " plan" : "") + ((pick === null || pick === void 0 ? void 0 : pick.id) === (it.t.id || it.at) ? " sel" : ""), onClick: () => {
@@ -19087,7 +19361,7 @@ const mvName = (s) => String(s || "").toLowerCase().replace(/ё/g, "е").trim();
    (вылет не из дома), сшиваются в одну цепочку; в конце — возвращение домой */
 /* путь маршрута для схемы метро: дом → точки по порядку → дом */
 function routeJourney(r, homeName, m = 0) {
-    var _e, _h;
+    var _e, _j;
     const ab = (x) => (x ? `${x.d} ${MV_MN[x.m - 1]}` : "");
     const a = dParts(r.from);
     const b = dParts(r.to);
@@ -19102,7 +19376,7 @@ function routeJourney(r, homeName, m = 0) {
                 const tw = trWords(r, i);
                 return { n: s.name, a3: s.a3, d: s.tr === 2 ? tw.tag : s.tr === 1 ? `${tw.tag}, город` : "", tr: s.tr || 0 };
             }),
-            { n: ((_h = r.start) === null || _h === void 0 ? void 0 : _h.name) || homeName, d: ab(b), home: true },
+            { n: ((_j = r.start) === null || _j === void 0 ? void 0 : _j.name) || homeName, d: ab(b), home: true },
         ],
         legs: (r.legs || []).map((L) => ({ k: (L === null || L === void 0 ? void 0 : L.k) && MOVE_ICON[L.k] ? L.k : "none", code: ((L === null || L === void 0 ? void 0 : L.air) || [])[0] || "" })),
         trips: [],
@@ -19120,12 +19394,12 @@ function moveJourneys(visits, home, year) {
     const trips = [];
     const routes = new Map(); // маршруты года: путь берём из них как записан
     Object.entries(visits || {}).forEach(([a3, arr]) => (arr || []).forEach((t) => {
-        var _e, _h, _j;
+        var _e, _j, _k;
         const a = dParts(t.from);
         const y = a ? a.y : isSpan(t) ? null : t.y;
         if (y !== year)
             return;
-        if ((_h = (_e = t.route) === null || _e === void 0 ? void 0 : _e.stops) === null || _h === void 0 ? void 0 : _h.length) {
+        if ((_j = (_e = t.route) === null || _e === void 0 ? void 0 : _e.stops) === null || _j === void 0 ? void 0 : _j.length) {
             const r0 = routes.get(t.route.id);
             if (!r0 || (t.route.at || 0) > (r0.r.at || 0))
                 routes.set(t.route.id, { r: t.route, m: a ? a.m : t.m || 0, at: a ? new Date(a.y, a.m - 1, a.d).getTime() : new Date(y, Math.max(0, (t.m || 1) - 1), 1).getTime() });
@@ -19134,7 +19408,7 @@ function moveJourneys(visits, home, year) {
         const m = a ? a.m : t.m || 0;
         const b = dParts(t.to);
         const dep = t.dep && t.dep.name ? t.dep.name : homeName;
-        const to = (t.cities || [])[0] || (t.regions || [])[0] || ((_j = BY_A3[a3]) === null || _j === void 0 ? void 0 : _j.name) || a3;
+        const to = (t.cities || [])[0] || (t.regions || [])[0] || ((_k = BY_A3[a3]) === null || _k === void 0 ? void 0 : _k.name) || a3;
         trips.push({
             a3, t, m,
             at: a ? new Date(a.y, a.m - 1, a.d).getTime() : new Date(y, Math.max(0, m - 1), 1).getTime(),
@@ -19188,7 +19462,7 @@ function moveJourneys(visits, home, year) {
     });
     // маршруты — ровно в записанном порядке, с пересадками и обратной дорогой
     routes.forEach(({ r, m, at }) => out.push({ ...routeJourney(r, homeName, m), at }));
-    out.forEach((j) => { var _e, _h, _j; return (j.at = (_j = (_e = j.at) !== null && _e !== void 0 ? _e : (_h = j.trips[0]) === null || _h === void 0 ? void 0 : _h.at) !== null && _j !== void 0 ? _j : 0); });
+    out.forEach((j) => { var _e, _j, _k; return (j.at = (_k = (_e = j.at) !== null && _e !== void 0 ? _e : (_j = j.trips[0]) === null || _j === void 0 ? void 0 : _j.at) !== null && _k !== void 0 ? _k : 0); });
     out.sort((x, y) => x.at - y.at);
     return out;
 }
@@ -19493,7 +19767,7 @@ function conqData(visits) {
         });
     });
     // от самой покорённой к наименее покорённой: по точной доле, при равенстве — где регионов больше
-    return out.sort((a, b) => { var _e, _h; return b.n / b.total - a.n / a.total || b.n - a.n || (((_e = BY_A3[a.a3]) === null || _e === void 0 ? void 0 : _e.name) || "").localeCompare(((_h = BY_A3[b.a3]) === null || _h === void 0 ? void 0 : _h.name) || "", "ru"); });
+    return out.sort((a, b) => { var _e, _j; return b.n / b.total - a.n / a.total || b.n - a.n || (((_e = BY_A3[a.a3]) === null || _e === void 0 ? void 0 : _e.name) || "").localeCompare(((_j = BY_A3[b.a3]) === null || _j === void 0 ? void 0 : _j.name) || "", "ru"); });
 }
 /* с какой страны начать (42.60): с самой покорённой — первой в списке */
 const conqFirst = (rows) => rows[0] || null;
@@ -19666,7 +19940,7 @@ function ConquestMap({ a3, done, sel = null, onSel, w = 320, h = 220, turn = nul
     const rad = (north * Math.PI) / 180;
     // окружение: соседи, сетка — по той же проекции, обрезаем далёкое
     const env = useMemo(() => {
-        var _e, _h, _j, _k;
+        var _e, _j, _k, _l;
         if (!alive || !pr)
             return null;
         const [[x0, y0], [x1, y1]] = box;
@@ -19685,7 +19959,7 @@ function ConquestMap({ a3, done, sel = null, onSel, w = 320, h = 220, turn = nul
         }
         let grat = "";
         if (ctr && a3 !== "USA") {
-            const span = Math.abs(((_h = (_e = pr.invert([x1, cy])) === null || _e === void 0 ? void 0 : _e[0]) !== null && _h !== void 0 ? _h : 0) - ((_k = (_j = pr.invert([x0, cy])) === null || _j === void 0 ? void 0 : _j[0]) !== null && _k !== void 0 ? _k : 0)) || 10;
+            const span = Math.abs(((_j = (_e = pr.invert([x1, cy])) === null || _e === void 0 ? void 0 : _e[0]) !== null && _j !== void 0 ? _j : 0) - ((_l = (_k = pr.invert([x0, cy])) === null || _k === void 0 ? void 0 : _k[0]) !== null && _l !== void 0 ? _l : 0)) || 10;
             grat = path(d3.geoGraticule().step([cqStep(span), cqStep(span)])()) || "";
         }
         if (pr.clipAngle && a3 !== "USA")
@@ -19834,7 +20108,7 @@ function CqBar({ pct }) {
 }
 /* окно во весь экран — как другие отчёты: карта, под ней (или справа) страны списком */
 function ConquestWin({ visits, a3: a30, onClose, onTrips, geo = null }) {
-    var _e, _h;
+    var _e, _j;
     const rows = useMemo(() => conqData(visits), [visits]);
     const [a3, setA3] = useState(a30 || ((_e = conqFirst(rows)) === null || _e === void 0 ? void 0 : _e.a3) || null);
     const [sel, setSel] = useState(null);
@@ -19923,7 +20197,7 @@ function ConquestWin({ visits, a3: a30, onClose, onTrips, geo = null }) {
             React.createElement("div", { className: "zoom-box", onClick: (e) => e.stopPropagation() },
                 React.createElement("button", { className: "zoom-x", onClick: onClose, "aria-label": "\u0417\u0430\u043A\u0440\u044B\u0442\u044C" }, "\u2715"),
                 React.createElement("p", { className: "hint small" }, "\u041F\u043E\u043A\u0430 \u043D\u0435\u0442 \u0441\u0442\u0440\u0430\u043D \u0441 \u0440\u0435\u0433\u0438\u043E\u043D\u0430\u043C\u0438, \u0433\u0434\u0435 \u0432\u044B \u0431\u044B\u043B\u0438."))));
-    const name = ((_h = BY_A3[row.a3]) === null || _h === void 0 ? void 0 : _h.name) || row.a3;
+    const name = ((_j = BY_A3[row.a3]) === null || _j === void 0 ? void 0 : _j.name) || row.a3;
     const selF = sel && regionByKey(sel);
     const map = (React.createElement("div", { className: "cq-stage", onClick: () => setSel(null) },
         React.createElement("span", { className: "pg-title cq-title" },
@@ -20059,11 +20333,11 @@ function ReportsSheet({ open, onClose, box, visits, since, stats, people = [], o
     const [side, setSide] = useState(0);
     // выбираем любых двоих: новое имя вытесняет то, что выбрали раньше
     const pair = useMemo(() => {
-        var _e, _h;
+        var _e, _j;
         const ids = crewR.rows.map((r) => r.id);
         const kept = cmp.filter((x) => ids.includes(x));
         const a = (_e = kept[0]) !== null && _e !== void 0 ? _e : (ids.includes(ME) ? ME : ids[0]);
-        const b = (_h = kept[1]) !== null && _h !== void 0 ? _h : ids.find((x) => x !== a);
+        const b = (_j = kept[1]) !== null && _j !== void 0 ? _j : ids.find((x) => x !== a);
         return [a, b];
     }, [cmp, crewR]);
     const pickCmp = (id) => setCmp(() => (pair.includes(id) ? pair : [pair[1], id]));
@@ -20468,11 +20742,11 @@ function DoublesSheet({ open, onClose, box, pairs, people, onJoin, onKeep }) {
 }
 /* подпись группы в разрезе «по регионам»: «Удмуртия · Россия» или просто страна */
 function groupRegionLabel(key) {
-    var _e, _h;
+    var _e, _j;
     if (key.startsWith("c|"))
         return ((_e = BY_A3[key.slice(2)]) === null || _e === void 0 ? void 0 : _e.name) || key.slice(2);
     const [a3, ...rest] = key.split("|");
-    return `${rest.join("|")} · ${((_h = BY_A3[a3]) === null || _h === void 0 ? void 0 : _h.name) || a3}`;
+    return `${rest.join("|")} · ${((_j = BY_A3[a3]) === null || _j === void 0 ? void 0 : _j.name) || a3}`;
 }
 /* шторка: фильтры — для глобуса и для списка поездок */
 function FiltersSheet({ open, onClose, box, target, years, yearFilter, onYear, mode, onMode, routeCount = 0, onRoutes, }) {
@@ -20792,9 +21066,9 @@ function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, on
         }
         else if (mode === "region")
             list.sort((a, b) => {
-                var _e, _h;
+                var _e, _j;
                 const ca = ((_e = BY_A3[a[0].replace(/^c\|/, "").split("|")[0]]) === null || _e === void 0 ? void 0 : _e.name) || "";
-                const cb = ((_h = BY_A3[b[0].replace(/^c\|/, "").split("|")[0]]) === null || _h === void 0 ? void 0 : _h.name) || "";
+                const cb = ((_j = BY_A3[b[0].replace(/^c\|/, "").split("|")[0]]) === null || _j === void 0 ? void 0 : _j.name) || "";
                 return ca.localeCompare(cb, "ru") || (a[0].startsWith("c|") ? -1 : b[0].startsWith("c|") ? 1 : a[0].localeCompare(b[0], "ru"));
             });
         else
@@ -20812,19 +21086,19 @@ function ListSheet({ visits, stats, open, onClose, onPick, onDone, box, mode, on
             const heads = new Map();
             const out = [];
             rows.forEach((row) => {
-                var _e, _h, _j, _k;
+                var _e, _j, _k, _l;
                 const f = row.t.fan;
                 if (!f)
                     return out.push(row);
                 let h = heads.get(f.id);
                 if (!h) {
-                    h = { ...row, fanHead: { n: 0, dests: [], start: ((_h = (_e = row.t.route) === null || _e === void 0 ? void 0 : _e.start) === null || _h === void 0 ? void 0 : _h.name) || "", y1: f.y1, y2: f.y2 } };
+                    h = { ...row, fanHead: { n: 0, dests: [], start: ((_j = (_e = row.t.route) === null || _e === void 0 ? void 0 : _e.start) === null || _j === void 0 ? void 0 : _j.name) || "", y1: f.y1, y2: f.y2 } };
                     heads.set(f.id, h);
                     out.push(h);
                 }
                 h.fanHead.n += 1;
-                const st = ((_j = row.t.route) === null || _j === void 0 ? void 0 : _j.stops) || [];
-                const dest = (_k = st[st.length - 1]) === null || _k === void 0 ? void 0 : _k.name;
+                const st = ((_k = row.t.route) === null || _k === void 0 ? void 0 : _k.stops) || [];
+                const dest = (_l = st[st.length - 1]) === null || _l === void 0 ? void 0 : _l.name;
                 if (dest && !h.fanHead.dests.includes(dest))
                     h.fanHead.dests.push(dest);
             });
@@ -21392,21 +21666,21 @@ function useExchange(x) {
        людей, которых раньше не было. opt.trusted — пользователь сам подтвердил
        источник (например, чужую резервную копию). */
     const receiveFamily = useCallback((data, opt = {}) => {
-        var _e, _h, _j, _k, _l;
+        var _e, _j, _k, _l, _o;
         const prof = profileRef.current || {};
         if (!(data === null || data === void 0 ? void 0 : data.visits))
             return { error: "empty" };
         if (data.kind !== "atlas-family" || !(data.v >= FAM_V))
             return { error: "old" };
         const sid = ((_e = data.from) === null || _e === void 0 ? void 0 : _e.id) || "";
-        const fromName = ((_h = data.from) === null || _h === void 0 ? void 0 : _h.name) || opt.name || "";
+        const fromName = ((_j = data.from) === null || _j === void 0 ? void 0 : _j.name) || opt.name || "";
         if (!opt.trusted) {
             const ok = prof.family && famSame(prof.family, data.family) && famHas(prof, sid);
             if (!ok)
                 return { error: "stranger", from: fromName };
         }
         // свои поводы семьи — в наш список (только новых названий; повторный приём ничего не меняет)
-        const occ = occMerge((_j = settingsRef.current) === null || _j === void 0 ? void 0 : _j.occasions, data.occ);
+        const occ = occMerge((_k = settingsRef.current) === null || _k === void 0 ? void 0 : _k.occasions, data.occ);
         if (occ && putSettings)
             putSettings({ occasions: occ, occV: OCC_V });
         const un = familyUnpack(data, prof, opt.decide || null);
@@ -21433,7 +21707,7 @@ function useExchange(x) {
         let next = prof;
         if (un.touched)
             next = { ...next, people: un.people, selfAka: un.selfAka };
-        const given = ((_k = opt.decide) === null || _k === void 0 ? void 0 : _k.__roles) || null;
+        const given = ((_l = opt.decide) === null || _l === void 0 ? void 0 : _l.__roles) || null;
         if (given && Object.keys(given).length)
             next = {
                 ...next,
@@ -21443,7 +21717,7 @@ function useExchange(x) {
             next = {
                 ...next,
                 family: famMerge(next.family, data.family, [prof.deviceId, ...(prof.selfAka || [])], [
-                    { id: sid, name: fromName, ava: ((_l = data.from) === null || _l === void 0 ? void 0 : _l.ava) || "" },
+                    { id: sid, name: fromName, ava: ((_o = data.from) === null || _o === void 0 ? void 0 : _o.ava) || "" },
                 ]),
             };
         if (next !== prof) {
@@ -21509,7 +21783,7 @@ function useExchange(x) {
         later(() => setAsk({ title: r.error ? "Не получилось" : "Поездки получены", text, yes: "Понятно", only: true, onYes: () => { } }));
     };
     const importAsk = useCallback(async (file) => {
-        var _e, _h;
+        var _e, _j;
         let d = null;
         try {
             d = JSON.parse(await file.text());
@@ -21527,7 +21801,7 @@ function useExchange(x) {
             return;
         }
         const me = profileRef.current || {};
-        const owner = ((_h = d.owner) === null || _h === void 0 ? void 0 : _h.id) ? d.owner : null;
+        const owner = ((_j = d.owner) === null || _j === void 0 ? void 0 : _j.id) ? d.owner : null;
         if (owner && owner.id !== me.deviceId) {
             const nm = owner.name || "другого человека";
             setAsk({
@@ -21738,11 +22012,11 @@ function useExchange(x) {
         },
         /* пришёл ответ на наше приглашение */
         /* для какой карточки было приглашение — её и предложим связать */
-        inviteCard: (k) => { var _e, _h, _j; return ((_j = (((_h = (_e = profileRef.current) === null || _e === void 0 ? void 0 : _e.family) === null || _h === void 0 ? void 0 : _h.invites) || []).find((x) => x.k === k)) === null || _j === void 0 ? void 0 : _j.card) || ""; },
+        inviteCard: (k) => { var _e, _j, _k; return ((_k = (((_j = (_e = profileRef.current) === null || _e === void 0 ? void 0 : _e.family) === null || _j === void 0 ? void 0 : _j.invites) || []).find((x) => x.k === k)) === null || _k === void 0 ? void 0 : _k.card) || ""; },
         checkJoin: (data) => {
-            var _e, _h;
+            var _e, _j;
             const f = (_e = profileRef.current) === null || _e === void 0 ? void 0 : _e.family;
-            if (!f || !famIds(f).includes((_h = data === null || data === void 0 ? void 0 : data.f) === null || _h === void 0 ? void 0 : _h.id))
+            if (!f || !famIds(f).includes((_j = data === null || data === void 0 ? void 0 : data.f) === null || _j === void 0 ? void 0 : _j.id))
                 return "Этот ответ относится к другой семье.";
             if (!(f.invites || []).some((x) => x.k === data.k))
                 return "Это приглашение уже использовано или устарело. Отправьте новое.";
@@ -21823,7 +22097,7 @@ function upcomingTrips(visits, days = NOTIFY_DAYS, now = new Date()) {
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const out = new Map();
     Object.entries(visits || {}).forEach(([a3, arr]) => (arr || []).forEach((t) => {
-        var _e, _h, _j;
+        var _e, _j, _k;
         if (t.approx)
             return;
         const a = dParts(t.from);
@@ -21848,7 +22122,7 @@ function upcomingTrips(visits, days = NOTIFY_DAYS, now = new Date()) {
         const prev = out.get(key);
         if (prev && prev.d <= d)
             return;
-        const title = t.route ? routeCountries(t.route) || ((_h = BY_A3[a3]) === null || _h === void 0 ? void 0 : _h.name) : ((_j = BY_A3[a3]) === null || _j === void 0 ? void 0 : _j.name) || a3;
+        const title = t.route ? routeCountries(t.route) || ((_j = BY_A3[a3]) === null || _j === void 0 ? void 0 : _j.name) : ((_k = BY_A3[a3]) === null || _k === void 0 ? void 0 : _k.name) || a3;
         out.set(key, { key, a3, id: t.id, d, exact, title, flag: flagText(a3), when: tripLabel(t), m: t.m, y: t.y, cities: t.route ? [] : t.cities || [] });
     }));
     return [...out.values()].sort((x, y) => x.d - y.d);
@@ -21960,7 +22234,7 @@ function Atlas() {
 }
 /* само приложение */
 function AtlasApp() {
-    var _e, _h, _j, _k;
+    var _e, _j, _k, _l;
     const [booting, setBooting] = useState(true);
     const [profile, setProfile] = useState(null);
     const loaded = useRef(false);
@@ -22132,13 +22406,13 @@ function AtlasApp() {
     const setPhotoQuality = useCallback((v) => putSettings({ photoQuality: v }), [putSettings]);
     const [sysDark, setSysDark] = useState(true);
     useEffect(() => {
-        var _e, _h;
+        var _e, _j;
         const mq = (_e = window.matchMedia) === null || _e === void 0 ? void 0 : _e.call(window, "(prefers-color-scheme: light)");
         if (!mq)
             return;
         const apply = () => setSysDark(!mq.matches);
         apply();
-        (_h = mq.addEventListener) === null || _h === void 0 ? void 0 : _h.call(mq, "change", apply);
+        (_j = mq.addEventListener) === null || _j === void 0 ? void 0 : _j.call(mq, "change", apply);
         return () => { var _e; return (_e = mq.removeEventListener) === null || _e === void 0 ? void 0 : _e.call(mq, "change", apply); };
     }, []);
     const setTheme = useCallback((v) => putSettings({ theme: v }), [putSettings]);
@@ -22265,10 +22539,10 @@ function AtlasApp() {
     useEffect(() => {
         var _e;
         const measure = () => {
-            var _e, _h;
+            var _e, _j;
             const vvp = ((_e = window.visualViewport) === null || _e === void 0 ? void 0 : _e.width) || Infinity;
             const inner = window.innerWidth || Infinity;
-            const client = ((_h = document.documentElement) === null || _h === void 0 ? void 0 : _h.clientWidth) || Infinity;
+            const client = ((_j = document.documentElement) === null || _j === void 0 ? void 0 : _j.clientWidth) || Infinity;
             // ширину экрана не учитываем: при повороте iOS её не обновляет
             const w = Math.min(vvp, inner, client);
             if (w > 100)
@@ -22375,8 +22649,8 @@ function AtlasApp() {
                 type: "FeatureCollection",
                 features: j.features
                     .map((f) => {
-                    var _e, _h, _j, _k, _l;
-                    const raw = String((_l = (_j = (_e = f.id) !== null && _e !== void 0 ? _e : (_h = f.properties) === null || _h === void 0 ? void 0 : _h.iso_a3) !== null && _j !== void 0 ? _j : (_k = f.properties) === null || _k === void 0 ? void 0 : _k.ISO_A3) !== null && _l !== void 0 ? _l : "");
+                    var _e, _j, _k, _l, _o;
+                    const raw = String((_o = (_k = (_e = f.id) !== null && _e !== void 0 ? _e : (_j = f.properties) === null || _j === void 0 ? void 0 : _j.iso_a3) !== null && _k !== void 0 ? _k : (_l = f.properties) === null || _l === void 0 ? void 0 : _l.ISO_A3) !== null && _o !== void 0 ? _o : "");
                     const id = raw.length === 3 && /^\d+$/.test(raw)
                         ? NUM_TO_A3[raw]
                         : raw.toUpperCase();
@@ -22388,7 +22662,7 @@ function AtlasApp() {
             };
         };
         (async () => {
-            var _e, _h;
+            var _e, _j;
             const cached = await store.get(K_GEO);
             // кеш годится, только если у стран есть буквенные коды
             const okCache = ((_e = cached === null || cached === void 0 ? void 0 : cached.features) === null || _e === void 0 ? void 0 : _e.length) > 100 &&
@@ -22425,7 +22699,7 @@ function AtlasApp() {
             }
             // сети нет — старый кеш (без Антарктиды и Гренландии) лучше, чем глобус без границ (43.14)
             const old = (await store.get("atlas:borders:v4")) || (await store.get("atlas:borders:v3")) || (await store.get("atlas:borders:v2"));
-            if (!dead && ((_h = old === null || old === void 0 ? void 0 : old.features) === null || _h === void 0 ? void 0 : _h.length) > 100)
+            if (!dead && ((_j = old === null || old === void 0 ? void 0 : old.features) === null || _j === void 0 ? void 0 : _j.length) > 100)
                 setGeo(withExtraShapes(old));
         })();
         return () => {
@@ -22435,7 +22709,7 @@ function AtlasApp() {
     /* профиль и блокировка */
     useEffect(() => {
         (async () => {
-            var _e, _h;
+            var _e, _j;
             let prof = await store.get(K_PROFILE);
             if (!prof) {
                 // перенос данных из прежней версии с логином и паролем
@@ -22561,7 +22835,7 @@ function AtlasApp() {
                 probe = await checkStorage();
                 if (probe.ok) {
                     setProfile(await store.get(K_PROFILE));
-                    setVisits(((_h = (await store.get(K_DATA))) === null || _h === void 0 ? void 0 : _h.visits) || {});
+                    setVisits(((_j = (await store.get(K_DATA))) === null || _j === void 0 ? void 0 : _j.visits) || {});
                 }
             }
             setSaveBroken(!probe.ok);
@@ -22845,7 +23119,7 @@ function AtlasApp() {
     /* сохранить маршрут: по стране — одна поездка; лишние поездки той же страны
        сливаются в неё (отели и снимки сохраняются), страны вне маршрута отвязываются */
     const applyRoute = (route0, src = [], vis = visits, common = null) => {
-        var _e, _h;
+        var _e, _j;
         const visits = vis;
         const meId = ((_e = profileRef.current) === null || _e === void 0 ? void 0 : _e.deviceId) || ME;
         // отели старых поездок — по точкам маршрута (если окно маршрута этого ещё не сделало)
@@ -22861,7 +23135,7 @@ function AtlasApp() {
                 involved.get(a3).push(t);
             }
         }));
-        const firstWho = (_h = [...involved.values()].flat()[0]) === null || _h === void 0 ? void 0 : _h.who;
+        const firstWho = (_j = [...involved.values()].flat()[0]) === null || _j === void 0 ? void 0 : _j.who;
         const whoDefault = firstWho || [ME, ...((profile === null || profile === void 0 ? void 0 : profile.people) || []).filter((p) => p.always).map((p) => p.id)];
         const now = Date.now();
         const next = { ...visits };
@@ -22923,7 +23197,7 @@ function AtlasApp() {
        из нескольких — маршрут по поездке на страну */
     /* веер «лучами» (42.86): каждое направление в каждый год — своя поездка-маршрут (fan.id, k, годы) */
     const saveFan = (res) => {
-        var _e, _h;
+        var _e, _j;
         const { r, who, left, photos = [], owner = {} } = res;
         const sp = res.sp || undefined;
         const meId = ((_e = profileRef.current) === null || _e === void 0 ? void 0 : _e.deviceId) || ME;
@@ -22939,7 +23213,7 @@ function AtlasApp() {
         Object.entries(visits).forEach(([a3, arr]) => (arr || []).forEach((t) => { var _e; return ((_e = t.fan) === null || _e === void 0 ? void 0 : _e.id) === fanId && old.set(t.id, a3); }));
         if (!r.fanId && res.orig) {
             const o = (visits[res.orig.a3] || []).find((t) => t.id === res.orig.id);
-            if ((_h = o === null || o === void 0 ? void 0 : o.route) === null || _h === void 0 ? void 0 : _h.id)
+            if ((_j = o === null || o === void 0 ? void 0 : o.route) === null || _j === void 0 ? void 0 : _j.id)
                 Object.entries(visits).forEach(([a3, arr]) => (arr || []).forEach((t) => { var _e; return ((_e = t.route) === null || _e === void 0 ? void 0 : _e.id) === o.route.id && old.set(t.id, a3); }));
             else
                 old.set(res.orig.id, res.orig.a3);
@@ -23422,7 +23696,7 @@ function AtlasApp() {
     useEffect(() => {
         if (typeof navigator === "undefined" || !navigator.serviceWorker)
             return;
-        const on = (e) => { var _e, _h; return ((_e = e.data) === null || _e === void 0 ? void 0 : _e.type) === "atlas-open-trip" && ((_h = openTripRef.current) === null || _h === void 0 ? void 0 : _h.call(openTripRef, e.data.a3, e.data.id)); };
+        const on = (e) => { var _e, _j; return ((_e = e.data) === null || _e === void 0 ? void 0 : _e.type) === "atlas-open-trip" && ((_j = openTripRef.current) === null || _j === void 0 ? void 0 : _j.call(openTripRef, e.data.a3, e.data.id)); };
         navigator.serviceWorker.addEventListener("message", on);
         return () => navigator.serviceWorker.removeEventListener("message", on);
     }, []);
@@ -23632,7 +23906,7 @@ function AtlasApp() {
     /* 43.39: во весь экран (карта из точек) — мини-карточка выбранного в стиле строк лент: флаг, название, подпись,
        число поездок; ✕ снимает выбор — карта возвращается к миру (и сбрасывает увеличение) */
     const dotFullCard = (() => {
-        var _e, _h;
+        var _e, _j;
         if (mapView !== "map")
             return null;
         const close = (React.createElement("button", { className: "icon-btn fc-ico dfu-x", onClick: () => {
@@ -23656,7 +23930,7 @@ function AtlasApp() {
             return null;
         const trips = (visits[selected] || []).filter((t) => !t.plan);
         const rn = selRegion ? ((_e = regionByKey(selRegion)) === null || _e === void 0 ? void 0 : _e.properties.n) || selRegion.split("|")[1] : "";
-        const n = rn ? ((_h = regInfo === null || regInfo === void 0 ? void 0 : regInfo.count) === null || _h === void 0 ? void 0 : _h.get(selRegion)) || 0 : trips.length;
+        const n = rn ? ((_j = regInfo === null || regInfo === void 0 ? void 0 : regInfo.count) === null || _j === void 0 ? void 0 : _j.get(selRegion)) || 0 : trips.length;
         const cities = [...new Set(trips.flatMap((t) => t.cities || []))];
         const sub = rn ? c.name : cities.length ? cities.slice(0, 4).join(", ") : "ещё не были";
         return (React.createElement("div", { className: "ww-row fc-row dfu-row" },
@@ -23981,7 +24255,7 @@ function AtlasApp() {
                             }, open: sheet === "settings", onClose: () => setSheet("profile"), box: box, theme: theme, onTheme: setTheme, quality: photoQuality, onQuality: (v) => {
                                 setPhotoQuality(v);
                                 setSheet("photomode");
-                            }, cityPins: cityPins, onToggleCityPins: setCityPins, spinStart: spinStart, onToggleSpin: setSpinStart, mapView: mapView, onMapView: setMapView, night: night, onToggleNight: setNight, notify: !!settings.notify, notifyState: notifyState, fxShow: settings.fxShow !== false, onFxShow: (v) => putSettings({ fxShow: v }), occasions: settings.occasions, onOccasions: (list) => putSettings({ occasions: list, occV: OCC_V }), onToggleNotify: toggleNotify, geoCount: ((_h = geo === null || geo === void 0 ? void 0 : geo.features) === null || _h === void 0 ? void 0 : _h.length) || 0, onReloadGeo: reloadGeo, offline: booksSaved, busy: booksBusy, progress: booksProgress, offlineAt: booksAt, onToggleOffline: () => (booksSaved ? dropBooks() : keepBooks()), booksSize: booksSize, booksCounts: {
+                            }, cityPins: cityPins, onToggleCityPins: setCityPins, spinStart: spinStart, onToggleSpin: setSpinStart, mapView: mapView, onMapView: setMapView, night: night, onToggleNight: setNight, notify: !!settings.notify, notifyState: notifyState, fxShow: settings.fxShow !== false, onFxShow: (v) => putSettings({ fxShow: v }), occasions: settings.occasions, onOccasions: (list) => putSettings({ occasions: list, occV: OCC_V }), onToggleNotify: toggleNotify, geoCount: ((_j = geo === null || geo === void 0 ? void 0 : geo.features) === null || _j === void 0 ? void 0 : _j.length) || 0, onReloadGeo: reloadGeo, offline: booksSaved, busy: booksBusy, progress: booksProgress, offlineAt: booksAt, onToggleOffline: () => (booksSaved ? dropBooks() : keepBooks()), booksSize: booksSize, booksCounts: {
                                 cities: CITIES.length,
                                 hotels: Object.values(HOTELS_BY_CITY).reduce((n, v) => n + v.length, 0),
                                 sights: SIGHTS.length,
@@ -24065,7 +24339,7 @@ function AtlasApp() {
                                 setRoutesFind(false);
                                 collectRoute(c);
                             }, onDismiss: (c) => dismissRoute(c.key) }),
-                        React.createElement(JourneySheet, { open: !!routeEdit, onClose: () => setRouteEdit(null), box: box, initial: routeEdit ? { route: routeEdit.route, src: routeEdit.src || [], key: "r:" + (((_j = routeEdit.route) === null || _j === void 0 ? void 0 : _j.id) || "") } : null, visits: visits, homePt: homePt, onSave: saveJourney, mode: "collect", quality: photoQuality, since: profile.since, people: profile.people || [], meId: profile.deviceId || ME, family: profile.family || null, occasions: settings.occasions, onAddOccasion: addOccasion, fxShow: settings.fxShow !== false }),
+                        React.createElement(JourneySheet, { open: !!routeEdit, onClose: () => setRouteEdit(null), box: box, initial: routeEdit ? { route: routeEdit.route, src: routeEdit.src || [], key: "r:" + (((_k = routeEdit.route) === null || _k === void 0 ? void 0 : _k.id) || "") } : null, visits: visits, homePt: homePt, onSave: saveJourney, mode: "collect", quality: photoQuality, since: profile.since, people: profile.people || [], meId: profile.deviceId || ME, family: profile.family || null, occasions: settings.occasions, onAddOccasion: addOccasion, fxShow: settings.fxShow !== false }),
                         undo && (React.createElement("div", { className: "undo-toast", style: box ? { left: box.left + 14, width: box.width - 28 } : undefined },
                             React.createElement("span", { className: "undo-ring" }),
                             React.createElement("b", null, undo.text),
@@ -24203,7 +24477,7 @@ function AtlasApp() {
                                 applySync(sync.data, picks);
                                 setSync(null);
                             } })),
-                        who && !sync && !near && (React.createElement(WhoSheet, { key: ((_k = who.data) === null || _k === void 0 ? void 0 : _k.at) || who.from || "who", ask: who, people: (profile === null || profile === void 0 ? void 0 : profile.people) || [], myName: ((profile === null || profile === void 0 ? void 0 : profile.name) || "").trim(), box: box, onDone: whoDone, onCancel: whoCancel })),
+                        who && !sync && !near && (React.createElement(WhoSheet, { key: ((_l = who.data) === null || _l === void 0 ? void 0 : _l.at) || who.from || "who", ask: who, people: (profile === null || profile === void 0 ? void 0 : profile.people) || [], myName: ((profile === null || profile === void 0 ? void 0 : profile.name) || "").trim(), box: box, onDone: whoDone, onCancel: whoCancel })),
                         React.createElement(Ask, { ask: ask, onClose: () => setAsk(null), box: box }),
                         React.createElement("nav", { className: "tabbar" },
                             React.createElement("button", { className: "tab" + (activeTab === "map" ? " on" : ""), onClick: () => goTab("map", null) },
