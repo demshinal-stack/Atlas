@@ -2987,7 +2987,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "43.46";
+const APP_VERSION = "43.47";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -5044,6 +5044,8 @@ function Globe({ children = null, geo, isOn, onPick, selected, full, onToggleFul
         };
         if (canvasRef.current)
             canvasRef.current.__proj = proj; // для проверок: куда нажать
+        if (canvasRef.current)
+            canvasRef.current.__flyN = () => fly.current.list.length; // для проверок: сколько самолётов в небе
         const { isOn: on, selected: sel, geo: gFull, marks: mk, light: lt, full: fs, } = state.current;
         // 43.24: пока шар не увеличен, рисуем границы без невидимых подробностей (упрощение 0,08° —
         // меньше половины точки экрана); при увеличении — полные подробные границы 1:50 млн
@@ -6373,9 +6375,12 @@ function Globe({ children = null, geo, isOn, onPick, selected, full, onToggleFul
             return;
         let raf3 = 0;
         const step = () => {
-            launchFlights(fly.current, state.current.flights, rot.current, playRef.current ? spinStep || 0.7 : 0);
-            if (fly.current.list.length)
-                drawRef.current();
+            // над шаром поднята страна — самолёты ждут, шар не перерисовывается
+            if (!(canvasRef.current && canvasRef.current.__still)) {
+                launchFlights(fly.current, state.current.flights, rot.current, playRef.current ? spinStep || 0.7 : 0);
+                if (fly.current.list.length)
+                    drawRef.current();
+            }
             raf3 = requestAnimationFrame(step);
         };
         raf3 = requestAnimationFrame(step);
@@ -6677,6 +6682,7 @@ function Globe({ children = null, geo, isOn, onPick, selected, full, onToggleFul
             controls));
     return (React.createElement("div", { className: "map-wrap", ref: wrapRef },
         stage,
+        !isMap && children,
         pager,
         controls));
 }
@@ -9150,7 +9156,7 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
 const GL_LIFT = 1800; // мс
 const GL_WAIT = 1500; // после выбора — пока шар поворачивается к стране и мигает
 const glEase = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
-function GlobeLift({ geo, selected, selRegion, isOn, regions, onPick, cities, light }) {
+function GlobeLift({ geo, selected, selRegion, isOn, regions, onPick, cities, light, compact = false }) {
     const cvRef = useRef(null);
     const st = useRef({ cur: null, anim: null, raf: 0, timer: 0 });
     const props = useRef({});
@@ -9201,10 +9207,13 @@ function GlobeLift({ geo, selected, selRegion, isOn, regions, onPick, cities, li
             return null;
         // сверху — место под вырез камеры, снизу — под кнопки; горизонтально полосы уже. Север — всегда вверху
         const wide = W > H;
-        const pad = wide ? [Math.max(24, H * 0.08), 70, Math.max(30, H * 0.1), 70] : [Math.max(70, H * 0.1), 22, Math.max(110, H * 0.14), 22];
+        // 43.47: в окне глобуса на главном экране — свои поля: всё внутри окна, снизу справа — кнопки
+        const pad = compact
+            ? [Math.max(20, H * 0.06), Math.max(24, W * 0.06), Math.max(50, H * 0.1), Math.max(24, W * 0.06)]
+            : wide ? [Math.max(24, H * 0.08), 70, Math.max(30, H * 0.1), 70] : [Math.max(70, H * 0.1), 22, Math.max(110, H * 0.14), 22];
         const proj = dotProjFor(target, W, H, pad, [], undefined, false);
         return { a3, key: key || null, cf, regs, target, proj };
-    }, [geo, W, H]);
+    }, [geo, W, H, compact]);
     const draw = useCallback(() => {
         const cv = cvRef.current;
         const S = st.current;
@@ -23397,6 +23406,14 @@ function AtlasApp() {
         };
     }, []);
     const colW = vw ? Math.floor(vw) : null;
+    // 43.47: телефон лежит горизонтально — на главном глобусе дуги с самолётами и подъём страны, как во весь экран
+    const [land, setLand] = useState(() => window.matchMedia("(orientation: landscape)").matches);
+    useEffect(() => {
+        const mq = window.matchMedia("(orientation: landscape)");
+        const on = () => setLand(mq.matches);
+        mq.addEventListener("change", on);
+        return () => mq.removeEventListener("change", on);
+    }, []);
     const shell = colW
         ? { width: colW, maxWidth: colW, left: 0, marginLeft: 0 }
         : undefined;
@@ -24866,7 +24883,7 @@ function AtlasApp() {
                                     setSelRegion(null);
                                     setSpinning(false);
                                 }
-                            }, selected: selected, full: false, blinkOnly: true, glow: selGlow, pins: selPins, onToggleFull: () => setFull(true), visitKey: visitKey, home: lastTrip, marks: marks, regions: regionsOn, selRegion: selRegion, lookAt: seaLook || (cardLook && (!regLook || !selRegion) ? cardLook : regLook), light: light, playing: spinning, setPlaying: (v) => {
+                            }, selected: selected, full: false, flights: land && !full ? (selected ? flights.filter((r) => r.a3 === selected) : flights) : undefined, flying: land && !full, blinkOnly: true, glow: selGlow, pins: selPins, onToggleFull: () => setFull(true), visitKey: visitKey, home: lastTrip, marks: marks, regions: regionsOn, selRegion: selRegion, lookAt: seaLook || (cardLook && (!regLook || !selRegion) ? cardLook : regLook), light: light, playing: spinning, setPlaying: (v) => {
                                 // 43.17: плей = «все страны»: снимаем выбор, глобус едет в базовую точку и крутится
                                 // выбрана страна или море — ▶ всегда «все страны и крутить», а не «стоп»
                                 const on = (selected || selSea) && v !== false ? true : typeof v === "function" ? v(spinning) : v;
@@ -24876,7 +24893,12 @@ function AtlasApp() {
                                     setSelSea(null);
                                 }
                                 setSpinning(on);
-                            }, view: mapView, page: mapPage, setPage: setMapPage, isWish: isWish })),
+                            }, view: mapView, page: mapPage, setPage: setMapPage, isWish: isWish }, land && !full && (React.createElement(GlobeLift, { compact: true, geo: geo, selected: selected, selRegion: selRegion, isOn: isOn, regions: regionsOn, cities: dotCities, light: light, onPick: (a3, x) => {
+                                setSpinning(false);
+                                setSelected(a3 && BY_A3[a3] ? a3 : null);
+                                setSelRegion((x === null || x === void 0 ? void 0 : x.region) || null);
+                                setSelSea(null);
+                            } })))),
                         full && mapView === "map" && (React.createElement(DotMap, { full: true, geo: geo, isOn: isOn, isWish: isWish, onPick: (a3, x) => {
                                 setSelected(BY_A3[a3] ? a3 : null);
                                 setSelRegion((x === null || x === void 0 ? void 0 : x.region) || null);
@@ -27557,7 +27579,9 @@ button, input, select, textarea{font-family:inherit;}
 .gl-lift{position:absolute; left:0; top:0; width:100%; height:100%; z-index:3; pointer-events:none;}
 .gl-lift.on{pointer-events:auto;}
 .globe-full .globe-controls{z-index:4;}
-.globe-full canvas.globe{transform-origin:50% 50%;}
+.globe-full canvas.globe, .map-wrap canvas.globe{transform-origin:50% 50%;}
+/* 43.47: подъём страны в окне глобуса на главном экране — кнопки окна над слоем подъёма */
+.col-map > .map-wrap > .globe-controls{z-index:4;}
 `;
 const __b = document.getElementById('boot');
 if (__b)
