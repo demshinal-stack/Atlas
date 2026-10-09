@@ -2987,7 +2987,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "43.44";
+const APP_VERSION = "43.45";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -4851,7 +4851,7 @@ function featSphere(f) {
     FEAT_SPHERE.set(f, sp);
     return sp;
 }
-function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home, marks, light, playing, setPlaying, view, page: pageProp, setPage, isWish, arcs, noFull, fitBox, onArcPick, spinStep, glow, lookAt, pins, dashSel, flights, flying, fitK = 1, regions, selRegion, noPlay = false, blinkOnly = false, tags = null, sea = null, onSea = null }) {
+function Globe({ children = null, geo, isOn, onPick, selected, full, onToggleFull, visitKey, home, marks, light, playing, setPlaying, view, page: pageProp, setPage, isWish, arcs, noFull, fitBox, onArcPick, spinStep, glow, lookAt, pins, dashSel, flights, flying, fitK = 1, regions, selRegion, noPlay = false, blinkOnly = false, tags = null, sea = null, onSea = null }) {
     const fitKRef = useRef(fitK);
     fitKRef.current = fitK;
     const wrapRef = useRef(null);
@@ -6665,6 +6665,7 @@ function Globe({ geo, isOn, onPick, selected, full, onToggleFull, visitKey, home
         return (React.createElement("div", { className: "globe-full", ref: wrapRef },
             !isMap && React.createElement(SpaceBackdrop, { light: !!light, moving: !!playing }),
             stage,
+            !isMap && children,
             pager,
             controls));
     return (React.createElement("div", { className: "map-wrap", ref: wrapRef },
@@ -9132,6 +9133,433 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
     return (React.createElement("div", { className: "map-wrap dot-map" },
         stage,
         controls));
+}
+/* Атлас · 12d · 43.45: глобус во весь экран — выбранная страна поднимается над шаром и разворачивается в плоскую
+   карту (как на карте из точек, но цветами глобуса); регион — так же над поднятой страной.
+   Слой поверх шара (canvas.gl-lift в .globe-full): шар под ним отступает (CSS: уменьшение, размытие, затемнение).
+   Шаги: 1) страна отрывается от поверхности шара (на шаре — тень); 2) растёт к середине и расправляется из
+   ортографической проекции шара в коническую (dotProjFor) — каждая точка контура по прямой между ними.
+   Касание: регион — поднять регион, мимо страны — снять выбор; в регионе — касание где угодно → к стране. */
+const GL_LIFT = 1800; // мс
+const GL_WAIT = 1500; // после выбора — пока шар поворачивается к стране и мигает
+const glEase = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+function GlobeLift({ geo, selected, selRegion, isOn, regions, onPick, cities, light }) {
+    const cvRef = useRef(null);
+    const st = useRef({ cur: null, anim: null, raf: 0, timer: 0 });
+    const props = useRef({});
+    props.current = { selected, selRegion, isOn, regions, onPick, cities, light };
+    const [active, setActive] = useState(false);
+    const [box, setBox] = useState({ W: 0, H: 0 });
+    useEffect(() => {
+        var _e;
+        const el = (_e = cvRef.current) === null || _e === void 0 ? void 0 : _e.parentElement;
+        if (!el)
+            return;
+        const upd = () => setBox((b) => (b.W === el.clientWidth && b.H === el.clientHeight ? b : { W: el.clientWidth, H: el.clientHeight }));
+        upd();
+        const ro = new ResizeObserver(upd);
+        ro.observe(el);
+        return () => ro.disconnect();
+    }, []);
+    const { W, H } = box;
+    const globeEls = () => {
+        var _e;
+        const wrap = (_e = cvRef.current) === null || _e === void 0 ? void 0 : _e.parentElement;
+        return {
+            gcv: wrap ? wrap.querySelector("canvas.globe") : null,
+            space: wrap ? wrap.querySelector("canvas.space-bg") : null,
+        };
+    };
+    const setBack = (a) => {
+        const { gcv, space } = globeEls();
+        if (gcv) {
+            gcv.style.transition = "none";
+            gcv.style.filter = a > 0.001 ? `blur(${(3.5 * a).toFixed(2)}px) brightness(${(1 - 0.5 * a).toFixed(3)})` : "";
+            gcv.style.transform = a > 0.001 ? `scale(${(1 - 0.12 * a).toFixed(3)})` : "";
+        }
+        if (space)
+            space.style.filter = a > 0.001 ? `brightness(${(1 - 0.4 * a).toFixed(3)})` : "";
+    };
+    /* вид: что поднято (страна или регион) — проекция в покое и что рисовать */
+    const makeView = useCallback((a3, key) => {
+        if (!geo || !W || !H)
+            return null;
+        const cf = geo.features.find((f) => f.id === a3);
+        if (!cf)
+            return null;
+        const regs = REG.ready ? REG.feats.filter((f) => f.properties.a3 === a3) : [];
+        const target = key ? regs.find((f) => f.properties.key === key) : cf;
+        if (!target)
+            return null;
+        // сверху — место под вырез камеры, снизу — под кнопки; горизонтально полосы уже. Север — всегда вверху
+        const wide = W > H;
+        const pad = wide ? [Math.max(24, H * 0.08), 70, Math.max(30, H * 0.1), 70] : [Math.max(70, H * 0.1), 22, Math.max(110, H * 0.14), 22];
+        const proj = dotProjFor(target, W, H, pad, [], undefined, false);
+        return { a3, key: key || null, cf, regs, target, proj };
+    }, [geo, W, H]);
+    const draw = useCallback(() => {
+        const cv = cvRef.current;
+        const S = st.current;
+        if (!cv || !W || !H)
+            return false;
+        const dpr = Math.min(2, window.devicePixelRatio || 1);
+        if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) {
+            cv.width = Math.round(W * dpr);
+            cv.height = Math.round(H * dpr);
+        }
+        const ctx = cv.getContext("2d");
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.clearRect(0, 0, W, H);
+        const P = props.current;
+        const lt = !!P.light;
+        const A = S.anim;
+        let more = false;
+        let t = 1;
+        if (A) {
+            // window.__glP — кадр подъёма для проверок
+            const p = window.__glP != null ? window.__glP : Math.min(1, (performance.now() - A.t0) / GL_LIFT);
+            t = A.up ? p : 1 - p;
+            if (p >= 1) {
+                S.anim = null;
+                if (!A.up) {
+                    S.cur = A.back || null;
+                    if (!S.cur) {
+                        setBack(0);
+                        setActive(false);
+                    }
+                    A.done && A.done();
+                    return S.cur ? draw() : false;
+                }
+                A.done && A.done();
+            }
+            else
+                more = true;
+        }
+        const top = A ? A.v : S.cur;
+        if (!top)
+            return more;
+        const e1 = glEase(t / 0.3);
+        const e2 = glEase((t - 0.3) / 0.7);
+        // что под поднятым: под страной — шар (отступает), под регионом — его страна, приглушённая, с дырой
+        const base = top.key ? (A === null || A === void 0 ? void 0 : A.base) || S.base : null;
+        if (!top.key)
+            setBack(Math.max(e1 * 0.45, e2));
+        // откуда поднимается: страна — с поверхности шара, регион — с поднятой страны
+        let pStart;
+        let gproj = null;
+        let gx = 0;
+        let gy = 0;
+        if (!top.key) {
+            const { gcv } = globeEls();
+            gproj = gcv && gcv.__proj;
+            if (!gproj)
+                return more;
+            const gr = gcv.getBoundingClientRect();
+            const wr = cv.getBoundingClientRect();
+            gx = gr.left - wr.left;
+            gy = gr.top - wr.top;
+            const C = gproj.translate();
+            const lift = 1 + 0.07 * e1;
+            pStart = (pt) => {
+                const q = gproj(pt);
+                return q ? [gx + C[0] + (q[0] - C[0]) * lift, gy + C[1] + (q[1] - C[1]) * lift - 10 * e1] : null;
+            };
+        }
+        else {
+            const bp = base.proj;
+            pStart = (pt) => {
+                const q = bp(pt);
+                return q ? [q[0], q[1] - 8 * e1] : null;
+            };
+        }
+        const pEnd = top.proj;
+        const M = (pt) => {
+            const a = pStart(pt);
+            const b = pEnd(pt);
+            if (!a || !b)
+                return null;
+            return [a[0] + (b[0] - a[0]) * e2, a[1] + (b[1] - a[1]) * e2];
+        };
+        const still = !A;
+        const geomOf = (f) => (still || top.key ? regHD(f).geometry : f.geometry);
+        const ring = (geom, fn, path) => {
+            const ps = geom.type === "MultiPolygon" ? geom.coordinates : [geom.coordinates];
+            ps.forEach((poly) => poly.forEach((r) => {
+                let first = true;
+                for (let i = 0; i < r.length; i++) {
+                    const q = fn(r[i]);
+                    if (!q) {
+                        first = true;
+                        continue;
+                    }
+                    if (first) {
+                        path.moveTo(q[0], q[1]);
+                        first = false;
+                    }
+                    else
+                        path.lineTo(q[0], q[1]);
+                }
+                path.closePath();
+            }));
+            return path;
+        };
+        const visitedC = P.isOn && P.isOn(top.a3);
+        const CREAM = lt ? "#efe2bd" : "#e6dcc0";
+        const GOLD = lt ? "#e2ab3a" : "#e9b84c";
+        const LAND = lt ? "#9fb6cc" : "#6f8fae";
+        const fillOf = (f) => {
+            var _e, _j;
+            const k = (_e = f.properties) === null || _e === void 0 ? void 0 : _e.key;
+            if (k && ((_j = P.regions) === null || _j === void 0 ? void 0 : _j.has(k)))
+                return GOLD;
+            return visitedC ? CREAM : LAND;
+        };
+        // регион: под ним — страна в покое, приглушённая, на месте региона — пусто
+        if (base) {
+            ctx.save();
+            ctx.globalAlpha = 1 - 0.55 * Math.max(e1 * 0.5, e2);
+            ctx.filter = `blur(${(2.5 * e2).toFixed(2)}px)`;
+            const bps = base.regs.length ? base.regs : [base.cf];
+            bps.forEach((f) => {
+                var _e;
+                if (((_e = f.properties) === null || _e === void 0 ? void 0 : _e.key) === top.key)
+                    return;
+                ctx.fillStyle = fillOf(f);
+                ctx.fill(ring(regHD(f).geometry, base.proj, new Path2D()));
+            });
+            ctx.restore();
+        }
+        // тень на поверхности (там, откуда поднялось) — гаснет, когда шар/страна отступают
+        const src = top.key ? top.target : dotMain(top.cf);
+        const shadowAt = top.key
+            ? (pt) => base.proj(pt)
+            : (pt) => {
+                const q = gproj(pt);
+                return q ? [gx + q[0], gy + q[1] + 6] : null;
+            };
+        if (e1 > 0 && e2 < 1) {
+            ctx.save();
+            ctx.filter = `blur(${(6 + 10 * e1).toFixed(1)}px)`;
+            ctx.fillStyle = `rgba(0,0,0,${(0.6 * e1 * (1 - e2)).toFixed(3)})`;
+            ctx.fill(ring(src.geometry, shadowAt, new Path2D()));
+            ctx.restore();
+        }
+        // тень под парящей страной — на то, что под ней
+        if (e2 > 0) {
+            ctx.save();
+            ctx.filter = "blur(16px)";
+            ctx.fillStyle = `rgba(0,0,0,${(0.65 * e2).toFixed(3)})`;
+            ctx.fill(ring(src.geometry, (pt) => {
+                const q = M(pt);
+                return q && [W / 2 + (q[0] - W / 2) * 0.93, H / 2 + (q[1] - H / 2) * 0.9 + 26 * e2];
+            }, new Path2D()));
+            ctx.restore();
+        }
+        // сама страна (регион): заливка цветами глобуса по регионам, лёгкий свет, границы, светлый край
+        const parts = top.key ? [top.target] : top.regs.length ? top.regs : [top.cf];
+        const body = new Path2D();
+        parts.forEach((f) => {
+            var _e;
+            const p = ring(geomOf(f), M, new Path2D());
+            body.addPath(p);
+            ctx.fillStyle = top.key ? (((_e = P.regions) === null || _e === void 0 ? void 0 : _e.has(top.key)) ? GOLD : visitedC ? CREAM : LAND) : fillOf(f);
+            ctx.fill(p);
+        });
+        ctx.save();
+        ctx.clip(body);
+        const g = ctx.createLinearGradient(0, H * 0.15, W, H * 0.85);
+        g.addColorStop(0, `rgba(255,255,255,${(0.22 * e2).toFixed(3)})`);
+        g.addColorStop(0.5, "rgba(255,255,255,0)");
+        g.addColorStop(1, `rgba(0,10,30,${(0.28 * e2).toFixed(3)})`);
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, W, H);
+        ctx.restore();
+        if (!top.key && top.regs.length) {
+            const rp = new Path2D();
+            top.regs.forEach((f) => ring(geomOf(f), M, rp));
+            ctx.strokeStyle = lt ? "rgba(70,90,120,.45)" : "rgba(90,110,140,.55)";
+            ctx.lineWidth = 0.8;
+            ctx.stroke(rp);
+        }
+        ctx.save();
+        ctx.shadowColor = "rgba(255,240,200,.6)";
+        ctx.shadowBlur = 8;
+        ctx.strokeStyle = "rgba(255,244,214,.9)";
+        ctx.lineWidth = 1.2;
+        ctx.stroke(body);
+        ctx.restore();
+        // города поездок — белые жемчужины (в регионе — только его)
+        if (e2 > 0.5) {
+            ctx.globalAlpha = Math.min(1, (e2 - 0.5) * 2);
+            (P.cities || []).forEach((ct) => {
+                if (ct.a3 !== top.a3)
+                    return;
+                if (top.key && !d3.geoContains(regHD(top.target), [ct.lon, ct.lat]))
+                    return;
+                const q = M([ct.lon, ct.lat]);
+                if (!q)
+                    return;
+                const r = 4.2;
+                ctx.save();
+                ctx.filter = "blur(2px)";
+                ctx.fillStyle = "rgba(0,0,0,.6)";
+                ctx.beginPath();
+                ctx.arc(q[0] + 2, q[1] + 3, r, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+                ctx.drawImage(dotBall("pearl", Math.round(r * dpr * 2) / 2), q[0] - r, q[1] - r - 2, r * 2, r * 2);
+            });
+            ctx.globalAlpha = 1;
+        }
+        top.hit = { body, parts: parts.map((f) => [f, ring(geomOf(f), M, new Path2D())]) };
+        return more;
+    }, [W, H]);
+    const kick = useCallback(() => {
+        const S = st.current;
+        if (S.raf)
+            return;
+        const loop = () => {
+            S.raf = 0;
+            if (draw())
+                S.raf = requestAnimationFrame(loop);
+        };
+        S.raf = requestAnimationFrame(loop);
+    }, [draw]);
+    const lift = useCallback((v, base, done) => {
+        const S = st.current;
+        S.anim = { up: true, v, base, t0: performance.now(), done };
+        if (base)
+            S.base = base;
+        setActive(true);
+        kick();
+    }, [kick]);
+    const drop = useCallback((done) => {
+        const S = st.current;
+        const v = S.cur;
+        if (!v)
+            return done && done();
+        const back = v.key ? S.base : null;
+        S.anim = { up: false, v, base: v.key ? S.base : null, back, t0: performance.now(), done };
+        S.cur = null;
+        kick();
+    }, [kick]);
+    /* выбор страны/региона → подъём; снятие → опускание */
+    useEffect(() => {
+        const S = st.current;
+        clearTimeout(S.timer);
+        if (!W || !H)
+            return;
+        const a3 = selected && (geo === null || geo === void 0 ? void 0 : geo.features.some((f) => f.id === selected)) ? selected : null;
+        const key = a3 && selRegion ? selRegion : null;
+        if (a3 && typeof loadRegionsHD === "function")
+            loadRegionsHD(a3);
+        const finishUp = (v) => () => {
+            S.cur = v;
+            kick();
+        };
+        // идёт анимация — досрочно в её конечное состояние
+        if (S.anim) {
+            S.cur = S.anim.up ? S.anim.v : S.anim.back || null;
+            if (S.anim.up && S.anim.base)
+                S.base = S.anim.base;
+            S.anim = null;
+        }
+        const cur = S.cur;
+        if (!a3) {
+            if (cur && cur.key)
+                drop(() => drop());
+            else if (cur)
+                drop();
+            else {
+                setBack(0);
+                setActive(false);
+                kick();
+            }
+            return;
+        }
+        if (cur && cur.a3 === a3) {
+            // та же страна: регион поднять / опустить / сменить
+            if ((cur.key || null) === key)
+                return;
+            const go = () => {
+                if (!key)
+                    return;
+                const base = S.cur && !S.cur.key ? S.cur : makeView(a3);
+                const v = makeView(a3, key);
+                if (v)
+                    lift(v, base, finishUp(v));
+            };
+            if (cur.key)
+                drop(go);
+            else
+                go();
+            return;
+        }
+        // другая страна или ничего: сначала опустить прежнее, потом — после поворота шара — поднять
+        const start = () => {
+            S.timer = setTimeout(() => {
+                const v = makeView(a3);
+                if (!v)
+                    return;
+                lift(v, null, () => {
+                    S.cur = v;
+                    S.base = v;
+                    if (key) {
+                        const rv = makeView(a3, key);
+                        if (rv)
+                            lift(rv, v, finishUp(rv));
+                    }
+                    else
+                        kick();
+                });
+            }, GL_WAIT);
+        };
+        if (cur) {
+            const c = S.cur && S.cur.key ? S.cur : null;
+            drop(() => (c ? drop(start) : start()));
+        }
+        else
+            start();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selected, selRegion, W, H, geo]);
+    // пришли подробные контуры / сменилась тема — перерисовать
+    useEffect(() => {
+        const on = () => kick();
+        window.addEventListener("atlas-reghd", on);
+        return () => window.removeEventListener("atlas-reghd", on);
+    }, [kick]);
+    useEffect(() => kick(), [light, regions, kick]);
+    // уходим из «во весь экран» — шар возвращаем в обычный вид
+    useEffect(() => () => {
+        cancelAnimationFrame(st.current.raf);
+        clearTimeout(st.current.timer);
+        setBack(0);
+    }, 
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []);
+    const onTap = (e) => {
+        var _e;
+        const S = st.current;
+        if (S.anim || !S.cur || !S.cur.hit)
+            return;
+        const r = cvRef.current.getBoundingClientRect();
+        const x = e.clientX - r.left;
+        const y = e.clientY - r.top;
+        const ctx = cvRef.current.getContext("2d");
+        const dpr = Math.min(2, window.devicePixelRatio || 1);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        const P = props.current;
+        const v = S.cur;
+        if (v.key)
+            return P.onPick && P.onPick(v.a3);
+        const hit = v.hit.parts.find(([, p]) => ctx.isPointInPath(p, x, y));
+        if (!hit)
+            return P.onPick && P.onPick(null);
+        const k = (_e = hit[0].properties) === null || _e === void 0 ? void 0 : _e.key;
+        if (k)
+            P.onPick && P.onPick(v.a3, { region: k });
+    };
+    return React.createElement("canvas", { ref: cvRef, className: "gl-lift" + (active ? " on" : ""), onClick: onTap });
 }
 /* Атлас · 13 · код входа, шторка, снимки, поля ввода, выбор даты.
    Части собираются по номерам в один файл (tools/rebuild.sh) и видят друг друга напрямую. */
@@ -24436,7 +24864,12 @@ function AtlasApp() {
                                     setSelRegion(null);
                                     setSelSea(null);
                                 }
-                            }, spinStep: 0.4, view: mapView, page: mapPage, setPage: setMapPage, isWish: isWish }))),
+                            }, spinStep: 0.4, view: mapView, page: mapPage, setPage: setMapPage, isWish: isWish },
+                            React.createElement(GlobeLift, { geo: geo, selected: selected, selRegion: selRegion, isOn: isOn, regions: regionsOn, cities: dotCities, light: light, onPick: (a3, x) => {
+                                    setSelected(BY_A3[a3] ? a3 : null);
+                                    setSelRegion((x === null || x === void 0 ? void 0 : x.region) || null);
+                                    setSelSea(null);
+                                } })))),
                     React.createElement("div", { className: "col-side" },
                         overdue.length > 0 && (React.createElement("div", { className: "due" },
                             React.createElement("b", { className: "due-title" }, overdue.length === 1
@@ -27077,6 +27510,11 @@ button, input, select, textarea{font-family:inherit;}
 .dot-bg{pointer-events:none; opacity:0;}
 /* 43.43 (макет): под картой из шариков — мягкое свечение фона, как на образце */
 .dot-stage{background:radial-gradient(ellipse 70% 60% at 50% 45%, rgba(46,70,110,.45), rgba(46,70,110,0) 72%);}
+/* 43.45: глобус во весь экран — слой поднятой страны поверх шара */
+.gl-lift{position:absolute; left:0; top:0; width:100%; height:100%; z-index:3; pointer-events:none;}
+.gl-lift.on{pointer-events:auto;}
+.globe-full .globe-controls{z-index:4;}
+.globe-full canvas.globe{transform-origin:50% 50%;}
 `;
 const __b = document.getElementById('boot');
 if (__b)
