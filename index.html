@@ -3004,7 +3004,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "43.59";
+const APP_VERSION = "43.60";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -27085,8 +27085,10 @@ body > div{max-width:100%;}
 @media (orientation:landscape) and (max-height:600px){
   :root{--tabh:0px; --rail:66px;}
 
-  .root{padding:calc(8px + env(safe-area-inset-top)) 12px 10px
-        calc(var(--rail) + max(10px, env(safe-area-inset-left)));}
+  /* 43.60: слева — рельс меню (вместе с вырезом камеры) и ещё 12 px воздуха; раньше при вырезе слева отступ
+     был ровно по краю рельса, и окно глобуса прилипало к меню */
+  .root{padding:calc(8px + env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) 10px
+        calc(var(--rail) + env(safe-area-inset-left) + 12px);}
 
   .tabbar{flex-direction:column; justify-content:space-evenly; gap:0;
     width:calc(var(--rail) + env(safe-area-inset-left)); height:100%;
@@ -28059,7 +28061,7 @@ button, input, select, textarea{font-family:inherit;}
    в две строки: флаг (герб) и название, под названием — число поездок; у выбранной страны кнопки — второй строкой.
    Глобус, шторки вкладок и вертикальный вид не меняются */
 @media (orientation:landscape) and (max-height:600px){
-  .cols.dot-main{--side4:calc((100vw - var(--rail) - env(safe-area-inset-left) - env(safe-area-inset-right) - 36px) / 4);}
+  .cols.dot-main{--side4:calc((100vw - var(--rail) - env(safe-area-inset-left) - max(12px, env(safe-area-inset-right)) - 40px) / 4);}
   .cols.dot-main > .col-side{flex:0 0 var(--side4); width:var(--side4);}
   /* 43.55: шапка — число стран, подпись мелко; поиск ниже и мельче */
   .cols.dot-main > .col-side .focus-head .num{font-size:28px;}
