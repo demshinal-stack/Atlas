@@ -3004,7 +3004,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "43.63";
+const APP_VERSION = "43.64";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -6328,9 +6328,15 @@ function Globe({ children = null, geo, isOn, onPick, selected, full, onToggleFul
         while (dLon < -180)
             dLon += 360;
         const dLat = target[1] - from[1];
-        const t0 = Date.now();
+        let t0 = Date.now();
         cancelAnimationFrame(anim.current);
         const step = () => {
+            // 43.64: над шаром опускается страна — доворот ждёт её посадки
+            if (canvasRef.current && canvasRef.current.__hold) {
+                t0 = Date.now();
+                anim.current = requestAnimationFrame(step);
+                return;
+            }
             const p = Math.min(1, (Date.now() - t0) / dur);
             const e = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
             rot.current = [from[0] + dLon * e, from[1] + dLat * e];
@@ -6452,7 +6458,8 @@ function Globe({ children = null, geo, isOn, onPick, selected, full, onToggleFul
                 raf2 = requestAnimationFrame(step);
                 return;
             }
-            const d = playRef.current && !spinBusy.current ? (spinRef.current || 0.7) * k : 0;
+            const held = canvasRef.current && canvasRef.current.__hold; // 43.64: страна над шаром — шар стоит
+            const d = playRef.current && !spinBusy.current && !held ? (spinRef.current || 0.7) * k : 0;
             if (d)
                 rot.current = [rot.current[0] + d, rot.current[1]];
             launchFlights(fly.current, state.current.flights, rot.current, d);
@@ -6513,6 +6520,12 @@ function Globe({ children = null, geo, isOn, onPick, selected, full, onToggleFul
             spinBusy.current = false;
             if (state.current.full)
                 return;
+            // 43.64: над шаром ещё опускается страна — вращение ждёт, пока она сядет на место
+            if (canvasRef.current && canvasRef.current.__hold) {
+                last = 0;
+                playRaf.current = requestAnimationFrame(spin);
+                return;
+            }
             try {
                 const dt = last ? Math.min(100, now - last) : 16.7;
                 last = now;
@@ -6526,7 +6539,35 @@ function Globe({ children = null, geo, isOn, onPick, selected, full, onToggleFul
             playRaf.current = requestAnimationFrame(spin);
         };
         const c = started && home ? BY_A3[home] : null;
-        if (c) {
+        // 43.64: «доезд» в базу начинается только после посадки опускаемой страны (шар до того стоит)
+        const held = () => canvasRef.current && canvasRef.current.__hold;
+        if (c && held()) {
+            spinBusy.current = true;
+            const wait = () => {
+                if (held())
+                    playRaf.current = requestAnimationFrame(wait);
+                else
+                    glideHome();
+            };
+            const glideHome = () => {
+                if (!goHome())
+                    playRaf.current = requestAnimationFrame(spin);
+            };
+            playRaf.current = requestAnimationFrame(wait);
+            return () => {
+                cancelAnimationFrame(playRaf.current);
+                spinBusy.current = false;
+            };
+        }
+        if (c && goHome()) {
+            return () => {
+                cancelAnimationFrame(playRaf.current);
+                spinBusy.current = false;
+            };
+        }
+        playRaf.current = requestAnimationFrame(spin);
+        return () => cancelAnimationFrame(playRaf.current);
+        function goHome() {
             const from = rot.current.slice();
             const to = [-c.lon, Math.max(-35, Math.min(35, -c.lat))];
             let dLon = to[0] - from[0];
@@ -6551,14 +6592,10 @@ function Globe({ children = null, geo, isOn, onPick, selected, full, onToggleFul
                     playRaf.current = requestAnimationFrame(p < 1 ? glide : spin);
                 };
                 playRaf.current = requestAnimationFrame(glide);
-                return () => {
-                    cancelAnimationFrame(playRaf.current);
-                    spinBusy.current = false;
-                };
+                return true;
             }
+            return false;
         }
-        playRaf.current = requestAnimationFrame(spin);
-        return () => cancelAnimationFrame(playRaf.current);
     }, [playing, spinStep]);
     const sens = () => 90 / Math.max(70, (size / 2 - 6) * zoom.current);
     const startDrag = (x, y) => {
@@ -9583,6 +9620,13 @@ function GlobeLift({ geo, selected, selRegion, isOn, regions, onPick, cities, li
             space: wrap ? wrap.querySelector("canvas.space-bg") : null,
         };
     };
+    // 43.64: пока над шаром что-то поднято или опускается — шар не крутится, не доворачивается и не меняет
+    // увеличение (вращение, «доезд» в базу, доворот ждут): иначе страна садится не на своё место
+    const setHold = (h) => {
+        const { gcv } = globeEls();
+        if (gcv)
+            gcv.__hold = !!h;
+    };
     const setBack = (a) => {
         const { gcv, space } = globeEls();
         if (gcv) {
@@ -9645,6 +9689,7 @@ function GlobeLift({ geo, selected, selRegion, isOn, regions, onPick, cities, li
                     if (!S.cur) {
                         setBack(0);
                         setActive(false);
+                        setHold(false);
                     }
                     A.done && A.done();
                     return S.cur ? draw() : false;
@@ -9657,6 +9702,7 @@ function GlobeLift({ geo, selected, selRegion, isOn, regions, onPick, cities, li
         const top = A ? A.v : S.cur;
         if (!top)
             return more;
+        setHold(true);
         const e1 = glEase(t / 0.3);
         const e2 = glEase((t - 0.3) / 0.7);
         // что под поднятым: под страной — шар (отступает), под регионом — его страна, приглушённая, с дырой
@@ -9859,6 +9905,7 @@ function GlobeLift({ geo, selected, selRegion, isOn, regions, onPick, cities, li
     const lift = useCallback((v, base, done) => {
         const S = st.current;
         S.anim = { up: true, v, base, t0: performance.now(), done };
+        setHold(true);
         if (base)
             v.under = base;
         if (base && !base.key)
@@ -9873,6 +9920,7 @@ function GlobeLift({ geo, selected, selRegion, isOn, regions, onPick, cities, li
             return done && done();
         const back = v.key ? v.under || S.base : null;
         S.anim = { up: false, v, base: back, back, t0: performance.now(), done };
+        setHold(true);
         S.cur = null;
         kick();
     }, [kick]);
@@ -9950,6 +9998,7 @@ function GlobeLift({ geo, selected, selRegion, isOn, regions, onPick, cities, li
                 dropAll();
             else {
                 setBack(0);
+                setHold(false);
                 setActive(false);
                 kick();
             }
@@ -10028,6 +10077,7 @@ function GlobeLift({ geo, selected, selRegion, isOn, regions, onPick, cities, li
         cancelAnimationFrame(st.current.raf);
         clearTimeout(st.current.timer);
         setBack(0);
+        setHold(false);
     }, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
     []);
