@@ -3004,7 +3004,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "43.57";
+const APP_VERSION = "43.58";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -7692,6 +7692,8 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
                     col = "gold";
                 else if (rk === view.key && subsV) {
                     const sf = subAtXY(cx, cy);
+                    if (sf && view.holeReg && sf.properties.key === view.holeReg)
+                        return; // поднятая часть — пустота
                     col = !sf || ((_j = P.regions) === null || _j === void 0 ? void 0 : _j.has(sf.properties.key)) ? "gold" : "selD"; // где не были — как непосещённые регионы у страны
                 }
                 else
@@ -8417,6 +8419,8 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
             cv.style.width = W + "px";
             cv.style.height = H + "px";
         }
+        // для проверок: что сейчас поднимается/опускается и с чего
+        cv.__liftInfo = () => (S.lift ? { up: S.lift.up, key: S.lift.L.view.key || S.lift.L.view.a3, from: S.lift.bgL.view.kind + ":" + (S.lift.bgL.view.key || "") } : null);
         const ctx = cv.getContext("2d");
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.clearRect(0, 0, cv.width, cv.height);
@@ -8430,7 +8434,12 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
             ctx.drawImage(L.cv, 0, 0);
         };
         // мир под поднятой страной — на нижнем холсте: CSS-размытие и затемнение (amt 0…1)
-        const bgFor = (v) => (v.kind === "region" ? layer({ kind: "country", a3: v.a3, holeReg: v.key }) : layer({ kind: "world", hole: v.a3 }));
+        // 43.58: под частью региона — сам регион без неё
+        const bgFor = (v) => v.kind === "region" && subParent(v.key)
+            ? layer({ kind: "region", a3: v.a3, key: subParent(v.key), holeReg: v.key })
+            : v.kind === "region"
+                ? layer({ kind: "country", a3: v.a3, holeReg: v.key })
+                : layer({ kind: "world", hole: v.a3 });
         const setBg = (L, amt) => {
             const bg = bgRef.current;
             if (!bg)
@@ -8888,7 +8897,11 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
         return [X[0], Y[0], X[1], Y[1], X[2], Y[2]];
     };
     // 43.44: что под поднятым: под страной — мир без неё, под регионом — его страна без него
-    const liftFrom = (view) => (view.kind === "region" ? layer({ kind: "country", a3: view.a3, holeReg: view.key }) : layer({ kind: "world", hole: view.a3 }));
+    const liftFrom = (view) => view.kind === "region" && subParent(view.key)
+        ? layer({ kind: "region", a3: view.a3, key: subParent(view.key), holeReg: view.key })
+        : view.kind === "region"
+            ? layer({ kind: "country", a3: view.a3, holeReg: view.key })
+            : layer({ kind: "world", hole: view.a3 });
     const liftTo = (view, done) => {
         const S = st.current;
         if (S.fly)
@@ -8896,7 +8909,13 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
         S.fly = null;
         const from = S.cur;
         const L = layer(view);
-        const okFrom = from && (view.kind === "region" ? from.view.kind === "country" && from.view.a3 === view.a3 : from.view.kind === "world");
+        const parK = view.kind === "region" ? subParent(view.key) : null;
+        const okFrom = from &&
+            (parK
+                ? from.view.kind === "region" && from.view.key === parK
+                : view.kind === "region"
+                    ? from.view.kind === "country" && from.view.a3 === view.a3
+                    : from.view.kind === "world");
         if (!okFrom)
             return flyTo(view, done);
         const bgL = view.kind === "region" ? liftFrom(view) : layer({ ...from.view, hole: view.a3 });
@@ -8912,7 +8931,8 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
         const from = S.cur;
         if (!from || from.view.kind === "world")
             return flyTo({ kind: "world" }, done);
-        const to = from.view.kind === "region" ? layer({ kind: "country", a3: from.view.a3 }) : layer({ kind: "world" });
+        const parF = from.view.kind === "region" ? subParent(from.view.key) : null;
+        const to = parF ? layer({ kind: "region", a3: from.view.a3, key: parF }) : from.view.kind === "region" ? layer({ kind: "country", a3: from.view.a3 }) : layer({ kind: "world" });
         const bgL = S.bgL && S.bgL.view.hole === from.view.a3 && !S.bgL.view.zoom && from.view.kind !== "region" ? S.bgL : liftFrom(from.view);
         S.lift = { up: false, L: from, bgL, world: to, M: tiltAff(affIn(bgL, from)), t0: performance.now(), done };
         kick();
@@ -8998,35 +9018,82 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
     }, [visitKey, regions, light, cities]);
     /* регион: вспышка на карте страны → перелёт к региону; снят — обратно к стране */
     const goRegion = (a3, key) => {
-        var _e, _j, _k;
+        var _e;
         const S = st.current;
+        const cur = (_e = S.cur) === null || _e === void 0 ? void 0 : _e.view;
+        const curKey = cur && cur.kind === "region" && cur.a3 === a3 ? cur.key : null;
+        const curPar = curKey ? subParent(curKey) : null;
+        const keyPar = key ? subParent(key) : null;
         if (!key || !regionFeat(key)) {
-            if (((_e = S.cur) === null || _e === void 0 ? void 0 : _e.view.kind) === "region") {
+            // к стране: часть сначала опускается в регион, регион — в страну
+            if (curPar) {
+                setView({ kind: "region", a3, key: curPar });
+                dropTo(() => {
+                    setView({ kind: "country", a3 });
+                    dropTo();
+                });
+            }
+            else if (curKey) {
                 setView({ kind: "country", a3 });
                 dropTo();
             }
             return;
         }
+        if (curKey === key)
+            return kick();
+        // 43.58: часть поднимается прямо с поднятого региона; из части — обратно в регион (он не опускается)
+        if (keyPar && curKey === keyPar) {
+            const v = { kind: "region", a3, key };
+            setView(v);
+            liftTo(v);
+            return;
+        }
+        if (curPar && key === curPar) {
+            setView({ kind: "region", a3, key });
+            dropTo();
+            return;
+        }
+        if (curPar && keyPar === curPar) {
+            // соседняя часть: эта — в регион, следующая — из него
+            setView({ kind: "region", a3, key: curPar });
+            dropTo(() => {
+                const v = { kind: "region", a3, key };
+                setView(v);
+                liftTo(v);
+            });
+            return;
+        }
         const country = { kind: "country", a3 };
+        const regKey = keyPar || key;
         const go = () => {
-            S.flash = { key, t0: performance.now() };
+            S.flash = { key: regKey, t0: performance.now() };
             kick();
             const token = (S.regTok = {});
             setTimeout(() => {
                 if (S.regTok !== token)
                     return;
                 S.flash = null;
-                const v = { kind: "region", a3, key };
+                const v = { kind: "region", a3, key: regKey };
                 setView(v);
-                liftTo(v);
+                // часть — сразу с поднявшегося региона
+                liftTo(v, keyPar
+                    ? () => {
+                        const pv = { kind: "region", a3, key };
+                        setView(pv);
+                        liftTo(pv);
+                    }
+                    : undefined);
             }, DOT_FLASH);
         };
-        // с другого региона — сначала он опускается в страну, там вспышка нового
-        if (((_j = S.cur) === null || _j === void 0 ? void 0 : _j.view.kind) === "country" && S.cur.view.a3 === a3)
+        // с другого региона (или его части) — сначала он опускается в страну, там вспышка нового
+        if ((cur === null || cur === void 0 ? void 0 : cur.kind) === "country" && cur.a3 === a3)
             go();
-        else if (((_k = S.cur) === null || _k === void 0 ? void 0 : _k.view.kind) === "region" && S.cur.view.a3 === a3) {
+        else if (curKey) {
             setView(country);
-            dropTo(go);
+            if (curPar)
+                dropTo(() => dropTo(go));
+            else
+                dropTo(go);
         }
         else {
             setView(country);
@@ -9558,7 +9625,8 @@ function GlobeLift({ geo, selected, selRegion, isOn, regions, onPick, cities, li
         const e1 = glEase(t / 0.3);
         const e2 = glEase((t - 0.3) / 0.7);
         // что под поднятым: под страной — шар (отступает), под регионом — его страна, приглушённая, с дырой
-        const base = top.key ? (A === null || A === void 0 ? void 0 : A.base) || S.base : null;
+        // 43.58: у каждого поднятого — своё «под ним» (under): у региона — страна, у части региона — сам регион
+        const base = top.key ? top.under || (A === null || A === void 0 ? void 0 : A.base) || S.base : null;
         if (!top.key)
             setBack(Math.max(e1 * 0.45, e2));
         // откуда поднимается: страна — с поверхности шара, регион — с поднятой страны
@@ -9636,7 +9704,7 @@ function GlobeLift({ geo, selected, selRegion, isOn, regions, onPick, cities, li
             ctx.save();
             ctx.globalAlpha = 1 - 0.55 * Math.max(e1 * 0.5, e2);
             ctx.filter = `blur(${(2.5 * e2).toFixed(2)}px)`;
-            const bps = base.regs.length ? base.regs : [base.cf];
+            const bps = base.key ? base.subs || [base.target] : base.regs.length ? base.regs : [base.cf];
             bps.forEach((f) => {
                 var _e;
                 if (((_e = f.properties) === null || _e === void 0 ? void 0 : _e.key) === top.key)
@@ -9753,6 +9821,8 @@ function GlobeLift({ geo, selected, selRegion, isOn, regions, onPick, cities, li
         const S = st.current;
         S.anim = { up: true, v, base, t0: performance.now(), done };
         if (base)
+            v.under = base;
+        if (base && !base.key)
             S.base = base;
         setActive(true);
         kick();
@@ -9762,8 +9832,8 @@ function GlobeLift({ geo, selected, selRegion, isOn, regions, onPick, cities, li
         const v = S.cur;
         if (!v)
             return done && done();
-        const back = v.key ? S.base : null;
-        S.anim = { up: false, v, base: v.key ? S.base : null, back, t0: performance.now(), done };
+        const back = v.key ? v.under || S.base : null;
+        S.anim = { up: false, v, base: back, back, t0: performance.now(), done };
         S.cur = null;
         kick();
     }, [kick]);
@@ -9787,10 +9857,25 @@ function GlobeLift({ geo, selected, selRegion, isOn, regions, onPick, cities, li
         }
         if (S.base)
             S.base = makeView(S.base.a3) || S.base;
-        if (S.cur)
-            S.cur = (S.cur.key ? makeView(S.cur.a3, S.cur.key) : S.base && S.base.a3 === S.cur.a3 ? S.base : makeView(S.cur.a3)) || S.cur;
-        if (S.cur && !S.cur.key)
-            S.base = S.cur;
+        if (S.cur) {
+            // цепочка «под ним» строится заново: страна → регион → часть региона
+            const c = S.cur;
+            const country = S.base && S.base.a3 === c.a3 ? S.base : makeView(c.a3);
+            let v = c;
+            if (!c.key)
+                v = country || c;
+            else {
+                const par = subParent(c.key);
+                const reg = par ? makeView(c.a3, par) : null;
+                if (reg)
+                    reg.under = country;
+                v = makeView(c.a3, c.key) || c;
+                v.under = reg || country;
+            }
+            S.cur = v;
+            if (country)
+                S.base = country;
+        }
         cancelAnimationFrame(S.raf);
         S.raf = 0;
         if (drawRef.current())
@@ -9818,11 +9903,12 @@ function GlobeLift({ geo, selected, selRegion, isOn, regions, onPick, cities, li
             S.anim = null;
         }
         const cur = S.cur;
+        // опустить всё поднятое по очереди (часть → регион → страна)
+        const dropAll = (done) => (st.current.cur ? drop(() => dropAll(done)) : done && done());
+        const keyPar = key ? subParent(key) : null; // выбрана часть региона — сначала регион, потом она
         if (!a3) {
-            if (cur && cur.key)
-                drop(() => drop());
-            else if (cur)
-                drop();
+            if (cur)
+                dropAll();
             else {
                 setBack(0);
                 setActive(false);
@@ -9830,22 +9916,46 @@ function GlobeLift({ geo, selected, selRegion, isOn, regions, onPick, cities, li
             }
             return;
         }
-        if (cur && cur.a3 === a3) {
-            // та же страна: регион поднять / опустить / сменить
-            if ((cur.key || null) === key)
+        // подняться от того, что сейчас поднято: от страны — регион (и его часть), от региона — его часть
+        const up = () => {
+            const c = S.cur;
+            if (!key || (c && (c.key || null) === key))
+                return kick();
+            if (c && c.key) {
+                if (keyPar && c.key === keyPar) {
+                    const v = makeView(a3, key);
+                    if (v)
+                        lift(v, c, finishUp(v));
+                }
                 return;
-            const go = () => {
-                if (!key)
-                    return;
-                const base = S.cur && !S.cur.key ? S.cur : makeView(a3);
+            }
+            const base = c && !c.key ? c : makeView(a3);
+            const rv = makeView(a3, keyPar || key);
+            if (!rv)
+                return;
+            if (!keyPar)
+                return lift(rv, base, finishUp(rv));
+            lift(rv, base, () => {
+                S.cur = rv;
                 const v = makeView(a3, key);
                 if (v)
-                    lift(v, base, finishUp(v));
+                    lift(v, rv, finishUp(v));
+                else
+                    kick();
+            });
+        };
+        if (cur && cur.a3 === a3) {
+            // та же страна: опускаем, пока не дойдём до того, от чего поднимается нужное (43.58: часть региона
+            // поднимается прямо с поднятого региона, регион не опускается)
+            if ((cur.key || null) === key)
+                return;
+            const settle = () => {
+                const c = S.cur;
+                if (!c || !c.key || (c.key || null) === key || (keyPar && c.key === keyPar))
+                    return up();
+                drop(settle);
             };
-            if (cur.key)
-                drop(go);
-            else
-                go();
+            settle();
             return;
         }
         // другая страна или ничего: сначала опустить прежнее, потом — после поворота шара — поднять
@@ -9857,20 +9967,12 @@ function GlobeLift({ geo, selected, selRegion, isOn, regions, onPick, cities, li
                 lift(v, null, () => {
                     S.cur = v;
                     S.base = v;
-                    if (key) {
-                        const rv = makeView(a3, key);
-                        if (rv)
-                            lift(rv, v, finishUp(rv));
-                    }
-                    else
-                        kick();
+                    up();
                 });
             }, GL_WAIT);
         };
-        if (cur) {
-            const c = S.cur && S.cur.key ? S.cur : null;
-            drop(() => (c ? drop(start) : start()));
-        }
+        if (cur)
+            dropAll(start);
         else
             start();
         // eslint-disable-next-line react-hooks/exhaustive-deps
