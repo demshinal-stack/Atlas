@@ -3004,7 +3004,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "43.61";
+const APP_VERSION = "43.62";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -14002,7 +14002,7 @@ function SetSeg({ value, opts, onPick }) {
 }
 const SET_THEME = { system: "системная тема", dark: "тёмная тема", light: "светлая тема" };
 function SettingsSheet(props) {
-    const { reportsCfg, onReportsCfg, open, onClose, box, theme, onTheme, quality, onQuality, cityPins, onToggleCityPins, spinStart, onToggleSpin, mapView, onMapView, night, onToggleNight, notify = false, notifyState = "none", onToggleNotify, fxShow = true, onFxShow, occasions = null, onOccasions, geoCount, onReloadGeo, offline, busy, progress, offlineAt, onToggleOffline, booksSize, booksCounts, hasPin, faceAvailable, faceOn, onSetPin, onDropPin, onLock, onFace, onRestore, restoreMsg, onExport, onImport, } = props;
+    const { reportsCfg, onReportsCfg, open, onClose, box, theme, onTheme, quality, onQuality, cityPins, onToggleCityPins, spinStart, onToggleSpin, mapView, onMapView, night, onToggleNight, notify = false, notifyState = "none", badge = true, badgeN = 0, onToggleBadge, onToggleNotify, fxShow = true, onFxShow, occasions = null, onOccasions, geoCount, onReloadGeo, offline, busy, progress, offlineAt, onToggleOffline, booksSize, booksCounts, hasPin, faceAvailable, faceOn, onSetPin, onDropPin, onLock, onFace, onRestore, restoreMsg, onExport, onImport, } = props;
     const [page, setPage] = useState(null);
     const [ask, setAsk] = useState(null);
     // каждый раз настройки открываются с главной
@@ -14093,6 +14093,20 @@ function SettingsSheet(props) {
                                         ? `При открытии напомним о поездках в ближайшие ${NOTIFY_DAYS} дней — раз в день`
                                         : "Выключены")),
                         React.createElement("span", { className: "switch" + (notify && notifyState === "granted" ? " on" : "") },
+                            React.createElement("i", null))),
+                    React.createElement("button", { className: "switch-row" + (notifyState === "none" ? " off" : ""), onClick: () => onToggleBadge === null || onToggleBadge === void 0 ? void 0 : onToggleBadge(!badge) },
+                        React.createElement("span", { className: "switch-text" },
+                            "\u0421\u0447\u0451\u0442\u0447\u0438\u043A \u043D\u0430 \u0437\u043D\u0430\u0447\u043A\u0435",
+                            React.createElement("em", null, notifyState === "none"
+                                ? "Только у приложения на экране «Домой» (iOS 16.4 и новее)"
+                                : notifyState === "denied"
+                                    ? "Нужно разрешение уведомлений — в Настройках телефона → Уведомления → Атлас"
+                                    : badge && notifyState === "granted"
+                                        ? `На значке — число плановых поездок: сейчас ${badgeN}`
+                                        : badge
+                                            ? "Нажмите, чтобы разрешить — без разрешения уведомлений iPhone число не покажет"
+                                            : "Выключен")),
+                        React.createElement("span", { className: "switch" + (badge && notifyState === "granted" ? " on" : "") },
                             React.createElement("i", null)))));
             case "reports":
                 return (React.createElement(React.Fragment, null,
@@ -22637,6 +22651,7 @@ const SETTINGS_DEFAULT = {
     night: false, // ночь на глобусе: по умолчанию выключена (с 40.5)
     nightSet: false, // включали/выключали вручную
     notify: false, // уведомления о предстоящих поездках при открытии (42.50)
+    badge: true, // 43.62: число плановых поездок на значке приложения (iPhone — нужно разрешение уведомлений)
     notifyLog: {}, // какой поездке когда уже напомнили: { ключ: "гггг-м-д" }
     fxShow: true, // эффекты особенных поездок на карточках и в ленте (42.75)
     occV: 0, // версия стандартных поводов, под которую мигрирован свой список
@@ -22674,6 +22689,8 @@ function useSettings() {
             patch.dotWide = st.dotWide;
         if (typeof st.notify === "boolean")
             patch.notify = st.notify;
+        if (typeof st.badge === "boolean")
+            patch.badge = st.badge;
         if (st.notifyLog && typeof st.notifyLog === "object")
             patch.notifyLog = st.notifyLog;
         if (typeof st.fxShow === "boolean")
@@ -23420,6 +23437,28 @@ async function notifyTrips(visits, log = {}, now = new Date()) {
         }
     }
     return next;
+}
+/* 43.62: число плановых поездок — на значок приложения (экран «Домой»). Маршрут из нескольких стран — одна
+   поездка. На iPhone значок работает у приложения на экране «Домой» (iOS 16.4+) и только с разрешением
+   уведомлений; обновляется, когда приложение открыто (при запуске, возврате и изменении поездок) */
+function planCount(visits) {
+    const keys = new Set();
+    Object.entries(visits || {}).forEach(([a3, arr]) => (arr || []).forEach((t) => { var _e; return t.plan && keys.add(((_e = t.route) === null || _e === void 0 ? void 0 : _e.id) || `${a3}:${t.id}`); }));
+    return keys.size;
+}
+function setBadge(n) {
+    try {
+        if (typeof navigator === "undefined" || !navigator.setAppBadge)
+            return false;
+        if (n > 0)
+            navigator.setAppBadge(n).catch(() => { });
+        else
+            navigator.clearAppBadge().catch(() => { });
+        return true;
+    }
+    catch {
+        return false;
+    }
 }
 /* Атлас · 24 · страховка от белого экрана и само приложение.
    Части собираются по номерам в один файл (tools/rebuild.sh) и видят друг друга напрямую. */
@@ -24921,6 +24960,26 @@ function AtlasApp() {
             await putSettings({ notify: true, notifyLog: {} });
         });
     };
+    // 43.62: счётчик плановых поездок на значке приложения
+    const plans = useMemo(() => planCount(visits), [visits]);
+    useEffect(() => {
+        const upd = () => setBadge(settings.badge !== false && notifySupport() === "granted" ? plans : 0);
+        upd();
+        const back = () => document.visibilityState === "visible" && upd();
+        document.addEventListener("visibilitychange", back);
+        return () => document.removeEventListener("visibilitychange", back);
+    }, [plans, settings.badge, notifyState]);
+    const toggleBadge = (on) => {
+        if (!on)
+            return putSettings({ badge: false });
+        if (notifySupport() === "none")
+            return setNotifyState("none");
+        const ask = Notification.permission === "default" ? Notification.requestPermission() : Promise.resolve(Notification.permission);
+        Promise.resolve(ask).then((p) => {
+            setNotifyState(p);
+            putSettings({ badge: true });
+        });
+    };
     const hasVisits = Object.keys(visits || {}).length > 0;
     useEffect(() => {
         if (!settings.notify || !hasVisits)
@@ -25585,7 +25644,7 @@ function AtlasApp() {
                             }, open: sheet === "settings", onClose: () => setSheet("profile"), box: box, theme: theme, onTheme: setTheme, quality: photoQuality, onQuality: (v) => {
                                 setPhotoQuality(v);
                                 setSheet("photomode");
-                            }, cityPins: cityPins, onToggleCityPins: setCityPins, spinStart: spinStart, onToggleSpin: setSpinStart, mapView: mapView, onMapView: setMapView, night: night, onToggleNight: setNight, notify: !!settings.notify, notifyState: notifyState, fxShow: settings.fxShow !== false, onFxShow: (v) => putSettings({ fxShow: v }), occasions: settings.occasions, onOccasions: (list) => putSettings({ occasions: list, occV: OCC_V }), onToggleNotify: toggleNotify, geoCount: ((_j = geo === null || geo === void 0 ? void 0 : geo.features) === null || _j === void 0 ? void 0 : _j.length) || 0, onReloadGeo: reloadGeo, offline: booksSaved, busy: booksBusy, progress: booksProgress, offlineAt: booksAt, onToggleOffline: () => (booksSaved ? dropBooks() : keepBooks()), booksSize: booksSize, booksCounts: {
+                            }, cityPins: cityPins, onToggleCityPins: setCityPins, spinStart: spinStart, onToggleSpin: setSpinStart, mapView: mapView, onMapView: setMapView, night: night, onToggleNight: setNight, notify: !!settings.notify, notifyState: notifyState, fxShow: settings.fxShow !== false, onFxShow: (v) => putSettings({ fxShow: v }), occasions: settings.occasions, onOccasions: (list) => putSettings({ occasions: list, occV: OCC_V }), onToggleNotify: toggleNotify, badge: settings.badge !== false, badgeN: plans, onToggleBadge: toggleBadge, geoCount: ((_j = geo === null || geo === void 0 ? void 0 : geo.features) === null || _j === void 0 ? void 0 : _j.length) || 0, onReloadGeo: reloadGeo, offline: booksSaved, busy: booksBusy, progress: booksProgress, offlineAt: booksAt, onToggleOffline: () => (booksSaved ? dropBooks() : keepBooks()), booksSize: booksSize, booksCounts: {
                                 cities: CITIES.length,
                                 hotels: Object.values(HOTELS_BY_CITY).reduce((n, v) => n + v.length, 0),
                                 sights: SIGHTS.length,
