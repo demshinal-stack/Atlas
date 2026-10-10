@@ -3004,7 +3004,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "43.58";
+const APP_VERSION = "43.59";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -8552,7 +8552,9 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
             const e2 = ease((q - P1) / (P2 - P1));
             const e3 = ease((q - P2) / (1 - P2));
             const t = Math.min(1, q / P2); // мир размывается за первые два шага
-            setBg(F.bgL, ease(t));
+            // 43.59: обратно — размытие снимается, пока страна уменьшается и летит на место: к моменту, когда она
+            // опускается, поверхность уже чёткая (яркий кусок не садится на размытое)
+            setBg(F.bgL, F.up ? ease(t) : ease((q - P1) / (1 - P1)));
             const M = F.M;
             const sx = Math.hypot(M[0], M[1]);
             const th = Math.atan2(M[1], M[0]);
@@ -9627,8 +9629,10 @@ function GlobeLift({ geo, selected, selRegion, isOn, regions, onPick, cities, li
         // что под поднятым: под страной — шар (отступает), под регионом — его страна, приглушённая, с дырой
         // 43.58: у каждого поднятого — своё «под ним» (under): у региона — страна, у части региона — сам регион
         const base = top.key ? top.under || (A === null || A === void 0 ? void 0 : A.base) || S.base : null;
+        // 43.59: обратно шар становится чётким, пока страна летит на место (e2), — опускается она уже на чёткий шар
+        const backAmt = A && !A.up ? e2 : Math.max(e1 * 0.45, e2);
         if (!top.key)
-            setBack(Math.max(e1 * 0.45, e2));
+            setBack(backAmt);
         // откуда поднимается: страна — с поверхности шара, регион — с поднятой страны
         let pStart;
         let gproj = null;
@@ -9702,7 +9706,7 @@ function GlobeLift({ geo, selected, selRegion, isOn, regions, onPick, cities, li
         // регион: под ним — страна в покое, приглушённая, на месте региона — пусто
         if (base) {
             ctx.save();
-            ctx.globalAlpha = 1 - 0.55 * Math.max(e1 * 0.5, e2);
+            ctx.globalAlpha = 1 - 0.55 * (A && !A.up ? e2 : Math.max(e1 * 0.5, e2));
             ctx.filter = `blur(${(2.5 * e2).toFixed(2)}px)`;
             const bps = base.key ? base.subs || [base.target] : base.regs.length ? base.regs : [base.cf];
             bps.forEach((f) => {
