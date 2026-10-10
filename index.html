@@ -3004,7 +3004,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "43.62";
+const APP_VERSION = "43.63";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -9523,6 +9523,39 @@ function DotMap({ geo, isOn, isWish, selected, onPick, selRegion, regions, regCo
 const GL_LIFT = 1800; // мс
 const GL_WAIT = 1500; // после выбора — пока шар поворачивается к стране и мигает
 const glEase = (x) => (x <= 0 ? 0 : x >= 1 ? 1 : x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+/* контур с промежуточными точками на длинных рёбрах (шаг ~1°); запоминается для каждой геометрии */
+const GL_DENSE = new WeakMap();
+function glDense(g) {
+    if (!g || typeof g !== "object")
+        return g;
+    const hit = GL_DENSE.get(g);
+    if (hit)
+        return hit;
+    const ringD = (r) => {
+        const out = [];
+        for (let i = 0; i < r.length; i++) {
+            const a = r[i];
+            out.push(a);
+            const b = r[i + 1];
+            if (!b)
+                break;
+            const d = (d3.geoDistance(a, b) * 180) / Math.PI;
+            if (d > 1.2) {
+                const it = d3.geoInterpolate(a, b);
+                const n = Math.ceil(d);
+                for (let k = 1; k < n; k++)
+                    out.push(it(k / n));
+            }
+        }
+        return out;
+    };
+    const polys = g.type === "MultiPolygon" ? g.coordinates : g.type === "Polygon" ? [g.coordinates] : null;
+    if (!polys)
+        return g;
+    const res = { type: "MultiPolygon", coordinates: polys.map((poly) => poly.map(ringD)) };
+    GL_DENSE.set(g, res);
+    return res;
+}
 function GlobeLift({ geo, selected, selRegion, isOn, regions, onPick, cities, light, compact = false }) {
     const cvRef = useRef(null);
     const st = useRef({ cur: null, anim: null, raf: 0, timer: 0 });
@@ -9670,7 +9703,9 @@ function GlobeLift({ geo, selected, selRegion, isOn, regions, onPick, cities, li
             return [a[0] + (b[0] - a[0]) * e2, a[1] + (b[1] - a[1]) * e2];
         };
         const still = !A;
-        const geomOf = (f) => (still || top.key ? regHD(f).geometry : f.geometry);
+        // 43.63: длинные рёбра контура (Антарктида: вдоль полюса и линии перемены дат) — с промежуточными точками по
+        // большому кругу: на шаре d3 рисует их дугами, и без этого опустившаяся страна не совпадала со своим местом
+        const geomOf = (f) => glDense(still || top.key ? regHD(f).geometry : f.geometry);
         const ring = (geom, fn, path) => {
             const ps = geom.type === "MultiPolygon" ? geom.coordinates : [geom.coordinates];
             ps.forEach((poly) => poly.forEach((r) => {
