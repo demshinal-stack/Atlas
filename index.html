@@ -3004,7 +3004,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "43.68";
+const APP_VERSION = "43.69";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -6218,8 +6218,8 @@ function Globe({ children = null, geo, isOn, onPick, selected, full, onToggleFul
                         return;
                     // 43.68: флаг не уходит за верх окна (Северный полюс на главном): игла всегда вверх, но короче,
                     // если над точкой мало места (не короче 12); сам флаг не выше края окна
-                    const room = xy[1] - 6 - 19;
-                    const h = Math.max(Math.min(12, xy[1] - 4), Math.min(46, room)) * show;
+                    const room = xy[1] - (p.bare ? 9 : 25); // только игла — места нужно меньше
+                    const h = Math.max(Math.min(12, xy[1] - (p.bare ? 8 : 4)), Math.min(46, room)) * show;
                     const tip = xy[1] - h;
                     const top = Math.max(tip, 19);
                     ctx.globalAlpha = show;
@@ -6243,6 +6243,15 @@ function Globe({ children = null, geo, isOn, onPick, selected, full, onToggleFul
                     ctx.arc(xy[0], xy[1], 3, 0, Math.PI * 2);
                     ctx.fill();
                     ctx.shadowBlur = 0;
+                    if (p.bare) {
+                        // только игла: светлая головка на конце, без флажка
+                        ctx.fillStyle = "#f4efe2";
+                        ctx.beginPath();
+                        ctx.arc(xy[0], tip, 3.2, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.globalAlpha = 1;
+                        return;
+                    }
                     // светлое пятно под флагом: виден и на ночной стороне
                     const size = 34;
                     ctx.fillStyle = "rgba(244,239,226,.16)";
@@ -25556,6 +25565,9 @@ function AtlasApp() {
         const c = selected ? BY_A3[selected] : null;
         if (!c)
             return [];
+        // 43.69: у Северного полюса — только игла, без флажка (просьба автора)
+        if (c.a3 === "XNP")
+            return [{ a3: c.a3, lon: c.lon, lat: c.lat, bare: true }];
         return [{ a3: c.a3, lon: c.lon, lat: c.lat, flag: c.a2 ? flag(c.a2) : "", img: OWN_FLAGS[c.a3] || null, code: c.a3 }];
     }, [selected, lookNonce]);
     /* 43.27: города поездок — искорки на карте из точек (только точные точки из справочника) */
