@@ -3004,7 +3004,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "43.65";
+const APP_VERSION = "43.66";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -18787,8 +18787,67 @@ function AreaChart({ points }) {
             React.createElement("text", { x: w - 2, y: h + 15, fill: C_DIM, fontSize: "9", textAnchor: "end" }, points[points.length - 1].y))));
 }
 /* кольцо по частям света */
-function DonutChart({ parts, total, sel = null, onSel, size = 168, big = false, geo = null, legend = null }) {
-    var _e, _j;
+/* 43.66: шар в центре «Частей света» — поворачивается к выбранной части света, она подсвечена цветом
+   своего сектора, посещённые страны — ярче; без выбора — весь мир, посещённые золотом */
+const CONT_VIEW = {
+    EU: [15, 52, 2.1], AS: [88, 34, 1.15], AF: [19, 2, 1.25], NA: [-98, 42, 1.2], SA: [-60, -20, 1.35], OC: [145, -24, 1.55],
+};
+// подложка под надписями поверх шара — читаются и на подсвеченной суше
+const HALO = { stroke: "rgba(8,18,28,.8)", strokeWidth: 3.5, paintOrder: "stroke", strokeLinejoin: "round" };
+function DonutGlobe({ geo, cx, cy, R, sel, color, visited }) {
+    const to = sel && CONT_VIEW[sel] ? CONT_VIEW[sel] : [20, 20, 1];
+    const [v, setV] = useState(to);
+    const cur = useRef(to);
+    useEffect(() => {
+        const from = cur.current.slice();
+        let dl = to[0] - from[0];
+        while (dl > 180)
+            dl -= 360;
+        while (dl < -180)
+            dl += 360;
+        const t0 = performance.now();
+        let raf = 0;
+        const step = (now) => {
+            const p = Math.min(1, (now - t0) / 900);
+            const e = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+            const nv = [from[0] + dl * e, from[1] + (to[1] - from[1]) * e, from[2] + (to[2] - from[2]) * e];
+            cur.current = nv;
+            setV(nv);
+            if (p < 1)
+                raf = requestAnimationFrame(step);
+        };
+        raf = requestAnimationFrame(step);
+        return () => cancelAnimationFrame(raf);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [sel]);
+    const shapes = useMemo(() => {
+        var _e;
+        if (!((_e = geo === null || geo === void 0 ? void 0 : geo.features) === null || _e === void 0 ? void 0 : _e.length))
+            return [];
+        const proj = d3.geoOrthographic().clipAngle(90).rotate([-v[0], -v[1]]).translate([cx, cy]).scale(R * v[2]);
+        const path = d3.geoPath(proj);
+        return geo.features
+            .map((f) => {
+            var _e;
+            const d = path(f);
+            if (!d)
+                return null;
+            const k = (_e = BY_A3[f.id]) === null || _e === void 0 ? void 0 : _e.cont;
+            return { d, id: f.id, mine: sel ? k === sel : false, seen: visited === null || visited === void 0 ? void 0 : visited.has(f.id) };
+        })
+            .filter(Boolean);
+    }, [geo, v, cx, cy, R, sel, visited]);
+    const grat = useMemo(() => {
+        const proj = d3.geoOrthographic().clipAngle(90).rotate([-v[0], -v[1]]).translate([cx, cy]).scale(R * v[2]);
+        return d3.geoPath(proj)(d3.geoGraticule10());
+    }, [v, cx, cy, R]);
+    const hi = color || C_GOLD;
+    return (React.createElement(React.Fragment, null,
+        React.createElement("path", { d: grat, fill: "none", stroke: "rgba(140,180,220,.10)", strokeWidth: "0.6" }),
+        shapes.map((s) => (React.createElement("path", { key: s.id, d: s.d, fill: s.seen && (s.mine || !sel) ? hi : s.mine ? hi : "#5d87ad", fillOpacity: s.seen && (s.mine || !sel) ? 0.95 : s.mine ? 0.45 : sel ? 0.14 : 0.42, stroke: s.mine || (!sel && s.seen) ? "rgba(13,26,39,.55)" : "none", strokeWidth: "0.5" })))));
+}
+function DonutChart({ parts, total, sel = null, onSel, size = 168, big = false, geo = null, legend = null, visited = null }) {
+    var _e, _j, _k;
     const cx = size / 2;
     const cy = size / 2;
     const w = size * (big ? 0.15 : 0.135); // толщина кольца
@@ -18901,17 +18960,23 @@ function DonutChart({ parts, total, sel = null, onSel, size = 168, big = false, 
                 React.createElement("defs", null,
                     React.createElement("clipPath", { id: "dgclip" },
                         React.createElement("circle", { cx: cx, cy: cy, r: r - w / 2 - 4 })),
+                    React.createElement("radialGradient", { id: "dgshade", cx: "50%", cy: "50%", r: "50%" },
+                        React.createElement("stop", { offset: ".3", stopColor: "rgba(8,18,28,.38)" }),
+                        React.createElement("stop", { offset: ".75", stopColor: "rgba(8,18,28,.08)" }),
+                        React.createElement("stop", { offset: "1", stopColor: "rgba(8,18,28,.0)" })),
                     React.createElement("radialGradient", { id: "dgball", cx: "35%", cy: "32%", r: "75%" },
                         React.createElement("stop", { offset: "0", stopColor: "#1a3a56" }),
                         React.createElement("stop", { offset: "1", stopColor: "#0a1a29" }))),
                 React.createElement("circle", { cx: cx, cy: cy, r: r - w / 2 - 4, fill: "url(#dgball)" }),
-                React.createElement("g", { clipPath: "url(#dgclip)", opacity: "0.5" }, globePaths(geo, cx, cy, r - w / 2 - 4).map((d, i) => (React.createElement("path", { key: i, d: d, fill: "#5d87ad", stroke: "none" })))),
+                React.createElement("g", { clipPath: "url(#dgclip)" },
+                    React.createElement(DonutGlobe, { geo: geo, cx: cx, cy: cy, R: r - w / 2 - 4, sel: sel, visited: visited, color: sel ? (_e = segs.find((x) => x.k === sel)) === null || _e === void 0 ? void 0 : _e.color : null })),
+                React.createElement("circle", { cx: cx, cy: cy, r: r - w / 2 - 4, fill: "url(#dgshade)" }),
                 React.createElement("circle", { cx: cx, cy: cy, r: r - w / 2 - 4, fill: "none", stroke: "rgba(140,180,220,.25)" }))),
             React.createElement("g", { "data-seg": "", style: { cursor: sel ? "pointer" : "default" } },
                 React.createElement("circle", { cx: cx, cy: cy, r: r - w / 2 - 2, fill: "transparent" }),
-                React.createElement("text", { x: cx, y: cy - size * 0.005, fill: C_GOLD, fontSize: size * 0.14, fontWeight: "700", textAnchor: "middle" }, sel ? (_j = (_e = parts.find((p) => p.k === sel)) === null || _e === void 0 ? void 0 : _e.v) !== null && _j !== void 0 ? _j : total : total),
-                React.createElement("text", { x: cx, y: cy + size * 0.075, fill: C_DIM, fontSize: size * 0.055, textAnchor: "middle" }, sel ? CONTINENTS[sel] : pw(total, "country")),
-                sel && (React.createElement("text", { x: cx, y: cy + size * 0.13, fill: C_GOLD, fontSize: size * 0.05, textAnchor: "middle" }, "\u21BA \u0432\u0441\u0435")))),
+                React.createElement("text", { x: cx, y: cy - size * 0.005, fill: C_GOLD, fontSize: size * 0.14, fontWeight: "700", textAnchor: "middle", ...(big ? HALO : {}) }, sel ? (_k = (_j = parts.find((p) => p.k === sel)) === null || _j === void 0 ? void 0 : _j.v) !== null && _k !== void 0 ? _k : total : total),
+                React.createElement("text", { x: cx, y: cy + size * 0.075, fill: big && sel ? "#dfe7ef" : C_DIM, fontSize: size * 0.055, textAnchor: "middle", ...(big ? HALO : {}) }, sel ? CONTINENTS[sel] : pw(total, "country")),
+                sel && (React.createElement("text", { x: cx, y: cy + size * 0.13, fill: C_GOLD, fontSize: size * 0.05, textAnchor: "middle", ...(big ? HALO : {}) }, "\u21BA \u0432\u0441\u0435")))),
         React.createElement("div", { className: "donut-legend" }, (legend || segs).map((p) => {
             const seg = segs.find((x) => x.k === p.k);
             return (React.createElement("div", { key: p.k, className: (sel === p.k ? "on" : "") + (seg ? "" : " zero"), onClick: () => seg && (onSel === null || onSel === void 0 ? void 0 : onSel(sel === p.k ? null : p.k)) },
@@ -20058,6 +20123,7 @@ function WorldWin({ visits, geo, mapProps, onClose }) {
 /* «Части света» во весь экран: диаграмма и список стран */
 function ContsWin({ visits, geo, onClose }) {
     const data = useMemo(() => contsData(visits), [visits]);
+    const seen = useMemo(() => new Set(Object.values(data.by).flat().map((c) => c.a3)), [data]);
     const [sel, setSel] = useState(null);
     const [wide, setWide] = useState(typeof window !== "undefined" && window.innerWidth > window.innerHeight);
     const wrap = useRef(null);
@@ -20085,7 +20151,7 @@ function ContsWin({ visits, geo, onClose }) {
         : CONT_ORDER.flatMap((k) => (data.by[k] || []).map((c) => ({ ...c, k })));
     const dial = (React.createElement("div", { className: "sd-stage", ref: wrap },
         React.createElement("div", { style: { width: side, height: side } },
-            React.createElement(DonutChart, { parts: data.parts, total: data.total, sel: sel, onSel: setSel, size: 300, big: true, geo: geo }))));
+            React.createElement(DonutChart, { parts: data.parts, total: data.total, sel: sel, onSel: setSel, size: 300, big: true, geo: geo, visited: seen }))));
     const cards = (React.createElement("div", { className: "sd-cards" },
         React.createElement("div", { className: "sd-card" },
             React.createElement("b", { className: "sd-mname" }, sel ? CONTINENTS[sel] : "Все части света")),
