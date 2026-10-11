@@ -3004,7 +3004,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "43.66";
+const APP_VERSION = "43.67";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -5138,8 +5138,14 @@ function Globe({ children = null, geo, isOn, onPick, selected, full, onToggleFul
             const h = R * Math.sin(Math.min(sp.r, Math.PI / 2));
             return q ? [[q[0] - h, q[1] - h], [q[0] + h, q[1] + h]] : path.bounds(f);
         };
-        if (canvasRef.current)
+        if (canvasRef.current) {
             canvasRef.current.__proj = proj; // для проверок: куда нажать
+            // для проверок: поставить шар в заданный поворот
+            canvasRef.current.__setRot = (r) => {
+                rot.current = r;
+                drawRef.current();
+            };
+        }
         if (canvasRef.current)
             canvasRef.current.__flyN = () => fly.current.list.length; // для проверок: сколько самолётов в небе
         const { isOn: on, selected: sel, geo: gFull, marks: mk, light: lt, full: fs, } = state.current;
@@ -6210,7 +6216,10 @@ function Globe({ children = null, geo, isOn, onPick, selected, full, onToggleFul
                     const xy = proj([p.lon, p.lat]);
                     if (!xy)
                         return;
-                    const h = 46 * show;
+                    // 43.67: флаг не уходит за верх окна (Северный полюс на главном): иглу укорачиваем, а если места
+                    // совсем нет — флаг висит под точкой
+                    const room = xy[1] - 6 - 19;
+                    const h = (room >= 46 ? 46 : room >= 24 ? room : -46) * show;
                     const top = xy[1] - h;
                     ctx.globalAlpha = show;
                     // тёмная обводка иглы — чтобы её было видно и на светлой стороне
