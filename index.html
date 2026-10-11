@@ -3004,7 +3004,7 @@ const ROLES = [
 ];
 const K_PROBE = "atlas:probe";
 /* версия приложения — поднимайте вместе с версией в sw.js */
-const APP_VERSION = "43.67";
+const APP_VERSION = "43.68";
 const APP_BUILD = "2026-09-27";
 /* поиск данных во всех хранилищах: после сбоя или смены способа хранения */
 async function findAllData(keys = [K_DATA, K_BACKUP], test = (v) => !!(v === null || v === void 0 ? void 0 : v.visits)) {
@@ -6216,18 +6216,19 @@ function Globe({ children = null, geo, isOn, onPick, selected, full, onToggleFul
                     const xy = proj([p.lon, p.lat]);
                     if (!xy)
                         return;
-                    // 43.67: флаг не уходит за верх окна (Северный полюс на главном): иглу укорачиваем, а если места
-                    // совсем нет — флаг висит под точкой
+                    // 43.68: флаг не уходит за верх окна (Северный полюс на главном): игла всегда вверх, но короче,
+                    // если над точкой мало места (не короче 12); сам флаг не выше края окна
                     const room = xy[1] - 6 - 19;
-                    const h = (room >= 46 ? 46 : room >= 24 ? room : -46) * show;
-                    const top = xy[1] - h;
+                    const h = Math.max(Math.min(12, xy[1] - 4), Math.min(46, room)) * show;
+                    const tip = xy[1] - h;
+                    const top = Math.max(tip, 19);
                     ctx.globalAlpha = show;
                     // тёмная обводка иглы — чтобы её было видно и на светлой стороне
                     ctx.strokeStyle = "rgba(8,16,26,.85)";
                     ctx.lineWidth = 3.6;
                     ctx.beginPath();
                     ctx.moveTo(xy[0], xy[1]);
-                    ctx.lineTo(xy[0], top);
+                    ctx.lineTo(xy[0], tip);
                     ctx.stroke();
                     ctx.strokeStyle = "#f4efe2";
                     ctx.lineWidth = 1.8;
@@ -6235,7 +6236,7 @@ function Globe({ children = null, geo, isOn, onPick, selected, full, onToggleFul
                     ctx.shadowBlur = 6;
                     ctx.beginPath();
                     ctx.moveTo(xy[0], xy[1]);
-                    ctx.lineTo(xy[0], top);
+                    ctx.lineTo(xy[0], tip);
                     ctx.stroke();
                     ctx.fillStyle = "#f4efe2";
                     ctx.beginPath();
